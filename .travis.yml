@@ -1,0 +1,13 @@
+language: scala
+jdk:
+- oraclejdk8
+scala:
+- 2.11.8
+script:
+- ./scripts/buildViaTravis.sh
+sudo: required
+dist: trusty
+cache:
+  directories:
+  - $HOME/.sbt
+  - $HOME/.ivy2
