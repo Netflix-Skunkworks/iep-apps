@@ -6,7 +6,7 @@ with [Eureka](https://github.com/Netflix/eureka/) using the
 [iep-module-eureka](https://github.com/Netflix/iep/tree/master/iep-module-eureka)
 library.
 
-<img src="https://raw.githubusercontent.com/Netflix-Skunkworks/iep-apps/master/iep-atlas/images/overview.png" />
+![Overview](images/overview.png)
 
 ## Usage
 
