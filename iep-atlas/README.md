@@ -14,3 +14,10 @@ To run the example:
 $ sbt iep-atlas/run
 ```
 
+## Packaging
+
+For Debian/Ubuntu:
+
+```
+$ sbt iep-atlas/debian:packageBin
+```
