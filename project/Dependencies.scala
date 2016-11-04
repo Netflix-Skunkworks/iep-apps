@@ -2,17 +2,17 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val akka       = "2.4.8"
-    val atlas      = "1.5.0-SNAPSHOT"
+    val akka       = "2.4.12"
+    val atlas      = "1.5.0"
     val aws        = "1.11.37"
-    val iep        = "0.4.8"
+    val iep        = "0.4.10"
     val guice      = "4.1.0"
-    val jackson    = "2.8.2"
-    val log4j      = "2.6.2"
+    val jackson    = "2.8.3"
+    val log4j      = "2.7"
     val scala      = "2.11.8"
     val slf4j      = "1.7.21"
-    val spectator  = "0.40.0"
-    val spray      = "1.3.3"
+    val spectator  = "0.43.0"
+    val spray      = "1.3.4"
 
     val crossScala = Seq(scala)
   }
@@ -35,6 +35,7 @@ object Dependencies {
   val guiceMulti      = "com.google.inject.extensions" % "guice-multibindings" % guice
   val iepGuice        = "com.netflix.iep" % "iep-guice" % iep
   val iepModuleAdmin  = "com.netflix.iep" % "iep-module-admin" % iep
+  val iepModuleAtlas  = "com.netflix.iep" % "iep-module-atlas" % iep
   val iepModuleAws    = "com.netflix.iep" % "iep-module-aws" % iep
   val iepModuleEureka = "com.netflix.iep" % "iep-module-eureka" % iep
   val iepModuleJmx    = "com.netflix.iep" % "iep-module-jmxport" % iep
