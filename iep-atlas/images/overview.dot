@@ -1,0 +1,12 @@
+
+digraph C {
+  node [shape=record];
+  rankdir=TB;
+
+  atlas [label="<r> atlas (7101) | { <s> spectator-reg-atlas | <j> jmx (7500) | <a> iep-admin (8077) | <e> eureka-client }", fillcolor=red, fontcolor=white, style=filled];
+
+  eureka [fillcolor=blue, fontcolor=white, style=filled];
+
+  atlas:s -> atlas:r;
+  atlas:e -> eureka;
+}
