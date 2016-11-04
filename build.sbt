@@ -10,8 +10,8 @@ lazy val `iep-atlas` = project
   .settings(libraryDependencies ++= Seq(
     Dependencies.atlasMain,
     Dependencies.iepModuleAdmin,
-    Dependencies.iepModuleAtlas,
-    Dependencies.iepModuleEureka,
+    //Dependencies.iepModuleAtlas,
+    //Dependencies.iepModuleEureka,
     Dependencies.iepModuleJmx
   ))
 
