@@ -3,6 +3,8 @@ jdk:
 - oraclejdk8
 scala:
 - 2.11.8
+git:
+  depth: 10
 script:
 - ./scripts/buildViaTravis.sh
 sudo: required
