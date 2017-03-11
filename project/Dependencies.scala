@@ -2,17 +2,17 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val akka       = "2.4.12"
-    val atlas      = "1.5.0"
-    val aws        = "1.11.37"
-    val iep        = "0.4.10"
+    val akka       = "2.4.16"
+    val akkaHttpV  = "10.0.3"
+    val atlas      = "1.6.0-rc.3"
+    val aws        = "1.11.93"
+    val iep        = "0.4.16"
     val guice      = "4.1.0"
-    val jackson    = "2.8.3"
+    val jackson    = "2.8.6"
     val log4j      = "2.7"
     val scala      = "2.11.8"
-    val slf4j      = "1.7.21"
-    val spectator  = "0.43.0"
-    val spray      = "1.3.4"
+    val slf4j      = "1.7.23"
+    val spectator  = "0.52.0"
 
     val crossScala = Seq(scala)
   }
@@ -20,6 +20,8 @@ object Dependencies {
   import Versions._
 
   val akkaActor          = "com.typesafe.akka" %% "akka-actor" % akka
+  val akkaHttpCore       = "com.typesafe.akka" %% "akka-http-core" % akkaHttpV
+  val akkaHttpTestkit    = "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV
   val akkaSlf4j          = "com.typesafe.akka" %% "akka-slf4j" % akka
   val akkaTestkit        = "com.typesafe.akka" %% "akka-testkit" % akka
   val atlasJson          = "com.netflix.atlas_v1" %% "atlas-json" % atlas
@@ -27,11 +29,13 @@ object Dependencies {
   val atlasModuleWebApi  = "com.netflix.atlas_v1" %% "atlas-module-webapi" % atlas
   val awsCloudWatch      = "com.amazonaws" % "aws-java-sdk-cloudwatch" % aws
   val awsCore            = "com.amazonaws" % "aws-java-sdk-core" % aws
+  val awsDynamoDB        = "com.amazonaws" % "aws-java-sdk-dynamodb" % aws
   val awsEC2             = "com.amazonaws" % "aws-java-sdk-ec2" % aws
   val awsS3              = "com.amazonaws" % "aws-java-sdk-s3" % aws
+  val awsSTS             = "com.amazonaws" % "aws-java-sdk-sts" % aws
   val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "2.3.3"
   val equalsVerifier     = "nl.jqno.equalsverifier" % "equalsverifier" % "2.1.3"
-  val frigga             = "com.netflix.frigga" % "frigga" % "0.15.0"
+  val frigga             = "com.netflix.frigga" % "frigga" % "0.17.0"
   val guiceCore          = "com.google.inject" % "guice" % guice
   val guiceMulti         = "com.google.inject.extensions" % "guice-multibindings" % guice
   val iepGuice           = "com.netflix.iep" % "iep-guice" % iep
@@ -39,8 +43,10 @@ object Dependencies {
   val iepModuleArchaius2 = "com.netflix.iep" % "iep-module-archaius2" % iep
   val iepModuleAtlas     = "com.netflix.iep" % "iep-module-atlas" % iep
   val iepModuleAws       = "com.netflix.iep" % "iep-module-aws" % iep
+  val iepModuleAwsMetrics= "com.netflix.iep" % "iep-module-awsmetrics" % iep
   val iepModuleEureka    = "com.netflix.iep" % "iep-module-eureka" % iep
   val iepModuleJmx       = "com.netflix.iep" % "iep-module-jmxport" % iep
+  val iepNflxEnv         = "com.netflix.iep" % "iep-nflxenv" % iep
   val iepService         = "com.netflix.iep" % "iep-service" % iep
   val jacksonAnno2       = "com.fasterxml.jackson.core" % "jackson-annotations" % jackson
   val jacksonCore2       = "com.fasterxml.jackson.core" % "jackson-core" % jackson
@@ -69,9 +75,5 @@ object Dependencies {
   val spectatorLog4j     = "com.netflix.spectator" % "spectator-ext-log4j2" % spectator
   val spectatorM2        = "com.netflix.spectator" % "spectator-reg-metrics2" % spectator
   val spectatorSandbox   = "com.netflix.spectator" % "spectator-ext-sandbox" % spectator
-  val sprayCan           = "io.spray" %% "spray-can" % spray
-  val sprayClient        = "io.spray" %% "spray-client" % spray
-  val sprayRouting       = "io.spray" %% "spray-routing" % spray
-  val sprayTestkit       = "io.spray" %% "spray-testkit" % spray
   val typesafeConfig     = "com.typesafe" % "config" % "1.3.1"
 }
