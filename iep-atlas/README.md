@@ -26,6 +26,13 @@ To run the example:
 $ sbt iep-atlas/run
 ```
 
+By default it will disable the Eureka registration. To enable, modify
+[eureka-client.properties][eureka-config] to talk to your Eureka instance. For
+more details see the [Eureka documentation][eureka-docs].
+
+[eureka-config]: https://github.com/Netflix-Skunkworks/iep-apps/blob/master/iep-atlas/src/main/resources/eureka-client.properties
+[eureka-docs]: https://github.com/Netflix/eureka/wiki/Configuring-Eureka
+
 ## Packaging
 
 For Debian/Ubuntu:
