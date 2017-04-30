@@ -33,7 +33,7 @@ lazy val `iep-atlas` = project
     Dependencies.iepModuleAdmin,
     Dependencies.iepModuleArchaius2,
     Dependencies.iepModuleAtlas,
-    //Dependencies.iepModuleEureka,
+    Dependencies.iepModuleEureka,
     Dependencies.iepModuleJmx,
     Dependencies.log4jApi,
     Dependencies.log4jCore,
