@@ -2,17 +2,17 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val akka       = "2.4.16"
-    val akkaHttpV  = "10.0.3"
-    val atlas      = "1.6.0-rc.3"
-    val aws        = "1.11.93"
-    val iep        = "0.4.16"
+    val akka       = "2.5.0"
+    val akkaHttpV  = "10.0.6"
+    val atlas      = "1.6.0-rc.4"
+    val aws        = "1.11.105"
+    val iep        = "0.4.18"
     val guice      = "4.1.0"
-    val jackson    = "2.8.6"
-    val log4j      = "2.7"
-    val scala      = "2.11.8"
-    val slf4j      = "1.7.23"
-    val spectator  = "0.52.0"
+    val jackson    = "2.8.7"
+    val log4j      = "2.8.1"
+    val scala      = "2.11.11"
+    val slf4j      = "1.7.25"
+    val spectator  = "0.55.0"
 
     val crossScala = Seq(scala)
   }
@@ -33,9 +33,9 @@ object Dependencies {
   val awsEC2             = "com.amazonaws" % "aws-java-sdk-ec2" % aws
   val awsS3              = "com.amazonaws" % "aws-java-sdk-s3" % aws
   val awsSTS             = "com.amazonaws" % "aws-java-sdk-sts" % aws
-  val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "2.3.3"
-  val equalsVerifier     = "nl.jqno.equalsverifier" % "equalsverifier" % "2.1.3"
-  val frigga             = "com.netflix.frigga" % "frigga" % "0.17.0"
+  val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "2.4.0"
+  val equalsVerifier     = "nl.jqno.equalsverifier" % "equalsverifier" % "2.2.1"
+  val frigga             = "com.netflix.frigga" % "frigga" % "0.18.0"
   val guiceCore          = "com.google.inject" % "guice" % guice
   val guiceMulti         = "com.google.inject.extensions" % "guice-multibindings" % guice
   val iepGuice           = "com.netflix.iep" % "iep-guice" % iep
@@ -65,9 +65,9 @@ object Dependencies {
   val scalaCompiler      = "org.scala-lang" % "scala-compiler" % scala
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
   val scalaLibraryAll    = "org.scala-lang" % "scala-library-all" % scala
-  val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.4.0"
+  val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0"
   val scalaReflect       = "org.scala-lang" % "scala-reflect" % scala
-  val scalatest          = "org.scalatest" %% "scalatest" % "2.2.6"
+  val scalatest          = "org.scalatest" %% "scalatest" % "3.0.0"
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
   val slf4jLog4j         = "org.slf4j" % "slf4j-log4j12" % slf4j
   val slf4jSimple        = "org.slf4j" % "slf4j-simple" % slf4j
