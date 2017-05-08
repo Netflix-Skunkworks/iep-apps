@@ -3,7 +3,8 @@ lazy val root = project.in(file("."))
   .configure(BuildSettings.profile)
   .aggregate(
     `iep-archaius`,
-    `iep-atlas`)
+    `iep-atlas`,
+    `iep-lwc-bridge`)
   .settings(BuildSettings.noPackaging: _*)
 
 lazy val `iep-archaius` = project
@@ -38,5 +39,20 @@ lazy val `iep-atlas` = project
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j
+  ))
+
+lazy val `iep-lwc-bridge` = project
+  .configure(BuildSettings.profile)
+  .settings(libraryDependencies ++= Seq(
+    Dependencies.atlasModuleAkka,
+    Dependencies.atlasModuleWebApi,
+    Dependencies.iepGuice,
+    Dependencies.iepModuleAtlas,
+    Dependencies.log4jApi,
+    Dependencies.log4jCore,
+    Dependencies.log4jSlf4j,
+
+    Dependencies.akkaHttpTestkit % "test",
+    Dependencies.scalatest % "test"
   ))
 
