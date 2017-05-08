@@ -77,15 +77,19 @@ class LwcPublishActor(config: Config, registry: Registry) extends Actor with Act
 
   private val cancellable = context.system.scheduler.schedule(0.seconds, 10.seconds, self, Tick)
 
+  // Note: this will always use a 200 response type. The assumed use-case is a proxy
+  // that tees the requests to both a typical publish endpoint and this cluster. The user
+  // response should come from the publish endpoint with the response here merely acknowledging
+  // receipt. For now to avoid spurious retries and confusion this response is always OK.
   def receive: Receive = {
     case Tick =>
       updateExpressions()
     case req @ PublishRequest(_, Nil, Nil, _, _) =>
-      req.complete(DiagnosticMessage.error(StatusCodes.BadRequest, "empty payload"))
+      req.complete(DiagnosticMessage.error(StatusCodes.OK, "empty payload"))
     case req @ PublishRequest(_, Nil, failures, _, _) =>
       updateStats(failures)
       val msg = FailureMessage.error(failures)
-      sendError(req, StatusCodes.BadRequest, msg)
+      sendError(req, StatusCodes.OK, msg)
     case req @ PublishRequest(_, values, Nil, _, _) =>
       process(values)
       req.complete(HttpResponse(StatusCodes.OK))
@@ -93,7 +97,7 @@ class LwcPublishActor(config: Config, registry: Registry) extends Actor with Act
       process(values)
       updateStats(failures)
       val msg = FailureMessage.partial(failures)
-      sendError(req, StatusCodes.Accepted, msg)
+      sendError(req, StatusCodes.OK, msg)
   }
 
   override def postStop(): Unit = {
