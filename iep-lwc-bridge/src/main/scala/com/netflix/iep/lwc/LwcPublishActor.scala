@@ -127,10 +127,12 @@ class LwcPublishActor(config: Config, registry: Registry) extends Actor with Act
     val timestamp = values.head.timestamp
     val payload = evaluator.eval("all", fixTimestamp(timestamp), values.map(toPair).asJava)
 
-    val entity = HttpEntity(MediaTypes.`application/json`, Json.encode(payload))
-    val request = HttpRequest(HttpMethods.POST, evalUri, Nil, entity)
-    mkRequest("lwc-eval", request).onSuccess {
-      case response => response.discardEntityBytes()
+    if (!payload.getMetrics.isEmpty) {
+      val entity = HttpEntity(MediaTypes.`application/json`, Json.encode(payload))
+      val request = HttpRequest(HttpMethods.POST, evalUri, Nil, entity)
+      mkRequest("lwc-eval", request).onSuccess {
+        case response => response.discardEntityBytes()
+      }
     }
   }
 
