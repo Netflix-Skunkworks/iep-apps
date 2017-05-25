@@ -11,7 +11,6 @@ lazy val `iep-archaius` = project
   .configure(BuildSettings.profile)
   .settings(libraryDependencies ++= Seq(
     Dependencies.atlasModuleAkka,
-    Dependencies.atlasModuleWebApi,
     Dependencies.awsDynamoDB,
     Dependencies.awsSTS,
     Dependencies.frigga,
