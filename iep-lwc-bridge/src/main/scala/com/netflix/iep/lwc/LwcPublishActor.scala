@@ -18,7 +18,6 @@ package com.netflix.iep.lwc
 import java.util.concurrent.TimeUnit
 
 import akka.actor.Actor
-import akka.actor.ActorLogging
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.model.HttpMethods
@@ -35,13 +34,17 @@ import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.core.model.DefaultSettings
 import com.netflix.atlas.core.validation.ValidationResult
 import com.netflix.atlas.json.Json
+import com.netflix.frigga.Names
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.histogram.BucketCounter
 import com.netflix.spectator.api.histogram.BucketFunctions
 import com.netflix.spectator.atlas.impl.Evaluator
+import com.netflix.spectator.atlas.impl.Query
+import com.netflix.spectator.atlas.impl.Subscription
 import com.netflix.spectator.atlas.impl.Subscriptions
 import com.netflix.spectator.atlas.impl.TagsValuePair
 import com.typesafe.config.Config
+import com.typesafe.scalalogging.StrictLogging
 
 import scala.concurrent.Future
 
@@ -49,13 +52,15 @@ import scala.concurrent.Future
 /**
   * Takes messages from publish API handler and forwards them to LWC.
   */
-class LwcPublishActor(config: Config, registry: Registry) extends Actor with ActorLogging {
+class LwcPublishActor(config: Config, registry: Registry) extends Actor with StrictLogging {
 
   import LwcPublishActor._
   import scala.concurrent.duration._
   import com.netflix.atlas.webapi.PublishApi._
 
   import scala.concurrent.ExecutionContext.Implicits.global
+
+  type SubscriptionList = java.util.List[Subscription]
 
   private implicit val materializer = ActorMaterializer()
 
@@ -112,20 +117,77 @@ class LwcPublishActor(config: Config, registry: Registry) extends Actor with Act
         response.entity.dataBytes.runReduce(_ ++ _).onSuccess {
           case data =>
             val exprs = Json.decode[Subscriptions](data.toArray).getExpressions
-            evaluator.addGroupSubscriptions("all", exprs)
+            updateEvaluator(exprs)
         }
       case response =>
         response.discardEntityBytes()
     }
   }
 
+  /**
+    * Create groups of expressions per application. If a query does not have an exact
+    * match to a single application, then put it in the `-all-` group that will be
+    * evaluated for every datapoint.
+    */
+  private def updateEvaluator(exprs: SubscriptionList): Unit = {
+    val appGroups = new java.util.HashMap[String, SubscriptionList]()
+    val iter = exprs.iterator()
+    while (iter.hasNext) {
+      val sub = iter.next()
+      val app = getApp(sub.dataExpr().query())
+      val subs = appGroups.computeIfAbsent(app, _ => new java.util.ArrayList[Subscription]())
+      subs.add(sub)
+    }
+    evaluator.sync(appGroups)
+  }
+
+  /**
+    * Extract an exact app name for the query if possible. This is used as a quick first
+    * level filter to reduce the number of expressions that must be checked per datapoint.
+    * If `nf.app` is not present, then it will attempt to use frigga to extract an app name
+    * from `nf.cluster` or `nf.asg`.
+    */
+  private def getApp(query: Query): String = {
+    try {
+      val exactTags = query.exactTags()
+      List("nf.app", "nf.cluster", "nf.asg").find(exactTags.containsKey) match {
+        case Some(k) =>
+          val name = Names.parseName(exactTags.get(k))
+          Option(name.getApp).getOrElse(AllAppsGroup)
+        case None =>
+          AllAppsGroup
+      }
+    } catch {
+      case e: Exception =>
+        logger.debug(s"failed to extract app name from: $query", e)
+        AllAppsGroup
+    }
+  }
+
+  /**
+    * Evaluate the datapoints against the full set of expressions and forward the results
+    * to the LWC service.
+    */
   private def process(values: List[Datapoint]): Unit = {
-    import scala.collection.JavaConverters._
     val now = registry.clock().wallTime()
     values.foreach { v => numReceivedCounter.record(now - v.timestamp) }
 
-    val timestamp = values.head.timestamp
-    val payload = evaluator.eval("all", fixTimestamp(timestamp), values.map(toPair).asJava)
+    process(AllAppsGroup, values)
+    values
+      .filter(_.tags.contains("nf.app"))
+      .groupBy(_.tags("nf.app"))
+      .foreach(t => process(t._1, t._2))
+  }
+
+  /**
+    * Evaluate the datapoints against the expressions in the specified group and forward
+    * the intermediate aggregates, if any, to the LWC service.
+    */
+  private def process(group: String, values: List[Datapoint]): Unit = {
+    import scala.collection.JavaConverters._
+
+    val timestamp = fixTimestamp(values.head.timestamp)
+    val payload = evaluator.eval(group, timestamp, values.map(toPair).asJava)
 
     if (!payload.getMetrics.isEmpty) {
       val entity = HttpEntity(MediaTypes.`application/json`, Json.encode(payload))
@@ -164,5 +226,6 @@ class LwcPublishActor(config: Config, registry: Registry) extends Actor with Act
 
 object LwcPublishActor {
   case object Tick
+  private val AllAppsGroup = "-all-"
 }
 
