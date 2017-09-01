@@ -2,17 +2,17 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val akka       = "2.5.3"
-    val akkaHttpV  = "10.0.9"
-    val atlas      = "1.6.0-rc.5"
-    val aws        = "1.11.162"
-    val iep        = "1.0.2"
+    val akka       = "2.5.4"
+    val akkaHttpV  = "10.0.10"
+    val atlas      = "1.6.0-rc.6"
+    val aws        = "1.11.185"
+    val iep        = "1.0.4"
     val guice      = "4.1.0"
-    val jackson    = "2.8.7"
-    val log4j      = "2.8.1"
-    val scala      = "2.12.2"
+    val jackson    = "2.8.9"
+    val log4j      = "2.9.0"
+    val scala      = "2.12.3"
     val slf4j      = "1.7.25"
-    val spectator  = "0.56.0"
+    val spectator  = "0.57.1"
 
     val crossScala = Seq(scala)
   }
