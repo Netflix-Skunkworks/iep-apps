@@ -45,6 +45,7 @@ lazy val `iep-lwc-bridge` = project
   .settings(libraryDependencies ++= Seq(
     Dependencies.atlasModuleAkka,
     Dependencies.atlasModuleWebApi,
+    Dependencies.frigga,
     Dependencies.iepGuice,
     Dependencies.iepModuleAtlas,
     Dependencies.log4jApi,
