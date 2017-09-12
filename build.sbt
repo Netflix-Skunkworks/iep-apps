@@ -56,3 +56,20 @@ lazy val `iep-lwc-bridge` = project
     Dependencies.scalatest % "test"
   ))
 
+lazy val `iep-lwc-cloudwatch` = project
+  .configure(BuildSettings.profile)
+  .settings(libraryDependencies ++= Seq(
+    Dependencies.atlasModuleAkka,
+    Dependencies.atlasModuleEval,
+    Dependencies.awsCloudWatch,
+    Dependencies.iepGuice,
+    Dependencies.iepModuleAtlas,
+    Dependencies.iepModuleAws,
+    Dependencies.log4jApi,
+    Dependencies.log4jCore,
+    Dependencies.log4jSlf4j,
+
+    Dependencies.akkaHttpTestkit % "test",
+    Dependencies.scalatest % "test"
+  ))
+

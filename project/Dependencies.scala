@@ -26,6 +26,7 @@ object Dependencies {
   val akkaTestkit        = "com.typesafe.akka" %% "akka-testkit" % akka
   val atlasJson          = "com.netflix.atlas_v1" %% "atlas-json" % atlas
   val atlasModuleAkka    = "com.netflix.atlas_v1" %% "atlas-module-akka" % atlas
+  val atlasModuleEval    = "com.netflix.atlas_v1" %% "atlas-module-eval" % atlas
   val atlasModuleWebApi  = "com.netflix.atlas_v1" %% "atlas-module-webapi" % atlas
   val awsCloudWatch      = "com.amazonaws" % "aws-java-sdk-cloudwatch" % aws
   val awsCore            = "com.amazonaws" % "aws-java-sdk-core" % aws
