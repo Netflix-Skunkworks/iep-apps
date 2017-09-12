@@ -4,7 +4,8 @@ lazy val root = project.in(file("."))
   .aggregate(
     `iep-archaius`,
     `iep-atlas`,
-    `iep-lwc-bridge`)
+    `iep-lwc-bridge`,
+    `iep-lwc-cloudwatch`)
   .settings(BuildSettings.noPackaging: _*)
 
 lazy val `iep-archaius` = project
