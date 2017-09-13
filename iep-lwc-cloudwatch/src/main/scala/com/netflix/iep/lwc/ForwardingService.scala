@@ -200,15 +200,15 @@ object ForwardingService extends StrictLogging {
       .flatMapConcat { request =>
         val pub = Pagination.createPublisher(request, r => cwClient.putMetricData(r))
         Source.fromPublisher(pub)
-      }
-      .map { response =>
-        logger.debug(s"cloudwatch put result: $response")
-        NotUsed
-      }
-      .recover {
-        case t: Throwable =>
-          logger.warn("cloudwatch request failed", t)
-          NotUsed
+          .map { response =>
+            logger.debug(s"cloudwatch put result: $response")
+            NotUsed
+          }
+          .recover {
+            case t: Throwable =>
+              logger.warn("cloudwatch request failed", t)
+              NotUsed
+          }
       }
   }
 
