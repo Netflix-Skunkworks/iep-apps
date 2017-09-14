@@ -78,7 +78,7 @@ class ForwardingService @Inject()(
     val pattern = Pattern.compile(config.getString("iep.lwc.cloudwatch.filter"))
     val uri = config.getString("iep.lwc.cloudwatch.uri")
     val client = Http().superPool[AccessLogger]()
-    killSwitch = httpSource(uri, client)
+    killSwitch = autoReconnectHttpSource(uri, client)
       .via(configInput(registry))
       .via(toDataSources(pattern))
       .via(Flow.fromProcessor(() => evaluator.createStreamsProcessor()))
@@ -106,10 +106,14 @@ object ForwardingService extends StrictLogging {
 
   private val MaxFrameLength = 65536
 
-  def httpSource(uri: String, client: Client): Source[ByteString, NotUsed] = {
-    val request = HttpRequest(HttpMethods.GET, uri)
-    Source.repeat(request)
+  def autoReconnectHttpSource(uri: String, client: Client): Source[ByteString, NotUsed] = {
+    Source.repeat(NotUsed)
       .throttle(1, 1.second, 1, ThrottleMode.Shaping)
+      .flatMapConcat(_ => httpSource(uri, client))
+  }
+
+  def httpSource(uri: String, client: Client): Source[ByteString, NotUsed] = {
+    Source.single(HttpRequest(HttpMethods.GET, uri))
       .map(r => r -> AccessLogger.newClientLogger("configbin", r))
       .via(client)
       .map {
@@ -120,11 +124,14 @@ object ForwardingService extends StrictLogging {
       .filter(_.isSuccess)
       .flatMapConcat(r => Source(r.toOption.toList))
       .filter(_.status == StatusCodes.OK)
-      .flatMapConcat(_.entity.withoutSizeLimit().dataBytes)
-      .recover {
-        case t: Throwable =>
-          logger.warn("configbin stream failed", t)
-          ByteString.empty
+      .flatMapConcat { r =>
+        r.entity.withoutSizeLimit()
+          .dataBytes
+          .recover {
+            case t: Throwable =>
+              logger.warn("configbin stream failed", t)
+              ByteString.empty
+          }
       }
   }
 
