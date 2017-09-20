@@ -32,6 +32,7 @@ import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.akka.DiagnosticMessage
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.core.model.DefaultSettings
+import com.netflix.atlas.core.util.SmallHashMap
 import com.netflix.atlas.core.validation.ValidationResult
 import com.netflix.atlas.json.Json
 import com.netflix.spectator.api.Registry
@@ -138,7 +139,13 @@ class LwcPublishActor(config: Config, registry: Registry, evaluator: Evaluator)
 
   private def toPair(d: Datapoint): TagsValuePair = {
     import scala.collection.JavaConverters._
-    new TagsValuePair(d.tags.asJava, d.value)
+    // Use custom java map wrapper from SmallHashMap if possible for improved
+    // performance during the eval.
+    val jmap = d.tags match {
+      case m: SmallHashMap[_, _] => m.asInstanceOf[SmallHashMap[String, String]].asJavaMap
+      case m                     => m.asJava
+    }
+    new TagsValuePair(jmap, d.value)
   }
 
   private def sendError(req: PublishRequest, status: StatusCode, msg: FailureMessage): Unit = {
