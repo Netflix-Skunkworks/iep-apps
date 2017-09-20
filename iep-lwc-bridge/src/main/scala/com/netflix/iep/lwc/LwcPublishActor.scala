@@ -34,14 +34,11 @@ import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.core.model.DefaultSettings
 import com.netflix.atlas.core.validation.ValidationResult
 import com.netflix.atlas.json.Json
-import com.netflix.frigga.Names
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.histogram.BucketCounter
 import com.netflix.spectator.api.histogram.BucketFunctions
 import com.netflix.spectator.atlas.impl.Evaluator
-import com.netflix.spectator.atlas.impl.Query
 import com.netflix.spectator.atlas.impl.Subscription
-import com.netflix.spectator.atlas.impl.Subscriptions
 import com.netflix.spectator.atlas.impl.TagsValuePair
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
@@ -52,10 +49,10 @@ import scala.concurrent.Future
 /**
   * Takes messages from publish API handler and forwards them to LWC.
   */
-class LwcPublishActor(config: Config, registry: Registry) extends Actor with StrictLogging {
+class LwcPublishActor(config: Config, registry: Registry, evaluator: Evaluator)
+  extends Actor with StrictLogging {
 
-  import LwcPublishActor._
-  import scala.concurrent.duration._
+  import ExprUpdateActor._
   import com.netflix.atlas.webapi.PublishApi._
 
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -64,7 +61,6 @@ class LwcPublishActor(config: Config, registry: Registry) extends Actor with Str
 
   private implicit val materializer = ActorMaterializer()
 
-  private val configUri = Uri(config.getString("netflix.iep.lwc.bridge.config-uri"))
   private val evalUri = Uri(config.getString("netflix.iep.lwc.bridge.eval-uri"))
 
   private val step = DefaultSettings.stepSize
@@ -78,17 +74,11 @@ class LwcPublishActor(config: Config, registry: Registry) extends Actor with Str
   // Number of invalid datapoints received
   private val numInvalidId = registry.createId("atlas.db.numInvalid")
 
-  private val evaluator = new Evaluator()
-
-  private val cancellable = context.system.scheduler.schedule(0.seconds, 10.seconds, self, Tick)
-
   // Note: this will always use a 200 response type. The assumed use-case is a proxy
   // that tees the requests to both a typical publish endpoint and this cluster. The user
   // response should come from the publish endpoint with the response here merely acknowledging
   // receipt. For now to avoid spurious retries and confusion this response is always OK.
   def receive: Receive = {
-    case Tick =>
-      updateExpressions()
     case req @ PublishRequest(_, Nil, Nil, _, _) =>
       req.complete(DiagnosticMessage.error(StatusCodes.OK, "empty payload"))
     case req @ PublishRequest(_, Nil, failures, _, _) =>
@@ -103,65 +93,6 @@ class LwcPublishActor(config: Config, registry: Registry) extends Actor with Str
       updateStats(failures)
       val msg = FailureMessage.partial(failures)
       sendError(req, StatusCodes.OK, msg)
-  }
-
-  override def postStop(): Unit = {
-    cancellable.cancel()
-    super.postStop()
-  }
-
-  private def updateExpressions(): Unit = {
-    val request = HttpRequest(HttpMethods.GET, configUri)
-    mkRequest("lwc-subs", request).onSuccess {
-      case response if response.status == StatusCodes.OK =>
-        response.entity.dataBytes.runReduce(_ ++ _).onSuccess {
-          case data =>
-            val exprs = Json.decode[Subscriptions](data.toArray).getExpressions
-            updateEvaluator(exprs)
-        }
-      case response =>
-        response.discardEntityBytes()
-    }
-  }
-
-  /**
-    * Create groups of expressions per application. If a query does not have an exact
-    * match to a single application, then put it in the `-all-` group that will be
-    * evaluated for every datapoint.
-    */
-  private def updateEvaluator(exprs: SubscriptionList): Unit = {
-    val appGroups = new java.util.HashMap[String, SubscriptionList]()
-    val iter = exprs.iterator()
-    while (iter.hasNext) {
-      val sub = iter.next()
-      val app = getApp(sub.dataExpr().query())
-      val subs = appGroups.computeIfAbsent(app, _ => new java.util.ArrayList[Subscription]())
-      subs.add(sub)
-    }
-    evaluator.sync(appGroups)
-  }
-
-  /**
-    * Extract an exact app name for the query if possible. This is used as a quick first
-    * level filter to reduce the number of expressions that must be checked per datapoint.
-    * If `nf.app` is not present, then it will attempt to use frigga to extract an app name
-    * from `nf.cluster` or `nf.asg`.
-    */
-  private def getApp(query: Query): String = {
-    try {
-      val exactTags = query.exactTags()
-      List("nf.app", "nf.cluster", "nf.asg").find(exactTags.containsKey) match {
-        case Some(k) =>
-          val name = Names.parseName(exactTags.get(k))
-          Option(name.getApp).getOrElse(AllAppsGroup)
-        case None =>
-          AllAppsGroup
-      }
-    } catch {
-      case e: Exception =>
-        logger.debug(s"failed to extract app name from: $query", e)
-        AllAppsGroup
-    }
   }
 
   /**
@@ -222,10 +153,5 @@ class LwcPublishActor(config: Config, registry: Registry) extends Actor with Str
         registry.counter(numInvalidId.withTag("error", error)).increment()
     }
   }
-}
-
-object LwcPublishActor {
-  case object Tick
-  private val AllAppsGroup = "-all-"
 }
 
