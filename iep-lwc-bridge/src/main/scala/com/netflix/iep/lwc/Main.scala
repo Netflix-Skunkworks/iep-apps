@@ -45,6 +45,7 @@ object Main {
   def main(args: Array[String]): Unit = {
     try {
       val modules = getBaseModules
+      modules.add(new AppModule)
       val guice = new GuiceHelper
       guice.start(modules)
       guice.getInjector.getInstance(classOf[ServiceManager])
