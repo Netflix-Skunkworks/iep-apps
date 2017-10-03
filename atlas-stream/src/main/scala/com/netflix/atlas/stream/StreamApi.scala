@@ -33,9 +33,9 @@ import scala.concurrent.duration._
 class StreamApi(evaluator: Evaluator) extends WebApi {
 
   private val prefix = ByteString("data: ")
-  private val suffix = ByteString("\r\n")
+  private val suffix = ByteString("\r\n\r\n")
 
-  private val heartbeat = ByteString(s"""data: {"type":"heartbeat"}\r\n""")
+  private val heartbeat = ByteString(s"""data: {"type":"heartbeat"}\r\n\r\n""")
 
   def routes: Route = {
     path("stream" / RemainingPath) { path =>
