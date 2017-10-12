@@ -17,10 +17,7 @@ object BuildSettings {
   lazy val storeBintrayCredentials = taskKey[Unit]("Store bintray credentials.")
   lazy val credentialsFile = Path.userHome / ".bintray" / ".credentials"
 
-  lazy val baseSettings =
-    sbtrelease.ReleasePlugin.releaseSettings ++
-      GitVersion.settings ++
-      scoverage.ScoverageSbtPlugin.projectSettings
+  lazy val baseSettings = GitVersion.settings
 
   lazy val buildSettings = baseSettings ++ Seq(
     organization := "com.netflix.iep-apps",
@@ -31,6 +28,9 @@ object BuildSettings {
     sourcesInBase := false,
     exportJars := true,   // Needed for one-jar, with multi-project
     externalResolvers := BuildSettings.resolvers,
+
+    // https://github.com/sbt/sbt/issues/1636
+    evictionWarningOptions in update := EvictionWarningOptions.empty,
 
     checkLicenseHeaders := License.checkLicenseHeaders(streams.value.log, sourceDirectory.value),
     formatLicenseHeaders := License.formatLicenseHeaders(streams.value.log, sourceDirectory.value),

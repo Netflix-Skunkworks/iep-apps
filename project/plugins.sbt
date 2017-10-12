@@ -1,9 +1,11 @@
+addSbtPlugin("org.foundweekends"         % "sbt-bintray"          % "0.5.1")
+addSbtPlugin("com.github.gseitz"         % "sbt-release"          % "1.0.6")
+addSbtPlugin("pl.project13.scala"        % "sbt-jmh"              % "0.2.27")
+addSbtPlugin("com.typesafe.sbt"          % "sbt-git"              % "0.9.3")
+addSbtPlugin("com.typesafe.sbt"          % "sbt-native-packager"  % "1.2.2")
 
-addSbtPlugin("net.virtual-void"          % "sbt-dependency-graph" % "0.8.2")
-addSbtPlugin("org.scoverage"             % "sbt-scoverage"        % "1.5.0")
-addSbtPlugin("com.sksamuel.sbt-versions" % "sbt-versions"         % "0.2.0")
-addSbtPlugin("me.lessis"                 % "bintray-sbt"          % "0.3.0")
-addSbtPlugin("com.github.gseitz"         % "sbt-release"          % "0.8.5")
-addSbtPlugin("pl.project13.scala"        % "sbt-jmh"              % "0.2.24")
-addSbtPlugin("com.typesafe.sbt"          % "sbt-git"              % "0.8.4")
-addSbtPlugin("com.typesafe.sbt"          % "sbt-native-packager"  % "1.1.0")
+addSbtPlugin("com.lucidchart"            % "sbt-scalafmt"         % "1.12")
+
+// Convenient helpers, not required
+addSbtPlugin("com.timushev.sbt"          % "sbt-updates"          % "0.3.1")
+
