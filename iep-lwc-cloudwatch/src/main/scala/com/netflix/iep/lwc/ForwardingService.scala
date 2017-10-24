@@ -99,6 +99,30 @@ class ForwardingService @Inject()(
 object ForwardingService extends StrictLogging {
 
   //
+  // Constants for interacting with CloudWatch. For more details see:
+  //
+  // http://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDatum.html
+  // https://github.com/Netflix/servo/blob/master/servo-aws/src/test/java/com/netflix/servo/publish/cloudwatch/CloudWatchValueTest.java
+  //
+
+  /**
+    * Experimentally derived value for the largest exponent that can be sent to cloudwatch
+    * without triggering an InvalidParameterValue exception. See CloudWatchValueTest for the test
+    * program that was used.
+    */
+  private val MaxExponent = 360
+
+  /**
+    * Experimentally derived value for the largest exponent that can be sent to cloudwatch
+    * without triggering an InvalidParameterValue exception. See CloudWatchValueTest for the test
+    * program that was used.
+    */
+  private val MinExponent = -360
+
+  /** Maximum value that can be represented in cloudwatch. */
+  private val MaxValue = math.pow(2.0, MaxExponent)
+
+  //
   // Helpers for constructing parts of the stream
   //
 
@@ -189,6 +213,23 @@ object ForwardingService extends StrictLogging {
         val msg = env.getMessage.asInstanceOf[TimeSeriesMessage]
         expr.createMetricDatum(msg)
       }
+  }
+
+  /**
+    * Adjust a double value so it can be successfully written to cloudwatch. This involves capping
+    * values with large exponents to an experimentally determined max value and converting values
+    * with large negative exponents to 0. In addition, NaN values will be converted to 0.
+    */
+  def truncate(number: Number): Double = {
+    val value = number.doubleValue()
+    val exponent = Math.getExponent(value)
+    value match {
+      case v if v.isNaN                            => 0.0
+      case v if exponent >= MaxExponent && v < 0.0 => -MaxValue
+      case v if exponent >= MaxExponent && v > 0.0 => MaxValue
+      case _ if exponent <= MinExponent            => 0.0
+      case v                                       => v
+    }
   }
 
   def toCloudWatchPut: Flow[MetricDatum, PutMetricDataRequest, NotUsed] = {
@@ -303,7 +344,7 @@ object ForwardingService extends StrictLogging {
         .withMetricName(name)
         .withDimensions(dimensions.map(_.toDimension(msg.tags)).asJava)
         .withTimestamp(new Date(msg.start))
-        .withValue(value)
+        .withValue(truncate(value))
     }
   }
 

@@ -75,4 +75,32 @@ class ForwardingServiceSuite extends FunSuite {
     assert(msg.cluster === "heartbeat")
     assert(msg.isHeartbeat)
   }
+
+  //
+  // CloudWatch Truncate tests
+  //
+
+  test("truncate: NaN") {
+    assert(truncate(Double.NaN) === 0.0)
+  }
+
+  test("truncate: Infinity") {
+    assert(truncate(Double.PositiveInfinity) === math.pow(2.0, 360))
+  }
+
+  test("truncate: -Infinity") {
+    assert(truncate(Double.NegativeInfinity) === -math.pow(2.0, 360))
+  }
+
+  test("truncate: large value") {
+    assert(truncate(math.pow(2.0, 400)) === math.pow(2.0, 360))
+  }
+
+  test("truncate: negative large value") {
+    assert(truncate(-math.pow(2.0, 400)) === -math.pow(2.0, 360))
+  }
+
+  test("truncate: large negative exponent") {
+    assert(truncate(math.pow(2.0, -400)) === 0.0)
+  }
 }
