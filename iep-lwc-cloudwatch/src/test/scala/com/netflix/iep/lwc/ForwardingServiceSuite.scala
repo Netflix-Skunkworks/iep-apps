@@ -15,11 +15,27 @@
  */
 package com.netflix.iep.lwc
 
+import java.util.Date
+
+import akka.actor.ActorSystem
+import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.Source
+import com.amazonaws.services.cloudwatch.model.Dimension
+import com.amazonaws.services.cloudwatch.model.MetricDatum
+import com.amazonaws.services.cloudwatch.model.PutMetricDataRequest
 import org.scalatest.FunSuite
+
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 
 class ForwardingServiceSuite extends FunSuite {
 
   import ForwardingService._
+  import scala.collection.JavaConverters._
+
+  private implicit val system = ActorSystem(getClass.getSimpleName)
+  private implicit val mat = ActorMaterializer()
 
   private val version =
     """{"ts":1505226236957,"hash":"2d4d"}"""
@@ -102,5 +118,59 @@ class ForwardingServiceSuite extends FunSuite {
 
   test("truncate: large negative exponent") {
     assert(truncate(math.pow(2.0, -400)) === 0.0)
+  }
+
+  //
+  // toCloudWatchPut tests
+  //
+
+  def runCloudWatchPut(ns: String, vs: List[MetricDatum]): List[PutMetricDataRequest] = {
+    val future = Source(vs)
+      .via(toCloudWatchPut(ns))
+      .runWith(Sink.seq[PutMetricDataRequest])
+    Await.result(future, Duration.Inf).toList
+  }
+
+  def createDataSet(n: Int): List[MetricDatum] = {
+    (0 until n).toList.map { i =>
+      new MetricDatum()
+        .withMetricName(i.toString)
+        .withDimensions(new Dimension().withName("foo").withValue("bar"))
+        .withTimestamp(new Date())
+        .withValue(i.toDouble)
+    }
+  }
+
+  test("toCloudWatchPut: namespace") {
+    val data = createDataSet(1)
+    val actual = runCloudWatchPut("Netflix/Namespace", data)
+    val expected = List(
+      new PutMetricDataRequest()
+        .withNamespace("Netflix/Namespace")
+        .withMetricData(data.asJava)
+    )
+    assert(actual === expected)
+  }
+
+  test("toCloudWatchPut: batching") {
+    val data = createDataSet(20)
+    val actual = runCloudWatchPut("Netflix/Namespace", data)
+    val expected = List(
+      new PutMetricDataRequest()
+        .withNamespace("Netflix/Namespace")
+        .withMetricData(data.asJava)
+    )
+    assert(actual === expected)
+  }
+
+  test("toCloudWatchPut: multiple batches") {
+    val data = createDataSet(27)
+    val actual = runCloudWatchPut("Netflix/Namespace", data)
+    val expected = data.grouped(20).toList.map { vs =>
+      new PutMetricDataRequest()
+        .withNamespace("Netflix/Namespace")
+        .withMetricData(vs.asJava)
+    }
+    assert(actual === expected)
   }
 }

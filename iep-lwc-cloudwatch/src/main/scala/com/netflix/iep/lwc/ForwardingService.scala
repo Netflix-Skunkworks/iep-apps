@@ -77,13 +77,14 @@ class ForwardingService @Inject()(
   override def startImpl(): Unit = {
     val pattern = Pattern.compile(config.getString("iep.lwc.cloudwatch.filter"))
     val uri = config.getString("iep.lwc.cloudwatch.uri")
+    val namespace = config.getString("iep.lwc.cloudwatch.namespace")
     val client = Http().superPool[AccessLogger]()
     killSwitch = autoReconnectHttpSource(uri, client)
       .via(configInput(registry))
       .via(toDataSources(pattern))
       .via(Flow.fromProcessor(() => evaluator.createStreamsProcessor()))
       .via(toMetricDatum(registry))
-      .via(toCloudWatchPut)
+      .via(toCloudWatchPut(namespace))
       .via(sendToCloudWatch(cwClient))
       .viaMat(KillSwitches.single)(Keep.right)
       .toMat(Sink.ignore)(Keep.left)
@@ -232,13 +233,22 @@ object ForwardingService extends StrictLogging {
     }
   }
 
-  def toCloudWatchPut: Flow[MetricDatum, PutMetricDataRequest, NotUsed] = {
+  /**
+    * Batch the input datapoints and send to CloudWatch.
+    *
+    * @param namespace
+    *     Namespace to use for the custom metrics sent to CloudWatch. For more information
+    *     see: http://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/aws-namespaces.html.
+    * @return
+    *     Flow converting a stream of MetricDatum to a stream of PutMetricDataRequest objects.
+    */
+  def toCloudWatchPut(namespace: String): Flow[MetricDatum, PutMetricDataRequest, NotUsed] = {
     import scala.collection.JavaConverters._
     Flow[MetricDatum]
       .groupedWithin(20, 5.seconds)
       .map { data =>
         new PutMetricDataRequest()
-          .withNamespace("NFLX/EPIC")
+          .withNamespace(namespace)
           .withMetricData(data.asJava)
       }
   }
