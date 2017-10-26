@@ -47,7 +47,7 @@ When **requesting a feature**, then please try to answer the following:
 
 * What does this allow a user to accomplish that they cannot do now?
 * How urgent is the need?
-* Does it align with the goals of Atlas?
+* Does it align with the goals of IEP Apps?
 
 ### Contributing Code
 
@@ -62,7 +62,7 @@ To submit code:
 * Make changes and add tests
 * Commit the changes following the [commit guidelines](#git-commit-messages)
 * Push the branch with your changes to your fork
-* Open a pull request against the Atlas project
+* Open a pull request against the IEP Apps project
 
 #### Testing
 
