@@ -17,10 +17,7 @@ package com.netflix.atlas.druid
 
 import com.google.inject.AbstractModule
 import com.google.inject.Module
-import com.google.inject.multibindings.Multibinder
-import com.netflix.iep.guice.BaseModule
 import com.netflix.iep.guice.GuiceHelper
-import com.netflix.iep.service.Service
 import com.netflix.iep.service.ServiceManager
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
@@ -51,7 +48,6 @@ object Main {
   def main(args: Array[String]): Unit = {
     try {
       val modules = getBaseModules
-      modules.add(new ServerModule)
       val guice = new GuiceHelper
       guice.start(modules)
       guice.getInjector.getInstance(classOf[ServiceManager])
@@ -59,12 +55,6 @@ object Main {
     } catch {
       // Send exceptions to main log file instead of wherever STDERR is sent for the process
       case t: Throwable => logger.error("fatal error on startup", t)
-    }
-  }
-
-  class ServerModule extends BaseModule {
-    override def configure(): Unit = {
-      val serviceBinder = Multibinder.newSetBinder(binder(), classOf[Service])
     }
   }
 }

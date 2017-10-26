@@ -23,6 +23,7 @@ import javax.inject.Singleton
 
 import com.netflix.spectator.api.Functions
 import com.netflix.spectator.api.Registry
+import com.netflix.spectator.api.patterns.PolledMeter
 import com.typesafe.scalalogging.StrictLogging
 
 /**
@@ -39,10 +40,9 @@ class PropertiesContext @Inject() (registry: Registry) extends StrictLogging {
     * Tracks the age for the properties cache. This can be used for a simple alert to
     * detect staleness.
     */
-  private val lastUpdateTime = registry.gauge(
-    "iep.props.cacheAge",
-    new AtomicLong(clock.wallTime()),
-    Functions.AGE)
+  private val lastUpdateTime = PolledMeter.using(registry)
+    .withName("iep.props.cacheAge")
+    .monitorValue(new AtomicLong(clock.wallTime()), Functions.AGE)
 
   private val updateLatch = new AtomicReference[CountDownLatch](new CountDownLatch(1))
   private val ref = new AtomicReference[PropList]()

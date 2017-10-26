@@ -28,8 +28,9 @@ class AppModule extends AbstractModule {
     serviceBinder.addBinding().to(classOf[ForwardingService])
   }
 
+  // Visibility of protected to avoid unused method warning from scala compiler
   @Provides
-  private def awsCloudWatchClient(factory: AwsClientFactory): AmazonCloudWatch = {
+  protected def awsCloudWatchClient(factory: AwsClientFactory): AmazonCloudWatch = {
     factory.newInstance(classOf[AmazonCloudWatch])
   }
 }

@@ -70,9 +70,9 @@ class ExprUpdateActor(config: Config, registry: Registry, evaluator: Evaluator)
 
   private def updateExpressions(): Unit = {
     val request = HttpRequest(HttpMethods.GET, configUri)
-    mkRequest("lwc-subs", request).onSuccess {
+    mkRequest("lwc-subs", request).foreach {
       case response if response.status == StatusCodes.OK =>
-        response.entity.dataBytes.runReduce(_ ++ _).onSuccess {
+        response.entity.dataBytes.runReduce(_ ++ _).foreach {
           case data =>
             val exprs = Json.decode[Subscriptions](data.toArray).getExpressions
             updateEvaluator(exprs)

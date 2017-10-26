@@ -43,7 +43,6 @@ class DruidClient(config: Config, system: ActorSystem, materializer: ActorMateri
 
   private val uri = config.getString("uri")
 
-  private implicit val sys = system
   private implicit val mat = materializer
 
   private val loggingClient = Flow[HttpRequest]
