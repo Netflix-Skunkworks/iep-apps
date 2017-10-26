@@ -86,8 +86,6 @@ class ForwardingServiceSuite extends FunSuite {
     val sample = s"""heartbeat->1,i-12345,1a7fb69e-005c-4ebc-bf05-aba3386c682f,1"""
     val msg = Message(sample)
 
-    val expectedResponse = ConfigBinResponse.delete(ConfigBinVersion(1505226236957L, "2d4d"))
-
     assert(msg.cluster === "heartbeat")
     assert(msg.isHeartbeat)
   }

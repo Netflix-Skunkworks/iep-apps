@@ -124,7 +124,7 @@ class LwcPublishActor(config: Config, registry: Registry, evaluator: Evaluator)
     if (!payload.getMetrics.isEmpty) {
       val entity = HttpEntity(MediaTypes.`application/json`, Json.encode(payload))
       val request = HttpRequest(HttpMethods.POST, evalUri, Nil, entity)
-      mkRequest("lwc-eval", request).onSuccess {
+      mkRequest("lwc-eval", request).foreach {
         case response => response.discardEntityBytes()
       }
     }

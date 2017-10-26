@@ -257,6 +257,7 @@ object DruidDatabaseActor {
 
   def toAggregation(name: String, expr: DataExpr): Aggregation = {
     expr match {
+      case _: DataExpr.All              => throw new UnsupportedOperationException(":all")
       case DataExpr.GroupBy(e, _)       => toAggregation(name, e)
       case DataExpr.Consolidation(e, _) => toAggregation(name, e)
       case e: DataExpr.Sum              => Aggregation.sum(name)
@@ -275,8 +276,6 @@ object DruidDatabaseActor {
   def toTimeSeries(commonTags: Map[String, String], context: EvalContext, data: List[GroupByDatapoint]): List[TimeSeries] = {
     val arrays = scala.collection.mutable.AnyRefMap.empty[Map[String, String], Array[Double]]
     val length = context.bufferSize
-    val array = ArrayHelper.fill(length, Double.NaN)
-    val seq = new ArrayTimeSeq(DsType.Rate, context.start, context.step, array)
     data.foreach { d =>
       val tags = d.event - "value"
       val array = arrays.getOrElseUpdate(tags, ArrayHelper.fill(length, Double.NaN))

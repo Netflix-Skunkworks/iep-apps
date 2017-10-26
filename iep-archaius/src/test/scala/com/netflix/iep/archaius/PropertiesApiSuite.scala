@@ -63,7 +63,7 @@ class PropertiesApiSuite extends FunSuite with ScalatestRouteTest {
       addHeader(Accept(MediaTypes.`application/json`)) ~>
       routes ~>
       check {
-        assert(response.status === StatusCodes.OK)
+        assertResponse(response, StatusCodes.OK)
         assert(responseAs[String] === "[]")
       }
   }
@@ -92,7 +92,7 @@ class PropertiesApiSuite extends FunSuite with ScalatestRouteTest {
       addHeader(Accept(MediaTypes.`application/json`)) ~>
       routes ~>
       check {
-        assert(response.status === StatusCodes.OK)
+        assertResponse(response, StatusCodes.OK)
         val props = Json.decode[List[PropertiesApi.Property]](responseAs[String])
         assert(props === List(PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L)))
       }

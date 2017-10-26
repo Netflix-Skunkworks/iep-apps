@@ -74,8 +74,9 @@ object Main {
       bind(classOf[PropertiesContext])
     }
 
+    // Visibility of protected to avoid unused method warning from scala compiler
     @Provides
-    private def providesDynamoDBClient(config: Config): AmazonDynamoDB = {
+    protected def providesDynamoDBClient(config: Config): AmazonDynamoDB = {
       val region = config.getString("netflix.iep.env.region")
       AmazonDynamoDBClient.builder()
         .withCredentials(new DefaultAWSCredentialsProviderChain)
