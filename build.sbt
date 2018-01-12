@@ -6,6 +6,7 @@ lazy val root = project.in(file("."))
     `atlas-stream`,
     `iep-archaius`,
     `iep-atlas`,
+    `iep-clienttest`,
     `iep-lwc-bridge`,
     `iep-lwc-cloudwatch`)
   .settings(BuildSettings.noPackaging: _*)
