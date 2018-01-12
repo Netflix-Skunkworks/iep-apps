@@ -68,6 +68,18 @@ lazy val `iep-atlas` = project
     Dependencies.log4jSlf4j
   ))
 
+lazy val `iep-clienttest` = project
+  .configure(BuildSettings.profile)
+  .settings(libraryDependencies ++= Seq(
+    Dependencies.atlasModuleAkka,
+    Dependencies.iepGuice,
+    Dependencies.log4jApi,
+    Dependencies.log4jCore,
+    Dependencies.log4jSlf4j,
+    Dependencies.servoCore,
+    Dependencies.spectatorApi
+  ))
+
 lazy val `iep-lwc-bridge` = project
   .configure(BuildSettings.profile)
   .settings(libraryDependencies ++= Seq(
