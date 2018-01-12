@@ -11,6 +11,7 @@ object Dependencies {
     val jackson    = "2.8.9"
     val log4j      = "2.9.0"
     val scala      = "2.12.3"
+    val servo      = "0.12.17"
     val slf4j      = "1.7.25"
     val spectator  = "0.57.1"
 
@@ -69,6 +70,7 @@ object Dependencies {
   val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0"
   val scalaReflect       = "org.scala-lang" % "scala-reflect" % scala
   val scalatest          = "org.scalatest" %% "scalatest" % "3.0.0"
+  val servoCore          = "com.netflix.servo" % "servo-core" % servo
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
   val slf4jLog4j         = "org.slf4j" % "slf4j-log4j12" % slf4j
   val slf4jSimple        = "org.slf4j" % "slf4j-simple" % slf4j
