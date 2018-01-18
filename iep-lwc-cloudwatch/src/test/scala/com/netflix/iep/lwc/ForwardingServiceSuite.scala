@@ -24,6 +24,7 @@ import akka.stream.scaladsl.Source
 import com.amazonaws.services.cloudwatch.model.Dimension
 import com.amazonaws.services.cloudwatch.model.MetricDatum
 import com.amazonaws.services.cloudwatch.model.PutMetricDataRequest
+import com.amazonaws.services.cloudwatch.model.PutMetricDataResult
 import org.scalatest.FunSuite
 
 import scala.concurrent.Await
@@ -122,20 +123,27 @@ class ForwardingServiceSuite extends FunSuite {
   // toCloudWatchPut tests
   //
 
-  def runCloudWatchPut(ns: String, vs: List[MetricDatum]): List[PutMetricDataRequest] = {
+  def runCloudWatchPut(ns: String, vs: List[AccountDatum]): List[AccountRequest] = {
+    val requests = List.newBuilder[AccountRequest]
+    def doPut(account: String, request: PutMetricDataRequest): PutMetricDataResult = {
+      requests += AccountRequest(account, request)
+      new PutMetricDataResult
+    }
     val future = Source(vs)
-      .via(toCloudWatchPut(ns))
-      .runWith(Sink.seq[PutMetricDataRequest])
-    Await.result(future, Duration.Inf).toList
+      .via(sendToCloudWatch(ns, doPut))
+      .runWith(Sink.ignore)
+    Await.result(future, Duration.Inf)
+    requests.result()
   }
 
-  def createDataSet(n: Int): List[MetricDatum] = {
+  def createDataSet(n: Int): List[AccountDatum] = {
     (0 until n).toList.map { i =>
-      new MetricDatum()
+      val datum = new MetricDatum()
         .withMetricName(i.toString)
         .withDimensions(new Dimension().withName("foo").withValue("bar"))
         .withTimestamp(new Date())
         .withValue(i.toDouble)
+      AccountDatum("12345", datum)
     }
   }
 
@@ -143,9 +151,9 @@ class ForwardingServiceSuite extends FunSuite {
     val data = createDataSet(1)
     val actual = runCloudWatchPut("Netflix/Namespace", data)
     val expected = List(
-      new PutMetricDataRequest()
+      AccountRequest("12345", new PutMetricDataRequest()
         .withNamespace("Netflix/Namespace")
-        .withMetricData(data.asJava)
+        .withMetricData(data.map(_.datum).asJava))
     )
     assert(actual === expected)
   }
@@ -154,9 +162,9 @@ class ForwardingServiceSuite extends FunSuite {
     val data = createDataSet(20)
     val actual = runCloudWatchPut("Netflix/Namespace", data)
     val expected = List(
-      new PutMetricDataRequest()
+      AccountRequest("12345", new PutMetricDataRequest()
         .withNamespace("Netflix/Namespace")
-        .withMetricData(data.asJava)
+        .withMetricData(data.map(_.datum).asJava))
     )
     assert(actual === expected)
   }
@@ -165,10 +173,42 @@ class ForwardingServiceSuite extends FunSuite {
     val data = createDataSet(27)
     val actual = runCloudWatchPut("Netflix/Namespace", data)
     val expected = data.grouped(20).toList.map { vs =>
-      new PutMetricDataRequest()
+      AccountRequest("12345", new PutMetricDataRequest()
         .withNamespace("Netflix/Namespace")
-        .withMetricData(vs.asJava)
+        .withMetricData(vs.map(_.datum).asJava))
     }
     assert(actual === expected)
+  }
+
+  def createMultiAccountDataSet(mod: Int, n: Int): List[AccountDatum] = {
+    (0 until n).toList.map { i =>
+      val datum = new MetricDatum()
+        .withMetricName(i.toString)
+        .withDimensions(new Dimension().withName("foo").withValue("bar"))
+        .withTimestamp(new Date())
+        .withValue(i.toDouble)
+      AccountDatum((i % mod).toString, datum)
+    }
+  }
+
+  test("toCloudWatchPut: multiple accounts") {
+    val data = createMultiAccountDataSet(5, 5)
+    val actual = runCloudWatchPut("Netflix/Namespace", data)
+    val expected = data.zipWithIndex.map {
+      case (v, i) =>
+        AccountRequest(i.toString, new PutMetricDataRequest()
+          .withNamespace("Netflix/Namespace")
+          .withMetricData(v.datum))
+    }
+    assert(actual.sortWith(_.account < _.account) === expected)
+  }
+
+  test("toCloudWatchPut: multiple accounts and batching") {
+    val data = createMultiAccountDataSet(2, 47)
+    val actual = runCloudWatchPut("Netflix/Namespace", data)
+    assert(actual.size === 4)
+    assert(actual.map(_.account).toSet === Set("0", "1"))
+    assert(actual.filter(_.account == "0").map(_.request.getMetricData.size()).sum === 24)
+    assert(actual.filter(_.account == "1").map(_.request.getMetricData.size()).sum === 23)
   }
 }
