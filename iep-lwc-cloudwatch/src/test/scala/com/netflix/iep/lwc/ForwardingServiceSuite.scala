@@ -25,6 +25,10 @@ import com.amazonaws.services.cloudwatch.model.Dimension
 import com.amazonaws.services.cloudwatch.model.MetricDatum
 import com.amazonaws.services.cloudwatch.model.PutMetricDataRequest
 import com.amazonaws.services.cloudwatch.model.PutMetricDataResult
+import com.netflix.atlas.eval.model.ArrayData
+import com.netflix.atlas.eval.model.TimeSeriesMessage
+import com.netflix.atlas.eval.stream.Evaluator
+import com.netflix.spectator.api.NoopRegistry
 import org.scalatest.FunSuite
 
 import scala.concurrent.Await
@@ -120,7 +124,44 @@ class ForwardingServiceSuite extends FunSuite {
   }
 
   //
-  // toCloudWatchPut tests
+  // toMetricDatum tests
+  //
+
+  def runToMetricDatum(env: Evaluator.MessageEnvelope): AccountDatum = {
+    val future = Source.single(env)
+      .via(toMetricDatum(new NoopRegistry))
+      .runWith(Sink.head)
+    Await.result(future, Duration.Inf)
+  }
+
+  test("toMetricDatum: basic") {
+    val msg = TimeSeriesMessage(
+      id = "abc",
+      query = "name,ssCpuUser,:eq,:sum",
+      start = 0L,
+      end = 60000L,
+      step = 60000L,
+      label = "test",
+      tags = Map("name" -> "ssCpuUser"),
+      data = ArrayData(Array(1.0))
+    )
+    val id =
+      """
+        |{
+        |  "atlasUri": "http://atlas/api/v1/graph?q=name,ssCpuUser,:eq,:sum",
+        |  "account": "1234567890",
+        |  "metricName": "ssCpuUser",
+        |  "dimensions": []
+        |}
+      """.stripMargin
+    val env = new Evaluator.MessageEnvelope(id, msg)
+    val actual = runToMetricDatum(env)
+    assert(actual.account === "1234567890")
+    assert(actual.datum.getMetricName === "ssCpuUser")
+  }
+
+  //
+  // sendToCloudWatch tests
   //
 
   def runCloudWatchPut(ns: String, vs: List[AccountDatum]): List[AccountRequest] = {
