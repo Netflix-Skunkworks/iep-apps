@@ -2,18 +2,18 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val akka       = "2.5.4"
-    val akkaHttpV  = "10.0.10"
+    val akka       = "2.5.9"
+    val akkaHttpV  = "10.0.11"
     val atlas      = "1.6.0-SNAPSHOT"
-    val aws        = "1.11.185"
+    val aws        = "1.11.264"
     val iep        = "1.2.0"
     val guice      = "4.1.0"
-    val jackson    = "2.8.9"
-    val log4j      = "2.9.0"
-    val scala      = "2.12.3"
-    val servo      = "0.12.17"
+    val jackson    = "2.9.2"
+    val log4j      = "2.10.0"
+    val scala      = "2.12.4"
+    val servo      = "0.12.20"
     val slf4j      = "1.7.25"
-    val spectator  = "0.57.1"
+    val spectator  = "0.60.0"
 
     val crossScala = Seq(scala)
   }
@@ -67,7 +67,7 @@ object Dependencies {
   val scalaCompiler      = "org.scala-lang" % "scala-compiler" % scala
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
   val scalaLibraryAll    = "org.scala-lang" % "scala-library-all" % scala
-  val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.5.0"
+  val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.7.2"
   val scalaReflect       = "org.scala-lang" % "scala-reflect" % scala
   val scalatest          = "org.scalatest" %% "scalatest" % "3.0.0"
   val servoCore          = "com.netflix.servo" % "servo-core" % servo
