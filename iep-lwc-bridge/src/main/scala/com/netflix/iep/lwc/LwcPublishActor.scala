@@ -104,11 +104,17 @@ class LwcPublishActor(config: Config, registry: Registry, evaluator: Evaluator)
     val now = registry.clock().wallTime()
     values.foreach { v => numReceivedCounter.record(now - v.timestamp) }
 
-    process(AllAppsGroup, values)
+    process(AllGroup, values)
     values
-      .filter(_.tags.contains("nf.app"))
-      .groupBy(_.tags("nf.app"))
+      .filter(d => d.tags.contains("nf.app") || d.tags.contains("name"))
+      .groupBy(d => groupId(d.tags))
       .foreach(t => process(t._1, t._2))
+  }
+
+  private def groupId(tags: Map[String, String]): String = {
+    val app = tags.getOrElse("nf.app", ManyPossibleMatches)
+    val name = tags.getOrElse("name", ManyPossibleMatches)
+    s"$app:$name"
   }
 
   /**
@@ -124,8 +130,8 @@ class LwcPublishActor(config: Config, registry: Registry, evaluator: Evaluator)
     if (!payload.getMetrics.isEmpty) {
       val entity = HttpEntity(MediaTypes.`application/json`, Json.encode(payload))
       val request = HttpRequest(HttpMethods.POST, evalUri, Nil, entity)
-      mkRequest("lwc-eval", request).foreach {
-        case response => response.discardEntityBytes()
+      mkRequest("lwc-eval", request).foreach { response =>
+        response.discardEntityBytes()
       }
     }
   }
