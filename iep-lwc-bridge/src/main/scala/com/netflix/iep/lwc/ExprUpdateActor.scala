@@ -49,6 +49,7 @@ class ExprUpdateActor(config: Config, registry: Registry, evaluator: Evaluator)
   import scala.concurrent.ExecutionContext.Implicits.global
 
   type SubscriptionList = java.util.List[Subscription]
+  type JMap = java.util.Map[String, String]
 
   private implicit val materializer = ActorMaterializer()
 
@@ -72,10 +73,9 @@ class ExprUpdateActor(config: Config, registry: Registry, evaluator: Evaluator)
     val request = HttpRequest(HttpMethods.GET, configUri)
     mkRequest("lwc-subs", request).foreach {
       case response if response.status == StatusCodes.OK =>
-        response.entity.dataBytes.runReduce(_ ++ _).foreach {
-          case data =>
-            val exprs = Json.decode[Subscriptions](data.toArray).getExpressions
-            updateEvaluator(exprs)
+        response.entity.dataBytes.runReduce(_ ++ _).foreach { data =>
+          val exprs = Json.decode[Subscriptions](data.toArray).getExpressions
+          updateEvaluator(exprs)
         }
       case response =>
         response.discardEntityBytes()
@@ -84,20 +84,23 @@ class ExprUpdateActor(config: Config, registry: Registry, evaluator: Evaluator)
 
   /**
     * Create groups of expressions per application. If a query does not have an exact
-    * match to a single application, then put it in the `-all-` group that will be
-    * evaluated for every datapoint.
+    * match to a single application, then put it in the many possible matches group that
+    * will be evaluated for every datapoint.
     */
   private def updateEvaluator(exprs: SubscriptionList): Unit = {
     val appGroups = new java.util.HashMap[String, SubscriptionList]()
     val iter = exprs.iterator()
     while (iter.hasNext) {
       val sub = iter.next()
-      val app = getApp(sub.dataExpr().query())
-      val subs = appGroups.computeIfAbsent(app, _ => new java.util.ArrayList[Subscription]())
+      val exactTags = sub.dataExpr().query().exactTags()
+      val app = getApp(sub.dataExpr().query(), exactTags)
+      val name = exactTags.getOrDefault("name", ManyPossibleMatches)
+      val group = s"$app:$name"
+      val subs = appGroups.computeIfAbsent(group, _ => new java.util.ArrayList[Subscription]())
       subs.add(sub)
     }
     appGroups.forEach { (app, subs) =>
-      if (app == AllAppsGroup)
+      if (app == ManyPossibleMatches)
         fallbackExprs.record(subs.size())
       else
         exprsPerApp.record(subs.size())
@@ -111,20 +114,19 @@ class ExprUpdateActor(config: Config, registry: Registry, evaluator: Evaluator)
     * If `nf.app` is not present, then it will attempt to use frigga to extract an app name
     * from `nf.cluster` or `nf.asg`.
     */
-  private def getApp(query: Query): String = {
+  private def getApp(query: Query, exactTags: JMap): String = {
     try {
-      val exactTags = query.exactTags()
       List("nf.app", "nf.cluster", "nf.asg").find(exactTags.containsKey) match {
         case Some(k) =>
           val name = Names.parseName(exactTags.get(k))
-          Option(name.getApp).getOrElse(AllAppsGroup)
+          Option(name.getApp).getOrElse(ManyPossibleMatches)
         case None =>
-          AllAppsGroup
+          ManyPossibleMatches
       }
     } catch {
       case e: Exception =>
         logger.debug(s"failed to extract app name from: $query", e)
-        AllAppsGroup
+        ManyPossibleMatches
     }
   }
 
@@ -136,6 +138,7 @@ class ExprUpdateActor(config: Config, registry: Registry, evaluator: Evaluator)
 
 object ExprUpdateActor {
   case object Tick
-  private[lwc] val AllAppsGroup = "-all-"
+  private[lwc] val ManyPossibleMatches = "-?-"
+  private[lwc] val AllGroup = s"$ManyPossibleMatches:$ManyPossibleMatches"
 }
 
