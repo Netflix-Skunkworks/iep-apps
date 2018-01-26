@@ -88,7 +88,7 @@ class ExprUpdateActor(config: Config, registry: Registry, evaluator: Evaluator)
     * will be evaluated for every datapoint.
     */
   private def updateEvaluator(exprs: SubscriptionList): Unit = {
-    val appGroups = new java.util.HashMap[String, SubscriptionList]()
+    val groups = new java.util.HashMap[String, SubscriptionList]()
     val iter = exprs.iterator()
     while (iter.hasNext) {
       val sub = iter.next()
@@ -96,16 +96,16 @@ class ExprUpdateActor(config: Config, registry: Registry, evaluator: Evaluator)
       val app = getApp(sub.dataExpr().query(), exactTags)
       val name = exactTags.getOrDefault("name", ManyPossibleMatches)
       val group = s"$app:$name"
-      val subs = appGroups.computeIfAbsent(group, _ => new java.util.ArrayList[Subscription]())
+      val subs = groups.computeIfAbsent(group, _ => new java.util.ArrayList[Subscription]())
       subs.add(sub)
     }
-    appGroups.forEach { (app, subs) =>
-      if (app == ManyPossibleMatches)
+    groups.forEach { (group, subs) =>
+      if (group == AllGroup)
         fallbackExprs.record(subs.size())
       else
         exprsPerApp.record(subs.size())
     }
-    evaluator.sync(appGroups)
+    evaluator.sync(groups)
   }
 
   /**
