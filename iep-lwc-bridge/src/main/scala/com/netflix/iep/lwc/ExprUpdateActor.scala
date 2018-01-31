@@ -25,11 +25,7 @@ import akka.http.scaladsl.model.Uri
 import akka.stream.ActorMaterializer
 import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.json.Json
-import com.netflix.frigga.Names
 import com.netflix.spectator.api.Registry
-import com.netflix.spectator.atlas.impl.Evaluator
-import com.netflix.spectator.atlas.impl.Query
-import com.netflix.spectator.atlas.impl.Subscription
 import com.netflix.spectator.atlas.impl.Subscriptions
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
@@ -40,7 +36,7 @@ import scala.concurrent.Future
 /**
   * Refresh the set of expressions from the LWC service.
   */
-class ExprUpdateActor(config: Config, registry: Registry, evaluator: Evaluator)
+class ExprUpdateActor(config: Config, registry: Registry, evaluator: ExpressionsEvaluator)
   extends Actor with StrictLogging {
 
   import ExprUpdateActor._
@@ -48,15 +44,9 @@ class ExprUpdateActor(config: Config, registry: Registry, evaluator: Evaluator)
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  type SubscriptionList = java.util.List[Subscription]
-  type JMap = java.util.Map[String, String]
-
   private implicit val materializer = ActorMaterializer()
 
   private val configUri = Uri(config.getString("netflix.iep.lwc.bridge.config-uri"))
-
-  private val exprsPerApp = registry.distributionSummary("lwc.bridge.exprsPerApp")
-  private val fallbackExprs = registry.distributionSummary("lwc.bridge.fallbackExprs")
 
   private val cancellable = context.system.scheduler.schedule(0.seconds, 10.seconds, self, Tick)
 
@@ -75,58 +65,10 @@ class ExprUpdateActor(config: Config, registry: Registry, evaluator: Evaluator)
       case response if response.status == StatusCodes.OK =>
         response.entity.dataBytes.runReduce(_ ++ _).foreach { data =>
           val exprs = Json.decode[Subscriptions](data.toArray).getExpressions
-          updateEvaluator(exprs)
+          evaluator.sync(exprs)
         }
       case response =>
         response.discardEntityBytes()
-    }
-  }
-
-  /**
-    * Create groups of expressions per application. If a query does not have an exact
-    * match to a single application, then put it in the many possible matches group that
-    * will be evaluated for every datapoint.
-    */
-  private def updateEvaluator(exprs: SubscriptionList): Unit = {
-    val groups = new java.util.HashMap[String, SubscriptionList]()
-    val iter = exprs.iterator()
-    while (iter.hasNext) {
-      val sub = iter.next()
-      val exactTags = sub.dataExpr().query().exactTags()
-      val app = getApp(sub.dataExpr().query(), exactTags)
-      val name = exactTags.getOrDefault("name", ManyPossibleMatches)
-      val group = s"$app:$name"
-      val subs = groups.computeIfAbsent(group, _ => new java.util.ArrayList[Subscription]())
-      subs.add(sub)
-    }
-    groups.forEach { (group, subs) =>
-      if (group == AllGroup)
-        fallbackExprs.record(subs.size())
-      else
-        exprsPerApp.record(subs.size())
-    }
-    evaluator.sync(groups)
-  }
-
-  /**
-    * Extract an exact app name for the query if possible. This is used as a quick first
-    * level filter to reduce the number of expressions that must be checked per datapoint.
-    * If `nf.app` is not present, then it will attempt to use frigga to extract an app name
-    * from `nf.cluster` or `nf.asg`.
-    */
-  private def getApp(query: Query, exactTags: JMap): String = {
-    try {
-      List("nf.app", "nf.cluster", "nf.asg").find(exactTags.containsKey) match {
-        case Some(k) =>
-          val name = Names.parseName(exactTags.get(k))
-          Option(name.getApp).getOrElse(ManyPossibleMatches)
-        case None =>
-          ManyPossibleMatches
-      }
-    } catch {
-      case e: Exception =>
-        logger.debug(s"failed to extract app name from: $query", e)
-        ManyPossibleMatches
     }
   }
 
@@ -138,7 +80,5 @@ class ExprUpdateActor(config: Config, registry: Registry, evaluator: Evaluator)
 
 object ExprUpdateActor {
   case object Tick
-  private[lwc] val ManyPossibleMatches = "-?-"
-  private[lwc] val AllGroup = s"$ManyPossibleMatches:$ManyPossibleMatches"
 }
 
