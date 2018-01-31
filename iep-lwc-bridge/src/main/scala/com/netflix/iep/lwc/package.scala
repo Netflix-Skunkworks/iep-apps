@@ -13,12 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.iep.lwc
+package com.netflix.iep
 
-import com.google.inject.AbstractModule
+import com.netflix.spectator.atlas.impl.EvalPayload
+import com.netflix.spectator.atlas.impl.Subscription
 
-class AppModule extends AbstractModule {
-  override def configure(): Unit = {
-    bind(classOf[ExpressionsEvaluator]).toInstance(new ExpressionsEvaluator)
-  }
+package object lwc {
+  type SubscriptionList = java.util.List[Subscription]
+  type JMap = java.util.Map[String, String]
+
+  type MetricList = java.util.ArrayList[EvalPayload.Metric]
 }

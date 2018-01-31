@@ -32,15 +32,12 @@ import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.akka.DiagnosticMessage
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.core.model.DefaultSettings
-import com.netflix.atlas.core.util.SmallHashMap
 import com.netflix.atlas.core.validation.ValidationResult
 import com.netflix.atlas.json.Json
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.histogram.BucketCounter
 import com.netflix.spectator.api.histogram.BucketFunctions
-import com.netflix.spectator.atlas.impl.Evaluator
 import com.netflix.spectator.atlas.impl.Subscription
-import com.netflix.spectator.atlas.impl.TagsValuePair
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
@@ -50,10 +47,9 @@ import scala.concurrent.Future
 /**
   * Takes messages from publish API handler and forwards them to LWC.
   */
-class LwcPublishActor(config: Config, registry: Registry, evaluator: Evaluator)
+class LwcPublishActor(config: Config, registry: Registry, evaluator: ExpressionsEvaluator)
   extends Actor with StrictLogging {
 
-  import ExprUpdateActor._
   import com.netflix.atlas.webapi.PublishApi._
 
   import scala.concurrent.ExecutionContext.Implicits.global
@@ -104,34 +100,15 @@ class LwcPublishActor(config: Config, registry: Registry, evaluator: Evaluator)
     val now = registry.clock().wallTime()
     values.foreach { v => numReceivedCounter.record(now - v.timestamp) }
 
-    process(AllGroup, values)
-    values
-      .filter(d => d.tags.contains("nf.app") || d.tags.contains("name"))
-      .groupBy(d => groupId(d.tags))
-      .foreach(t => process(t._1, t._2))
-  }
-
-  private def groupId(tags: Map[String, String]): String = {
-    val app = tags.getOrElse("nf.app", ManyPossibleMatches)
-    val name = tags.getOrElse("name", ManyPossibleMatches)
-    s"$app:$name"
-  }
-
-  /**
-    * Evaluate the datapoints against the expressions in the specified group and forward
-    * the intermediate aggregates, if any, to the LWC service.
-    */
-  private def process(group: String, values: List[Datapoint]): Unit = {
-    import scala.collection.JavaConverters._
-
-    val timestamp = fixTimestamp(values.head.timestamp)
-    val payload = evaluator.eval(group, timestamp, values.map(toPair).asJava)
-
-    if (!payload.getMetrics.isEmpty) {
-      val entity = HttpEntity(MediaTypes.`application/json`, Json.encode(payload))
-      val request = HttpRequest(HttpMethods.POST, evalUri, Nil, entity)
-      mkRequest("lwc-eval", request).foreach { response =>
-        response.discardEntityBytes()
+    if (values.nonEmpty) {
+      val timestamp = fixTimestamp(values.head.timestamp)
+      val payload = evaluator.eval(timestamp, values)
+      if (!payload.getMetrics.isEmpty) {
+        val entity = HttpEntity(MediaTypes.`application/json`, Json.encode(payload))
+        val request = HttpRequest(HttpMethods.POST, evalUri, Nil, entity)
+        mkRequest("lwc-eval", request).foreach { response =>
+          response.discardEntityBytes()
+        }
       }
     }
   }
@@ -142,17 +119,6 @@ class LwcPublishActor(config: Config, registry: Registry, evaluator: Evaluator)
   }
 
   private def fixTimestamp(t: Long): Long = t / step * step
-
-  private def toPair(d: Datapoint): TagsValuePair = {
-    import scala.collection.JavaConverters._
-    // Use custom java map wrapper from SmallHashMap if possible for improved
-    // performance during the eval.
-    val jmap = d.tags match {
-      case m: SmallHashMap[_, _] => m.asInstanceOf[SmallHashMap[String, String]].asJavaMap
-      case m                     => m.asJava
-    }
-    new TagsValuePair(jmap, d.value)
-  }
 
   private def sendError(req: PublishRequest, status: StatusCode, msg: FailureMessage): Unit = {
     val entity = HttpEntity(MediaTypes.`application/json`, msg.toJson)
