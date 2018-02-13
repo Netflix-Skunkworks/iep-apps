@@ -138,6 +138,7 @@ class ForwardingServiceSuite extends FunSuite {
     val msg = TimeSeriesMessage(
       id = "abc",
       query = "name,ssCpuUser,:eq,:sum",
+      groupByKeys = Nil,
       start = 0L,
       end = 60000L,
       step = 60000L,
