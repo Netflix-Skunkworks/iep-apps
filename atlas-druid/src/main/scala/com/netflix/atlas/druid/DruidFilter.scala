@@ -16,6 +16,7 @@
 package com.netflix.atlas.druid
 
 import com.netflix.atlas.core.model.Query
+import com.netflix.atlas.core.model.Query.KeyQuery
 import com.netflix.spectator.impl.AsciiSet
 
 trait DruidFilter
@@ -27,22 +28,41 @@ object DruidFilter {
   def sanitize(v: String): String = allowedChars.replaceNonMembers(v, '_')
 
   def forQuery(query: Query): Option[DruidFilter] = {
+    val q = removeDatasourceAndName(query)
+    if (q == Query.True) None else Some(toFilter(q))
+  }
+
+  def toFilter(query: Query): DruidFilter = {
     query match {
-      case Query.True                   => None
+      case Query.True                   => throw new UnsupportedOperationException(":true")
       case Query.False                  => throw new UnsupportedOperationException(":false")
-      case Query.Equal(k, v)            => Some(Equal(k, v))
-      case Query.In(k, vs)              => Some(In(k, vs))
-      case Query.GreaterThan(k, v)      => Some(js(k, ">", v))
-      case Query.GreaterThanEqual(k, v) => Some(js(k, ">=", v))
-      case Query.LessThan(k, v)         => Some(js(k, "<", v))
-      case Query.LessThanEqual(k, v)    => Some(js(k, "<=", v))
-      case Query.HasKey(k)              => Some(JavaScript(k, "function(x) { return true; }"))
-      case Query.Regex(k, v)            => Some(Regex(k, s"^$v"))
+      case Query.Equal(k, v)            => Equal(k, v)
+      case Query.In(k, vs)              => In(k, vs)
+      case Query.GreaterThan(k, v)      => js(k, ">", v)
+      case Query.GreaterThanEqual(k, v) => js(k, ">=", v)
+      case Query.LessThan(k, v)         => js(k, "<", v)
+      case Query.LessThanEqual(k, v)    => js(k, "<=", v)
+      case Query.HasKey(k)              => JavaScript(k, "function(x) { return true; }")
+      case Query.Regex(k, v)            => Regex(k, s"^$v")
       case Query.RegexIgnoreCase(k, v)  => throw new UnsupportedOperationException(":reic")
-      case Query.And(q1, q2)            => Some(And(List(forQuery(q1).get, forQuery(q2).get)))
-      case Query.Or(q1, q2)             => Some(Or(List(forQuery(q1).get, forQuery(q2).get)))
-      case Query.Not(q)                 => Some(Not(forQuery(q).get))
+      case Query.And(q1, q2)            => And(List(toFilter(q1), toFilter(q2)))
+      case Query.Or(q1, q2)             => Or(List(toFilter(q1), toFilter(q2)))
+      case Query.Not(q)                 => Not(toFilter(q))
     }
+  }
+
+  /**
+    * The `nf.datasource` and `name` values should have already been confirmed before trying
+    * to create a filter. Those values must be listed as `dataSource` and `searchDimensions`
+    * respectively. This removes them by rewriting the query so that they are presumed
+    * to be true.
+    */
+  private def removeDatasourceAndName(query: Query): Query = {
+    val newQuery = query.rewrite {
+      case kq: KeyQuery if kq.k == "nf.datasource" => Query.True
+      case kq: KeyQuery if kq.k == "name"          => Query.True
+    }
+    Query.simplify(newQuery.asInstanceOf[Query])
   }
 
   private def js(k: String, op: String, v: String): JavaScript = {
