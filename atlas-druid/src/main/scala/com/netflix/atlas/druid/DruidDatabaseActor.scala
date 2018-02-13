@@ -221,6 +221,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
         dimensions = dimensions,
         intervals = intervals,
         aggregations = List(toAggregation(name, expr)),
+        filter = DruidFilter.forQuery(query),
         granularity = Granularity.millis(context.step)
       )
       client.groupBy(groupByQuery).map { result =>
