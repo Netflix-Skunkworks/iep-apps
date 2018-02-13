@@ -274,6 +274,7 @@ object DruidDatabaseActor {
   }
 
   def toTimeSeries(commonTags: Map[String, String], context: EvalContext, data: List[GroupByDatapoint]): List[TimeSeries] = {
+    val stepSeconds = context.step / 1000.0
     val arrays = scala.collection.mutable.AnyRefMap.empty[Map[String, String], Array[Double]]
     val length = context.bufferSize
     data.foreach { d =>
@@ -282,7 +283,10 @@ object DruidDatabaseActor {
       val t = Instant.parse(d.timestamp).toEpochMilli
       val i = ((t - context.start) / context.step).toInt
       if (i >= 0 && i < length) {
-        array(i) = d.event.getOrElse("value", "NaN").toDouble
+        // Assume all values are counters that are in a rate per step. To make it consistent
+        // with Atlas conventions, the value should be reported as a rate per second. This
+        // may need to be revisited in the future if other types are supported.
+        array(i) = d.event.getOrElse("value", "NaN").toDouble / stepSeconds
       }
     }
     arrays.toList.map {
