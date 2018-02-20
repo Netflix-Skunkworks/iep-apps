@@ -225,7 +225,11 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
         granularity = Granularity.millis(context.step)
       )
       client.groupBy(groupByQuery).map { result =>
-        val series = toTimeSeries(commonTags, fetchContext, result)
+        val candidates = toTimeSeries(commonTags, fetchContext, result)
+        // After we get the candidates back from Druid we do an additional filter
+        // because Druid doesn't seem to filter properly when the dimension list for
+        // the group by matches the filter.
+        val series = candidates.filter(ts => query.couldMatch(ts.tags))
         if (offset == 0L) series else series.map(_.offset(offset))
       }
     }
