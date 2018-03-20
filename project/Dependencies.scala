@@ -13,7 +13,7 @@ object Dependencies {
     val scala      = "2.12.4"
     val servo      = "0.12.20"
     val slf4j      = "1.7.25"
-    val spectator  = "0.60.0"
+    val spectator  = "0.63.0"
 
     val crossScala = Seq(scala)
   }
@@ -75,6 +75,7 @@ object Dependencies {
   val slf4jLog4j         = "org.slf4j" % "slf4j-log4j12" % slf4j
   val slf4jSimple        = "org.slf4j" % "slf4j-simple" % slf4j
   val spectatorApi       = "com.netflix.spectator" % "spectator-api" % spectator
+  val spectatorAtlas     = "com.netflix.spectator" % "spectator-reg-atlas" % spectator
   val spectatorLog4j     = "com.netflix.spectator" % "spectator-ext-log4j2" % spectator
   val spectatorM2        = "com.netflix.spectator" % "spectator-reg-metrics2" % spectator
   val spectatorSandbox   = "com.netflix.spectator" % "spectator-ext-sandbox" % spectator

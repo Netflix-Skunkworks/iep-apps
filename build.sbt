@@ -2,6 +2,7 @@
 lazy val root = project.in(file("."))
   .configure(BuildSettings.profile)
   .aggregate(
+    `atlas-aggregator`,
     `atlas-druid`,
     `atlas-stream`,
     `iep-archaius`,
@@ -10,6 +11,23 @@ lazy val root = project.in(file("."))
     `iep-lwc-bridge`,
     `iep-lwc-cloudwatch`)
   .settings(BuildSettings.noPackaging: _*)
+
+lazy val `atlas-aggregator` = project
+  .configure(BuildSettings.profile)
+  .settings(libraryDependencies ++= Seq(
+    Dependencies.atlasJson,
+    Dependencies.atlasModuleAkka,
+    Dependencies.atlasModuleEval,
+    Dependencies.iepGuice,
+    Dependencies.iepNflxEnv,
+    Dependencies.log4jApi,
+    Dependencies.log4jCore,
+    Dependencies.log4jSlf4j,
+    Dependencies.spectatorAtlas,
+
+    Dependencies.akkaHttpTestkit % "test",
+    Dependencies.scalatest % "test"
+  ))
 
 lazy val `atlas-druid` = project
   .configure(BuildSettings.profile)
