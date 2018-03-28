@@ -51,6 +51,7 @@ import com.netflix.atlas.eval.model.TimeSeriesMessage
 import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.json.Json
 import com.netflix.atlas.json.JsonSupport
+import com.netflix.iep.NetflixEnvironment
 import com.netflix.iep.aws.AwsClientFactory
 import com.netflix.iep.aws.Pagination
 import com.netflix.iep.service.AbstractService
@@ -81,8 +82,8 @@ class ForwardingService @Inject()(
     val uri = config.getString("iep.lwc.cloudwatch.uri")
     val namespace = config.getString("iep.lwc.cloudwatch.namespace")
     val client = Http().superPool[AccessLogger]()
-    def put(account: String, request: PutMetricDataRequest): PutMetricDataResult = {
-      val cwClient = clientFactory.getInstance(classOf[AmazonCloudWatch], account)
+    def put(region: String, account: String, request: PutMetricDataRequest): PutMetricDataResult = {
+      val cwClient = clientFactory.getInstance(region, classOf[AmazonCloudWatch], account)
       cwClient.putMetricData(request)
     }
     killSwitch = autoReconnectHttpSource(uri, client)
@@ -132,7 +133,7 @@ object ForwardingService extends StrictLogging {
   // Helpers for constructing parts of the stream
   //
 
-  type PutFunction = (String, PutMetricDataRequest) => PutMetricDataResult
+  type PutFunction = (String, String, PutMetricDataRequest) => PutMetricDataResult
 
   type Client = Flow[(HttpRequest, AccessLogger), (Try[HttpResponse], AccessLogger), NotUsed]
 
@@ -262,8 +263,10 @@ object ForwardingService extends StrictLogging {
           .withNamespace(namespace)
           .withMetricData(data.map(_.datum).asJava)
 
+        val region = data.head.region
         val account = data.head.account
-        val pub = Pagination.createPublisher(request, (r: PutMetricDataRequest) => doPut(account, r))
+        val pub = Pagination.createPublisher(
+          request, (r: PutMetricDataRequest) => doPut(region, account, r))
         Source.fromPublisher(pub)
           .map { response =>
             logger.debug(s"cloudwatch put result: $response")
@@ -336,6 +339,7 @@ object ForwardingService extends StrictLogging {
   case class ForwardingExpression(
     atlasUri: String,
     account: String,
+    region: Option[String],
     metricName: String,
     dimensions: List[ForwardingDimension] = Nil) {
 
@@ -353,6 +357,8 @@ object ForwardingService extends StrictLogging {
       val name = Strings.substitute(metricName, msg.tags)
       val accountId = Strings.substitute(account, msg.tags)
 
+      val regionStr = Strings.substitute(region.getOrElse(NetflixEnvironment.region()), msg.tags)
+
       val value = msg.data match {
         case data: ArrayData => data.values(0)
         case _               => Double.NaN
@@ -364,7 +370,7 @@ object ForwardingService extends StrictLogging {
         .withTimestamp(new Date(msg.start))
         .withValue(truncate(value))
 
-      AccountDatum(accountId, datum)
+      AccountDatum(regionStr, accountId, datum)
     }
   }
 
@@ -380,7 +386,7 @@ object ForwardingService extends StrictLogging {
   // Model objects for pairing CloudWatch objects with account
   //
 
-  case class AccountDatum(account: String, datum: MetricDatum)
+  case class AccountDatum(region: String, account: String, datum: MetricDatum)
 
-  case class AccountRequest(account: String, request: PutMetricDataRequest)
+  case class AccountRequest(region: String, account: String, request: PutMetricDataRequest)
 }
