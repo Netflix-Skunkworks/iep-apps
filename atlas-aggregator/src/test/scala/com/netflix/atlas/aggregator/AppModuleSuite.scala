@@ -21,7 +21,6 @@ import com.google.inject.AbstractModule
 import com.google.inject.ConfigurationException
 import com.google.inject.Guice
 import com.google.inject.Provider
-import com.netflix.atlas.aggregator.AppModuleSuite.RegistryProvider
 import com.netflix.spectator.api.Clock
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.atlas.AtlasConfig
@@ -31,6 +30,8 @@ import com.typesafe.config.ConfigFactory
 import org.scalatest.FunSuite
 
 class AppModuleSuite extends FunSuite {
+
+  import AppModuleSuite._
 
   private val config = ConfigFactory.load()
 
@@ -64,6 +65,24 @@ class AppModuleSuite extends FunSuite {
     val app = injector.getInstance(classOf[Registry])
     val aggr = injector.getInstance(classOf[AtlasRegistry])
     assert(app != aggr)
+  }
+
+  test("aggr config should use prefix") {
+    val config = ConfigFactory.parseString(
+      """
+        |netflix.atlas.aggr.registry.atlas.uri = "test"
+      """.stripMargin)
+    val aggr = new AppModule.AggrConfig(config)
+    assert(aggr.uri() === "test")
+  }
+
+  test("aggr config should use default for missing props") {
+    val config = ConfigFactory.parseString(
+      """
+        |netflix.atlas.aggr.registry.atlas.uri = "test"
+      """.stripMargin)
+    val aggr = new AppModule.AggrConfig(config)
+    assert(aggr.batchSize() === 10000)
   }
 }
 

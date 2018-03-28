@@ -44,7 +44,8 @@ object AppModule {
   class AggrConfig(config: Config) extends AtlasConfig {
 
     override def get(k: String): String = {
-      if (config.hasPath(s"netflix.atlas.aggr.registry.$k")) config.getString(k) else null
+      val prop = s"netflix.atlas.aggr.registry.$k"
+      if (config.hasPath(prop)) config.getString(prop) else null
     }
 
     override def commonTags(): java.util.Map[String, String] = {
