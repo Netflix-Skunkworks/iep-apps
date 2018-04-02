@@ -256,7 +256,7 @@ object ForwardingService extends StrictLogging {
   def sendToCloudWatch(namespace: String, doPut: PutFunction): Flow[AccountDatum, NotUsed, NotUsed] = {
     import scala.collection.JavaConverters._
     Flow[AccountDatum]
-      .groupBy(Int.MaxValue, _.account)
+      .groupBy(Int.MaxValue, d => s"${d.region}.${d.account}") // one client per region/account
       .groupedWithin(20, 5.seconds)
       .flatMapConcat { data =>
         val request = new PutMetricDataRequest()
