@@ -36,7 +36,7 @@ class AppModule extends AbstractModule {
     val serviceBinder = Multibinder.newSetBinder(binder(), classOf[Service])
     serviceBinder.addBinding().to(classOf[AtlasAggregatorService])
 
-    bind(classOf[AtlasRegistry]).toProvider(classOf[AtlasRegistryProvider])
+    bind(classOf[AtlasRegistry]).toProvider(classOf[AtlasRegistryProvider]).asEagerSingleton()
   }
 }
 
