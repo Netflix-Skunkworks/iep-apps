@@ -83,7 +83,7 @@ object UpdateApi extends StrictLogging {
       op match {
         case ADD =>
           logger.debug(s"received updated, ADD $id $value")
-          registry.doubleCounter(id).add(value)
+          registry.counter(id).add(value)
         case MAX =>
           logger.debug(s"received updated, MAX $id $value")
           registry.maxGauge(id).set(value)
