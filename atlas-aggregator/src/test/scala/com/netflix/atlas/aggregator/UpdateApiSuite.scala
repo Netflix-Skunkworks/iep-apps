@@ -42,7 +42,7 @@ class UpdateApiSuite extends FunSuite {
       """.stripMargin)
     UpdateApi.processPayload(parser, registry)
     clock.setWallTime(62000)
-    assert(registry.doubleCounter(registry.createId("cpu")).actualCount() === 42.0)
+    assert(registry.counter(registry.createId("cpu")).actualCount() === 42.0)
   }
 
   test("payload with additional tags") {
@@ -67,7 +67,7 @@ class UpdateApiSuite extends FunSuite {
     UpdateApi.processPayload(parser, registry)
     clock.setWallTime(62000)
     val id = registry.createId("cpu", "app", "www", "zone", "1e")
-    assert(registry.doubleCounter(id).actualCount() === 42.0)
+    assert(registry.counter(id).actualCount() === 42.0)
   }
 }
 
