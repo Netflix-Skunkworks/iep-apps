@@ -71,13 +71,7 @@ object DruidFilter {
   }
 
   private def reic(k: String, p: String): JavaScript = {
-    JavaScript(k,
-      s"""
-         |function(x) {
-         |  var re = /^$p/i;
-         |  return re.test(x);
-         |}
-       """.stripMargin)
+    JavaScript(k, s"""function(x) { var re = /^$p/i; return re.test(x); }""")
   }
 
   case class Equal(dimension: String, value: String) extends DruidFilter {

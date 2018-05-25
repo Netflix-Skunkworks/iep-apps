@@ -86,9 +86,11 @@ class DruidFilterSuite extends FunSuite {
   }
 
   test("forQuery - :reic") {
-    intercept[UnsupportedOperationException] {
-      DruidFilter.forQuery(eval("country,US,:reic"))
-    }
+    DruidFilter.forQuery(eval("country,US,:reic"))
+    val actual = DruidFilter.forQuery(eval("country,US,:reic"))
+    val expected = Some(DruidFilter.JavaScript("country",
+      "function(x) { var re = /^US/i; return re.test(x); }"))
+    assert(actual === expected)
   }
 
   test("forQuery - :has") {
