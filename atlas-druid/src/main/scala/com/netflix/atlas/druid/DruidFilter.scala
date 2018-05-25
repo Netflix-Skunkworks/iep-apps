@@ -74,7 +74,7 @@ object DruidFilter {
     val `type`: String = "selector"
   }
 
-  case class Regex(dimension: String, value: String) extends DruidFilter {
+  case class Regex(dimension: String, pattern: String) extends DruidFilter {
     val `type`: String = "regex"
   }
 
