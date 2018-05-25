@@ -117,29 +117,33 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
 
   private def listValues(callback: ListCallback, tq: TagQuery): Unit = {
     tq.key.getOrElse("name") match {
-      case "name"          => listNames(callback, tq.query.getOrElse(Query.True))
-      case "nf.datasource" => listDatasources(callback, tq.query.getOrElse(Query.True))
+      case "name"          => listNames(callback, tq)
+      case "nf.datasource" => listDatasources(callback, tq)
       case k               => listDimension(callback, tq)
     }
   }
 
-  private def listNames(callback: ListCallback, query: Query): Unit = {
+  private def listNames(callback: ListCallback, tq: TagQuery): Unit = {
+    val query = tq.query.getOrElse(Query.True)
     val vs = metadata.datasources
       .flatMap(_.metrics)
       .filter(query.couldMatch)
       .map(m => m("name"))
       .distinct
       .sorted
+      .take(tq.limit)
     callback("name", vs)
   }
 
-  private def listDatasources(callback: ListCallback, query: Query): Unit = {
+  private def listDatasources(callback: ListCallback, tq: TagQuery): Unit = {
+    val query = tq.query.getOrElse(Query.True)
     val vs = metadata.datasources
       .flatMap(_.metrics)
       .filter(query.couldMatch)
       .map(m => m("nf.datasource"))
       .distinct
       .sorted
+      .take(tq.limit)
     callback("nf.datasource", vs)
   }
 
