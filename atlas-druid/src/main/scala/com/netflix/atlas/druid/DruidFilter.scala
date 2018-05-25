@@ -44,7 +44,7 @@ object DruidFilter {
       case Query.LessThanEqual(k, v)    => js(k, "<=", v)
       case Query.HasKey(k)              => JavaScript(k, "function(x) { return true; }")
       case Query.Regex(k, v)            => Regex(k, s"^$v")
-      case Query.RegexIgnoreCase(k, v)  => throw new UnsupportedOperationException(":reic")
+      case Query.RegexIgnoreCase(k, v)  => reic(k, v)
       case Query.And(q1, q2)            => And(List(toFilter(q1), toFilter(q2)))
       case Query.Or(q1, q2)             => Or(List(toFilter(q1), toFilter(q2)))
       case Query.Not(q)                 => Not(toFilter(q))
@@ -68,6 +68,16 @@ object DruidFilter {
   private def js(k: String, op: String, v: String): JavaScript = {
     val sanitizedV = sanitize(v)
     JavaScript(k, s"function(x) { return x $op '$sanitizedV'; }")
+  }
+
+  private def reic(k: String, p: String): JavaScript = {
+    JavaScript(k,
+      s"""
+         |function(x) {
+         |  var re = /^$p/i;
+         |  return re.test(x);
+         |}
+       """.stripMargin)
   }
 
   case class Equal(dimension: String, value: String) extends DruidFilter {
