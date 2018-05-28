@@ -55,13 +55,13 @@ class DruidDatabaseActorSuite extends FunSuite {
 
   test("dimension to spec: has key query") {
     val spec = toDimensionSpec("app",  Query.HasKey("app"))
-    val expected = DefaultDimensionSpec("key", "key")
+    val expected = DefaultDimensionSpec("app", "app")
     assert(spec === expected)
   }
 
   test("dimension to spec: gt query") {
     val spec = toDimensionSpec("app",  Query.GreaterThan("app", "www"))
-    val expected = DefaultDimensionSpec("key", "key")
+    val expected = DefaultDimensionSpec("app", "app")
     assert(spec === expected)
   }
 
