@@ -112,7 +112,7 @@ object DruidClient {
   // http://druid.io/docs/latest/querying/searchquery.html
   case class SearchQuery(
     dataSource: String,
-    searchDimensions: List[String],
+    searchDimensions: List[DimensionSpec],
     intervals: List[String],
     filter: Option[DruidFilter] = None,
     sort: DruidSort = DruidSort.Lexicographic,
@@ -140,13 +140,35 @@ object DruidClient {
   // http://druid.io/docs/latest/querying/groupbyquery.html
   case class GroupByQuery(
     dataSource: String,
-    dimensions: List[String],
+    dimensions: List[DimensionSpec],
     intervals: List[String],
     aggregations: List[Aggregation],
     filter: Option[DruidFilter] = None,
     granularity: Granularity = Granularity.millis(60000),
   ) {
     val queryType: String = "groupBy"
+  }
+
+  trait DimensionSpec
+
+  case class DefaultDimensionSpec(dimension: String, outputName: String) extends DimensionSpec {
+    val `type`: String = "default"
+    val outputType: String = "STRING"
+  }
+
+  case class ListFilteredDimensionSpec(
+    delegate: DimensionSpec,
+    values: List[String],
+    isWhitelist: Boolean = true
+  ) extends DimensionSpec {
+    val `type`: String = "listFiltered"
+  }
+
+  case class RegexFilteredDimensionSpec(
+    delegate: DimensionSpec,
+    pattern: String
+  ) extends DimensionSpec {
+    val `type`: String = "regexFiltered"
   }
 
   case class Aggregation(`type`: String, fieldName: String) {

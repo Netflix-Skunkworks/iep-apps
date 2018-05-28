@@ -32,6 +32,7 @@ import com.netflix.atlas.core.model.DataExpr
 import com.netflix.atlas.core.model.DsType
 import com.netflix.atlas.core.model.EvalContext
 import com.netflix.atlas.core.model.Query
+import com.netflix.atlas.core.model.Query.KeyQuery
 import com.netflix.atlas.core.model.Tag
 import com.netflix.atlas.core.model.TimeSeries
 import com.netflix.atlas.core.util.ArrayHelper
@@ -157,7 +158,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
         val druidQueries = datasources.map { ds =>
           val searchQuery = SearchQuery(
             dataSource = ds.name,
-            searchDimensions = List(k),
+            searchDimensions = List(toDimensionSpec(k, query)),
             intervals = List(tagsQueryInterval),
             filter = DruidFilter.forQuery(query),
             limit = tq.limit
@@ -212,7 +213,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
     val commonTags = exactTags(query)
 
     val dimensions = expr match {
-      case grp: DataExpr.GroupBy => grp.keys
+      case grp: DataExpr.GroupBy => grp.keys.map(k => toDimensionSpec(k, query))
       case _                     => Nil
     }
 
@@ -230,9 +231,14 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
       )
       client.groupBy(groupByQuery).map { result =>
         val candidates = toTimeSeries(commonTags, fetchContext, result)
-        // After we get the candidates back from Druid we do an additional filter
-        // because Druid doesn't seem to filter properly when the dimension list for
-        // the group by matches the filter.
+        // See behavior on multi-value dimensions:
+        // http://druid.io/docs/latest/querying/groupbyquery.html
+        //
+        // The queries sent to druid will include a filtering dimension spec to do as
+        // much of the reduction server side as possible. However, it only supports list
+        // and regex filters. Some queries, e.g., greater than, cannot be done with the
+        // server side filter so we filter candidates locally to ensure the correct
+        // results are included.
         val series = candidates.filter(ts => query.couldMatch(ts.tags))
         if (offset == 0L) series else series.map(_.offset(offset))
       }
@@ -262,6 +268,28 @@ object DruidDatabaseActor {
     }
 
     def nonEmpty: Boolean = datasource.metrics.nonEmpty
+  }
+
+  def toDimensionSpec(key: String, query: Query): DimensionSpec = {
+    val matches = Query.cnfList(query).collect {
+      case q: KeyQuery if q.k == key => q
+    }
+    toDimensionSpec(DefaultDimensionSpec(key, key), matches)
+  }
+
+  private def toDimensionSpec(delegate: DimensionSpec, queries: List[Query]): DimensionSpec = {
+    queries match {
+      case Query.Equal(_, v) :: qs =>
+        toDimensionSpec(ListFilteredDimensionSpec(delegate, List(v)), qs)
+      case Query.In(_, vs) :: qs =>
+        toDimensionSpec(ListFilteredDimensionSpec(delegate, vs), qs)
+      case Query.Regex(_, p) :: qs =>
+        toDimensionSpec(RegexFilteredDimensionSpec(delegate, s"^$p.*"), qs)
+      case _ :: qs =>
+        toDimensionSpec(delegate, qs)
+      case Nil =>
+        delegate
+    }
   }
 
   def toAggregation(name: String, expr: DataExpr): Aggregation = {
