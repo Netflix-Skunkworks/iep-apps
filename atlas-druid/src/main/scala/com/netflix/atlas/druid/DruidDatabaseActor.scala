@@ -16,7 +16,6 @@
 package com.netflix.atlas.druid
 
 import java.time.Instant
-import java.time.temporal.ChronoUnit
 
 import akka.NotUsed
 import akka.actor.Actor
@@ -59,6 +58,8 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
 
   private val client = new DruidClient(
     config.getConfig("atlas.druid"), sys, mat, Http().superPool[AccessLogger]())
+
+  private val tagsInterval = config.getDuration("atlas.druid.tags-interval")
 
   private var metadata: Metadata = Metadata(Nil)
 
@@ -181,7 +182,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
 
   private def tagsQueryInterval: String = {
     val now = Instant.now()
-    s"${now.minus(14, ChronoUnit.DAYS)}/$now"
+    s"${now.minus(tagsInterval)}/$now"
   }
 
   private def fetchData(ref: ActorRef, request: DataRequest): Unit = {
