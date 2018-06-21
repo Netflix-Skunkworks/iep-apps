@@ -222,14 +222,15 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
     val commonTags = exactTags(query)
 
     val dimensions = expr match {
-      case grp: DataExpr.GroupBy => grp.keys.map(k => toDimensionSpec(k, query))
-      case _                     => Nil
+      case g: DataExpr.GroupBy => g.keys.filterNot(isSpecial).map(k => toDimensionSpec(k, query))
+      case _                   => Nil
     }
 
     val intervals = List(toInterval(fetchContext))
     val druidQueries = metrics.map { m =>
       val name = m("name")
       val ds = m("nf.datasource")
+      val tags = commonTags ++ m
       val groupByQuery = GroupByQuery(
         dataSource = ds,
         dimensions = dimensions,
@@ -239,7 +240,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
         granularity = Granularity.millis(context.step)
       )
       client.groupBy(groupByQuery).map { result =>
-        val candidates = toTimeSeries(commonTags, fetchContext, result)
+        val candidates = toTimeSeries(tags, fetchContext, result)
         // See behavior on multi-value dimensions:
         // http://druid.io/docs/latest/querying/groupbyquery.html
         //
@@ -255,7 +256,8 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
 
     Source(druidQueries)
       .flatMapMerge(Int.MaxValue, v => v)
-      .take(1)
+      .fold(List.empty[TimeSeries])(_ ::: _)
+      .map { ts => expr.eval(context, ts).data }
   }
 
   override def postStop(): Unit = {
@@ -277,6 +279,10 @@ object DruidDatabaseActor {
     }
 
     def nonEmpty: Boolean = datasource.metrics.nonEmpty
+  }
+
+  def isSpecial(k: String): Boolean = {
+    k == "name" || k == "nf.datasource"
   }
 
   def toDimensionSpec(key: String, query: Query): DimensionSpec = {
