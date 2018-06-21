@@ -3,10 +3,10 @@ matrix:
   include:
   - jdk: oraclejdk8
     env: BINTRAY_PUBLISH=true
-  - jdk: oraclejdk9
+  - jdk: openjdk10
     env: BINTRAY_PUBLISH=false
 scala:
-- 2.12.3
+- 2.12.6
 git:
   depth: 10
 script:

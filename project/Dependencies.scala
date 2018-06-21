@@ -2,18 +2,18 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val akka       = "2.5.12"
-    val akkaHttpV  = "10.1.1"
+    val akka       = "2.5.13"
+    val akkaHttpV  = "10.1.3"
     val atlas      = "1.6.0-SNAPSHOT"
-    val aws        = "1.11.264"
-    val iep        = "1.2.0"
+    val aws        = "1.11.339"
+    val iep        = "1.2.4"
     val guice      = "4.1.0"
     val jackson    = "2.9.2"
-    val log4j      = "2.10.0"
-    val scala      = "2.12.4"
+    val log4j      = "2.11.0"
+    val scala      = "2.12.6"
     val servo      = "0.12.20"
     val slf4j      = "1.7.25"
-    val spectator  = "0.66.0"
+    val spectator  = "0.70.2"
 
     val crossScala = Seq(scala)
   }
@@ -58,7 +58,7 @@ object Dependencies {
   val jacksonSmile2      = "com.fasterxml.jackson.dataformat" % "jackson-dataformat-smile" % jackson
   val jodaConvert        = "org.joda" % "joda-convert" % "1.8.1"
   val jol                = "org.openjdk.jol" % "jol-core" % "0.5"
-  val jsr305             = "com.google.code.findbugs" % "jsr305" % "3.0.1"
+  val jsr305             = "com.google.code.findbugs" % "jsr305" % "3.0.2"
   val log4jApi           = "org.apache.logging.log4j" % "log4j-api" % log4j
   val log4jCore          = "org.apache.logging.log4j" % "log4j-core" % log4j
   val log4jJcl           = "org.apache.logging.log4j" % "log4j-jcl" % log4j
@@ -67,9 +67,9 @@ object Dependencies {
   val scalaCompiler      = "org.scala-lang" % "scala-compiler" % scala
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
   val scalaLibraryAll    = "org.scala-lang" % "scala-library-all" % scala
-  val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.7.2"
+  val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0"
   val scalaReflect       = "org.scala-lang" % "scala-reflect" % scala
-  val scalatest          = "org.scalatest" %% "scalatest" % "3.0.0"
+  val scalatest          = "org.scalatest" %% "scalatest" % "3.0.5"
   val servoCore          = "com.netflix.servo" % "servo-core" % servo
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
   val slf4jLog4j         = "org.slf4j" % "slf4j-log4j12" % slf4j
@@ -79,5 +79,5 @@ object Dependencies {
   val spectatorLog4j     = "com.netflix.spectator" % "spectator-ext-log4j2" % spectator
   val spectatorM2        = "com.netflix.spectator" % "spectator-reg-metrics2" % spectator
   val spectatorSandbox   = "com.netflix.spectator" % "spectator-ext-sandbox" % spectator
-  val typesafeConfig     = "com.typesafe" % "config" % "1.3.1"
+  val typesafeConfig     = "com.typesafe" % "config" % "1.3.3"
 }
