@@ -19,6 +19,7 @@ lazy val `atlas-aggregator` = project
     Dependencies.atlasModuleAkka,
     Dependencies.atlasModuleEval,
     Dependencies.iepGuice,
+    Dependencies.iepModuleAdmin,
     Dependencies.iepNflxEnv,
     Dependencies.log4jApi,
     Dependencies.log4jCore,

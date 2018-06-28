@@ -18,9 +18,11 @@ package com.netflix.atlas.aggregator
 import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
-
 import com.google.inject.AbstractModule
 import com.google.inject.multibindings.Multibinder
+import com.netflix.iep.admin.HttpEndpoint
+import com.netflix.iep.admin.endpoints.SpectatorEndpoint
+import com.netflix.iep.admin.guice.AdminModule
 import com.netflix.iep.service.AbstractService
 import com.netflix.iep.service.Service
 import com.netflix.spectator.api.Clock
@@ -37,6 +39,9 @@ class AppModule extends AbstractModule {
     serviceBinder.addBinding().to(classOf[AtlasAggregatorService])
 
     bind(classOf[AtlasRegistry]).toProvider(classOf[AtlasRegistryProvider]).asEagerSingleton()
+
+    AdminModule.endpointsBinder(binder())
+      .addBinding("/registry").toProvider(classOf[EndpointProvider])
   }
 }
 
@@ -72,5 +77,10 @@ object AppModule {
       val cfg = new AggrConfig(config)
       new AtlasRegistry(Clock.SYSTEM, cfg)
     }
+  }
+
+  @Singleton
+  class EndpointProvider @Inject()(registry: AtlasRegistry) extends Provider[HttpEndpoint] {
+    override def get(): HttpEndpoint = new SpectatorEndpoint(registry)
   }
 }
