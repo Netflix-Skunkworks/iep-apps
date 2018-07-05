@@ -70,8 +70,7 @@ class ExpressionsEvaluator {
     values.foreach { v =>
       val subs = index.matchingEntries(v.tags)
       subs.foreach { sub =>
-        // TODO: avoid duplicate check of query when spectator 0.62.0 is released
-        val aggr = aggregates.getOrElseUpdate(sub.getId, sub.dataExpr().aggregator())
+        val aggr = aggregates.getOrElseUpdate(sub.getId, newAggregator(sub))
         aggr.update(toPair(v))
       }
     }
@@ -86,6 +85,11 @@ class ExpressionsEvaluator {
     }
 
     new EvalPayload(timestamp, metrics)
+  }
+
+  private def newAggregator(sub: Subscription): Aggregator = {
+    val tags = sub.dataExpr().query().exactTags()
+    sub.dataExpr().aggregator(tags, false)
   }
 
   private def toPair(d: Datapoint): TagsValuePair = {
