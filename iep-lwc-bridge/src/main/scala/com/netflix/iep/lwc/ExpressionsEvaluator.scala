@@ -15,6 +15,8 @@
  */
 package com.netflix.iep.lwc
 
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 import com.netflix.atlas.core.index.QueryIndex
@@ -23,6 +25,7 @@ import com.netflix.atlas.core.model.Query
 import com.netflix.atlas.core.model.QueryVocabulary
 import com.netflix.atlas.core.stacklang.Interpreter
 import com.netflix.atlas.core.util.SmallHashMap
+import com.netflix.spectator.api.Utils
 import com.netflix.spectator.atlas.impl.DataExpr.Aggregator
 import com.netflix.spectator.atlas.impl.EvalPayload
 import com.netflix.spectator.atlas.impl.Subscription
@@ -37,6 +40,8 @@ class ExpressionsEvaluator {
   import ExpressionsEvaluator._
 
   private val indexRef = new AtomicReference[QueryIndex[Subscription]](emptyIndex)
+
+  private val statsMap = new ConcurrentHashMap[String, SubscriptionStats]()
 
   /**
     * Synchronize the set of subscriptions for this evaluator with the specified list. Typically
@@ -69,9 +74,13 @@ class ExpressionsEvaluator {
     val aggregates = collection.mutable.AnyRefMap.empty[String, Aggregator]
     values.foreach { v =>
       val subs = index.matchingEntries(v.tags)
-      subs.foreach { sub =>
-        val aggr = aggregates.getOrElseUpdate(sub.getId, newAggregator(sub))
-        aggr.update(toPair(v))
+      if (subs.nonEmpty) {
+        val pair = toPair(v)
+        subs.foreach { sub =>
+          Utils.computeIfAbsent(statsMap, sub.getId, (_: String) => SubscriptionStats(sub)).update()
+          val aggr = aggregates.getOrElseUpdate(sub.getId, newAggregator(sub))
+          aggr.update(pair)
+        }
       }
     }
 
@@ -102,9 +111,33 @@ class ExpressionsEvaluator {
     }
     new TagsValuePair(jmap, d.value)
   }
+
+  /** Return some basic stats about the subscriptions that are being evaluated. */
+  def stats: List[SubscriptionStats] = {
+    val builder = List.newBuilder[SubscriptionStats]
+    val iter = statsMap.entrySet().iterator()
+    while (iter.hasNext) {
+      val entry = iter.next()
+      val ss = entry.getValue
+      if (ss.age > OneHour) {
+        iter.remove()
+      } else {
+        builder += ss
+      }
+    }
+    builder.result()
+  }
+
+  /** Clear all internal state for this evaluator. */
+  def clear(): Unit = {
+    indexRef.set(emptyIndex)
+    statsMap.clear()
+  }
 }
 
 object ExpressionsEvaluator {
+  private val OneHour = 60 * 60 * 1000
+
   private val interpreter = Interpreter(QueryVocabulary.words)
 
   private val emptyIndex = QueryIndex.create[Subscription](Nil)
@@ -113,5 +146,18 @@ object ExpressionsEvaluator {
     val stack = interpreter.execute(str).stack
     require(stack.lengthCompare(1) == 0, s"invalid query: $str")
     stack.head.asInstanceOf[Query]
+  }
+
+  case class SubscriptionStats(
+    sub: Subscription,
+    lastUpdateTime: AtomicLong = new AtomicLong(),
+    updateCount: AtomicLong = new AtomicLong()) {
+
+    def update(): Unit = {
+      lastUpdateTime.set(System.currentTimeMillis())
+      updateCount.incrementAndGet()
+    }
+
+    def age: Long = System.currentTimeMillis() - lastUpdateTime.get()
   }
 }
