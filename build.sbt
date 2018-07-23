@@ -111,6 +111,7 @@ lazy val `iep-lwc-bridge` = project
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,
+    Dependencies.spectatorAtlas,
 
     Dependencies.akkaHttpTestkit % "test",
     Dependencies.scalatest % "test"
