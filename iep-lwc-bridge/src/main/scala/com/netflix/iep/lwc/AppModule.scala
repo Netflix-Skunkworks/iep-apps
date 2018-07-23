@@ -16,9 +16,14 @@
 package com.netflix.iep.lwc
 
 import com.google.inject.AbstractModule
+import com.google.inject.multibindings.Multibinder
+import com.netflix.iep.service.Service
 
 class AppModule extends AbstractModule {
   override def configure(): Unit = {
     bind(classOf[ExpressionsEvaluator]).toInstance(new ExpressionsEvaluator)
+
+    val serviceBinder = Multibinder.newSetBinder(binder(), classOf[Service])
+    serviceBinder.addBinding().to(classOf[ExprUpdateService])
   }
 }

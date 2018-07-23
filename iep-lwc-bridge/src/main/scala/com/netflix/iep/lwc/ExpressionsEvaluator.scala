@@ -43,6 +43,9 @@ class ExpressionsEvaluator {
 
   private val statsMap = new ConcurrentHashMap[String, SubscriptionStats]()
 
+  /** Return the query index for this evaluator. */
+  private[lwc] def index: QueryIndex[Subscription] = indexRef.get()
+
   /**
     * Synchronize the set of subscriptions for this evaluator with the specified list. Typically
     * the list will come from the `/expressions` endpoint of the LWC API service.
