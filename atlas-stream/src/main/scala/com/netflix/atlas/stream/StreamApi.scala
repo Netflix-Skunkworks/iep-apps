@@ -20,6 +20,7 @@ import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model.headers.Connection
 import akka.http.scaladsl.server.Route
 import akka.stream.ThrottleMode
 import akka.stream.scaladsl.Source
@@ -53,7 +54,8 @@ class StreamApi(evaluator: Evaluator) extends WebApi {
             }
             .merge(heartbeatSrc)
           val entity = HttpEntity(MediaTypes.`text/event-stream`, src)
-          complete(HttpResponse(StatusCodes.OK, entity = entity))
+          val headers = List(Connection("close"))
+          complete(HttpResponse(StatusCodes.OK, headers = headers, entity = entity))
         }
       }
     }
