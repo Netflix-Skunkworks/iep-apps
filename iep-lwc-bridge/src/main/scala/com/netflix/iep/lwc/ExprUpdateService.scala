@@ -42,6 +42,7 @@ import com.netflix.spectator.api.patterns.PolledMeter
 import com.netflix.spectator.atlas.impl.Subscriptions
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
+import javax.inject.Inject
 
 import scala.util.Success
 
@@ -49,8 +50,11 @@ import scala.util.Success
 /**
   * Refresh the set of expressions from the LWC service.
   */
-class ExprUpdateService(config: Config, registry: Registry, evaluator: ExpressionsEvaluator)
-  extends AbstractService with StrictLogging {
+class ExprUpdateService @Inject() (
+  config: Config,
+  registry: Registry,
+  evaluator: ExpressionsEvaluator
+) extends AbstractService with StrictLogging {
 
   import scala.concurrent.duration._
 
