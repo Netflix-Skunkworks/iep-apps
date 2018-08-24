@@ -18,8 +18,8 @@ package com.netflix.iep.lwc
 import java.nio.charset.StandardCharsets
 import java.util.Date
 import java.util.regex.Pattern
-import javax.inject.Inject
 
+import javax.inject.Inject
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -27,6 +27,7 @@ import akka.http.scaladsl.model.HttpMethods
 import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.StatusCodes
+import akka.stream.AbruptTerminationException
 import akka.stream.ActorMaterializer
 import akka.stream.KillSwitch
 import akka.stream.KillSwitches
@@ -60,6 +61,8 @@ import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.concurrent.duration._
+import scala.util.Failure
+import scala.util.Success
 import scala.util.Try
 
 class ForwardingService @Inject()(
@@ -69,10 +72,13 @@ class ForwardingService @Inject()(
   clientFactory: AwsClientFactory,
   implicit val system: ActorSystem)
 
-  extends AbstractService {
+  extends AbstractService with StrictLogging {
 
   import ForwardingService._
 
+  private val streamFailures = registry.counter("forwarding.streamFailures")
+
+  private implicit val ec = scala.concurrent.ExecutionContext.global
   private implicit val mat = ActorMaterializer()
 
   private var killSwitch: KillSwitch = _
@@ -92,6 +98,18 @@ class ForwardingService @Inject()(
       .via(Flow.fromProcessor(() => evaluator.createStreamsProcessor()))
       .via(toMetricDatum(registry))
       .via(sendToCloudWatch(namespace, put))
+      .watchTermination() { (_, f) =>
+        f.onComplete {
+          case Success(_) | Failure(_: AbruptTerminationException) =>
+            // AbruptTerminationException will be triggered if the associated ActorSystem
+            // is shutdown before the stream.
+            logger.info(s"shutting down forwarding stream")
+          case Failure(t) =>
+            streamFailures.increment()
+            logger.error(s"forwarding stream failed, attempting to restart", t)
+            startImpl()
+        }
+      }
       .viaMat(KillSwitches.single)(Keep.right)
       .toMat(Sink.ignore)(Keep.left)
       .run()
