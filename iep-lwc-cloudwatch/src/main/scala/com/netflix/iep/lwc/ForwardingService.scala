@@ -27,6 +27,7 @@ import akka.http.scaladsl.model.HttpMethods
 import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.StatusCodes
+import akka.stream.AbruptTerminationException
 import akka.stream.ActorMaterializer
 import akka.stream.KillSwitch
 import akka.stream.KillSwitches
@@ -99,7 +100,9 @@ class ForwardingService @Inject()(
       .via(sendToCloudWatch(namespace, put))
       .watchTermination() { (_, f) =>
         f.onComplete {
-          case Success(_) =>
+          case Success(_) | Failure(_: AbruptTerminationException) =>
+            // AbruptTerminationException will be triggered if the associated ActorSystem
+            // is shutdown before the stream.
             logger.info(s"shutting down forwarding stream")
           case Failure(t) =>
             streamFailures.increment()
