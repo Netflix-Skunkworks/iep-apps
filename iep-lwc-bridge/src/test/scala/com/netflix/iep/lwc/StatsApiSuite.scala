@@ -25,6 +25,7 @@ import com.netflix.atlas.akka.RequestHandler
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.json.Json
 import com.netflix.spectator.atlas.impl.Subscription
+import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfter
 import org.scalatest.FunSuite
 
@@ -36,7 +37,8 @@ class StatsApiSuite extends FunSuite with ScalatestRouteTest with BeforeAndAfter
 
   private implicit val routeTestTimeout = RouteTestTimeout(5.second)
 
-  private val evaluator = new ExpressionsEvaluator
+  private val config = ConfigFactory.load()
+  private val evaluator = new ExpressionsEvaluator(config)
   private val endpoint = new StatsApi(evaluator)
   private val routes = RequestHandler.standardOptions(endpoint.routes)
 
