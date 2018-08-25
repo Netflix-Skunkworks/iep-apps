@@ -21,7 +21,7 @@ import com.netflix.iep.service.Service
 
 class AppModule extends AbstractModule {
   override def configure(): Unit = {
-    bind(classOf[ExpressionsEvaluator]).toInstance(new ExpressionsEvaluator)
+    bind(classOf[ExpressionsEvaluator]).to(classOf[ExpressionsEvaluator]).asEagerSingleton()
 
     val serviceBinder = Multibinder.newSetBinder(binder(), classOf[Service])
     serviceBinder.addBinding().to(classOf[ExprUpdateService])

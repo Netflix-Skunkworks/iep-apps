@@ -17,11 +17,14 @@ package com.netflix.iep.lwc
 
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.spectator.atlas.impl.Subscription
+import com.typesafe.config.ConfigFactory
 import org.scalatest.FunSuite
 
 class ExpressionsEvaluatorSuite extends FunSuite {
 
   import scala.collection.JavaConverters._
+
+  private val config = ConfigFactory.load()
 
   // pick an arbitrary time
   private val timestamp = 42 * 60000
@@ -49,14 +52,14 @@ class ExpressionsEvaluatorSuite extends FunSuite {
   }
 
   test("eval with no expressions") {
-    val evaluator = new ExpressionsEvaluator
+    val evaluator = new ExpressionsEvaluator(config)
     val payload = evaluator.eval(timestamp, data(1.0))
     assert(payload.getTimestamp === timestamp)
     assert(payload.getMetrics.isEmpty)
   }
 
   test("eval with single expression") {
-    val evaluator = new ExpressionsEvaluator
+    val evaluator = new ExpressionsEvaluator(config)
     evaluator.sync(createSubs("node,i-00,:eq,:sum"))
     val payload = evaluator.eval(timestamp, data(1.0))
     assert(payload.getTimestamp === timestamp)
@@ -68,7 +71,7 @@ class ExpressionsEvaluatorSuite extends FunSuite {
   }
 
   test("eval with multiple datapoints for an aggregate") {
-    val evaluator = new ExpressionsEvaluator
+    val evaluator = new ExpressionsEvaluator(config)
     evaluator.sync(createSubs("node,i-00,:eq,:sum"))
     val payload = evaluator.eval(timestamp, data(1.0) ::: data(4.0))
     assert(payload.getTimestamp === timestamp)
@@ -80,7 +83,7 @@ class ExpressionsEvaluatorSuite extends FunSuite {
   }
 
   test("eval with multiple expressions") {
-    val evaluator = new ExpressionsEvaluator
+    val evaluator = new ExpressionsEvaluator(config)
     evaluator.sync(createSubs("node,i-00,:eq,:sum", "node,i-00,:eq,:max"))
     val payload = evaluator.eval(timestamp, data(1.0) ::: data(4.0))
     assert(payload.getTimestamp === timestamp)
@@ -93,7 +96,7 @@ class ExpressionsEvaluatorSuite extends FunSuite {
   }
 
   test("sync: add/remove expressions") {
-    val evaluator = new ExpressionsEvaluator
+    val evaluator = new ExpressionsEvaluator(config)
     evaluator.sync(createSubs("node,i-00,:eq,:sum"))
     var payload = evaluator.eval(timestamp, data(1.0) ::: data(4.0))
     assert(payload.getMetrics.size() === 1)

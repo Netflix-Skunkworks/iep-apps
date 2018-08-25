@@ -30,14 +30,24 @@ import com.netflix.spectator.atlas.impl.DataExpr.Aggregator
 import com.netflix.spectator.atlas.impl.EvalPayload
 import com.netflix.spectator.atlas.impl.Subscription
 import com.netflix.spectator.atlas.impl.TagsValuePair
+import com.typesafe.config.Config
+import com.typesafe.scalalogging.StrictLogging
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
   * Evaluate a set of data expressions from the LWC API service. This performs the same
   * basic role as the Evaluator class from the Spectator Atlas registry, but leverages the
   * query index from Atlas so it can scale to a much larger set of expressions.
   */
-class ExpressionsEvaluator {
+@Singleton
+class ExpressionsEvaluator @Inject()(config: Config) extends StrictLogging {
   import ExpressionsEvaluator._
+
+  private val subIdsToLog = {
+    import scala.collection.JavaConverters._
+    config.getStringList("netflix.iep.lwc.bridge.logging.subscriptions").asScala.toSet
+  }
 
   private val indexRef = new AtomicReference[QueryIndex[Subscription]](emptyIndex)
 
@@ -83,6 +93,9 @@ class ExpressionsEvaluator {
           Utils.computeIfAbsent(statsMap, sub.getId, (_: String) => SubscriptionStats(sub)).update()
           val aggr = aggregates.getOrElseUpdate(sub.getId, newAggregator(sub))
           aggr.update(pair)
+          if (subIdsToLog.contains(sub.getId)) {
+            logger.info(s"received value for $sub: $pair")
+          }
         }
       }
     }
@@ -93,6 +106,9 @@ class ExpressionsEvaluator {
         aggr.result().forEach { pair =>
           val m = new EvalPayload.Metric(id, pair.tags(), pair.value())
           metrics.add(m)
+          if (subIdsToLog.contains(id)) {
+            logger.info(s"sending aggr value for $id: $m")
+          }
         }
     }
 
