@@ -16,6 +16,7 @@
 package com.netflix.iep.lwc
 
 import java.util.Date
+import java.util.concurrent.atomic.AtomicLong
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
@@ -173,7 +174,7 @@ class ForwardingServiceSuite extends FunSuite {
       new PutMetricDataResult
     }
     val future = Source(vs)
-      .via(sendToCloudWatch(ns, doPut))
+      .via(sendToCloudWatch(new AtomicLong(), ns, doPut))
       .runWith(Sink.ignore)
     Await.result(future, Duration.Inf)
     requests.result()

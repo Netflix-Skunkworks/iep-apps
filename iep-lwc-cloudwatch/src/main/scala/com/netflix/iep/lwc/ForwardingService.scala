@@ -17,6 +17,7 @@ package com.netflix.iep.lwc
 
 import java.nio.charset.StandardCharsets
 import java.util.Date
+import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
 
 import javax.inject.Inject
@@ -56,7 +57,9 @@ import com.netflix.iep.NetflixEnvironment
 import com.netflix.iep.aws.AwsClientFactory
 import com.netflix.iep.aws.Pagination
 import com.netflix.iep.service.AbstractService
+import com.netflix.spectator.api.Functions
 import com.netflix.spectator.api.Registry
+import com.netflix.spectator.api.patterns.PolledMeter
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
@@ -81,6 +84,12 @@ class ForwardingService @Inject()(
   private implicit val ec = scala.concurrent.ExecutionContext.global
   private implicit val mat = ActorMaterializer()
 
+  private val clock = registry.clock()
+  private val lastSuccessfulPutTime = PolledMeter
+    .using(registry)
+    .withName("forwarding.timeSinceLastPut")
+    .monitorValue(new AtomicLong(clock.wallTime()), Functions.age(clock))
+
   private var killSwitch: KillSwitch = _
 
   override def startImpl(): Unit = {
@@ -97,7 +106,7 @@ class ForwardingService @Inject()(
       .via(toDataSources(pattern))
       .via(Flow.fromProcessor(() => evaluator.createStreamsProcessor()))
       .via(toMetricDatum(registry))
-      .via(sendToCloudWatch(namespace, put))
+      .via(sendToCloudWatch(lastSuccessfulPutTime, namespace, put))
       .watchTermination() { (_, f) =>
         f.onComplete {
           case Success(_) | Failure(_: AbruptTerminationException) =>
@@ -262,6 +271,10 @@ object ForwardingService extends StrictLogging {
   /**
     * Batch the input datapoints and send to CloudWatch.
     *
+    * @param lastSuccessfulPutTime
+    *     Gets updated with the current timestamp everytime there is a successful put. Can
+    *     be used to track if there is a failure and we are not successfully sending any data
+    *     to cloudwatch.
     * @param namespace
     *     Namespace to use for the custom metrics sent to CloudWatch. For more information
     *     see: http://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/aws-namespaces.html.
@@ -271,7 +284,11 @@ object ForwardingService extends StrictLogging {
     * @return
     *     Flow converting a stream of MetricDatum to a stream of PutMetricDataRequest objects.
     */
-  def sendToCloudWatch(namespace: String, doPut: PutFunction): Flow[AccountDatum, NotUsed, NotUsed] = {
+  def sendToCloudWatch(
+    lastSuccessfulPutTime: AtomicLong,
+    namespace: String,
+    doPut: PutFunction): Flow[AccountDatum, NotUsed, NotUsed] = {
+
     import scala.collection.JavaConverters._
     Flow[AccountDatum]
       .groupBy(Int.MaxValue, d => s"${d.region}.${d.account}") // one client per region/account
@@ -288,6 +305,7 @@ object ForwardingService extends StrictLogging {
         Source.fromPublisher(pub)
           .map { response =>
             logger.debug(s"cloudwatch put result: $response")
+            lastSuccessfulPutTime.set(System.currentTimeMillis())
             NotUsed
           }
           .recover {
