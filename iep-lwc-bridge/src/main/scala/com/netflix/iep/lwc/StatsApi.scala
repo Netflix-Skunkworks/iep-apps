@@ -21,6 +21,7 @@ import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
+import com.netflix.atlas.akka.CustomDirectives._
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.json.Json
 
@@ -30,7 +31,7 @@ import com.netflix.atlas.json.Json
 class StatsApi(evaluator: ExpressionsEvaluator) extends WebApi {
 
   override def routes: Route = {
-    pathPrefix("api" / "v1" / "stats") {
+    endpointPathPrefix("api" / "v1" / "stats") {
       get {
         val stats = Json.encode(evaluator.stats)
         val entity = HttpEntity(MediaTypes.`application/json`, stats)

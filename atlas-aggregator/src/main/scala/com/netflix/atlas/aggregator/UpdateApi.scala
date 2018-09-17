@@ -46,7 +46,7 @@ class UpdateApi @Inject() (
   import UpdateApi._
 
   def routes: Route = {
-    path("api" / "v4" / "update") {
+    endpointPath("api" / "v4" / "update") {
       post {
         parseEntity(customJson(p => processPayload(p, aggrRegistry))) { payload =>
           val src = Source.single(ByteString("{}"))

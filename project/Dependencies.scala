@@ -13,7 +13,7 @@ object Dependencies {
     val scala      = "2.12.6"
     val servo      = "0.12.25"
     val slf4j      = "1.7.25"
-    val spectator  = "0.74.4"
+    val spectator  = "0.76.0"
 
     val crossScala = Seq(scala)
   }

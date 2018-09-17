@@ -27,6 +27,7 @@ import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
+import com.netflix.atlas.akka.CustomDirectives._
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.json.Json
 import com.netflix.frigga.Names
@@ -37,7 +38,7 @@ class PropertiesApi(
     implicit val actorRefFactory: ActorRefFactory) extends WebApi {
 
   def routes: Route = {
-    path("api" / "v1" / "property") {
+    endpointPath("api" / "v1" / "property") {
       get {
         parameter("asg") { asg =>
           extractRequest { request =>
