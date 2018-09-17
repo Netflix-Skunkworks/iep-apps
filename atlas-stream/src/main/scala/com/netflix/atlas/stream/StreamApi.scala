@@ -25,6 +25,7 @@ import akka.http.scaladsl.server.Route
 import akka.stream.ThrottleMode
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
+import com.netflix.atlas.akka.CustomDirectives._
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.eval.stream.Evaluator
 
@@ -39,7 +40,7 @@ class StreamApi(evaluator: Evaluator) extends WebApi {
   private val heartbeat = ByteString(s"""data: {"type":"heartbeat"}\r\n\r\n""")
 
   def routes: Route = {
-    path("stream" / RemainingPath) { path =>
+    endpointPath("stream", RemainingPath) { path =>
       get {
         extractUri { uri =>
           val q = uri.rawQueryString.getOrElse("")

@@ -33,7 +33,7 @@ class UpdateApi(implicit val actorRefFactory: ActorRefFactory) extends WebApi {
   private val publishRef = actorRefFactory.actorSelection("/user/publish")
 
   override def routes: Route = {
-    pathPrefix("database" / "v1" / "update") {
+    endpointPathPrefix("database" / "v1" / "update") {
       post {
         extractRequestContext { ctx =>
           parseEntity(customJson(p => PublishApi.decodeList(p))) { datapoints =>
