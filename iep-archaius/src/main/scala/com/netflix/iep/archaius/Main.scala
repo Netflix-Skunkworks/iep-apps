@@ -78,7 +78,8 @@ object Main {
     @Provides
     protected def providesDynamoDBClient(config: Config): AmazonDynamoDB = {
       val region = config.getString("netflix.iep.env.region")
-      AmazonDynamoDBClient.builder()
+      AmazonDynamoDBClient
+        .builder()
         .withCredentials(new DefaultAWSCredentialsProviderChain)
         .withRegion(region)
         .build()

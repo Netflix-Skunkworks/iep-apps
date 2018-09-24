@@ -31,7 +31,6 @@ import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.ManualClock
 import org.scalatest.FunSuite
 
-
 class PropertiesApiSuite extends FunSuite with ScalatestRouteTest {
   import scala.concurrent.duration._
   implicit val routeTestTimeout = RouteTestTimeout(5.second)
@@ -60,20 +59,22 @@ class PropertiesApiSuite extends FunSuite with ScalatestRouteTest {
   test("empty") {
     propContext.update(Nil)
     Get("/api/v1/property?asg=foo-main-v001") ~>
-      addHeader(Accept(MediaTypes.`application/json`)) ~>
-      routes ~>
-      check {
-        assertResponse(response, StatusCodes.OK)
-        assert(responseAs[String] === "[]")
-      }
+    addHeader(Accept(MediaTypes.`application/json`)) ~>
+    routes ~>
+    check {
+      assertResponse(response, StatusCodes.OK)
+      assert(responseAs[String] === "[]")
+    }
   }
 
   test("properties response") {
-    propContext.update(List(
-      PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L),
-      PropertiesApi.Property("foo-main::1", "foo-main", "1", "2", 12345L),
-      PropertiesApi.Property("bar-main::c", "bar-main", "c", "d", 12345L)
-    ))
+    propContext.update(
+      List(
+        PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L),
+        PropertiesApi.Property("foo-main::1", "foo-main", "1", "2", 12345L),
+        PropertiesApi.Property("bar-main::c", "bar-main", "c", "d", 12345L)
+      )
+    )
     Get("/api/v1/property?asg=foo-main-v001") ~> routes ~> check {
       assert(response.status === StatusCodes.OK)
       val props = new Properties
@@ -85,16 +86,18 @@ class PropertiesApiSuite extends FunSuite with ScalatestRouteTest {
   }
 
   test("json response") {
-    propContext.update(List(
-      PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L)
-    ))
+    propContext.update(
+      List(
+        PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L)
+      )
+    )
     Get("/api/v1/property?asg=foo-main-v001") ~>
-      addHeader(Accept(MediaTypes.`application/json`)) ~>
-      routes ~>
-      check {
-        assertResponse(response, StatusCodes.OK)
-        val props = Json.decode[List[PropertiesApi.Property]](responseAs[String])
-        assert(props === List(PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L)))
-      }
+    addHeader(Accept(MediaTypes.`application/json`)) ~>
+    routes ~>
+    check {
+      assertResponse(response, StatusCodes.OK)
+      val props = Json.decode[List[PropertiesApi.Property]](responseAs[String])
+      assert(props === List(PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L)))
+    }
   }
 }

@@ -29,7 +29,6 @@ import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfter
 import org.scalatest.FunSuite
 
-
 class StatsApiSuite extends FunSuite with ScalatestRouteTest with BeforeAndAfter {
 
   import scala.collection.JavaConverters._

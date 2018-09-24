@@ -24,49 +24,45 @@ class DruidDatabaseActorSuite extends FunSuite {
   import DruidDatabaseActor._
 
   test("dimension to spec no matches") {
-    val spec = toDimensionSpec("key",  Query.Equal("app", "www"))
+    val spec = toDimensionSpec("key", Query.Equal("app", "www"))
     val expected = DefaultDimensionSpec("key", "key")
     assert(spec === expected)
   }
 
   test("dimension to spec: equal query") {
-    val spec = toDimensionSpec("app",  Query.Equal("app", "www"))
-    val expected = ListFilteredDimensionSpec(
-      DefaultDimensionSpec("app", "app"),
-      List("www"))
+    val spec = toDimensionSpec("app", Query.Equal("app", "www"))
+    val expected = ListFilteredDimensionSpec(DefaultDimensionSpec("app", "app"), List("www"))
     assert(spec === expected)
   }
 
   test("dimension to spec: in query") {
-    val spec = toDimensionSpec("app",  Query.In("app", List("a", "b", "c")))
-    val expected = ListFilteredDimensionSpec(
-      DefaultDimensionSpec("app", "app"),
-      List("a", "b", "c"))
+    val spec = toDimensionSpec("app", Query.In("app", List("a", "b", "c")))
+    val expected =
+      ListFilteredDimensionSpec(DefaultDimensionSpec("app", "app"), List("a", "b", "c"))
     assert(spec === expected)
   }
 
   test("dimension to spec: regex query") {
-    val spec = toDimensionSpec("app",  Query.Regex("app", "www"))
-    val expected = RegexFilteredDimensionSpec(
-      DefaultDimensionSpec("app", "app"),
-      "^www.*")
+    val spec = toDimensionSpec("app", Query.Regex("app", "www"))
+    val expected = RegexFilteredDimensionSpec(DefaultDimensionSpec("app", "app"), "^www.*")
     assert(spec === expected)
   }
 
   test("dimension to spec: has key query") {
-    val spec = toDimensionSpec("app",  Query.HasKey("app"))
+    val spec = toDimensionSpec("app", Query.HasKey("app"))
     val expected = DefaultDimensionSpec("app", "app")
     assert(spec === expected)
   }
 
   test("dimension to spec: gt query") {
-    val spec = toDimensionSpec("app",  Query.GreaterThan("app", "www"))
+    val spec = toDimensionSpec("app", Query.GreaterThan("app", "www"))
     val expected = DefaultDimensionSpec("app", "app")
     assert(spec === expected)
   }
 
   test("dimension to spec: nested") {
-    val spec = toDimensionSpec("app",
+    val spec = toDimensionSpec(
+      "app",
       Query.And(
         Query.Regex("app", "www"),
         Query.And(
@@ -77,9 +73,7 @@ class DruidDatabaseActorSuite extends FunSuite {
     )
     val expected = ListFilteredDimensionSpec(
       ListFilteredDimensionSpec(
-        RegexFilteredDimensionSpec(
-          DefaultDimensionSpec("app", "app"),
-          "^www.*"),
+        RegexFilteredDimensionSpec(DefaultDimensionSpec("app", "app"), "^www.*"),
         List("abc")
       ),
       List("a", "b", "c")

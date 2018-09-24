@@ -44,7 +44,8 @@ class ExprUpdateServiceSuite extends FunSuite with BeforeAndAfter {
   private val service = new ExprUpdateService(config, registry, evaluator)
 
   private def update(response: HttpResponse): Unit = {
-    val future = Source.single(response)
+    val future = Source
+      .single(response)
       .via(service.syncExpressionsFlow)
       .runWith(Sink.head)
     Await.ready(future, Duration.Inf)

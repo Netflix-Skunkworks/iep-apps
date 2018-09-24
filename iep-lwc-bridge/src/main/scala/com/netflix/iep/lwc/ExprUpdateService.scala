@@ -46,21 +46,22 @@ import javax.inject.Inject
 
 import scala.util.Success
 
-
 /**
   * Refresh the set of expressions from the LWC service.
   */
-class ExprUpdateService @Inject() (
+class ExprUpdateService @Inject()(
   config: Config,
   registry: Registry,
   evaluator: ExpressionsEvaluator
-) extends AbstractService with StrictLogging {
+) extends AbstractService
+    with StrictLogging {
 
   import scala.concurrent.duration._
 
   private val configUri = Uri(config.getString("netflix.iep.lwc.bridge.config-uri"))
 
-  private val lastUpdateTime = PolledMeter.using(registry)
+  private val lastUpdateTime = PolledMeter
+    .using(registry)
     .withName("lwc.expressionsAge")
     .monitorValue(new AtomicLong(registry.clock().wallTime()), Functions.age(registry.clock()))
 
@@ -72,7 +73,8 @@ class ExprUpdateService @Inject() (
   override def startImpl(): Unit = {
     val request = HttpRequest(HttpMethods.GET, configUri)
     val client = Http().superPool[AccessLogger]()
-    killSwitch = Source.repeat(NotUsed)
+    killSwitch = Source
+      .repeat(NotUsed)
       .throttle(1, 10.seconds, 1, ThrottleMode.Shaping)
       .map { _ =>
         request -> AccessLogger.newClientLogger("lwc-subs", request)
@@ -117,4 +119,3 @@ class ExprUpdateService @Inject() (
     if (killSwitch != null) killSwitch.shutdown()
   }
 }
-

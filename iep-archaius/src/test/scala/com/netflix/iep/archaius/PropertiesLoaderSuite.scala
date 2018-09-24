@@ -28,14 +28,13 @@ import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.FunSuiteLike
 
+class PropertiesLoaderSuite
+    extends TestKit(ActorSystem())
+    with ImplicitSender
+    with FunSuiteLike
+    with BeforeAndAfterAll {
 
-class PropertiesLoaderSuite extends TestKit(ActorSystem())
-  with ImplicitSender
-  with FunSuiteLike
-  with BeforeAndAfterAll {
-
-  val config = ConfigFactory.parseString(
-    """
+  val config = ConfigFactory.parseString("""
       |netflix.iep.archaius.table = "test"
     """.stripMargin)
 
@@ -46,7 +45,7 @@ class PropertiesLoaderSuite extends TestKit(ActorSystem())
   val ddb = new MockDynamoDB
   val service = new DynamoService(ddb.client, config)
 
-  val items = newItems("foo-main", Map("a" -> "b", "1" -> "2"))
+  val items = newItems("foo-main", Map("a"  -> "b", "1" -> "2"))
   items.addAll(newItems("bar-main", Map("c" -> "d")))
   ddb.scanResult = new ScanResult().withItems(items)
 
@@ -65,36 +64,41 @@ class PropertiesLoaderSuite extends TestKit(ActorSystem())
   test("init") {
     waitForUpdate()
     assert(propContext.initialized)
-    assert(propContext.getAll === List(
-      PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L),
-      PropertiesApi.Property("foo-main::1", "foo-main", "1", "2", 12345L),
-      PropertiesApi.Property("bar-main::c", "bar-main", "c", "d", 12345L)
-    ))
+    assert(
+      propContext.getAll === List(
+        PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L),
+        PropertiesApi.Property("foo-main::1", "foo-main", "1", "2", 12345L),
+        PropertiesApi.Property("bar-main::c", "bar-main", "c", "d", 12345L)
+      )
+    )
   }
 
   test("update") {
-    val items = newItems("foo-main", Map("a" -> "b"))
+    val items = newItems("foo-main", Map("a"  -> "b"))
     items.addAll(newItems("bar-main", Map("c" -> "d")))
     ddb.scanResult = new ScanResult().withItems(items)
 
     waitForUpdate()
 
-    assert(propContext.getAll === List(
-      PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L),
-      PropertiesApi.Property("bar-main::c", "bar-main", "c", "d", 12345L)
-    ))
+    assert(
+      propContext.getAll === List(
+        PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L),
+        PropertiesApi.Property("bar-main::c", "bar-main", "c", "d", 12345L)
+      )
+    )
   }
 
   private def newItems(cluster: String, props: Map[String, String]): Items = {
     val items = new java.util.ArrayList[AttrMap]()
-    props.foreach { case (k, v) =>
-      val prop = PropertiesApi.Property(s"$cluster::$k", cluster, k, v, 12345L)
-      val value = new AttributeValue().withS(Json.encode(prop))
-      val timestamp = new AttributeValue().withS("12345")
-      val m = new java.util.HashMap[String, AttributeValue]()
-      m.put("data", value)
-      m.put("timestamp", timestamp)
-      items.add(m)
+    props.foreach {
+      case (k, v) =>
+        val prop = PropertiesApi.Property(s"$cluster::$k", cluster, k, v, 12345L)
+        val value = new AttributeValue().withS(Json.encode(prop))
+        val timestamp = new AttributeValue().withS("12345")
+        val m = new java.util.HashMap[String, AttributeValue]()
+        m.put("data", value)
+        m.put("timestamp", timestamp)
+        items.add(m)
     }
     items
   }

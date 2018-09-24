@@ -40,9 +40,7 @@ import scala.concurrent.Future
   * ```
   */
 @Singleton
-class DynamoService @Inject() (
-    client: AmazonDynamoDB,
-    config: Config) extends AbstractService {
+class DynamoService @Inject()(client: AmazonDynamoDB, config: Config) extends AbstractService {
 
   private val nextId = new AtomicLong()
   private val pool = Executors.newFixedThreadPool(
@@ -51,7 +49,8 @@ class DynamoService @Inject() (
       override def newThread(r: Runnable): Thread = {
         new Thread(r, s"dynamo-db-${nextId.getAndIncrement()}")
       }
-    })
+    }
+  )
   private val ec = ExecutionContext.fromExecutorService(pool)
 
   override def startImpl(): Unit = ()
@@ -59,7 +58,7 @@ class DynamoService @Inject() (
   override def stopImpl(): Unit = {
     client match {
       case c: AmazonDynamoDBClient => c.shutdown()
-      case _ =>
+      case _                       =>
     }
   }
 

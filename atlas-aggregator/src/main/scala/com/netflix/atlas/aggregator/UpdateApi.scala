@@ -35,8 +35,7 @@ import com.netflix.spectator.api.Id
 import com.netflix.spectator.atlas.AtlasRegistry
 import com.typesafe.scalalogging.StrictLogging
 
-
-class UpdateApi @Inject() (
+class UpdateApi @Inject()(
   evaluator: Evaluator,
   aggrRegistry: AtlasRegistry
 ) extends WebApi {
@@ -87,8 +86,10 @@ object UpdateApi extends StrictLogging {
         case MAX =>
           logger.debug(s"received updated, MAX $id $value")
           registry.maxGauge(id).set(value)
-        case unk => throw new IllegalArgumentException(
-          s"unknown operation $unk, expected add ($ADD) or max ($MAX)")
+        case unk =>
+          throw new IllegalArgumentException(
+            s"unknown operation $unk, expected add ($ADD) or max ($MAX)"
+          )
       }
       t = parser.nextToken()
     }

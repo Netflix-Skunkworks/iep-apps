@@ -28,8 +28,7 @@ class UpdateApiSuite extends FunSuite {
   test("simple payload") {
     val clock = new ManualClock()
     val registry = new AtlasRegistry(clock, UpdateApiSuite.config)
-    val parser = factory.createParser(
-      """
+    val parser = factory.createParser("""
         |[
         |  2,
         |  "name",
@@ -48,8 +47,7 @@ class UpdateApiSuite extends FunSuite {
   test("payload with additional tags") {
     val clock = new ManualClock()
     val registry = new AtlasRegistry(clock, UpdateApiSuite.config)
-    val parser = factory.createParser(
-      """
+    val parser = factory.createParser("""
         |[
         |  6,
         |  "name",

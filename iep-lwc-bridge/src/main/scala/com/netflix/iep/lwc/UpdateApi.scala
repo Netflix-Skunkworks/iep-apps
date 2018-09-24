@@ -39,7 +39,8 @@ class UpdateApi(implicit val actorRefFactory: ActorRefFactory) extends WebApi {
           parseEntity(customJson(p => PublishApi.decodeList(p))) { datapoints =>
             val promise = Promise[RouteResult]()
             publishRef ! PublishApi.PublishRequest(null, datapoints, Nil, promise, ctx)
-            _ => promise.future
+            _ =>
+              promise.future
           }
         }
       }

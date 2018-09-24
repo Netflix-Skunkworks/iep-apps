@@ -31,7 +31,6 @@ import com.netflix.atlas.eval.stream.Evaluator
 
 import scala.concurrent.duration._
 
-
 class StreamApi(evaluator: Evaluator) extends WebApi {
 
   private val prefix = ByteString("data: ")
@@ -46,10 +45,12 @@ class StreamApi(evaluator: Evaluator) extends WebApi {
           val q = uri.rawQueryString.getOrElse("")
           val atlasUri = s"$path?$q"
 
-          val heartbeatSrc = Source.repeat(heartbeat)
+          val heartbeatSrc = Source
+            .repeat(heartbeat)
             .throttle(1, 5.seconds, 1, ThrottleMode.Shaping)
 
-          val src = Source.fromPublisher(evaluator.createPublisher(atlasUri))
+          val src = Source
+            .fromPublisher(evaluator.createPublisher(atlasUri))
             .map { obj =>
               prefix ++ ByteString(obj.toJson) ++ suffix
             }
