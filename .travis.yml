@@ -1,9 +1,9 @@
 language: scala
 matrix:
   include:
-  - jdk: oraclejdk8
+  - jdk: openjdk8
     env: BINTRAY_PUBLISH=true
-  - jdk: openjdk10
+  - jdk: openjdk11
     env: BINTRAY_PUBLISH=false
 scala:
 - 2.12.6
