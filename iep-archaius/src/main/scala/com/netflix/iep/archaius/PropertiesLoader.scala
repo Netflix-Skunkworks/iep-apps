@@ -28,10 +28,9 @@ import scala.util.Success
   * Actor for loading properties from dynamodb. Properties will get updated in the provided
   * `PropertiesContext`.
   */
-class PropertiesLoader(
-    config: Config,
-    propContext: PropertiesContext,
-    dynamoService: DynamoService) extends Actor with StrictLogging {
+class PropertiesLoader(config: Config, propContext: PropertiesContext, dynamoService: DynamoService)
+    extends Actor
+    with StrictLogging {
 
   private val table = config.getString("netflix.iep.archaius.table")
 

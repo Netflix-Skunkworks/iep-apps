@@ -88,8 +88,8 @@ class DruidFilterSuite extends FunSuite {
   test("forQuery - :reic") {
     DruidFilter.forQuery(eval("country,US,:reic"))
     val actual = DruidFilter.forQuery(eval("country,US,:reic"))
-    val expected = Some(DruidFilter.JavaScript("country",
-      "function(x) { var re = /^US/i; return re.test(x); }"))
+    val expected =
+      Some(DruidFilter.JavaScript("country", "function(x) { var re = /^US/i; return re.test(x); }"))
     assert(actual === expected)
   }
 
@@ -143,19 +143,27 @@ class DruidFilterSuite extends FunSuite {
 
   test("forQuery - :and") {
     val actual = DruidFilter.forQuery(eval("country,(,US,CA,),:in,device,xbox,:eq,:and"))
-    val expected = Some(DruidFilter.And(List(
-      DruidFilter.In("country", List("US", "CA")),
-      DruidFilter.Equal("device", "xbox")
-    )))
+    val expected = Some(
+      DruidFilter.And(
+        List(
+          DruidFilter.In("country", List("US", "CA")),
+          DruidFilter.Equal("device", "xbox")
+        )
+      )
+    )
     assert(actual === expected)
   }
 
   test("forQuery - :or") {
     val actual = DruidFilter.forQuery(eval("country,(,US,CA,),:in,device,xbox,:eq,:or"))
-    val expected = Some(DruidFilter.Or(List(
-      DruidFilter.In("country", List("US", "CA")),
-      DruidFilter.Equal("device", "xbox")
-    )))
+    val expected = Some(
+      DruidFilter.Or(
+        List(
+          DruidFilter.In("country", List("US", "CA")),
+          DruidFilter.Equal("device", "xbox")
+        )
+      )
+    )
     assert(actual === expected)
   }
 

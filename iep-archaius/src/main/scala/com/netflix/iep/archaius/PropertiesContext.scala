@@ -32,7 +32,7 @@ import com.typesafe.scalalogging.StrictLogging
   * into a separate call to the storage layer.
   */
 @Singleton
-class PropertiesContext @Inject() (registry: Registry) extends StrictLogging {
+class PropertiesContext @Inject()(registry: Registry) extends StrictLogging {
 
   private val clock = registry.clock()
 
@@ -40,7 +40,8 @@ class PropertiesContext @Inject() (registry: Registry) extends StrictLogging {
     * Tracks the age for the properties cache. This can be used for a simple alert to
     * detect staleness.
     */
-  private val lastUpdateTime = PolledMeter.using(registry)
+  private val lastUpdateTime = PolledMeter
+    .using(registry)
     .withName("iep.props.cacheAge")
     .monitorValue(new AtomicLong(clock.wallTime()), Functions.AGE)
 

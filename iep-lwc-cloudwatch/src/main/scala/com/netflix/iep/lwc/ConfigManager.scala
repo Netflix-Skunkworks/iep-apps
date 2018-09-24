@@ -28,8 +28,8 @@ import com.netflix.iep.lwc.ForwardingService.Message
 import com.typesafe.scalalogging.StrictLogging
 
 class ConfigManager
-  extends GraphStage[FlowShape[Message, Map[String, ClusterConfig]]]
-  with StrictLogging {
+    extends GraphStage[FlowShape[Message, Map[String, ClusterConfig]]]
+    with StrictLogging {
 
   private val in = Inlet[Message]("ConfigManager.in")
   private val out = Outlet[Map[String, ClusterConfig]]("ConfigManager.out")

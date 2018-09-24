@@ -56,8 +56,8 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
   private implicit val sys = context.system
   private implicit val mat = ActorMaterializer()
 
-  private val client = new DruidClient(
-    config.getConfig("atlas.druid"), sys, mat, Http().superPool[AccessLogger]())
+  private val client =
+    new DruidClient(config.getConfig("atlas.druid"), sys, mat, Http().superPool[AccessLogger]())
 
   private val tagsInterval = config.getDuration("atlas.druid.tags-interval")
 
@@ -66,8 +66,8 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
   private val cancellable = context.system.scheduler.schedule(0.seconds, 10.minutes, self, Tick)
 
   def receive: Receive = {
-    case Tick                  => refreshMetadata(sender())
-    case m: Metadata           => metadata = Metadata(m.datasources.filter(_.nonEmpty))
+    case Tick        => refreshMetadata(sender())
+    case m: Metadata => metadata = Metadata(m.datasources.filter(_.nonEmpty))
 
     case ListTagsRequest(tq)   => listValues(sendTags(sender()), tq)
     case ListKeysRequest(tq)   => listKeys(sender(), tq)
@@ -84,7 +84,9 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
         Source(sources)
       }
       .flatMapConcat(v => v)
-      .fold(List.empty[DatasourceMetadata]) { (acc, v) => v :: acc }
+      .fold(List.empty[DatasourceMetadata]) { (acc, v) =>
+        v :: acc
+      }
       .map(vs => Metadata(vs))
       .runWith(Sink.head)
       .onComplete {
@@ -175,7 +177,9 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
             // If a single value for a multi-value dimension matches, then it will be
             // returned by druid. This local filter reduces the set to those that match
             // the users query expression.
-            vs.filter { v => query.couldMatch(Map(k -> v)) }
+            vs.filter { v =>
+              query.couldMatch(Map(k -> v))
+            }
           }
           .fold(List.empty[String]) { (vs1, vs2) =>
             ListHelper.merge(tq.limit, vs1, vs2)
@@ -211,9 +215,11 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
 
   private def fetchData(context: EvalContext, expr: DataExpr): Source[List[TimeSeries], NotUsed] = {
     val offset = expr.offset.toMillis
-    val fetchContext = if (offset == 0L) context else {
-      context.copy(context.start - offset, context.end - offset)
-    }
+    val fetchContext =
+      if (offset == 0L) context
+      else {
+        context.copy(context.start - offset, context.end - offset)
+      }
     val query = expr.query
     val metrics = metadata.datasources.flatMap { ds =>
       ds.metrics.filter(query.couldMatch)
@@ -257,7 +263,9 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
     Source(druidQueries)
       .flatMapMerge(Int.MaxValue, v => v)
       .fold(List.empty[TimeSeries])(_ ::: _)
-      .map { ts => expr.eval(context, ts).data }
+      .map { ts =>
+        expr.eval(context, ts).data
+      }
   }
 
   override def postStop(): Unit = {
@@ -274,6 +282,7 @@ object DruidDatabaseActor {
   case class Metadata(datasources: List[DatasourceMetadata])
 
   case class DatasourceMetadata(name: String, datasource: Datasource) {
+
     val metrics: List[Map[String, String]] = datasource.metrics.map { metric =>
       Map("name" -> metric, "nf.datasource" -> name)
     }
@@ -325,7 +334,11 @@ object DruidDatabaseActor {
     s"$start/$end"
   }
 
-  def toTimeSeries(commonTags: Map[String, String], context: EvalContext, data: List[GroupByDatapoint]): List[TimeSeries] = {
+  def toTimeSeries(
+    commonTags: Map[String, String],
+    context: EvalContext,
+    data: List[GroupByDatapoint]
+  ): List[TimeSeries] = {
     val stepSeconds = context.step / 1000.0
     val arrays = scala.collection.mutable.AnyRefMap.empty[Map[String, String], Array[Double]]
     val length = context.bufferSize

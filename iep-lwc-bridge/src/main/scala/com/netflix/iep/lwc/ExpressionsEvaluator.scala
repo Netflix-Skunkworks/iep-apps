@@ -170,7 +170,8 @@ object ExpressionsEvaluator {
   case class SubscriptionStats(
     sub: Subscription,
     lastUpdateTime: AtomicLong = new AtomicLong(),
-    updateCount: AtomicLong = new AtomicLong()) {
+    updateCount: AtomicLong = new AtomicLong()
+  ) {
 
     def update(): Unit = {
       lastUpdateTime.set(System.currentTimeMillis())

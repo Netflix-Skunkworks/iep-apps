@@ -32,10 +32,10 @@ import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.json.Json
 import com.netflix.frigga.Names
 
-
 class PropertiesApi(
-    val propContext: PropertiesContext,
-    implicit val actorRefFactory: ActorRefFactory) extends WebApi {
+  val propContext: PropertiesContext,
+  implicit val actorRefFactory: ActorRefFactory
+) extends WebApi {
 
   def routes: Route = {
     endpointPath("api" / "v1" / "property") {
@@ -58,14 +58,20 @@ class PropertiesApi(
   private def encode(request: HttpRequest, props: List[PropertiesApi.Property]): HttpResponse = {
     val useJson = request.headers.exists(h => h.is("accept") && h.value == "application/json")
     if (useJson) {
-      HttpResponse(StatusCodes.OK, entity = HttpEntity(MediaTypes.`application/json`, Json.encode(props)))
+      HttpResponse(
+        StatusCodes.OK,
+        entity = HttpEntity(MediaTypes.`application/json`, Json.encode(props))
+      )
     } else {
       val ps = new Properties
-      props.foreach { p => ps.setProperty(p.key, p.value) }
+      props.foreach { p =>
+        ps.setProperty(p.key, p.value)
+      }
       val writer = new StringWriter()
       ps.store(writer, s"count: ${ps.size}")
       writer.close()
-      val entity = HttpEntity(MediaTypes.`text/plain`.toContentType(HttpCharsets.`UTF-8`), writer.toString)
+      val entity =
+        HttpEntity(MediaTypes.`text/plain`.toContentType(HttpCharsets.`UTF-8`), writer.toString)
       HttpResponse(StatusCodes.OK, entity = entity)
     }
   }
@@ -74,4 +80,3 @@ class PropertiesApi(
 object PropertiesApi {
   case class Property(id: String, cluster: String, key: String, value: String, timestamp: Long)
 }
-

@@ -73,9 +73,9 @@ class ForwardingService @Inject()(
   registry: Registry,
   evaluator: Evaluator,
   clientFactory: AwsClientFactory,
-  implicit val system: ActorSystem)
-
-  extends AbstractService with StrictLogging {
+  implicit val system: ActorSystem
+) extends AbstractService
+    with StrictLogging {
 
   import ForwardingService._
 
@@ -167,13 +167,15 @@ object ForwardingService extends StrictLogging {
   private val MaxFrameLength = 65536
 
   def autoReconnectHttpSource(uri: String, client: Client): Source[ByteString, NotUsed] = {
-    Source.repeat(NotUsed)
+    Source
+      .repeat(NotUsed)
       .throttle(1, 1.second, 1, ThrottleMode.Shaping)
       .flatMapConcat(_ => httpSource(uri, client))
   }
 
   def httpSource(uri: String, client: Client): Source[ByteString, NotUsed] = {
-    Source.single(HttpRequest(HttpMethods.GET, uri))
+    Source
+      .single(HttpRequest(HttpMethods.GET, uri))
       .map(r => r -> AccessLogger.newClientLogger("configbin", r))
       .via(client)
       .map {
@@ -185,7 +187,8 @@ object ForwardingService extends StrictLogging {
       .flatMapConcat(r => Source(r.toOption.toList))
       .filter(_.status == StatusCodes.OK)
       .flatMapConcat { r =>
-        r.entity.withoutSizeLimit()
+        r.entity
+          .withoutSizeLimit()
           .dataBytes
           .recover {
             case t: Throwable =>
@@ -217,7 +220,9 @@ object ForwardingService extends StrictLogging {
       .via(new ConfigManager)
   }
 
-  def toDataSources(pattern: Pattern): Flow[Map[String, ClusterConfig], Evaluator.DataSources, NotUsed] = {
+  def toDataSources(
+    pattern: Pattern
+  ): Flow[Map[String, ClusterConfig], Evaluator.DataSources, NotUsed] = {
     Flow[Map[String, ClusterConfig]]
       .map { configs =>
         import scala.collection.JavaConverters._
@@ -287,7 +292,8 @@ object ForwardingService extends StrictLogging {
   def sendToCloudWatch(
     lastSuccessfulPutTime: AtomicLong,
     namespace: String,
-    doPut: PutFunction): Flow[AccountDatum, NotUsed, NotUsed] = {
+    doPut: PutFunction
+  ): Flow[AccountDatum, NotUsed, NotUsed] = {
 
     import scala.collection.JavaConverters._
     Flow[AccountDatum]
@@ -301,8 +307,11 @@ object ForwardingService extends StrictLogging {
         val region = data.head.region
         val account = data.head.account
         val pub = Pagination.createPublisher(
-          request, (r: PutMetricDataRequest) => doPut(region, account, r))
-        Source.fromPublisher(pub)
+          request,
+          (r: PutMetricDataRequest) => doPut(region, account, r)
+        )
+        Source
+          .fromPublisher(pub)
           .map { response =>
             logger.debug(s"cloudwatch put result: $response")
             lastSuccessfulPutTime.set(System.currentTimeMillis())
@@ -322,6 +331,7 @@ object ForwardingService extends StrictLogging {
   //
 
   case class Message(str: String) {
+
     val (cluster: String, responseString: String) = {
       val pos = str.indexOf("->")
       if (pos < 0)
@@ -354,6 +364,7 @@ object ForwardingService extends StrictLogging {
   }
 
   object ConfigBinResponse {
+
     def apply(version: ConfigBinVersion, payload: ClusterConfig): ConfigBinResponse = {
       val data = Json.decode[JsonNode](Json.encode(payload))
       apply(version, data)
@@ -368,7 +379,8 @@ object ForwardingService extends StrictLogging {
     ts: Long,
     hash: String,
     user: Option[String] = None,
-    comment: Option[String] = None)
+    comment: Option[String] = None
+  )
 
   case class ClusterConfig(email: String, expressions: List[ForwardingExpression])
 
@@ -377,7 +389,8 @@ object ForwardingService extends StrictLogging {
     account: String,
     region: Option[String],
     metricName: String,
-    dimensions: List[ForwardingDimension] = Nil) {
+    dimensions: List[ForwardingDimension] = Nil
+  ) {
 
     require(atlasUri != null, "atlasUri cannot be null")
     require(account != null, "account cannot be null")
@@ -411,6 +424,7 @@ object ForwardingService extends StrictLogging {
   }
 
   case class ForwardingDimension(name: String, value: String) {
+
     def toDimension(tags: Map[String, String]): Dimension = {
       new Dimension()
         .withName(name)

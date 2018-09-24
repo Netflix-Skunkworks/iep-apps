@@ -84,7 +84,7 @@ class ServoMetricLibrary extends MetricLibrary {
 }
 
 @Singleton
-class SpectatorMetricLibrary @Inject() (registry: Registry) extends MetricLibrary {
+class SpectatorMetricLibrary @Inject()(registry: Registry) extends MetricLibrary {
 
   private def toId(name: String, tags: Map[String, String]): Id = {
     tags.foldLeft(registry.createId(name)) { (id, t) =>
@@ -109,7 +109,8 @@ class SpectatorMetricLibrary @Inject() (registry: Registry) extends MetricLibrar
   }
 
   override def poll(name: String, tags: Map[String, String], f: => Double): Unit = {
-    PolledMeter.using(registry)
+    PolledMeter
+      .using(registry)
       .withId(toId(name, tags))
       .monitorValue(this, (obj: MetricLibrary) => f)
   }

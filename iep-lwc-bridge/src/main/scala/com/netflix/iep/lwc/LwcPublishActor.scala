@@ -43,12 +43,12 @@ import com.typesafe.scalalogging.StrictLogging
 
 import scala.concurrent.Future
 
-
 /**
   * Takes messages from publish API handler and forwards them to LWC.
   */
 class LwcPublishActor(config: Config, registry: Registry, evaluator: ExpressionsEvaluator)
-  extends Actor with StrictLogging {
+    extends Actor
+    with StrictLogging {
 
   import com.netflix.atlas.webapi.PublishApi._
 
@@ -66,7 +66,8 @@ class LwcPublishActor(config: Config, registry: Registry, evaluator: Expressions
   private val numReceivedCounter = BucketCounter.get(
     registry,
     registry.createId("atlas.db.numMetricsReceived"),
-    BucketFunctions.ageBiasOld(step, TimeUnit.MILLISECONDS))
+    BucketFunctions.ageBiasOld(step, TimeUnit.MILLISECONDS)
+  )
 
   // Number of invalid datapoints received
   private val numInvalidId = registry.createId("atlas.db.numInvalid")
@@ -98,7 +99,9 @@ class LwcPublishActor(config: Config, registry: Registry, evaluator: Expressions
     */
   private def process(values: List[Datapoint]): Unit = {
     val now = registry.clock().wallTime()
-    values.foreach { v => numReceivedCounter.record(now - v.timestamp) }
+    values.foreach { v =>
+      numReceivedCounter.record(now - v.timestamp)
+    }
 
     if (values.nonEmpty) {
       val timestamp = fixTimestamp(values.head.timestamp)
@@ -127,10 +130,9 @@ class LwcPublishActor(config: Config, registry: Registry, evaluator: Expressions
 
   private def updateStats(failures: List[ValidationResult]): Unit = {
     failures.foreach {
-      case ValidationResult.Pass           => // Ignored
+      case ValidationResult.Pass => // Ignored
       case ValidationResult.Fail(error, _) =>
         registry.counter(numInvalidId.withTag("error", error)).increment()
     }
   }
 }
-

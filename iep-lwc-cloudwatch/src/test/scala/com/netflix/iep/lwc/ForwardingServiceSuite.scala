@@ -61,16 +61,20 @@ class ForwardingServiceSuite extends FunSuite {
 
     val expectedResponse = ConfigBinResponse(
       ConfigBinVersion(1505226236957L, "2d4d", Some("brh"), Some("update")),
-      ClusterConfig("bob@example.com", List(
-        ForwardingExpression(
-          atlasUri = expr,
-          account = "$(nf.account)",
-          region = None,
-          metricName = "requestsPerSecond",
-          dimensions = List(
-            ForwardingDimension("AutoScalingGroupName", "$(nf.asg)")
-          ))
-      ))
+      ClusterConfig(
+        "bob@example.com",
+        List(
+          ForwardingExpression(
+            atlasUri = expr,
+            account = "$(nf.account)",
+            region = None,
+            metricName = "requestsPerSecond",
+            dimensions = List(
+              ForwardingDimension("AutoScalingGroupName", "$(nf.asg)")
+            )
+          )
+        )
+      )
     )
 
     assert(msg.cluster === "cluster")
@@ -130,7 +134,8 @@ class ForwardingServiceSuite extends FunSuite {
   //
 
   def runToMetricDatum(env: Evaluator.MessageEnvelope): AccountDatum = {
-    val future = Source.single(env)
+    val future = Source
+      .single(env)
       .via(toMetricDatum(new NoopRegistry))
       .runWith(Sink.head)
     Await.result(future, Duration.Inf)
@@ -169,7 +174,11 @@ class ForwardingServiceSuite extends FunSuite {
 
   def runCloudWatchPut(ns: String, vs: List[AccountDatum]): List[AccountRequest] = {
     val requests = List.newBuilder[AccountRequest]
-    def doPut(region: String, account: String, request: PutMetricDataRequest): PutMetricDataResult = {
+    def doPut(
+      region: String,
+      account: String,
+      request: PutMetricDataRequest
+    ): PutMetricDataResult = {
       requests += AccountRequest(region, account, request)
       new PutMetricDataResult
     }
@@ -195,9 +204,13 @@ class ForwardingServiceSuite extends FunSuite {
     val data = createDataSet(1)
     val actual = runCloudWatchPut("Netflix/Namespace", data)
     val expected = List(
-      AccountRequest("us-east-1", "12345", new PutMetricDataRequest()
-        .withNamespace("Netflix/Namespace")
-        .withMetricData(data.map(_.datum).asJava))
+      AccountRequest(
+        "us-east-1",
+        "12345",
+        new PutMetricDataRequest()
+          .withNamespace("Netflix/Namespace")
+          .withMetricData(data.map(_.datum).asJava)
+      )
     )
     assert(actual === expected)
   }
@@ -206,9 +219,13 @@ class ForwardingServiceSuite extends FunSuite {
     val data = createDataSet(20)
     val actual = runCloudWatchPut("Netflix/Namespace", data)
     val expected = List(
-      AccountRequest("us-east-1", "12345", new PutMetricDataRequest()
-        .withNamespace("Netflix/Namespace")
-        .withMetricData(data.map(_.datum).asJava))
+      AccountRequest(
+        "us-east-1",
+        "12345",
+        new PutMetricDataRequest()
+          .withNamespace("Netflix/Namespace")
+          .withMetricData(data.map(_.datum).asJava)
+      )
     )
     assert(actual === expected)
   }
@@ -217,9 +234,13 @@ class ForwardingServiceSuite extends FunSuite {
     val data = createDataSet(27)
     val actual = runCloudWatchPut("Netflix/Namespace", data)
     val expected = data.grouped(20).toList.map { vs =>
-      AccountRequest("us-east-1", "12345", new PutMetricDataRequest()
-        .withNamespace("Netflix/Namespace")
-        .withMetricData(vs.map(_.datum).asJava))
+      AccountRequest(
+        "us-east-1",
+        "12345",
+        new PutMetricDataRequest()
+          .withNamespace("Netflix/Namespace")
+          .withMetricData(vs.map(_.datum).asJava)
+      )
     }
     assert(actual === expected)
   }
@@ -240,9 +261,13 @@ class ForwardingServiceSuite extends FunSuite {
     val actual = runCloudWatchPut("Netflix/Namespace", data)
     val expected = data.zipWithIndex.map {
       case (v, i) =>
-        AccountRequest("eu-west-1", i.toString, new PutMetricDataRequest()
-          .withNamespace("Netflix/Namespace")
-          .withMetricData(v.datum))
+        AccountRequest(
+          "eu-west-1",
+          i.toString,
+          new PutMetricDataRequest()
+            .withNamespace("Netflix/Namespace")
+            .withMetricData(v.datum)
+        )
     }
     assert(actual.sortWith(_.account < _.account) === expected)
   }
@@ -272,9 +297,13 @@ class ForwardingServiceSuite extends FunSuite {
     val data = createMultiAccountDataSet(5, 5)
     val actual = runCloudWatchPut("Netflix/Namespace", data)
     val expected = data.map { v =>
-      AccountRequest(v.region, v.account, new PutMetricDataRequest()
-        .withNamespace("Netflix/Namespace")
-        .withMetricData(v.datum))
+      AccountRequest(
+        v.region,
+        v.account,
+        new PutMetricDataRequest()
+          .withNamespace("Netflix/Namespace")
+          .withMetricData(v.datum)
+      )
     }
     assert(actual.sortWith(_.account < _.account) === expected)
   }

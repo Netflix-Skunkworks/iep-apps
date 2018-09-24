@@ -26,7 +26,8 @@ import com.typesafe.config.Config
 import org.slf4j.LoggerFactory
 
 @Singleton
-class InstrumentationService @Inject() (config: Config, metrics: MetricLibrary) extends AbstractService {
+class InstrumentationService @Inject()(config: Config, metrics: MetricLibrary)
+    extends AbstractService {
 
   private val logger = LoggerFactory.getLogger("")
 
@@ -41,12 +42,10 @@ class InstrumentationService @Inject() (config: Config, metrics: MetricLibrary) 
 
   // To minimize other noise in terms of memory use and computation we use the same base tag
   // set for all metrics.
-  private val tagsData = (0 until tagsPerMetric)
-    .map { i =>
-      val key = f"$i%05d"
-      key -> UUID.randomUUID().toString
-    }
-    .toMap
+  private val tagsData = (0 until tagsPerMetric).map { i =>
+    val key = f"$i%05d"
+    key -> UUID.randomUUID().toString
+  }.toMap
 
   private val executor = Executors.newScheduledThreadPool(2)
   executor.scheduleWithFixedDelay(() => update(), 0L, 10, TimeUnit.SECONDS)

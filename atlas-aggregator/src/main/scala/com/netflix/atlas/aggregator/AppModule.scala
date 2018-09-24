@@ -40,12 +40,15 @@ class AppModule extends AbstractModule {
 
     bind(classOf[AtlasRegistry]).toProvider(classOf[AtlasRegistryProvider]).asEagerSingleton()
 
-    AdminModule.endpointsBinder(binder())
-      .addBinding("/registry").toProvider(classOf[EndpointProvider])
+    AdminModule
+      .endpointsBinder(binder())
+      .addBinding("/registry")
+      .toProvider(classOf[EndpointProvider])
   }
 }
 
 object AppModule {
+
   class AggrConfig(config: Config) extends AtlasConfig {
 
     override def get(k: String): String = {

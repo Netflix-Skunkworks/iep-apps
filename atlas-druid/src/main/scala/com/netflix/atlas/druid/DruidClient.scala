@@ -37,7 +37,12 @@ import com.typesafe.config.Config
 import scala.util.Failure
 import scala.util.Success
 
-class DruidClient(config: Config, system: ActorSystem, materializer: ActorMaterializer, client: HttpClient) {
+class DruidClient(
+  config: Config,
+  system: ActorSystem,
+  materializer: ActorMaterializer,
+  client: HttpClient
+) {
 
   import DruidClient._
 
@@ -80,26 +85,30 @@ class DruidClient(config: Config, system: ActorSystem, materializer: ActorMateri
 
   def datasources: Source[List[String], NotUsed] = {
     val request = HttpRequest(HttpMethods.GET, s"$uri/datasources")
-    Source.single(request)
+    Source
+      .single(request)
       .via(loggingClient)
       .map(data => Json.decode[List[String]](data.toArray))
   }
 
   def datasource(name: String): Source[Datasource, NotUsed] = {
     val request = HttpRequest(HttpMethods.GET, s"$uri/datasources/$name")
-    Source.single(request)
+    Source
+      .single(request)
       .via(loggingClient)
       .map(data => Json.decode[Datasource](data.toArray))
   }
 
   def search(query: SearchQuery): Source[List[SearchResult], NotUsed] = {
-    Source.single(mkRequest(query))
+    Source
+      .single(mkRequest(query))
       .via(loggingClient)
       .map(data => Json.decode[List[SearchResult]](data.toArray))
   }
 
   def groupBy(query: GroupByQuery): Source[List[GroupByDatapoint], NotUsed] = {
-    Source.single(mkRequest(query))
+    Source
+      .single(mkRequest(query))
       .via(loggingClient)
       .map(data => Json.decode[List[GroupByDatapoint]](data.toArray))
   }

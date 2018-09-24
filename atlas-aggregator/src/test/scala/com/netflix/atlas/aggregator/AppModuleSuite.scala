@@ -36,13 +36,11 @@ class AppModuleSuite extends FunSuite {
   private val config = ConfigFactory.load()
 
   test("aggr registry only") {
-    val injector = Guice.createInjector(
-      new AppModule,
-      new AbstractModule {
-        override def configure(): Unit = {
-          bind(classOf[Config]).toInstance(config)
-        }
-      })
+    val injector = Guice.createInjector(new AppModule, new AbstractModule {
+      override def configure(): Unit = {
+        bind(classOf[Config]).toInstance(config)
+      }
+    })
 
     val aggr = injector.getInstance(classOf[AtlasRegistry])
     assert(aggr != null)
@@ -60,7 +58,8 @@ class AppModuleSuite extends FunSuite {
           bind(classOf[Config]).toInstance(config)
           bind(classOf[Registry]).toProvider(classOf[RegistryProvider])
         }
-      })
+      }
+    )
 
     val app = injector.getInstance(classOf[Registry])
     val aggr = injector.getInstance(classOf[AtlasRegistry])
@@ -68,8 +67,7 @@ class AppModuleSuite extends FunSuite {
   }
 
   test("aggr config should use prefix") {
-    val config = ConfigFactory.parseString(
-      """
+    val config = ConfigFactory.parseString("""
         |netflix.atlas.aggr.registry.atlas.uri = "test"
       """.stripMargin)
     val aggr = new AppModule.AggrConfig(config)
@@ -77,8 +75,7 @@ class AppModuleSuite extends FunSuite {
   }
 
   test("aggr config should use default for missing props") {
-    val config = ConfigFactory.parseString(
-      """
+    val config = ConfigFactory.parseString("""
         |netflix.atlas.aggr.registry.atlas.uri = "test"
       """.stripMargin)
     val aggr = new AppModule.AggrConfig(config)
@@ -87,6 +84,7 @@ class AppModuleSuite extends FunSuite {
 }
 
 object AppModuleSuite {
+
   @Singleton
   class RegistryProvider extends Provider[Registry] {
     override def get(): Registry = {
