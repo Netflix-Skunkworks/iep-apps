@@ -11,7 +11,8 @@ lazy val root = project.in(file("."))
     `iep-atlas`,
     `iep-clienttest`,
     `iep-lwc-bridge`,
-    `iep-lwc-cloudwatch`)
+    `iep-lwc-cloudwatch`,
+    `iep-ses-monitor`)
   .settings(BuildSettings.noPackaging: _*)
 
 lazy val `atlas-aggregator` = project
@@ -125,6 +126,23 @@ lazy val `iep-lwc-cloudwatch` = project
     Dependencies.atlasModuleAkka,
     Dependencies.atlasModuleEval,
     Dependencies.awsCloudWatch,
+    Dependencies.iepGuice,
+    Dependencies.iepModuleAtlas,
+    Dependencies.iepModuleAws,
+    Dependencies.log4jApi,
+    Dependencies.log4jCore,
+    Dependencies.log4jSlf4j,
+
+    Dependencies.akkaHttpTestkit % "test",
+    Dependencies.scalatest % "test"
+  ))
+
+lazy val `iep-ses-monitor` = project
+  .configure(BuildSettings.profile)
+  .settings(libraryDependencies ++= Seq(
+    Dependencies.atlasModuleAkka,
+    Dependencies.awsSQS,
+    Dependencies.alpakkaSqs,
     Dependencies.iepGuice,
     Dependencies.iepModuleAtlas,
     Dependencies.iepModuleAws,
