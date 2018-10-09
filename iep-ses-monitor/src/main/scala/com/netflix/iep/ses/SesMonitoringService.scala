@@ -70,7 +70,7 @@ class SesMonitoringService @Inject()(
 
   override def startImpl(): Unit = {
 
-    val notificationQueueName = config.getString("iep.ses.monitor.notificationQueueName")
+    val notificationQueueName = config.getString("iep.ses.monitor.notification-queue-name")
     val queueUrlResult = sqsAsync.getQueueUrl(notificationQueueName)
     val queueUrl = queueUrlResult.getQueueUrl
 
