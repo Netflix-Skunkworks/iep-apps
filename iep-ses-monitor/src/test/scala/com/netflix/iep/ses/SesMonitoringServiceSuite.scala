@@ -28,13 +28,13 @@ import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfterEach
+import org.scalatest.FunSuite
 import org.scalatest.Matchers
-import org.scalatest.WordSpec
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class SesMonitoringServiceSuite extends WordSpec with Matchers with BeforeAndAfterEach {
+class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAfterEach {
 
   private implicit val system: ActorSystem = ActorSystem()
   private implicit val mat: Materializer = ActorMaterializer()
@@ -55,70 +55,65 @@ class SesMonitoringServiceSuite extends WordSpec with Matchers with BeforeAndAft
     )
   }
 
-  "An SES notification" when {
-    "delivered with no metadata" should {
-      "increment the ses.monitor.notifications metric with dimension values of `unknown`." in {
+  test(
+    "notifications with no metadata should increment the ses.monitor.notifications metric " +
+    "with dimension values of `unknown`."
+  ) {
 
-        val counter = metricRegistry.counter(
-          metricRegistry
-            .createId("ses.monitor.notifications")
-            .withTag("notificationType", "unknown")
-            .withTag("sourceEmail", "unknown")
-        )
+    val counter = metricRegistry.counter(
+      metricRegistry
+        .createId("ses.monitor.notifications")
+        .withTag("notificationType", "unknown")
+        .withTag("sourceEmail", "unknown")
+    )
 
-        val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-        counter.count() shouldEqual 0
+    counter.count() shouldEqual 0
 
-        Await.result(
-          Source
-            .single(createNotificationMessage("{}"))
-            .via(messageProcessingFlow)
-            .runWith(Sink.ignore),
-          2.seconds
-        )
+    Await.result(
+      Source
+        .single(createNotificationMessage("{}"))
+        .via(messageProcessingFlow)
+        .runWith(Sink.ignore),
+      2.seconds
+    )
 
-        counter.count() shouldEqual 1
-      }
-    }
-
-    "processed" should {
-      "be marked for deletion" in {
-
-        val counter = metricRegistry.counter(
-          metricRegistry
-            .createId("ses.monitor.notifications")
-            .withTag("notificationType", "unknown")
-            .withTag("sourceEmail", "unknown")
-        )
-
-        val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
-
-        counter.count() shouldEqual 0
-
-        val processed = Await.result(
-          Source
-            .single(createNotificationMessage("{}"))
-            .via(messageProcessingFlow)
-            .runWith(Sink.head),
-          2.seconds
-        )
-
-        processed.getClass shouldEqual classOf[MessageAction.Delete]
-      }
-    }
+    counter.count() shouldEqual 1
   }
 
-  "An SES Bounce notification" when {
-    "delivered with all metadata" should {
-      "increment the ses.monitor.notifications metric" in {
+  test("processed notifications should be marked for deletion") {
 
-        val messageBody =
-          """
+    val counter = metricRegistry.counter(
+      metricRegistry
+        .createId("ses.monitor.notifications")
+        .withTag("notificationType", "unknown")
+        .withTag("sourceEmail", "unknown")
+    )
+
+    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+
+    counter.count() shouldEqual 0
+
+    val processed = Await.result(
+      Source
+        .single(createNotificationMessage("{}"))
+        .via(messageProcessingFlow)
+        .runWith(Sink.head),
+      2.seconds
+    )
+
+    processed.getClass shouldEqual classOf[MessageAction.Delete]
+  }
+
+  test("bounce notifications delivered with all metadata increment ses.monitor.notifications") {
+
+    val messageBody =
+      """
             |{
             |  "notificationType": "Bounce",
             |  "mail": {
-            |    "source": "bouncer@saasmail.netflix.com"
+            |    "source": "bouncer@example.com"
             |  },
             |  "bounce": {
             |    "bounceType": "Transient",
@@ -127,40 +122,41 @@ class SesMonitoringServiceSuite extends WordSpec with Matchers with BeforeAndAft
             |}
           """.stripMargin
 
-        val counter = metricRegistry.counter(
-          metricRegistry
-            .createId("ses.monitor.notifications")
-            .withTag("notificationType", "Bounce")
-            .withTag("sourceEmail", "bouncer@saasmail.netflix.com")
-            .withTag("type", "Transient")
-            .withTag("subType", "MailboxFull")
-        )
+    val counter = metricRegistry.counter(
+      metricRegistry
+        .createId("ses.monitor.notifications")
+        .withTag("notificationType", "Bounce")
+        .withTag("sourceEmail", "bouncer@example.com")
+        .withTag("type", "Transient")
+        .withTag("subType", "MailboxFull")
+    )
 
-        val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-        counter.count() shouldEqual 0
+    counter.count() shouldEqual 0
 
-        Await.result(
-          Source
-            .single(createNotificationMessage(messageBody))
-            .via(messageProcessingFlow)
-            .runWith(Sink.ignore),
-          2.seconds
-        )
+    Await.result(
+      Source
+        .single(createNotificationMessage(messageBody))
+        .via(messageProcessingFlow)
+        .runWith(Sink.ignore),
+      2.seconds
+    )
 
-        counter.count() shouldEqual 1
-      }
-    }
+    counter.count() shouldEqual 1
+  }
 
-    "delivered multiple times with the same metadata" should {
-      "increment the ses.monitor.notifications metric equal to the number of times" in {
+  test(
+    "bounce notifications delivered multiple times with the same metadata should increment " +
+    "the ses.monitor.notifications metric equal to the number of times"
+  ) {
 
-        val messageBody =
-          """
+    val messageBody =
+      """
             |{
             |  "notificationType": "Bounce",
             |  "mail": {
-            |    "source": "bouncer@saasmail.netflix.com"
+            |    "source": "bouncer@example.com"
             |  },
             |  "bounce": {
             |    "bounceType": "Transient",
@@ -169,84 +165,83 @@ class SesMonitoringServiceSuite extends WordSpec with Matchers with BeforeAndAft
             |}
           """.stripMargin
 
-        val counter = metricRegistry.counter(
-          metricRegistry
-            .createId("ses.monitor.notifications")
-            .withTag("notificationType", "Bounce")
-            .withTag("sourceEmail", "bouncer@saasmail.netflix.com")
-            .withTag("type", "Transient")
-            .withTag("subType", "MailboxFull")
+    val counter = metricRegistry.counter(
+      metricRegistry
+        .createId("ses.monitor.notifications")
+        .withTag("notificationType", "Bounce")
+        .withTag("sourceEmail", "bouncer@example.com")
+        .withTag("type", "Transient")
+        .withTag("subType", "MailboxFull")
+    )
+
+    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+
+    counter.count() shouldEqual 0
+
+    Await.result(
+      Source(
+        Vector(
+          createNotificationMessage(messageBody),
+          createNotificationMessage(messageBody),
+          createNotificationMessage(messageBody),
+          createNotificationMessage(messageBody),
+          createNotificationMessage(messageBody)
         )
+      ).via(messageProcessingFlow)
+        .runWith(Sink.ignore),
+      2.seconds
+    )
 
-        val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+    counter.count() shouldEqual 5
+  }
 
-        counter.count() shouldEqual 0
+  test(
+    "bounce notifications delivered with missing metadata should increment the " +
+    "ses.monitor.notifications metric with dimension values of `unknown` for the missing elements."
+  ) {
 
-        Await.result(
-          Source(
-            Vector(
-              createNotificationMessage(messageBody),
-              createNotificationMessage(messageBody),
-              createNotificationMessage(messageBody),
-              createNotificationMessage(messageBody),
-              createNotificationMessage(messageBody)
-            )
-          ).via(messageProcessingFlow)
-            .runWith(Sink.ignore),
-          2.seconds
-        )
-
-        counter.count() shouldEqual 5
-      }
-    }
-
-    "delivered with missing metadata" should {
-      "increment the ses.monitor.notifications metric with dimension values of `unknown` " +
-      "for the missing elements." in {
-
-        val messageBody =
-          """
+    val messageBody =
+      """
             |{
             |  "notificationType": "Bounce"
             |}
           """.stripMargin
 
-        val counter = metricRegistry.counter(
-          metricRegistry
-            .createId("ses.monitor.notifications")
-            .withTag("notificationType", "Bounce")
-            .withTag("sourceEmail", "unknown")
-            .withTag("type", "unknown")
-            .withTag("subType", "unknown")
-        )
+    val counter = metricRegistry.counter(
+      metricRegistry
+        .createId("ses.monitor.notifications")
+        .withTag("notificationType", "Bounce")
+        .withTag("sourceEmail", "unknown")
+        .withTag("type", "unknown")
+        .withTag("subType", "unknown")
+    )
 
-        val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-        counter.count() shouldEqual 0
+    counter.count() shouldEqual 0
 
-        Await.result(
-          Source
-            .single(createNotificationMessage(messageBody))
-            .via(messageProcessingFlow)
-            .runWith(Sink.ignore),
-          2.seconds
-        )
+    Await.result(
+      Source
+        .single(createNotificationMessage(messageBody))
+        .via(messageProcessingFlow)
+        .runWith(Sink.ignore),
+      2.seconds
+    )
 
-        counter.count() shouldEqual 1
-      }
-    }
+    counter.count() shouldEqual 1
   }
 
-  "An SES Complaint notification" when {
-    "delivered with all metadata" should {
-      "increment the ses.monitor.notifications metric" in {
+  test(
+    "complaint notifications delivered with all metadata increment the " +
+    "ses.monitor.notifications metric"
+  ) {
 
-        val messageBody =
-          """
+    val messageBody =
+      """
             |{
             |  "notificationType": "Complaint",
             |  "mail": {
-            |    "source": "bouncer@saasmail.netflix.com"
+            |    "source": "bouncer@example.com"
             |  },
             |  "complaint": {
             |    "complaintFeedbackType": "not-spam"
@@ -254,39 +249,40 @@ class SesMonitoringServiceSuite extends WordSpec with Matchers with BeforeAndAft
             |}
           """.stripMargin
 
-        val counter = metricRegistry.counter(
-          metricRegistry
-            .createId("ses.monitor.notifications")
-            .withTag("notificationType", "Complaint")
-            .withTag("sourceEmail", "bouncer@saasmail.netflix.com")
-            .withTag("type", "not-spam")
-        )
+    val counter = metricRegistry.counter(
+      metricRegistry
+        .createId("ses.monitor.notifications")
+        .withTag("notificationType", "Complaint")
+        .withTag("sourceEmail", "bouncer@example.com")
+        .withTag("type", "not-spam")
+    )
 
-        val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-        counter.count() shouldEqual 0
+    counter.count() shouldEqual 0
 
-        Await.result(
-          Source
-            .single(createNotificationMessage(messageBody))
-            .via(messageProcessingFlow)
-            .runWith(Sink.ignore),
-          2.seconds
-        )
+    Await.result(
+      Source
+        .single(createNotificationMessage(messageBody))
+        .via(messageProcessingFlow)
+        .runWith(Sink.ignore),
+      2.seconds
+    )
 
-        counter.count() shouldEqual 1
-      }
-    }
+    counter.count() shouldEqual 1
+  }
 
-    "delivered multiple times with the same metadata" should {
-      "increment the ses.monitor.notifications metric equal to the number of times" in {
+  test(
+    "complaint notifications delivered multiple times with the same metadata increment the " +
+    "ses.monitor.notifications metric equal to the number of times"
+  ) {
 
-        val messageBody =
-          """
+    val messageBody =
+      """
             |{
             |  "notificationType": "Complaint",
             |  "mail": {
-            |    "source": "bouncer@saasmail.netflix.com"
+            |    "source": "bouncer@example.com"
             |  },
             |  "complaint": {
             |    "complaintFeedbackType": "not-spam"
@@ -294,195 +290,191 @@ class SesMonitoringServiceSuite extends WordSpec with Matchers with BeforeAndAft
             |}
           """.stripMargin
 
-        val counter = metricRegistry.counter(
-          metricRegistry
-            .createId("ses.monitor.notifications")
-            .withTag("notificationType", "Complaint")
-            .withTag("sourceEmail", "bouncer@saasmail.netflix.com")
-            .withTag("type", "not-spam")
+    val counter = metricRegistry.counter(
+      metricRegistry
+        .createId("ses.monitor.notifications")
+        .withTag("notificationType", "Complaint")
+        .withTag("sourceEmail", "bouncer@example.com")
+        .withTag("type", "not-spam")
+    )
+
+    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+
+    counter.count() shouldEqual 0
+
+    Await.result(
+      Source(
+        Vector(
+          createNotificationMessage(messageBody),
+          createNotificationMessage(messageBody),
+          createNotificationMessage(messageBody)
         )
+      ).via(messageProcessingFlow)
+        .runWith(Sink.ignore),
+      2.seconds
+    )
 
-        val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+    counter.count() shouldEqual 3
+  }
 
-        counter.count() shouldEqual 0
+  test(
+    "complaint notifications delivered with missing metadata increment the " +
+    "ses.monitor.notifications metric with dimension values of `unknown` for the missing elements."
+  ) {
 
-        Await.result(
-          Source(
-            Vector(
-              createNotificationMessage(messageBody),
-              createNotificationMessage(messageBody),
-              createNotificationMessage(messageBody)
-            )
-          ).via(messageProcessingFlow)
-            .runWith(Sink.ignore),
-          2.seconds
-        )
-
-        counter.count() shouldEqual 3
-      }
-    }
-
-    "delivered with missing metadata" should {
-      "increment the ses.monitor.notifications metric with dimension values of `unknown` " +
-      "for the missing elements." in {
-
-        val messageBody =
-          """
+    val messageBody =
+      """
             |{
             |  "notificationType": "Complaint"
             |}
           """.stripMargin
 
-        val counter = metricRegistry.counter(
-          metricRegistry
-            .createId("ses.monitor.notifications")
-            .withTag("notificationType", "Complaint")
-            .withTag("sourceEmail", "unknown")
-            .withTag("type", "unknown")
-        )
+    val counter = metricRegistry.counter(
+      metricRegistry
+        .createId("ses.monitor.notifications")
+        .withTag("notificationType", "Complaint")
+        .withTag("sourceEmail", "unknown")
+        .withTag("type", "unknown")
+    )
 
-        val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-        counter.count() shouldEqual 0
+    counter.count() shouldEqual 0
 
-        Await.result(
-          Source
-            .single(createNotificationMessage(messageBody))
-            .via(messageProcessingFlow)
-            .runWith(Sink.ignore),
-          2.seconds
-        )
+    Await.result(
+      Source
+        .single(createNotificationMessage(messageBody))
+        .via(messageProcessingFlow)
+        .runWith(Sink.ignore),
+      2.seconds
+    )
 
-        counter.count() shouldEqual 1
-      }
-    }
+    counter.count() shouldEqual 1
   }
 
-  "An SES Delivery notification" when {
-    "delivered with all metadata" should {
-      "increment the ses.monitor.notifications metric" in {
+  test(
+    "delivery notifications delivered with all metadata increment the " +
+    "ses.monitor.notifications metric"
+  ) {
 
-        val messageBody =
-          """
+    val messageBody =
+      """
             |{
             |  "notificationType": "Delivery",
             |  "mail": {
-            |    "source": "bouncer@saasmail.netflix.com"
+            |    "source": "bouncer@example.com"
             |  }
             |}
           """.stripMargin
 
-        val counter = metricRegistry.counter(
-          metricRegistry
-            .createId("ses.monitor.notifications")
-            .withTag("notificationType", "Delivery")
-            .withTag("sourceEmail", "bouncer@saasmail.netflix.com")
-        )
+    val counter = metricRegistry.counter(
+      metricRegistry
+        .createId("ses.monitor.notifications")
+        .withTag("notificationType", "Delivery")
+        .withTag("sourceEmail", "bouncer@example.com")
+    )
 
-        val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-        counter.count() shouldEqual 0
+    counter.count() shouldEqual 0
 
-        Await.result(
-          Source
-            .single(createNotificationMessage(messageBody))
-            .via(messageProcessingFlow)
-            .runWith(Sink.ignore),
-          2.seconds
-        )
+    Await.result(
+      Source
+        .single(createNotificationMessage(messageBody))
+        .via(messageProcessingFlow)
+        .runWith(Sink.ignore),
+      2.seconds
+    )
 
-        counter.count() shouldEqual 1
-      }
-    }
+    counter.count() shouldEqual 1
+  }
 
-    "delivered multiple times with the same metadata" should {
-      "increment the ses.monitor.notifications metric equal to the number of times" in {
+  test(
+    "delivery notifications delivered multiple times with the same metadata increment the " +
+    "ses.monitor.notifications metric equal to the number of times"
+  ) {
 
-        val messageBody =
-          """
+    val messageBody =
+      """
             |{
             |  "notificationType": "Delivery",
             |  "mail": {
-            |    "source": "bouncer@saasmail.netflix.com"
+            |    "source": "bouncer@example.com"
             |  }
             |}
           """.stripMargin
 
-        val counter = metricRegistry.counter(
-          metricRegistry
-            .createId("ses.monitor.notifications")
-            .withTag("notificationType", "Delivery")
-            .withTag("sourceEmail", "bouncer@saasmail.netflix.com")
+    val counter = metricRegistry.counter(
+      metricRegistry
+        .createId("ses.monitor.notifications")
+        .withTag("notificationType", "Delivery")
+        .withTag("sourceEmail", "bouncer@example.com")
+    )
+
+    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+
+    counter.count() shouldEqual 0
+
+    Await.result(
+      Source(
+        Vector(
+          createNotificationMessage(messageBody),
+          createNotificationMessage(messageBody),
+          createNotificationMessage(messageBody),
+          createNotificationMessage(messageBody),
+          createNotificationMessage(messageBody),
+          createNotificationMessage(messageBody)
         )
+      ).via(messageProcessingFlow)
+        .runWith(Sink.ignore),
+      2.seconds
+    )
 
-        val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+    counter.count() shouldEqual 6
+  }
 
-        counter.count() shouldEqual 0
+  test(
+    "delivery notifications delivered with missing metadata increment the " +
+    "ses.monitor.notifications metric with dimension values of `unknown` for the missing elements."
+  ) {
 
-        Await.result(
-          Source(
-            Vector(
-              createNotificationMessage(messageBody),
-              createNotificationMessage(messageBody),
-              createNotificationMessage(messageBody),
-              createNotificationMessage(messageBody),
-              createNotificationMessage(messageBody),
-              createNotificationMessage(messageBody)
-            )
-          ).via(messageProcessingFlow)
-            .runWith(Sink.ignore),
-          2.seconds
-        )
-
-        counter.count() shouldEqual 6
-      }
-    }
-
-    "delivered with missing metadata" should {
-      "increment the ses.monitor.notifications metric with dimension values of `unknown` " +
-      "for the missing elements." in {
-
-        val messageBody =
-          """
+    val messageBody =
+      """
             |{
             |  "notificationType": "Delivery"
             |}
           """.stripMargin
 
-        val counter = metricRegistry.counter(
-          metricRegistry
-            .createId("ses.monitor.notifications")
-            .withTag("notificationType", "Delivery")
-            .withTag("sourceEmail", "unknown")
-        )
+    val counter = metricRegistry.counter(
+      metricRegistry
+        .createId("ses.monitor.notifications")
+        .withTag("notificationType", "Delivery")
+        .withTag("sourceEmail", "unknown")
+    )
 
-        val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-        counter.count() shouldEqual 0
+    counter.count() shouldEqual 0
 
-        Await.result(
-          Source
-            .single(createNotificationMessage(messageBody))
-            .via(messageProcessingFlow)
-            .runWith(Sink.ignore),
-          2.seconds
-        )
+    Await.result(
+      Source
+        .single(createNotificationMessage(messageBody))
+        .via(messageProcessingFlow)
+        .runWith(Sink.ignore),
+      2.seconds
+    )
 
-        counter.count() shouldEqual 1
-      }
-    }
+    counter.count() shouldEqual 1
   }
 
-  "An SES notification" when {
-    "delivered" should {
-      "call the notification logger with the raw notification message body" in {
+  test("the raw notification message body should be logged") {
 
-        val messageBody =
-          """
+    val messageBody =
+      """
             |{
             |  "notificationType": "Bounce",
             |  "mail": {
-            |    "source": "bouncer@saasmail.netflix.com"
+            |    "source": "bouncer@example.com"
             |  },
             |  "bounce": {
             |    "bounceType": "Transient",
@@ -491,35 +483,33 @@ class SesMonitoringServiceSuite extends WordSpec with Matchers with BeforeAndAft
             |}
           """.stripMargin
 
-        var loggerCalled = false
-        val loggerSpy = (message: String) => {
-          message shouldEqual messageBody
-          loggerCalled = true
-        }
-
-        val sesMonitoringService = new SesMonitoringService(
-          ConfigFactory.load(),
-          new NoopRegistry(),
-          DummyAmazonSQSAsync,
-          system,
-          loggerSpy
-        )
-
-        val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
-
-        loggerCalled shouldEqual false
-
-        Await.result(
-          Source
-            .single(createNotificationMessage(messageBody))
-            .via(messageProcessingFlow)
-            .runWith(Sink.ignore),
-          2.seconds
-        )
-
-        loggerCalled shouldEqual true
-      }
+    var loggerCalled = false
+    val loggerSpy = (message: String) => {
+      message shouldEqual messageBody
+      loggerCalled = true
     }
+
+    val sesMonitoringService = new SesMonitoringService(
+      ConfigFactory.load(),
+      new NoopRegistry(),
+      DummyAmazonSQSAsync,
+      system,
+      loggerSpy
+    )
+
+    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+
+    loggerCalled shouldEqual false
+
+    Await.result(
+      Source
+        .single(createNotificationMessage(messageBody))
+        .via(messageProcessingFlow)
+        .runWith(Sink.ignore),
+      2.seconds
+    )
+
+    loggerCalled shouldEqual true
   }
 
   private def createNotificationMessage(messageBody: String) = {
