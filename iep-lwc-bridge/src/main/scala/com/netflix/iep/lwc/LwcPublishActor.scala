@@ -106,7 +106,7 @@ class LwcPublishActor(config: Config, registry: Registry, evaluator: Expressions
     if (values.nonEmpty) {
       val timestamp = fixTimestamp(values.head.timestamp)
       val payload = evaluator.eval(timestamp, values)
-      if (!payload.getMetrics.isEmpty) {
+      if (!payload.getMetrics.isEmpty || !payload.getMessages.isEmpty) {
         val entity = HttpEntity(MediaTypes.`application/json`, Json.encode(payload))
         val request = HttpRequest(HttpMethods.POST, evalUri, Nil, entity)
         mkRequest("lwc-eval", request).foreach { response =>
