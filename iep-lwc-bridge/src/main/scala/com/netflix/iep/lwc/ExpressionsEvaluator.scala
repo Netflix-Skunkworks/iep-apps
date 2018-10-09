@@ -16,6 +16,7 @@
 package com.netflix.iep.lwc
 
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
@@ -53,6 +54,8 @@ class ExpressionsEvaluator @Inject()(config: Config) extends StrictLogging {
 
   private val statsMap = new ConcurrentHashMap[String, SubscriptionStats]()
 
+  private val pendingMessages = new LinkedBlockingQueue[EvalPayload.Message]()
+
   /** Return the query index for this evaluator. */
   private[lwc] def index: QueryIndex[Subscription] = indexRef.get()
 
@@ -64,11 +67,20 @@ class ExpressionsEvaluator @Inject()(config: Config) extends StrictLogging {
     import scala.collection.JavaConverters._
     val index = QueryIndex.create(subs.asScala.map(toEntry).toList)
 
-    // TODO: send diagnostic message about ignored expressions.
     // The top level fallback entries are removed to greatly reduce the cost. These entries
     // would need to get checked against every datapoint and are typically costly regex queries.
     // For a simple test remove the 46 top-level fallback expressions of 18.5k overall improved
     // throughput by 3x.
+    index.entries.foreach { entry =>
+      val sub = entry.value
+      val expr = sub.getExpression
+      val error = s"rejected expression [$expr], must have at least one equals clause"
+      val msg = new EvalPayload.Message(
+        sub.getId,
+        new EvalPayload.DiagnosticMessage(EvalPayload.MessageType.error, error)
+      )
+      pendingMessages.offer(msg)
+    }
     indexRef.set(index.copy(entries = Nil))
   }
 
@@ -112,7 +124,9 @@ class ExpressionsEvaluator @Inject()(config: Config) extends StrictLogging {
         }
     }
 
-    new EvalPayload(timestamp, metrics)
+    val messages = new MessageList
+    pendingMessages.drainTo(messages, 1000)
+    new EvalPayload(timestamp, metrics, messages)
   }
 
   private def newAggregator(sub: Subscription): Aggregator = {

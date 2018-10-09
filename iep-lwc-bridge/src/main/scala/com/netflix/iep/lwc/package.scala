@@ -23,4 +23,5 @@ package object lwc {
   type JMap = java.util.Map[String, String]
 
   type MetricList = java.util.ArrayList[EvalPayload.Metric]
+  type MessageList = java.util.ArrayList[EvalPayload.Message]
 }
