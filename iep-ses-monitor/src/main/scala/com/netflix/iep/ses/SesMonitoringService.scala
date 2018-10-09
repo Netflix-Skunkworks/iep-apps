@@ -123,45 +123,26 @@ class SesMonitoringService @Inject()(
     MessageAction.delete(message)
   }
 
-  private[ses] def extractBounceTags(
-    notification: Map[String, Any]
-  ) = {
-
+  @scala.annotation.tailrec
+  private def getPath(obj: Map[String, Any], path: String*): String = {
     // getOrElse defensively since notifications are an external input we don't control
-    val bounceDetails =
-      notification.getOrElse("bounce", Map.empty[String, Any]).asInstanceOf[Map[String, Any]]
-
-    val bounceType = bounceDetails.getOrElse("bounceType", "unknown").asInstanceOf[String]
-    val bounceSubType = bounceDetails.getOrElse("bounceSubType", "unknown").asInstanceOf[String]
-
-    Vector(new BasicTag("type", bounceType), new BasicTag("subType", bounceSubType))
-  }
-
-  private[ses] def extractComplaintTags(
-    notification: Map[String, Any]
-  ) = {
-
-    // getOrElse defensively since notifications are an external input we don't control
-    val complaintDetails =
-      notification.getOrElse("complaint", Map.empty[String, Any]).asInstanceOf[Map[String, Any]]
-
-    // complaintType is specified as optional
-    val complaintTypeKey = "complaintFeedbackType"
-    val complaintTypeValue =
-      complaintDetails.getOrElse(complaintTypeKey, "unknown").asInstanceOf[String]
-
-    Vector(new BasicTag("type", complaintTypeValue))
+    path.toList match {
+      case ks if ks.isEmpty || obj.isEmpty =>
+        "unknown"
+      case k :: Nil =>
+        obj.getOrElse(k, "unknown").asInstanceOf[String]
+      case k :: ks =>
+        val subObj = obj.getOrElse(k, Map.empty[String, Any]).asInstanceOf[Map[String, Any]]
+        getPath(subObj, ks: _*)
+    }
   }
 
   private[ses] def extractTags(notification: Map[String, Any]) = {
 
-    // getOrElse defensively since notifications are an external input we don't control
     val notificationTypeKey = "notificationType"
-    val notificationTypeValue =
-      notification.getOrElse(notificationTypeKey, "unknown").asInstanceOf[String]
+    val notificationTypeValue = getPath(notification, notificationTypeKey)
 
-    val mail = notification.getOrElse("mail", Map.empty[String, Any]).asInstanceOf[Map[String, Any]]
-    val sourceEmail = mail.getOrElse("source", "unknown").asInstanceOf[String]
+    val sourceEmail = getPath(notification, "mail", "source")
 
     val commonTags = Vector(
       new BasicTag(notificationTypeKey, notificationTypeValue),
@@ -170,9 +151,12 @@ class SesMonitoringService @Inject()(
 
     val notificationTypeTags = notificationTypeValue match {
       case "Bounce" =>
-        extractBounceTags(notification)
+        Vector(
+          new BasicTag("type", getPath(notification, "bounce", "bounceType")),
+          new BasicTag("subType", getPath(notification, "bounce", "bounceSubType"))
+        )
       case "Complaint" =>
-        extractComplaintTags(notification)
+        Vector(new BasicTag("type", getPath(notification, "complaint", "complaintFeedbackType")))
       case _ =>
         Vector.empty
     }
