@@ -1,5 +1,7 @@
 import sbt._
 
+// format: off
+
 object Dependencies {
   object Versions {
     val akka       = "2.5.16"
@@ -25,6 +27,7 @@ object Dependencies {
   val akkaHttpTestkit    = "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV
   val akkaSlf4j          = "com.typesafe.akka" %% "akka-slf4j" % akka
   val akkaTestkit        = "com.typesafe.akka" %% "akka-testkit" % akka
+  val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % "1.0-M1"
   val atlasJson          = "com.netflix.atlas_v1" %% "atlas-json" % atlas
   val atlasModuleAkka    = "com.netflix.atlas_v1" %% "atlas-module-akka" % atlas
   val atlasModuleEval    = "com.netflix.atlas_v1" %% "atlas-module-eval" % atlas
@@ -34,6 +37,7 @@ object Dependencies {
   val awsDynamoDB        = "com.amazonaws" % "aws-java-sdk-dynamodb" % aws
   val awsEC2             = "com.amazonaws" % "aws-java-sdk-ec2" % aws
   val awsS3              = "com.amazonaws" % "aws-java-sdk-s3" % aws
+  val awsSQS             = "com.amazonaws" % "aws-java-sdk-sqs" % aws
   val awsSTS             = "com.amazonaws" % "aws-java-sdk-sts" % aws
   val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "2.4.0"
   val equalsVerifier     = "nl.jqno.equalsverifier" % "equalsverifier" % "2.2.1"
@@ -81,3 +85,5 @@ object Dependencies {
   val spectatorSandbox   = "com.netflix.spectator" % "spectator-ext-sandbox" % spectator
   val typesafeConfig     = "com.typesafe" % "config" % "1.3.3"
 }
+
+// format: on
