@@ -27,6 +27,7 @@ import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
+import com.netflix.atlas.akka.DiagnosticMessage
 import com.netflix.atlas.core.util.Strings
 import com.netflix.atlas.eval.model.ArrayData
 import com.netflix.atlas.eval.model.TimeSeriesMessage
@@ -107,8 +108,9 @@ class LoadGenService @Inject()(
   private def updateStats(envelope: Evaluator.MessageEnvelope): Unit = {
     val id = limiter(envelope.getId)
     envelope.getMessage match {
-      case tsm: TimeSeriesMessage => record(id, "TimeSeriesMessage", value(tsm))
-      case _                      => record(id, "DiagnosticMessage")
+      case tsm: TimeSeriesMessage => record(id, "timeseries", value(tsm))
+      case msg: DiagnosticMessage => record(id, msg.typeName)
+      case _                      => record(id, "unknown")
     }
   }
 
