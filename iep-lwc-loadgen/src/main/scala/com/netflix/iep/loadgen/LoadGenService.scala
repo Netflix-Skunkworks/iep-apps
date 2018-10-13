@@ -154,6 +154,9 @@ class LoadGenService @Inject()(
 object LoadGenService {
 
   def extractStep(uri: String): Option[java.time.Duration] = {
-    Try(Uri(uri)).toOption.flatMap(_.query().get("step").map(Strings.parseDuration))
+    val result = Try {
+      Uri(uri).query().get("step").map(Strings.parseDuration)
+    }
+    result.toOption.flatten
   }
 }

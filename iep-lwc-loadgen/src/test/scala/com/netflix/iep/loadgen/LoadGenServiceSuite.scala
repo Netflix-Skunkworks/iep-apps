@@ -34,4 +34,9 @@ class LoadGenServiceSuite extends FunSuite {
     val actual = LoadGenService.extractStep("/graph?q=name,{{ .SpinnakerApp }},:eq")
     assert(actual === None)
   }
+
+  test("extract step from uri, invalid step") {
+    val actual = LoadGenService.extractStep("/graph?q=name,foo,:eq&step=bad")
+    assert(actual === None)
+  }
 }
