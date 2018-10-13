@@ -15,8 +15,6 @@
  */
 package com.netflix.iep.loadgen
 
-import java.util.concurrent.atomic.AtomicLong
-
 import javax.inject.Inject
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.Uri
@@ -35,10 +33,8 @@ import com.netflix.atlas.eval.model.TimeSeriesMessage
 import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.histogram.PercentileDistributionSummary
-import com.netflix.spectator.api.Functions
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.patterns.CardinalityLimiters
-import com.netflix.spectator.api.patterns.PolledMeter
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
@@ -63,12 +59,6 @@ class LoadGenService @Inject()(
   private implicit val mat = ActorMaterializer()
 
   private val limiter = CardinalityLimiters.mostFrequent(20)
-
-  private val clock = registry.clock()
-  private val lastSuccessfulPutTime = PolledMeter
-    .using(registry)
-    .withName("forwarding.timeSinceLastPut")
-    .monitorValue(new AtomicLong(clock.wallTime()), Functions.age(clock))
 
   private var killSwitch: KillSwitch = _
 
