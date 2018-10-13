@@ -45,6 +45,7 @@ import com.typesafe.scalalogging.StrictLogging
 import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Success
+import scala.util.Try
 
 class LoadGenService @Inject()(
   config: Config,
@@ -53,6 +54,8 @@ class LoadGenService @Inject()(
   implicit val system: ActorSystem
 ) extends AbstractService
     with StrictLogging {
+
+  import LoadGenService._
 
   private val streamFailures = registry.counter("loadgen.streamFailures")
 
@@ -111,10 +114,6 @@ class LoadGenService @Inject()(
     new Evaluator.DataSources(sources.toSet.asJava)
   }
 
-  private def extractStep(uri: String): Option[java.time.Duration] = {
-    Uri(uri).query().get("step").map(Strings.parseDuration)
-  }
-
   private def updateStats(envelope: Evaluator.MessageEnvelope): Unit = {
     val id = limiter(envelope.getId)
     envelope.getMessage match {
@@ -149,5 +148,12 @@ class LoadGenService @Inject()(
         .build()
         .record(longValue)
     }
+  }
+}
+
+object LoadGenService {
+
+  def extractStep(uri: String): Option[java.time.Duration] = {
+    Try(Uri(uri)).toOption.flatMap(_.query().get("step").map(Strings.parseDuration))
   }
 }
