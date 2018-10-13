@@ -145,7 +145,6 @@ lazy val `iep-lwc-loadgen` = project
     Dependencies.atlasModuleEval,
     Dependencies.iepGuice,
     Dependencies.iepModuleAtlas,
-    Dependencies.iepModuleAws,
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,
