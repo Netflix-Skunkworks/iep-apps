@@ -484,17 +484,16 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
           """.stripMargin
 
     var loggerCalled = false
-    val loggerSpy = (message: String) => {
-      message shouldEqual messageBody
-      loggerCalled = true
-    }
 
     val sesMonitoringService = new SesMonitoringService(
       ConfigFactory.load(),
       new NoopRegistry(),
       DummyAmazonSQSAsync,
       system,
-      loggerSpy
+      message => {
+        message shouldEqual messageBody
+        loggerCalled = true
+      }
     )
 
     val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()

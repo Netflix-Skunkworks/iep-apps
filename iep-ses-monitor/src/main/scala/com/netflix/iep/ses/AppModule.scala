@@ -41,4 +41,9 @@ class AppModule extends AbstractModule {
       .withClientConfiguration(PredefinedClientConfigurations.defaultConfig().withGzip(true))
       .build()
   }
+
+  @Provides
+  def providesNotificationLogger(): NotificationLogger = {
+    SesNotificationLogger
+  }
 }
