@@ -37,7 +37,6 @@ import com.netflix.spectator.api.patterns.CardinalityLimiters
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
-import org.slf4j.LoggerFactory
 
 import scala.util.Failure
 import scala.util.Success
@@ -47,8 +46,7 @@ class SesMonitoringService @Inject()(
   registry: Registry,
   implicit val sqsAsync: AmazonSQSAsync,
   implicit val system: ActorSystem,
-  val sesNotificationLogger: String => Unit = message =>
-    LoggerFactory.getLogger("com.netflix.iep.SesNotificationLogger").info(message)
+  sesNotificationLogger: NotificationLogger
 ) extends AbstractService
     with StrictLogging {
 
@@ -73,6 +71,8 @@ class SesMonitoringService @Inject()(
     val notificationQueueName = config.getString("iep.ses.monitor.notification-queue-name")
     val queueUrlResult = sqsAsync.getQueueUrl(notificationQueueName)
     val queueUrl = queueUrlResult.getQueueUrl
+
+    logger.info(s"Connecting to SQS queue $notificationQueueName at $queueUrl")
 
     killSwitch = SqsSource(queueUrl)
       .via(createMessageProcessingFlow())
@@ -165,7 +165,7 @@ class SesMonitoringService @Inject()(
   }
 
   private[ses] def logNotification(message: Message): Message = {
-    sesNotificationLogger(message.getBody)
+    sesNotificationLogger.log(message.getBody)
     message
   }
 
