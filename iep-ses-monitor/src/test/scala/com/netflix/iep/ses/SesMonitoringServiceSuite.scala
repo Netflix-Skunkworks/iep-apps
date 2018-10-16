@@ -110,19 +110,10 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
 
     val messageBody =
       """
-            |{
-            |  "Message": {
-            |    "notificationType": "Bounce",
-            |    "mail": {
-            |      "source": "bouncer@example.com"
-            |    },
-            |    "bounce": {
-            |      "bounceType": "Transient",
-            |      "bounceSubType": "MailboxFull"
-            |    }
-            |  }
-            |}
-          """.stripMargin
+        |{
+        |  "Message": "{\"notificationType\": \"Bounce\",\"mail\": {\"source\": \"bouncer@example.com\"},\"bounce\": {\"bounceType\": \"Transient\",\"bounceSubType\": \"MailboxFull\"}}"
+        |}
+      """.stripMargin
 
     val counter = metricRegistry.counter(
       metricRegistry
@@ -155,19 +146,10 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
 
     val messageBody =
       """
-            |{
-            |  "Message": {
-            |    "notificationType": "Bounce",
-            |    "mail": {
-            |      "source": "bouncer@example.com"
-            |    },
-            |    "bounce": {
-            |      "bounceType": "Transient",
-            |      "bounceSubType": "MailboxFull"
-            |    }
-            |  }
-            |}
-          """.stripMargin
+        |{
+        |  "Message": "{\"notificationType\": \"Bounce\",\"mail\": {\"source\": \"bouncer@example.com\"},\"bounce\": {\"bounceType\": \"Transient\",\"bounceSubType\": \"MailboxFull\"}}"
+        |}
+      """.stripMargin
 
     val counter = metricRegistry.counter(
       metricRegistry
@@ -206,12 +188,10 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
 
     val messageBody =
       """
-            |{
-            |  "Message": {
-            |    "notificationType": "Bounce"
-            |  }
-            |}
-          """.stripMargin
+        |{
+        |  "Message": "{\"notificationType\": \"Bounce\"}"
+        |}
+      """.stripMargin
 
     val counter = metricRegistry.counter(
       metricRegistry
@@ -244,18 +224,10 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
 
     val messageBody =
       """
-            |{
-            |  "Message": {
-            |    "notificationType": "Complaint",
-            |    "mail": {
-            |      "source": "bouncer@example.com"
-            |    },
-            |    "complaint": {
-            |      "complaintFeedbackType": "not-spam"
-            |    }
-            |  }
-            |}
-          """.stripMargin
+        |{
+        |  "Message": "{\"notificationType\": \"Complaint\",\"mail\": {\"source\": \"bouncer@example.com\"},\"complaint\": {\"complaintFeedbackType\": \"not-spam\"}}"
+        |}
+      """.stripMargin
 
     val counter = metricRegistry.counter(
       metricRegistry
@@ -287,18 +259,10 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
 
     val messageBody =
       """
-            |{
-            |  "Message": {
-            |    "notificationType": "Complaint",
-            |    "mail": {
-            |      "source": "bouncer@example.com"
-            |    },
-            |    "complaint": {
-            |      "complaintFeedbackType": "not-spam"
-            |    }
-            |  }
-            |}
-          """.stripMargin
+        |{
+        |  "Message": "{\"notificationType\": \"Complaint\",\"mail\": {\"source\": \"bouncer@example.com\"},\"complaint\": {\"complaintFeedbackType\": \"not-spam\"}}"
+        |}
+      """.stripMargin
 
     val counter = metricRegistry.counter(
       metricRegistry
@@ -334,12 +298,10 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
 
     val messageBody =
       """
-            |{
-            |  "Message": {
-            |    "notificationType": "Complaint"
-            |  }
-            |}
-          """.stripMargin
+        |{
+        |  "Message": "{\"notificationType\": \"Complaint\"}"
+        |}
+      """.stripMargin
 
     val counter = metricRegistry.counter(
       metricRegistry
@@ -371,15 +333,10 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
 
     val messageBody =
       """
-            |{
-            |  "Message": {
-            |    "notificationType": "Delivery",
-            |    "mail": {
-            |      "source": "bouncer@example.com"
-            |    }
-            |  }
-            |}
-          """.stripMargin
+        |{
+        |  "Message": "{\"notificationType\": \"Delivery\",\"mail\": {\"source\": \"bouncer@example.com\"}}"
+        |}
+      """.stripMargin
 
     val counter = metricRegistry.counter(
       metricRegistry
@@ -410,15 +367,10 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
 
     val messageBody =
       """
-            |{
-            |  "Message": {
-            |    "notificationType": "Delivery",
-            |    "mail": {
-            |      "source": "bouncer@example.com"
-            |    }
-            |  }
-            |}
-          """.stripMargin
+        |{
+        |  "Message": "{\"notificationType\": \"Delivery\",\"mail\": {\"source\": \"bouncer@example.com\"}}"
+        |}
+      """.stripMargin
 
     val counter = metricRegistry.counter(
       metricRegistry
@@ -456,12 +408,10 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
 
     val messageBody =
       """
-            |{
-            |  "Message": {
-            |    "notificationType": "Delivery"
-            |  }
-            |}
-          """.stripMargin
+        |{
+        |  "Message": "{\"notificationType\": \"Delivery\"}"
+        |}
+      """.stripMargin
 
     val counter = metricRegistry.counter(
       metricRegistry
@@ -489,19 +439,47 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
 
     val messageBody =
       """
-            |{
-            |  "Message": {
-            |    "notificationType": "Bounce",
-            |    "mail": {
-            |      "source": "bouncer@example.com"
-            |    },
-            |    "bounce": {
-            |      "bounceType": "Transient",
-            |      "bounceSubType": "MailboxFull"
-            |    }
-            |  }
-            |}
-          """.stripMargin
+        |{
+        |  "Message": "{\"notificationType\": \"Bounce\",\"mail\": {\"source\": \"bouncer@example.com\"},\"bounce\": {\"bounceType\": \"Transient\",\"bounceSubType\": \"MailboxFull\"}}"
+        |}
+      """.stripMargin
+
+    var loggerCalled = false
+
+    val sesMonitoringService = new SesMonitoringService(
+      ConfigFactory.load(),
+      new NoopRegistry(),
+      DummyAmazonSQSAsync,
+      system,
+      message => {
+        message shouldEqual messageBody
+        loggerCalled = true
+      }
+    )
+
+    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+
+    loggerCalled shouldEqual false
+
+    Await.result(
+      Source
+        .single(createNotificationMessage(messageBody))
+        .via(messageProcessingFlow)
+        .runWith(Sink.ignore),
+      2.seconds
+    )
+
+    loggerCalled shouldEqual true
+  }
+
+  test("the raw notification message body should be logged, even if it can't be parsed as json") {
+
+    val messageBody =
+      """
+        |{
+        |  "Message": "{\"notificationType\": \"Bounce\",\"mail\": {\"source\": \"bouncer@example.com\"},\"bounce\": {\"bounceType\": \"Transient\",\"bounceSubType\": \"MailboxFull\"}"
+        |}
+      """.stripMargin
 
     var loggerCalled = false
 

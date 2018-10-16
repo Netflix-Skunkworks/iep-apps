@@ -16,3 +16,4 @@ For more information see:
 * [Monitoring Your Amazon SES Sending Activity](https://docs.aws.amazon.com/ses/latest/DeveloperGuide/monitor-sending-activity.html)
 * [Monitoring Using Amazon SES Notifications](https://docs.aws.amazon.com/ses/latest/DeveloperGuide/monitor-sending-using-notifications.html)
 * [Amazon SES Notifications Through Amazon SNS](https://docs.aws.amazon.com/ses/latest/DeveloperGuide/notifications-via-sns.html)
+* [Amazon SNS Notification Contents for Amazon SES](https://docs.aws.amazon.com/ses/latest/DeveloperGuide/notification-contents.html)
