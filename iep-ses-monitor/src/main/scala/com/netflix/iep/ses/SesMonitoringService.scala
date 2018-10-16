@@ -69,6 +69,8 @@ class SesMonitoringService @Inject()(
   override def startImpl(): Unit = {
 
     val notificationQueueName = config.getString("iep.ses.monitor.notification-queue-name")
+    logger.debug(s"Getting queue URL for SQS queue $notificationQueueName")
+
     val queueUrlResult = sqsAsync.getQueueUrl(notificationQueueName)
     val queueUrl = queueUrlResult.getQueueUrl
 
@@ -140,9 +142,9 @@ class SesMonitoringService @Inject()(
   private[ses] def extractTags(notification: Map[String, Any]) = {
 
     val notificationTypeKey = "notificationType"
-    val notificationTypeValue = getPath(notification, notificationTypeKey)
+    val notificationTypeValue = getPath(notification, "Message", notificationTypeKey)
 
-    val sourceEmail = getPath(notification, "mail", "source")
+    val sourceEmail = getPath(notification, "Message", "mail", "source")
 
     val commonTags = Vector(
       new BasicTag(notificationTypeKey, notificationTypeValue),
@@ -152,11 +154,16 @@ class SesMonitoringService @Inject()(
     val notificationTypeTags = notificationTypeValue match {
       case "Bounce" =>
         Vector(
-          new BasicTag("type", getPath(notification, "bounce", "bounceType")),
-          new BasicTag("subType", getPath(notification, "bounce", "bounceSubType"))
+          new BasicTag("type", getPath(notification, "Message", "bounce", "bounceType")),
+          new BasicTag("subType", getPath(notification, "Message", "bounce", "bounceSubType"))
         )
       case "Complaint" =>
-        Vector(new BasicTag("type", getPath(notification, "complaint", "complaintFeedbackType")))
+        Vector(
+          new BasicTag(
+            "type",
+            getPath(notification, "Message", "complaint", "complaintFeedbackType")
+          )
+        )
       case _ =>
         Vector.empty
     }

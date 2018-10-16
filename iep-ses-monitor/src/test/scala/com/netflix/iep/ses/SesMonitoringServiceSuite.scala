@@ -111,13 +111,15 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     val messageBody =
       """
             |{
-            |  "notificationType": "Bounce",
-            |  "mail": {
-            |    "source": "bouncer@example.com"
-            |  },
-            |  "bounce": {
-            |    "bounceType": "Transient",
-            |    "bounceSubType": "MailboxFull"
+            |  "Message": {
+            |    "notificationType": "Bounce",
+            |    "mail": {
+            |      "source": "bouncer@example.com"
+            |    },
+            |    "bounce": {
+            |      "bounceType": "Transient",
+            |      "bounceSubType": "MailboxFull"
+            |    }
             |  }
             |}
           """.stripMargin
@@ -154,13 +156,15 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     val messageBody =
       """
             |{
-            |  "notificationType": "Bounce",
-            |  "mail": {
-            |    "source": "bouncer@example.com"
-            |  },
-            |  "bounce": {
-            |    "bounceType": "Transient",
-            |    "bounceSubType": "MailboxFull"
+            |  "Message": {
+            |    "notificationType": "Bounce",
+            |    "mail": {
+            |      "source": "bouncer@example.com"
+            |    },
+            |    "bounce": {
+            |      "bounceType": "Transient",
+            |      "bounceSubType": "MailboxFull"
+            |    }
             |  }
             |}
           """.stripMargin
@@ -203,7 +207,9 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     val messageBody =
       """
             |{
-            |  "notificationType": "Bounce"
+            |  "Message": {
+            |    "notificationType": "Bounce"
+            |  }
             |}
           """.stripMargin
 
@@ -239,12 +245,14 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     val messageBody =
       """
             |{
-            |  "notificationType": "Complaint",
-            |  "mail": {
-            |    "source": "bouncer@example.com"
-            |  },
-            |  "complaint": {
-            |    "complaintFeedbackType": "not-spam"
+            |  "Message": {
+            |    "notificationType": "Complaint",
+            |    "mail": {
+            |      "source": "bouncer@example.com"
+            |    },
+            |    "complaint": {
+            |      "complaintFeedbackType": "not-spam"
+            |    }
             |  }
             |}
           """.stripMargin
@@ -280,12 +288,14 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     val messageBody =
       """
             |{
-            |  "notificationType": "Complaint",
-            |  "mail": {
-            |    "source": "bouncer@example.com"
-            |  },
-            |  "complaint": {
-            |    "complaintFeedbackType": "not-spam"
+            |  "Message": {
+            |    "notificationType": "Complaint",
+            |    "mail": {
+            |      "source": "bouncer@example.com"
+            |    },
+            |    "complaint": {
+            |      "complaintFeedbackType": "not-spam"
+            |    }
             |  }
             |}
           """.stripMargin
@@ -325,7 +335,9 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     val messageBody =
       """
             |{
-            |  "notificationType": "Complaint"
+            |  "Message": {
+            |    "notificationType": "Complaint"
+            |  }
             |}
           """.stripMargin
 
@@ -360,9 +372,11 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     val messageBody =
       """
             |{
-            |  "notificationType": "Delivery",
-            |  "mail": {
-            |    "source": "bouncer@example.com"
+            |  "Message": {
+            |    "notificationType": "Delivery",
+            |    "mail": {
+            |      "source": "bouncer@example.com"
+            |    }
             |  }
             |}
           """.stripMargin
@@ -397,9 +411,11 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     val messageBody =
       """
             |{
-            |  "notificationType": "Delivery",
-            |  "mail": {
-            |    "source": "bouncer@example.com"
+            |  "Message": {
+            |    "notificationType": "Delivery",
+            |    "mail": {
+            |      "source": "bouncer@example.com"
+            |    }
             |  }
             |}
           """.stripMargin
@@ -441,7 +457,9 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     val messageBody =
       """
             |{
-            |  "notificationType": "Delivery"
+            |  "Message": {
+            |    "notificationType": "Delivery"
+            |  }
             |}
           """.stripMargin
 
@@ -472,13 +490,15 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     val messageBody =
       """
             |{
-            |  "notificationType": "Bounce",
-            |  "mail": {
-            |    "source": "bouncer@example.com"
-            |  },
-            |  "bounce": {
-            |    "bounceType": "Transient",
-            |    "bounceSubType": "MailboxFull"
+            |  "Message": {
+            |    "notificationType": "Bounce",
+            |    "mail": {
+            |      "source": "bouncer@example.com"
+            |    },
+            |    "bounce": {
+            |      "bounceType": "Transient",
+            |      "bounceSubType": "MailboxFull"
+            |    }
             |  }
             |}
           """.stripMargin
