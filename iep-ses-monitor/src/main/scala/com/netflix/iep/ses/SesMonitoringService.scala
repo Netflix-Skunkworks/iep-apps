@@ -111,7 +111,9 @@ class SesMonitoringService @Inject()(
       // decoding to Map since we only record a few fields
       // ... may want to create a model object at some point
       val json = Json.decode[Map[String, Any]](message.getBody)
-      val tags = extractTags(json)
+      val messageObject =
+        Json.decode[Map[String, Any]](json.getOrElse("Message", "{}").asInstanceOf[String])
+      val tags = extractTags(messageObject)
       registry.counter(notificationsId.withTags(tags: _*)).increment()
     } catch {
       case e: Exception =>
@@ -142,9 +144,9 @@ class SesMonitoringService @Inject()(
   private[ses] def extractTags(notification: Map[String, Any]) = {
 
     val notificationTypeKey = "notificationType"
-    val notificationTypeValue = getPath(notification, "Message", notificationTypeKey)
+    val notificationTypeValue = getPath(notification, notificationTypeKey)
 
-    val sourceEmail = getPath(notification, "Message", "mail", "source")
+    val sourceEmail = getPath(notification, "mail", "source")
 
     val commonTags = Vector(
       new BasicTag(notificationTypeKey, notificationTypeValue),
@@ -154,14 +156,14 @@ class SesMonitoringService @Inject()(
     val notificationTypeTags = notificationTypeValue match {
       case "Bounce" =>
         Vector(
-          new BasicTag("type", getPath(notification, "Message", "bounce", "bounceType")),
-          new BasicTag("subType", getPath(notification, "Message", "bounce", "bounceSubType"))
+          new BasicTag("type", getPath(notification, "bounce", "bounceType")),
+          new BasicTag("subType", getPath(notification, "bounce", "bounceSubType"))
         )
       case "Complaint" =>
         Vector(
           new BasicTag(
             "type",
-            getPath(notification, "Message", "complaint", "complaintFeedbackType")
+            getPath(notification, "complaint", "complaintFeedbackType")
           )
         )
       case _ =>
