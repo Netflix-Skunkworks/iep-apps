@@ -107,6 +107,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
   }
 
   test("bounce notifications delivered with all metadata increment ses.monitor.notifications") {
+
     val messageBody =
       """
         |{
