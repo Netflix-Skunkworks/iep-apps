@@ -117,7 +117,7 @@ class ExpressionsEvaluatorSuite extends FunSuite {
   test("sync: bad expressions") {
     val evaluator = new ExpressionsEvaluator(config)
     evaluator.sync(createSubs("node,i-00,:re,:sum"))
-    var payload = evaluator.eval(timestamp, data(1.0) ::: data(4.0))
+    val payload = evaluator.eval(timestamp, data(1.0) ::: data(4.0))
     assert(payload.getMetrics.isEmpty)
     assert(payload.getMessages.size() === 1)
   }
