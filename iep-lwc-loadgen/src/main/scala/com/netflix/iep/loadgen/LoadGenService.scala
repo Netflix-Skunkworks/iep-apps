@@ -15,6 +15,7 @@
  */
 package com.netflix.iep.loadgen
 
+import akka.NotUsed
 import javax.inject.Inject
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.Uri
@@ -64,10 +65,8 @@ class LoadGenService @Inject()(
   private var killSwitch: KillSwitch = _
 
   override def startImpl(): Unit = {
-    killSwitch = Source
-      .repeat(dataSources)
-      .throttle(1, 1.minute, 1, ThrottleMode.Shaping)
-      .via(Flow.fromProcessor(() => evaluator.createStreamsProcessor()))
+    killSwitch = Source(dataSources)
+      .flatMapMerge(Int.MaxValue, evalSource)
       .watchTermination() { (_, f) =>
         f.onComplete {
           case Success(_) | Failure(_: AbruptTerminationException) =>
@@ -89,10 +88,17 @@ class LoadGenService @Inject()(
     if (killSwitch != null) killSwitch.shutdown()
   }
 
-  private def dataSources: Evaluator.DataSources = {
+  private def evalSource(ds: Evaluator.DataSources): Source[Evaluator.MessageEnvelope, NotUsed] = {
+    Source
+      .repeat(ds)
+      .throttle(1, 1.minute, 1, ThrottleMode.Shaping)
+      .via(Flow.fromProcessor(() => evaluator.createStreamsProcessor()))
+  }
+
+  private def dataSources: List[Evaluator.DataSources] = {
     import scala.collection.JavaConverters._
     val defaultStep = config.getDuration("iep.lwc.loadgen.step")
-    val sources = config
+    config
       .getStringList("iep.lwc.loadgen.uris")
       .asScala
       .zipWithIndex
@@ -102,7 +108,11 @@ class LoadGenService @Inject()(
           val id = Strings.zeroPad(i, 6)
           new Evaluator.DataSource(id, step, uri)
       }
-    new Evaluator.DataSources(sources.toSet.asJava)
+      .grouped(1000)
+      .map { grp =>
+        new Evaluator.DataSources(grp.toSet.asJava)
+      }
+      .toList
   }
 
   private def updateStats(envelope: Evaluator.MessageEnvelope): Unit = {
