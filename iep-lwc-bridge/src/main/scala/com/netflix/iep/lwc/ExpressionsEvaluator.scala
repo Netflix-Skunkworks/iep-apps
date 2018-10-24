@@ -97,7 +97,7 @@ class ExpressionsEvaluator @Inject()(config: Config) extends StrictLogging {
   def eval(timestamp: Long, values: List[Datapoint]): EvalPayload = {
     val index = indexRef.get
     val aggregates = collection.mutable.AnyRefMap.empty[String, Aggregator]
-    values.foreach { v =>
+    values.filter(!_.value.isNaN).foreach { v =>
       val subs = index.matchingEntries(v.tags)
       if (subs.nonEmpty) {
         val pair = toPair(v)
