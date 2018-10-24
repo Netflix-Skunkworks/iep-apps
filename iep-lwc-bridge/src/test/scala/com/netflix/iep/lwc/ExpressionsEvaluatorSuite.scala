@@ -82,6 +82,18 @@ class ExpressionsEvaluatorSuite extends FunSuite {
     assert(m.getValue === 5.0)
   }
 
+  test("eval with multiple datapoints ignores NaN values") {
+    val evaluator = new ExpressionsEvaluator(config)
+    evaluator.sync(createSubs("node,i-00,:eq,:sum"))
+    val payload = evaluator.eval(timestamp, data(7.0) ::: data(Double.NaN))
+    assert(payload.getTimestamp === timestamp)
+    assert(payload.getMetrics.size() === 1)
+
+    val m = payload.getMetrics.get(0)
+    assert(m.getId === "0")
+    assert(m.getValue === 7.0)
+  }
+
   test("eval with multiple expressions") {
     val evaluator = new ExpressionsEvaluator(config)
     evaluator.sync(createSubs("node,i-00,:eq,:sum", "node,i-00,:eq,:max"))
