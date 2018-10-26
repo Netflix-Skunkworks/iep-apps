@@ -106,7 +106,9 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     processed.getClass shouldEqual classOf[MessageAction.Delete]
   }
 
-  test("bounce notifications delivered with all metadata increment ses.monitor.notifications") {
+  test(
+    "bounce notifications delivered with no bounceRecipients increment ses.monitor.notifications"
+  ) {
 
     val messageBody =
       """
@@ -137,6 +139,118 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     )
 
     counter.count() shouldEqual 1
+  }
+
+  test(
+    "bounce notifications delivered with empty bounceRecipients increment ses.monitor.notifications"
+  ) {
+
+    val messageBody =
+      """
+        |{
+        |  "Message": "{\"notificationType\": \"Bounce\",\"mail\": {\"source\": \"bouncer@example.com\"},\"bounce\": {\"bounceType\": \"Transient\",\"bounceSubType\": \"MailboxFull\", \"bounceRecipients\": [ ]}}"
+        |}
+      """.stripMargin
+
+    val counter = metricRegistry.counter(
+      metricRegistry
+        .createId("ses.monitor.notifications")
+        .withTag("notificationType", "Bounce")
+        .withTag("sourceEmail", "bouncer@example.com")
+        .withTag("type", "Transient")
+        .withTag("subType", "MailboxFull")
+    )
+
+    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+
+    counter.count() shouldEqual 0
+
+    Await.result(
+      Source
+        .single(createNotificationMessage(messageBody))
+        .via(messageProcessingFlow)
+        .runWith(Sink.ignore),
+      2.seconds
+    )
+
+    counter.count() shouldEqual 1
+  }
+
+  test(
+    "bounce notifications delivered with one bounce recipient increment ses.monitor.notifications"
+  ) {
+
+    val messageBody =
+      """
+        |{
+        |  "Message": "{\"notificationType\": \"Bounce\",\"mail\": {\"source\": \"bouncer@example.com\"},\"bounce\": {\"bounceType\": \"Transient\",\"bounceSubType\": \"MailboxFull\", \"bouncedRecipients\": [ {\"emailAddress\": \"engineer@example.com\"} ]}}"
+        |}
+      """.stripMargin
+
+    val counter = metricRegistry.counter(
+      metricRegistry
+        .createId("ses.monitor.notifications")
+        .withTag("notificationType", "Bounce")
+        .withTag("sourceEmail", "bouncer@example.com")
+        .withTag("bouncedRecipient", "engineer@example.com")
+        .withTag("type", "Transient")
+        .withTag("subType", "MailboxFull")
+    )
+
+    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+
+    counter.count() shouldEqual 0
+
+    Await.result(
+      Source
+        .single(createNotificationMessage(messageBody))
+        .via(messageProcessingFlow)
+        .runWith(Sink.ignore),
+      2.minutes
+    )
+
+    counter.count() shouldEqual 1
+  }
+
+  test(
+    "bounce notifications delivered with multiple bounceRecipients increment " +
+    "ses.monitor.notifications for each one"
+  ) {
+
+    val messageBody =
+      """
+        |{
+        |  "Message": "{\"notificationType\": \"Bounce\",\"mail\": {\"source\": \"bouncer@example.com\"},\"bounce\": {\"bounceType\": \"Transient\",\"bounceSubType\": \"MailboxFull\", \"bouncedRecipients\": [ {\"emailAddress\": \"engineer@example.com\"}, {\"emailAddress\": \"manager@example.com\"} ]}}"
+        |}
+      """.stripMargin
+
+    val baseId = metricRegistry
+      .createId("ses.monitor.notifications")
+      .withTag("notificationType", "Bounce")
+      .withTag("sourceEmail", "bouncer@example.com")
+      .withTag("type", "Transient")
+      .withTag("subType", "MailboxFull")
+
+    val engineerCounter =
+      metricRegistry.counter(baseId.withTag("bouncedRecipient", "engineer@example.com"))
+    val managerCounter =
+      metricRegistry.counter(baseId.withTag("bouncedRecipient", "manager@example.com"))
+
+    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+
+    engineerCounter.count() shouldEqual 0
+    managerCounter.count() shouldEqual 0
+
+    Await.result(
+      Source
+        .single(createNotificationMessage(messageBody))
+        .via(messageProcessingFlow)
+        .runWith(Sink.ignore),
+      2.seconds
+    )
+
+    engineerCounter.count() shouldEqual 1
+    managerCounter.count() shouldEqual 1
   }
 
   test(

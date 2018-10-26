@@ -58,6 +58,7 @@ class SesMonitoringService @Inject()(
 
   private val notificationsId = registry.createId("ses.monitor.notifications")
   private val sourceEmailLimiter = CardinalityLimiters.mostFrequent(20)
+  private val bouncedRecipientLimiter = CardinalityLimiters.mostFrequent(20)
 
   private val streamFailures = registry.counter("ses.monitor.streamFailures")
 
@@ -113,8 +114,7 @@ class SesMonitoringService @Inject()(
       val json = Json.decode[Map[String, Any]](message.getBody)
       val messageObject =
         Json.decode[Map[String, Any]](json.getOrElse("Message", "{}").asInstanceOf[String])
-      val tags = extractTags(messageObject)
-      registry.counter(notificationsId.withTags(tags: _*)).increment()
+      incrementCounter(messageObject)
     } catch {
       case e: Exception =>
         registry.counter(deserializationFailuresId.withTag("exception", e.getClass.getSimpleName))
@@ -127,50 +127,74 @@ class SesMonitoringService @Inject()(
     MessageAction.delete(message)
   }
 
+  private def getPathAsString(obj: Map[String, Any], path: String*) = {
+    getPath(obj, path: _*).fold("unknown")(_.asInstanceOf[String])
+  }
+
+  private def getPathAsList(obj: Map[String, Any], listElementKey: String, pathToList: String*) = {
+    getPath(obj, pathToList: _*).fold(List.empty[String]) {
+      _.asInstanceOf[List[Map[String, Any]]].map(getPathAsString(_, listElementKey))
+    }
+  }
+
   @scala.annotation.tailrec
-  private def getPath(obj: Map[String, Any], path: String*): String = {
+  private def getPath(obj: Map[String, Any], path: String*): Option[Any] = {
     // getOrElse defensively since notifications are an external input we don't control
     path.toList match {
       case ks if ks.isEmpty || obj.isEmpty =>
-        "unknown"
+        None
       case k :: Nil =>
-        obj.getOrElse(k, "unknown").asInstanceOf[String]
+        obj.get(k)
       case k :: ks =>
         val subObj = obj.getOrElse(k, Map.empty[String, Any]).asInstanceOf[Map[String, Any]]
         getPath(subObj, ks: _*)
     }
   }
 
-  private[ses] def extractTags(notification: Map[String, Any]) = {
-
+  private[ses] def incrementCounter(notification: Map[String, Any]) = {
     val notificationTypeKey = "notificationType"
-    val notificationTypeValue = getPath(notification, notificationTypeKey)
+    val notificationTypeValue = getPathAsString(notification, notificationTypeKey)
 
-    val sourceEmail = getPath(notification, "mail", "source")
+    val sourceEmail = getPathAsString(notification, "mail", "source")
 
     val commonTags = Vector(
       new BasicTag(notificationTypeKey, notificationTypeValue),
       new BasicTag("sourceEmail", sourceEmailLimiter(sourceEmail))
     )
 
-    val notificationTypeTags = notificationTypeValue match {
+    notificationTypeValue match {
       case "Bounce" =>
-        Vector(
-          new BasicTag("type", getPath(notification, "bounce", "bounceType")),
-          new BasicTag("subType", getPath(notification, "bounce", "bounceSubType"))
-        )
+        incrementBounce(notification, commonTags)
       case "Complaint" =>
-        Vector(
-          new BasicTag(
-            "type",
-            getPath(notification, "complaint", "complaintFeedbackType")
-          )
-        )
+        incrementComplaint(notification, commonTags)
       case _ =>
-        Vector.empty
+        registry.counter(notificationsId.withTags(commonTags: _*)).increment()
     }
+  }
 
-    commonTags ++ notificationTypeTags
+  private def incrementComplaint(notification: Map[String, Any], commonTags: Vector[BasicTag]) = {
+    val tags = commonTags ++ Vector(
+      new BasicTag("type", getPathAsString(notification, "complaint", "complaintFeedbackType"))
+    )
+    registry.counter(notificationsId.withTags(tags: _*)).increment()
+  }
+
+  private def incrementBounce(notification: Map[String, Any], commonTags: Vector[BasicTag]) = {
+    val tags = commonTags ++ Vector(
+      new BasicTag("type", getPathAsString(notification, "bounce", "bounceType")),
+      new BasicTag("subType", getPathAsString(notification, "bounce", "bounceSubType"))
+    )
+    val idWithCommonTags = notificationsId.withTags(tags: _*)
+    val bouncedRecipients =
+      getPathAsList(notification, "emailAddress", "bounce", "bouncedRecipients")
+    if (bouncedRecipients.isEmpty)
+      registry.counter(idWithCommonTags).increment()
+    else
+      bouncedRecipients.foreach { br =>
+        registry
+          .counter(idWithCommonTags.withTag("bouncedRecipient", bouncedRecipientLimiter(br)))
+          .increment()
+      }
   }
 
   private[ses] def logNotification(message: Message): Message = {
