@@ -15,6 +15,7 @@
  */
 package com.netflix.iep.ses
 
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.AbruptTerminationException
 import akka.stream.ActorMaterializer
@@ -97,7 +98,7 @@ class SesMonitoringService @Inject()(
       .run()
   }
 
-  private[ses] def createMessageProcessingFlow() = {
+  private[ses] def createMessageProcessingFlow(): Flow[Message, MessageAction, NotUsed] = {
     Flow[Message]
       .map { message =>
         receivedMessageCount.increment()
@@ -107,7 +108,7 @@ class SesMonitoringService @Inject()(
       .map(publishMetrics)
   }
 
-  private[ses] def publishMetrics(message: Message) = {
+  private[ses] def publishMetrics(message: Message): MessageAction = {
     try {
       // decoding to Map since we only record a few fields
       // ... may want to create a model object at some point
@@ -127,11 +128,15 @@ class SesMonitoringService @Inject()(
     MessageAction.delete(message)
   }
 
-  private def getPathAsString(obj: Map[String, Any], path: String*) = {
+  private def getPathAsString(obj: Map[String, Any], path: String*): String = {
     getPath(obj, path: _*).fold("unknown")(_.asInstanceOf[String])
   }
 
-  private def getPathAsList(obj: Map[String, Any], listElementKey: String, pathToList: String*) = {
+  private def getPathAsList(
+    obj: Map[String, Any],
+    listElementKey: String,
+    pathToList: String*
+  ): List[String] = {
     getPath(obj, pathToList: _*).fold(List.empty[String]) {
       _.asInstanceOf[List[Map[String, Any]]].map(getPathAsString(_, listElementKey))
     }
@@ -151,7 +156,7 @@ class SesMonitoringService @Inject()(
     }
   }
 
-  private[ses] def incrementCounter(notification: Map[String, Any]) = {
+  private[ses] def incrementCounter(notification: Map[String, Any]): Unit = {
     val notificationTypeKey = "notificationType"
     val notificationTypeValue = getPathAsString(notification, notificationTypeKey)
 
@@ -172,14 +177,20 @@ class SesMonitoringService @Inject()(
     }
   }
 
-  private def incrementComplaint(notification: Map[String, Any], commonTags: Vector[BasicTag]) = {
+  private def incrementComplaint(
+    notification: Map[String, Any],
+    commonTags: Vector[BasicTag]
+  ): Unit = {
     val tags = commonTags ++ Vector(
       new BasicTag("type", getPathAsString(notification, "complaint", "complaintFeedbackType"))
     )
     registry.counter(notificationsId.withTags(tags: _*)).increment()
   }
 
-  private def incrementBounce(notification: Map[String, Any], commonTags: Vector[BasicTag]) = {
+  private def incrementBounce(
+    notification: Map[String, Any],
+    commonTags: Vector[BasicTag]
+  ): Unit = {
     val tags = commonTags ++ Vector(
       new BasicTag("type", getPathAsString(notification, "bounce", "bounceType")),
       new BasicTag("subType", getPathAsString(notification, "bounce", "bounceSubType"))

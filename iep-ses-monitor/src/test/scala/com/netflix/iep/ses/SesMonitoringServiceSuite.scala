@@ -623,7 +623,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     loggerCalled shouldEqual true
   }
 
-  private def createNotificationMessage(messageBody: String) = {
+  private def createNotificationMessage(messageBody: String): Message = {
     new Message()
       .withMessageId("abc-123")
       .withReceiptHandle("abc-123-handle")
