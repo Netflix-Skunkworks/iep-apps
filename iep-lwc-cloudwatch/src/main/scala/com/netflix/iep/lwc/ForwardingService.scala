@@ -213,7 +213,7 @@ object ForwardingService extends StrictLogging {
       .filter(s => !s.trim.isEmpty)
       .map(s => Message(s))
       .filter { msg =>
-        logger.debug(s"message ${msg.data}")
+        logger.debug(s"message [${msg.str}]")
 
         msg match {
           case m if m.isHeartbeat => heartbeats.increment()
@@ -339,12 +339,20 @@ object ForwardingService extends StrictLogging {
 
   case class Message(str: String) {
 
-    val data = Json.decode[Data](str.substring("data:".length))
+    private val data = {
+      try {
+        Json.decode[Data](str.substring("data:".length))
+      } catch {
+        case e: Exception =>
+          logger.warn(s"failed to parse message from configbin: [$str]", e)
+          Data("invalid", null, Json.decode[ObjectNode]("{}"))
+      }
+    }
 
     private def isNullOrEmpty(s: String): Boolean = s == null || s.isEmpty
 
     def isInvalid: Boolean =
-      !isDone && (isNullOrEmpty(data.key) || !data.data.fieldNames().hasNext())
+      !isDone && (isNullOrEmpty(data.key) || !data.data.fieldNames().hasNext)
 
     def isDone: Boolean = data.dataType == "done"
 

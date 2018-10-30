@@ -137,6 +137,14 @@ class ForwardingServiceSuite extends FunSuite {
     assert(msg.isHeartbeat)
   }
 
+  test("invalid sse message") {
+    val sample = s"""unknown: {"type":"config","key":"cluster","data":{}}"""
+    val msg = Message(sample)
+
+    assert(msg.isInvalid)
+    assert(!msg.isUpdate)
+  }
+
   //
   // CloudWatch Truncate tests
   //
