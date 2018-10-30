@@ -44,7 +44,9 @@ import com.amazonaws.services.cloudwatch.model.Dimension
 import com.amazonaws.services.cloudwatch.model.MetricDatum
 import com.amazonaws.services.cloudwatch.model.PutMetricDataRequest
 import com.amazonaws.services.cloudwatch.model.PutMetricDataResult
+import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.databind.node.TextNode
 import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.core.util.Strings
@@ -208,13 +210,18 @@ object ForwardingService extends StrictLogging {
     Flow[ByteString]
       .via(Framing.delimiter(ByteString("\n"), MaxFrameLength, allowTruncation = true))
       .map(_.decodeString(StandardCharsets.UTF_8))
+      .filter(s => !s.trim.isEmpty)
       .map(s => Message(s))
       .filter { msg =>
+        logger.debug(s"message [${msg.str}]")
+
         msg match {
-          case m if m.isHeartbeat => logger.debug(m.responseString); heartbeats.increment()
+          case m if m.isHeartbeat => heartbeats.increment()
           case m if m.isInvalid   => invalid.increment()
           case m if m.isUpdate    => (if (m.response.isDelete) deletes else updates).increment()
+          case _                  =>
         }
+
         msg.isUpdate
       }
       .via(new ConfigManager)
@@ -332,26 +339,39 @@ object ForwardingService extends StrictLogging {
 
   case class Message(str: String) {
 
-    val (cluster: String, responseString: String) = {
-      val pos = str.indexOf("->")
-      if (pos < 0)
-        null.asInstanceOf[String] -> null.asInstanceOf[String]
-      else
-        str.substring(0, pos) -> str.substring(pos + 2)
+    private val data = {
+      try {
+        Json.decode[Data](str.substring("data:".length))
+      } catch {
+        case e: Exception =>
+          logger.warn(s"failed to parse message from configbin: [$str]", e)
+          Data("invalid", null, Json.decode[ObjectNode]("{}"))
+      }
     }
 
     private def isNullOrEmpty(s: String): Boolean = s == null || s.isEmpty
 
-    def isInvalid: Boolean = isNullOrEmpty(cluster) || isNullOrEmpty(responseString)
+    def isInvalid: Boolean =
+      !isDone && (isNullOrEmpty(data.key) || !data.data.fieldNames().hasNext)
 
-    def isHeartbeat: Boolean = cluster == "heartbeat"
+    def isDone: Boolean = data.dataType == "done"
 
-    def isUpdate: Boolean = !(isInvalid || isHeartbeat)
+    def isHeartbeat: Boolean = data.dataType == "heartbeat"
+
+    def isUpdate: Boolean = data.dataType == "config" && !isInvalid
+
+    def cluster: String = data.key
 
     def response: ConfigBinResponse = {
-      Json.decode[ConfigBinResponse](responseString)
+      Json.decode[ConfigBinResponse](data.data)
     }
   }
+
+  case class Data(
+    @JsonProperty("type") dataType: String,
+    key: String,
+    data: ObjectNode
+  )
 
   case class ConfigBinResponse(version: ConfigBinVersion, payload: JsonNode) {
     def isUpdate: Boolean = !isDelete

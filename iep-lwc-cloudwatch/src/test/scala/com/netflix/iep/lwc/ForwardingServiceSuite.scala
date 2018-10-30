@@ -38,6 +38,7 @@ import scala.concurrent.duration.Duration
 class ForwardingServiceSuite extends FunSuite {
 
   import ForwardingService._
+
   import scala.collection.JavaConverters._
 
   private implicit val system = ActorSystem(getClass.getSimpleName)
@@ -56,7 +57,8 @@ class ForwardingServiceSuite extends FunSuite {
     s"""{"email":"bob@example.com","expressions":[{"atlasUri":"$expr","account":"$$(nf.account)","metricName":"requestsPerSecond","dimensions":[{"name":"AutoScalingGroupName","value":"$$(nf.asg)"}]}]}"""
 
   test("parse update response") {
-    val sample = s"""cluster->{"version":$versionWithUser,"payload":$payload}"""
+    val sample =
+      s"""data: {"type":"config", "key":"cluster", "data":{"version":$versionWithUser,"payload":$payload}}"""
     val msg = Message(sample)
 
     val expectedResponse = ConfigBinResponse(
@@ -77,13 +79,18 @@ class ForwardingServiceSuite extends FunSuite {
       )
     )
 
+    assert(!msg.isInvalid)
+    assert(msg.isUpdate)
+    assert(!msg.isDone)
+    assert(!msg.isHeartbeat)
     assert(msg.cluster === "cluster")
     assert(msg.response.isUpdate)
     assert(msg.response === expectedResponse)
   }
 
   test("parse delete response") {
-    val sample = s"""cluster->{"version":$version,"payload":""}"""
+    val sample =
+      s"""data: {"type":"config", "key":"cluster", "data":{"version":$version,"payload":""}}"""
     val msg = Message(sample)
 
     val expectedResponse = ConfigBinResponse.delete(ConfigBinVersion(1505226236957L, "2d4d"))
@@ -94,11 +101,48 @@ class ForwardingServiceSuite extends FunSuite {
   }
 
   test("parse heartbeat") {
-    val sample = s"""heartbeat->1,i-12345,1a7fb69e-005c-4ebc-bf05-aba3386c682f,1"""
+    val sample =
+      s"""data: {"type":"heartbeat","key":"heartbeat","data":{"clientRepoVersion":1,"serverInstance":"i-12345","clientId":"1a7fb69e-005c-4ebc-bf05-aba3386c682f","latestVersion":1}}"""
     val msg = Message(sample)
 
-    assert(msg.cluster === "heartbeat")
+    assert(!msg.isInvalid)
+    assert(!msg.isUpdate)
+    assert(!msg.isDone)
     assert(msg.isHeartbeat)
+  }
+
+  test("parse done") {
+    val sample = s"""data: {"type":"done","key":"","data":{}}"""
+    val msg = Message(sample)
+
+    assert(!msg.isInvalid)
+    assert(!msg.isUpdate)
+    assert(msg.isDone)
+    assert(!msg.isHeartbeat)
+  }
+
+  test("invalid config message") {
+    val sample = s"""data: {"type":"config","key":"cluster","data":{}}"""
+    val msg = Message(sample)
+
+    assert(msg.isInvalid)
+    assert(!msg.isUpdate)
+  }
+
+  test("invalid heartbeat message") {
+    val sample = s"""data: {"type":"heartbeat","key":"heartbeat","data":{}}"""
+    val msg = Message(sample)
+
+    assert(msg.isInvalid)
+    assert(msg.isHeartbeat)
+  }
+
+  test("invalid sse message") {
+    val sample = s"""unknown: {"type":"config","key":"cluster","data":{}}"""
+    val msg = Message(sample)
+
+    assert(msg.isInvalid)
+    assert(!msg.isUpdate)
   }
 
   //
