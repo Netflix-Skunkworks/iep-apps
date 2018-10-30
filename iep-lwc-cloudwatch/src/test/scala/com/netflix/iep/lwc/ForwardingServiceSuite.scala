@@ -20,9 +20,14 @@ import java.util.concurrent.atomic.AtomicLong
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Sink, Source}
-import com.amazonaws.services.cloudwatch.model.{Dimension, MetricDatum, PutMetricDataRequest, PutMetricDataResult}
-import com.netflix.atlas.eval.model.{ArrayData, TimeSeriesMessage}
+import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.Source
+import com.amazonaws.services.cloudwatch.model.Dimension
+import com.amazonaws.services.cloudwatch.model.MetricDatum
+import com.amazonaws.services.cloudwatch.model.PutMetricDataRequest
+import com.amazonaws.services.cloudwatch.model.PutMetricDataResult
+import com.netflix.atlas.eval.model.ArrayData
+import com.netflix.atlas.eval.model.TimeSeriesMessage
 import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.spectator.api.NoopRegistry
 import org.scalatest.FunSuite
@@ -52,7 +57,8 @@ class ForwardingServiceSuite extends FunSuite {
     s"""{"email":"bob@example.com","expressions":[{"atlasUri":"$expr","account":"$$(nf.account)","metricName":"requestsPerSecond","dimensions":[{"name":"AutoScalingGroupName","value":"$$(nf.asg)"}]}]}"""
 
   test("parse update response") {
-    val sample = s"""data: {"type":"config", "key":"cluster", "data":{"version":$versionWithUser,"payload":$payload}}"""
+    val sample =
+      s"""data: {"type":"config", "key":"cluster", "data":{"version":$versionWithUser,"payload":$payload}}"""
     val msg = Message(sample)
 
     val expectedResponse = ConfigBinResponse(
@@ -83,7 +89,8 @@ class ForwardingServiceSuite extends FunSuite {
   }
 
   test("parse delete response") {
-    val sample = s"""data: {"type":"config", "key":"cluster", "data":{"version":$version,"payload":""}}"""
+    val sample =
+      s"""data: {"type":"config", "key":"cluster", "data":{"version":$version,"payload":""}}"""
     val msg = Message(sample)
 
     val expectedResponse = ConfigBinResponse.delete(ConfigBinVersion(1505226236957L, "2d4d"))
@@ -94,7 +101,8 @@ class ForwardingServiceSuite extends FunSuite {
   }
 
   test("parse heartbeat") {
-    val sample = s"""data: {"type":"heartbeat","key":"heartbeat","data":{"clientRepoVersion":1,"serverInstance":"i-12345","clientId":"1a7fb69e-005c-4ebc-bf05-aba3386c682f","latestVersion":1}}"""
+    val sample =
+      s"""data: {"type":"heartbeat","key":"heartbeat","data":{"clientRepoVersion":1,"serverInstance":"i-12345","clientId":"1a7fb69e-005c-4ebc-bf05-aba3386c682f","latestVersion":1}}"""
     val msg = Message(sample)
 
     assert(!msg.isInvalid)

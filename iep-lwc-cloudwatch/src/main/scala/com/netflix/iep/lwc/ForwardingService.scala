@@ -213,7 +213,7 @@ object ForwardingService extends StrictLogging {
       .filter(s => !s.trim.isEmpty)
       .map(s => Message(s))
       .filter { msg =>
-        logger.debug(s"Message ${msg.data}")
+        logger.debug(s"message ${msg.data}")
 
         msg match {
           case m if m.isHeartbeat => heartbeats.increment()
