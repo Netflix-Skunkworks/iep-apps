@@ -60,7 +60,8 @@ object BuildSettings {
     Resolver.mavenLocal,
     Resolver.mavenCentral,
     Resolver.jcenterRepo,
-    "jfrog" at "http://oss.jfrog.org/oss-snapshot-local")
+    "jfrog" at "http://oss.jfrog.org/oss-snapshot-local"
+  )
 
   // Don't create root.jar, from:
   // http://stackoverflow.com/questions/20747296/producing-no-artifact-for-root-project-with-package-under-multi-project-build-in

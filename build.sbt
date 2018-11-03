@@ -134,6 +134,7 @@ lazy val `iep-lwc-cloudwatch` = project
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,
 
+    Dependencies.jsonSchema % "test",
     Dependencies.akkaHttpTestkit % "test",
     Dependencies.scalatest % "test"
   ))
