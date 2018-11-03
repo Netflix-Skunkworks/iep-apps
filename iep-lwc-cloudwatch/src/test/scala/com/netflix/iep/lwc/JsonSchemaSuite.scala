@@ -16,11 +16,14 @@
 package com.netflix.iep.lwc
 
 import org.everit.json.schema.loader.SchemaLoader
-import org.json.{JSONArray, JSONObject, JSONTokener}
+import org.json.JSONArray
+import org.json.JSONObject
+import org.json.JSONTokener
 import org.scalatest.FunSuite
 
 import scala.io.Source
-import scala.util.{Failure, Try}
+import scala.util.Failure
+import scala.util.Try
 
 class JsonSchemaSuite extends FunSuite {
 
@@ -35,7 +38,10 @@ class JsonSchemaSuite extends FunSuite {
   }
 
   test("Fail when top level node is not an object") {
-    assertException(schema.validate(new JSONArray()), "#: expected type: JSONObject, found: JSONArray")
+    assertException(
+      schema.validate(new JSONArray()),
+      "#: expected type: JSONObject, found: JSONArray"
+    )
   }
 
   test("Fail for missing fields") {
@@ -46,12 +52,18 @@ class JsonSchemaSuite extends FunSuite {
         |}
       """.stripMargin
 
-    assertException(schema.validate(new JSONObject(config)), "#: required key [expressions] not found")
+    assertException(
+      schema.validate(new JSONObject(config)),
+      "#: required key [expressions] not found"
+    )
   }
 
   test("Fail for invalid email") {
     val config = makeConfig(email = "app-oncall")
-    assertException(schema.validate(new JSONObject(config)), "#/email: [app-oncall] is not a valid email address")
+    assertException(
+      schema.validate(new JSONObject(config)),
+      "#/email: [app-oncall] is not a valid email address"
+    )
   }
 
   test("Fail for invalid expression type") {
@@ -63,7 +75,10 @@ class JsonSchemaSuite extends FunSuite {
         |}
       """.stripMargin
 
-    assertException(schema.validate(new JSONObject(config)), "#/expressions: expected type: JSONArray, found: String")
+    assertException(
+      schema.validate(new JSONObject(config)),
+      "#/expressions: expected type: JSONArray, found: String"
+    )
   }
 
   test("Fail when no expression is found") {
@@ -75,7 +90,10 @@ class JsonSchemaSuite extends FunSuite {
         |}
       """.stripMargin
 
-    assertException(schema.validate(new JSONObject(config)), "#/expressions: expected minimum item count: 1, found: 0")
+    assertException(
+      schema.validate(new JSONObject(config)),
+      "#/expressions: expected minimum item count: 1, found: 0"
+    )
   }
 
   test("Fail for missing fields in an expression") {
@@ -92,7 +110,10 @@ class JsonSchemaSuite extends FunSuite {
         |  ]
         |}
       """.stripMargin
-    assertException(schema.validate(new JSONObject(config)), "#/expressions/0: required key [dimensions] not found")
+    assertException(
+      schema.validate(new JSONObject(config)),
+      "#/expressions/0: required key [dimensions] not found"
+    )
   }
 
   test("Fail for invalid metric name") {
@@ -185,7 +206,7 @@ class JsonSchemaSuite extends FunSuite {
     dimensionValue: String = "$(asg)",
     account: String = "$(account)"
   ): String = {
-      s"""
+    s"""
         |{
         |  "email": "$email",
         |  "expressions": [
@@ -208,7 +229,7 @@ class JsonSchemaSuite extends FunSuite {
   private def assertException(f: => Any, message: String): Unit = {
     Try(f) match {
       case Failure(e) => assert(message == e.getMessage())
-      case _ => fail()
+      case _          => fail()
     }
   }
 }
