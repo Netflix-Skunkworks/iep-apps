@@ -1,6 +1,5 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "http://netflix.com/lwc-cloudwatch.schema.json",
+  "$schema": "http://json-schema.org/draft-04/schema#",
   "title": "Cluster Config",
   "description": "Configuration for forwarding metrics from Atlas LWC to AWS CloudWatch",
   "type": "object",

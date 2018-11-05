@@ -15,32 +15,35 @@
  */
 package com.netflix.iep.lwc
 
-import org.everit.json.schema.loader.SchemaLoader
-import org.json.JSONArray
-import org.json.JSONObject
-import org.json.JSONTokener
+import com.fasterxml.jackson.databind.JsonNode
+import com.github.fge.jsonschema.main.JsonSchemaFactory
+import com.netflix.atlas.json.Json
 import org.scalatest.FunSuite
 
+import scala.collection.JavaConverters._
 import scala.io.Source
-import scala.util.Failure
-import scala.util.Try
 
 class JsonSchemaSuite extends FunSuite {
 
-  val schema = SchemaLoader.load(
-    new JSONObject(
-      new JSONTokener(Source.fromResource("cluster-config-schema.json").reader())
+  val schema = JsonSchemaFactory
+    .byDefault()
+    .getJsonSchema(
+      Json.decode[JsonNode](
+        Source.fromResource("cluster-config-schema.json").reader()
+      )
     )
-  )
 
   test("Valid configuration") {
-    assert(Try(schema.validate(new JSONObject(makeConfig()))).isSuccess)
+    val (isSuccess, msgs) = validate(makeConfig())
+
+    assert(isSuccess)
+    assert(msgs.isEmpty)
   }
 
   test("Fail when top level node is not an object") {
-    assertException(
-      schema.validate(new JSONArray()),
-      "#: expected type: JSONObject, found: JSONArray"
+    assertFailure(
+      validate("[]"),
+      "instance type (array) does not match any allowed primitive type (allowed: [\"object\"])"
     )
   }
 
@@ -52,17 +55,16 @@ class JsonSchemaSuite extends FunSuite {
         |}
       """.stripMargin
 
-    assertException(
-      schema.validate(new JSONObject(config)),
-      "#: required key [expressions] not found"
+    assertFailure(
+      validate(config),
+      "object has missing required properties ([\"expressions\"])"
     )
   }
 
   test("Fail for invalid email") {
-    val config = makeConfig(email = "app-oncall")
-    assertException(
-      schema.validate(new JSONObject(config)),
-      "#/email: [app-oncall] is not a valid email address"
+    assertFailure(
+      validate(makeConfig(email = "app-oncall")),
+      "string \"app-oncall\" is not a valid email address"
     )
   }
 
@@ -75,9 +77,9 @@ class JsonSchemaSuite extends FunSuite {
         |}
       """.stripMargin
 
-    assertException(
-      schema.validate(new JSONObject(config)),
-      "#/expressions: expected type: JSONArray, found: String"
+    assertFailure(
+      validate(config),
+      "instance type (string) does not match any allowed primitive type (allowed: [\"array\"])"
     )
   }
 
@@ -90,9 +92,9 @@ class JsonSchemaSuite extends FunSuite {
         |}
       """.stripMargin
 
-    assertException(
-      schema.validate(new JSONObject(config)),
-      "#/expressions: expected minimum item count: 1, found: 0"
+    assertFailure(
+      validate(config),
+      "array is too short: must have at least 1 elements but instance has 0 elements"
     )
   }
 
@@ -110,25 +112,23 @@ class JsonSchemaSuite extends FunSuite {
         |  ]
         |}
       """.stripMargin
-    assertException(
-      schema.validate(new JSONObject(config)),
-      "#/expressions/0: required key [dimensions] not found"
+    assertFailure(
+      validate(config),
+      "object has missing required properties ([\"dimensions\"])"
     )
   }
 
   test("Fail for invalid metric name") {
-    val config = makeConfig(metricName = ".nodejs.cpuUsage")
-    assertException(
-      schema.validate(new JSONObject(config)),
-      "#/expressions/0/metricName: string [.nodejs.cpuUsage] does not match pattern ^[a-zA-Z0-9]+[a-zA-Z0-9_\\-\\.]*[a-zA-Z0-9]+$"
+    assertFailure(
+      validate(makeConfig(metricName = ".nodejs.cpuUsage")),
+      "ECMA 262 regex \"^[a-zA-Z0-9]+[a-zA-Z0-9_\\-\\.]*[a-zA-Z0-9]+$\" does not match input string \".nodejs.cpuUsage\""
     )
   }
 
   test("Fail for invalid atlasUri name") {
-    val config = makeConfig(atlasUri = "http://localhost/api/v1/graph?q=^query")
-    assertException(
-      schema.validate(new JSONObject(config)),
-      "#/expressions/0/atlasUri: [http://localhost/api/v1/graph?q=^query] is not a valid URI"
+    assertFailure(
+      validate(makeConfig(atlasUri = "http://localhost/api/v1/graph?q=^query")),
+      "string \"http://localhost/api/v1/graph?q=^query\" is not a valid URI"
     )
   }
 
@@ -147,9 +147,10 @@ class JsonSchemaSuite extends FunSuite {
         |  ]
         |}
       """.stripMargin
-    assertException(
-      schema.validate(new JSONObject(config)),
-      "#/expressions/0/dimensions: expected type: JSONArray, found: JSONObject"
+
+    assertFailure(
+      validate(config),
+      "instance type (object) does not match any allowed primitive type (allowed: [\"array\"])"
     )
   }
 
@@ -168,33 +169,30 @@ class JsonSchemaSuite extends FunSuite {
         |  ]
         |}
       """.stripMargin
-    assertException(
-      schema.validate(new JSONObject(config)),
-      "#/expressions/0/dimensions: expected minimum item count: 1, found: 0"
+    assertFailure(
+      validate(config),
+      "array is too short: must have at least 1 elements but instance has 0 elements"
     )
   }
 
   test("Fail for invalid dimension name") {
-    val config = makeConfig(dimensionName = "_ASGName")
-    assertException(
-      schema.validate(new JSONObject(config)),
-      "#/expressions/0/dimensions/0/name: string [_ASGName] does not match pattern ^[a-zA-Z0-9]+[a-zA-Z0-9_\\-\\.]*[a-zA-Z0-9]+$"
+    assertFailure(
+      validate(makeConfig(dimensionName = "_ASGName")),
+      "ECMA 262 regex \"^[a-zA-Z0-9]+[a-zA-Z0-9_\\-\\.]*[a-zA-Z0-9]+$\" does not match input string \"_ASGName\""
     )
   }
 
   test("Fail for invalid dimension value") {
-    val config = makeConfig(dimensionValue = "asg")
-    assertException(
-      schema.validate(new JSONObject(config)),
-      "#/expressions/0/dimensions/0/value: string [asg] does not match pattern ^\\$\\([a-zA-Z0-9]+[a-zA-Z0-9\\.]*[a-zA-Z0-9]+\\)$"
+    assertFailure(
+      validate(makeConfig(dimensionValue = "asg")),
+      "ECMA 262 regex \"^\\$\\([a-zA-Z0-9]+[a-zA-Z0-9\\.]*[a-zA-Z0-9]+\\)$\" does not match input string \"asg\""
     )
   }
 
   test("Fail for invalid account variable") {
-    val config = makeConfig(account = "account")
-    assertException(
-      schema.validate(new JSONObject(config)),
-      "#/expressions/0/account: string [account] does not match pattern ^\\$\\([a-zA-Z0-9]+[a-zA-Z0-9\\.]*[a-zA-Z0-9]+\\)$"
+    assertFailure(
+      validate(makeConfig(account = "account")),
+      "ECMA 262 regex \"^\\$\\([a-zA-Z0-9]+[a-zA-Z0-9\\.]*[a-zA-Z0-9]+\\)$\" does not match input string \"account\""
     )
   }
 
@@ -226,10 +224,16 @@ class JsonSchemaSuite extends FunSuite {
       """.stripMargin
   }
 
-  private def assertException(f: => Any, message: String): Unit = {
-    Try(f) match {
-      case Failure(e) => assert(message == e.getMessage())
-      case _          => fail()
-    }
+  private def validate(input: String): (Boolean, Iterable[String]) = {
+    val report = schema.validate(Json.decode[JsonNode](input))
+    (report.isSuccess(), report.asScala.map(_.getMessage))
   }
+
+  private def assertFailure(report: (Boolean, Iterable[String]), expectedMsg: String): Unit = {
+    val (isSuccess, msgs) = report
+
+    assert(!isSuccess)
+    assert(msgs.exists(_ == expectedMsg))
+  }
+
 }
