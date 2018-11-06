@@ -17,17 +17,17 @@
       "uniqueItems": true,
       "items": {
         "type": "object",
-        "required": [ "metricName", "atlasUri", "dimensions", "account" ],
+        "required": [ "metricName", "atlasUri", "account" ],
         "properties": {
           "metricName": {
             "description": "Name of the metric that will be created in CloudWatch",
             "type": "string",
-            "pattern": "^[a-zA-Z0-9]+[a-zA-Z0-9_\\-\\.]*[a-zA-Z0-9]+$"
+            "pattern": "^[\\w\\-\\.]+$"
           },
           "atlasUri": {
             "description": "Atlas query",
             "type": "string",
-            "format": "uri"
+            "pattern": "^(https?:\/\/)?[\\w-]+(\\.[\\w-]+)*(:\\d+)?\/api\/v(\\d+){1}\/graph\\?.+$"
           },
           "comment": {
             "type": "string"
@@ -35,7 +35,6 @@
           "dimensions": {
             "description": "Details about AWS CloudWatch dimension that will be created",
             "type": "array",
-            "minItems": 1,
             "uniqueItems": true,
             "items": {
               "type": "object",
@@ -44,12 +43,12 @@
                 "name": {
                   "description": "Name of the CloudWatch dimension",
                   "type": "string",
-                  "pattern": "^[a-zA-Z0-9]+[a-zA-Z0-9_\\-\\.]*[a-zA-Z0-9]+$"
+                  "pattern": "^[\\w\\-\\.]+$"
                 },
                 "value": {
                   "description": "Atlas tag. Example: $(nf.asg)",
                   "type": "string",
-                  "pattern": "^\\$\\([a-zA-Z0-9]+[a-zA-Z0-9\\.]*[a-zA-Z0-9]+\\)$"
+                  "pattern": "^([\\w\\-\\.]+|\\$\\([\\w\\-\\.]+\\))+$"
                 }
               }
             }
@@ -57,7 +56,7 @@
           "account": {
             "description": "AWS account to send the metric to. Typically $(nf.account)",
             "type": "string",
-            "pattern": "^\\$\\([a-zA-Z0-9]+[a-zA-Z0-9\\.]*[a-zA-Z0-9]+\\)$"
+            "pattern": "^([\\d]+|\\$\\([\\w\\-\\.]+\\))+$"
           }
         }
       }

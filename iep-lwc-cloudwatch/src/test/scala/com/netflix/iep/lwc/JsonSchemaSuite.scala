@@ -34,10 +34,7 @@ class JsonSchemaSuite extends FunSuite {
     )
 
   test("Valid configuration") {
-    val (isSuccess, msgs) = validate(makeConfig())
-
-    assert(isSuccess)
-    assert(msgs.isEmpty)
+    assertSuccess(validate(makeConfig()))
   }
 
   test("Fail when top level node is not an object") {
@@ -106,29 +103,28 @@ class JsonSchemaSuite extends FunSuite {
         |  "expressions": [
         |    {
         |      "metricName": "nodejs.cpuUsage",
-        |      "atlasUri": "http://localhost/api/v1/graph?q=query",
-        |      "account": "$(account)"
+        |      "atlasUri": "http://localhost/api/v1/graph?q=query"
         |    }
         |  ]
         |}
       """.stripMargin
     assertFailure(
       validate(config),
-      "object has missing required properties ([\"dimensions\"])"
+      "object has missing required properties ([\"account\"])"
     )
   }
 
   test("Fail for invalid metric name") {
     assertFailure(
-      validate(makeConfig(metricName = ".nodejs.cpuUsage")),
-      "ECMA 262 regex \"^[a-zA-Z0-9]+[a-zA-Z0-9_\\-\\.]*[a-zA-Z0-9]+$\" does not match input string \".nodejs.cpuUsage\""
+      validate(makeConfig(metricName = "nodejs,cpuUsage")),
+      "ECMA 262 regex \"^[\\w\\-\\.]+$\" does not match input string \"nodejs,cpuUsage\""
     )
   }
 
   test("Fail for invalid atlasUri name") {
     assertFailure(
-      validate(makeConfig(atlasUri = "http://localhost/api/v1/graph?q=^query")),
-      "string \"http://localhost/api/v1/graph?q=^query\" is not a valid URI"
+      validate(makeConfig(atlasUri = "http://localhost?q=query")),
+      "ECMA 262 regex \"^(https?://)?[\\w-]+(\\.[\\w-]+)*(:\\d+)?/api/v(\\d+){1}/graph\\?.+$\" does not match input string \"http://localhost?q=query\""
     )
   }
 
@@ -154,7 +150,7 @@ class JsonSchemaSuite extends FunSuite {
     )
   }
 
-  test("Fail when no dimensions found") {
+  test("Allow empty array for dimensions") {
     val config =
       """
         |{
@@ -169,30 +165,36 @@ class JsonSchemaSuite extends FunSuite {
         |  ]
         |}
       """.stripMargin
-    assertFailure(
-      validate(config),
-      "array is too short: must have at least 1 elements but instance has 0 elements"
-    )
+
+    assertSuccess(validate(config))
   }
 
   test("Fail for invalid dimension name") {
     assertFailure(
-      validate(makeConfig(dimensionName = "_ASGName")),
-      "ECMA 262 regex \"^[a-zA-Z0-9]+[a-zA-Z0-9_\\-\\.]*[a-zA-Z0-9]+$\" does not match input string \"_ASGName\""
+      validate(makeConfig(dimensionName = "ASG,Name")),
+      "ECMA 262 regex \"^[\\w\\-\\.]+$\" does not match input string \"ASG,Name\""
     )
+  }
+
+  test("Allow hardcoded asg name") {
+    assertSuccess(validate(makeConfig(dimensionValue = "foo-test-v001")))
   }
 
   test("Fail for invalid dimension value") {
     assertFailure(
-      validate(makeConfig(dimensionValue = "asg")),
-      "ECMA 262 regex \"^\\$\\([a-zA-Z0-9]+[a-zA-Z0-9\\.]*[a-zA-Z0-9]+\\)$\" does not match input string \"asg\""
+      validate(makeConfig(dimensionValue = "$(nf:asg)")),
+      "ECMA 262 regex \"^([\\w\\-\\.]+|\\$\\([\\w\\-\\.]+\\))+$\" does not match input string \"$(nf:asg)\""
     )
+  }
+
+  test("Allow hardcoded account id") {
+    assertSuccess(validate(makeConfig(account = "23456")))
   }
 
   test("Fail for invalid account variable") {
     assertFailure(
-      validate(makeConfig(account = "account")),
-      "ECMA 262 regex \"^\\$\\([a-zA-Z0-9]+[a-zA-Z0-9\\.]*[a-zA-Z0-9]+\\)$\" does not match input string \"account\""
+      validate(makeConfig(account = "$(nf:account)")),
+      "ECMA 262 regex \"^([\\d]+|\\$\\([\\w\\-\\.]+\\))+$\" does not match input string \"$(nf:account)\""
     )
   }
 
@@ -227,6 +229,13 @@ class JsonSchemaSuite extends FunSuite {
   private def validate(input: String): (Boolean, Iterable[String]) = {
     val report = schema.validate(Json.decode[JsonNode](input))
     (report.isSuccess(), report.asScala.map(_.getMessage))
+  }
+
+  private def assertSuccess(report: (Boolean, Iterable[String])): Unit = {
+    val (isSuccess, msgs) = report
+
+    assert(isSuccess)
+    assert(msgs.isEmpty)
   }
 
   private def assertFailure(report: (Boolean, Iterable[String]), expectedMsg: String): Unit = {
