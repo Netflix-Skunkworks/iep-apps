@@ -28,11 +28,13 @@ import akka.http.scaladsl.model.Uri
 import akka.stream.ActorMaterializer
 import akka.stream.KillSwitch
 import akka.stream.KillSwitches
+import akka.stream.OverflowStrategy
 import akka.stream.ThrottleMode
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
+import akka.util.ByteString
 import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.json.Json
 import com.netflix.iep.service.AbstractService
@@ -44,6 +46,7 @@ import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
 
+import scala.concurrent.Future
 import scala.util.Success
 
 /**
@@ -65,6 +68,7 @@ class ExprUpdateService @Inject()(
     .withName("lwc.expressionsAge")
     .monitorValue(new AtomicLong(registry.clock().wallTime()), Functions.age(registry.clock()))
 
+  private implicit val ec = scala.concurrent.ExecutionContext.global
   private implicit val system = ActorSystem()
   private implicit val materializer = ActorMaterializer()
 
@@ -102,21 +106,29 @@ class ExprUpdateService @Inject()(
             .withoutSizeLimit()
             .dataBytes
             .reduce(_ ++ _)
-            .map { data =>
-              try {
-                val exprs = Json.decode[Subscriptions](data.toArray).getExpressions
-                evaluator.sync(exprs)
-                lastUpdateTime.set(registry.clock().wallTime())
-              } catch {
-                case e: Exception =>
-                  logger.error("failed to parse and sync expressions", e)
-              }
-              NotUsed
-            }
         case response =>
           response.discardEntityBytes()
-          Source.single(NotUsed)
+          Source.single(ByteString.empty)
       }
+      .filterNot(_.isEmpty)
+      .buffer(1, OverflowStrategy.dropHead)
+      .flatMapConcat { data =>
+        Source.fromFuture(update(data))
+      }
+  }
+
+  private def update(data: ByteString): Future[NotUsed] = {
+    Future {
+      try {
+        val exprs = Json.decode[Subscriptions](data.toArray).getExpressions
+        evaluator.sync(exprs)
+        lastUpdateTime.set(registry.clock().wallTime())
+      } catch {
+        case e: Exception =>
+          logger.error("failed to parse and sync expressions", e)
+      }
+      NotUsed
+    }
   }
 
   override def stopImpl(): Unit = {
