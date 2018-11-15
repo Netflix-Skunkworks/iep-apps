@@ -103,9 +103,14 @@ class ExprUpdateService @Inject()(
             .dataBytes
             .reduce(_ ++ _)
             .map { data =>
-              val exprs = Json.decode[Subscriptions](data.toArray).getExpressions
-              evaluator.sync(exprs)
-              lastUpdateTime.set(registry.clock().wallTime())
+              try {
+                val exprs = Json.decode[Subscriptions](data.toArray).getExpressions
+                evaluator.sync(exprs)
+                lastUpdateTime.set(registry.clock().wallTime())
+              } catch {
+                case e: Exception =>
+                  logger.error("failed to parse and sync expressions", e)
+              }
               NotUsed
             }
         case response =>
