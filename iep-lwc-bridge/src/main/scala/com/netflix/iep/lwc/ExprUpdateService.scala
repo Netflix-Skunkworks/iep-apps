@@ -98,17 +98,21 @@ class ExprUpdateService @Inject()(
     Flow[HttpResponse]
       .flatMapConcat {
         case response if response.status == StatusCodes.OK =>
-          response.entity.dataBytes.reduce(_ ++ _).map { data =>
-            try {
-              val exprs = Json.decode[Subscriptions](data.toArray).getExpressions
-              evaluator.sync(exprs)
-              lastUpdateTime.set(registry.clock().wallTime())
-            } catch {
-              case e: Exception =>
-                logger.error(s"failed to parse and sync expressions", e)
+          response.entity
+            .withoutSizeLimit()
+            .dataBytes
+            .reduce(_ ++ _)
+            .map { data =>
+              try {
+                val exprs = Json.decode[Subscriptions](data.toArray).getExpressions
+                evaluator.sync(exprs)
+                lastUpdateTime.set(registry.clock().wallTime())
+              } catch {
+                case e: Exception =>
+                  logger.error("failed to parse and sync expressions", e)
+              }
+              NotUsed
             }
-            NotUsed
-          }
         case response =>
           response.discardEntityBytes()
           Source.single(NotUsed)
