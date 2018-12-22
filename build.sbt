@@ -12,6 +12,7 @@ lazy val root = project.in(file("."))
     `iep-clienttest`,
     `iep-lwc-bridge`,
     `iep-lwc-cloudwatch`,
+    `iep-lwc-fwding-admin`,
     `iep-lwc-loadgen`,
     `iep-ses-monitor`)
   .settings(BuildSettings.noPackaging: _*)
@@ -134,10 +135,28 @@ lazy val `iep-lwc-cloudwatch` = project
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,
 
-    Dependencies.jsonSchema % "test",
     Dependencies.akkaHttpTestkit % "test",
     Dependencies.scalatest % "test"
   ))
+
+lazy val `iep-lwc-fwding-admin` = project
+  .configure(BuildSettings.profile)
+  .settings(libraryDependencies ++= Seq(
+    Dependencies.atlasEval,
+    Dependencies.atlasModuleAkka,
+    Dependencies.awsCloudWatch,
+    Dependencies.iepGuice,
+    Dependencies.iepModuleAtlas,
+    Dependencies.iepModuleAws,
+    Dependencies.log4jApi,
+    Dependencies.log4jCore,
+    Dependencies.log4jSlf4j,
+    Dependencies.jsonSchema,
+
+    Dependencies.akkaHttpTestkit % "test",
+    Dependencies.scalatest % "test"
+  ))
+
 
 lazy val `iep-lwc-loadgen` = project
   .configure(BuildSettings.profile)

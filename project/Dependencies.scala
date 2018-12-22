@@ -28,6 +28,7 @@ object Dependencies {
   val akkaSlf4j          = "com.typesafe.akka" %% "akka-slf4j" % akka
   val akkaTestkit        = "com.typesafe.akka" %% "akka-testkit" % akka
   val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % "1.0-M1"
+  val atlasEval          = "com.netflix.atlas_v1" %% "atlas-eval" % atlas
   val atlasJson          = "com.netflix.atlas_v1" %% "atlas-json" % atlas
   val atlasModuleAkka    = "com.netflix.atlas_v1" %% "atlas-module-akka" % atlas
   val atlasModuleEval    = "com.netflix.atlas_v1" %% "atlas-module-eval" % atlas
