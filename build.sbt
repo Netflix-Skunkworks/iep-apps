@@ -144,7 +144,6 @@ lazy val `iep-lwc-fwding-admin` = project
   .settings(libraryDependencies ++= Seq(
     Dependencies.atlasEval,
     Dependencies.atlasModuleAkka,
-    Dependencies.awsCloudWatch,
     Dependencies.iepGuice,
     Dependencies.iepModuleAtlas,
     Dependencies.iepModuleAws,
