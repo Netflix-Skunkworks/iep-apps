@@ -22,7 +22,7 @@
           "metricName": {
             "description": "Name of the metric that will be created in CloudWatch",
             "type": "string",
-            "pattern": "^[\\w\\-\\.]+$"
+            "pattern": "^(?:(?:[\\w\\-\\.]+)|(?:\\$\\([\\w\\-\\.]+\\)))+$"
           },
           "atlasUri": {
             "description": "Atlas query",
@@ -48,7 +48,7 @@
                 "value": {
                   "description": "Atlas tag. Example: $(nf.asg)",
                   "type": "string",
-                  "pattern": "^([\\w\\-\\.]+|\\$\\([\\w\\-\\.]+\\))+$"
+                  "pattern": "^(?:(?:[\\w\\-\\.]+)|(?:\\$\\([\\w\\-\\.]+\\)))+$"
                 }
               }
             }
@@ -56,9 +56,24 @@
           "account": {
             "description": "AWS account to send the metric to. Typically $(nf.account)",
             "type": "string",
-            "pattern": "^([\\d]+|\\$\\([\\w\\-\\.]+\\))+$"
+            "pattern": "^([\\d]+|\\$\\([\\w\\-\\.]+\\))$"
+          },
+          "region": {
+            "description": "AWS region to send the metric to",
+            "type": "string",
+            "pattern": "^([\\w\\-\\.]+|\\$\\([\\w\\-\\.]+\\))$"
           }
         }
+      }
+    },
+    "checksToSkip": {
+      "description": "The list of validations to skip",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
       }
     }
   }
