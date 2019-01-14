@@ -21,6 +21,6 @@ trait TestAssertions extends Assertions {
 
   def assertFailure(f: => Any, expectedMsg: String): Unit = {
     val exception = intercept[IllegalArgumentException](f)
-    assert(exception.getMessage == expectedMsg)
+    assert(exception.getMessage.contains(expectedMsg))
   }
 }

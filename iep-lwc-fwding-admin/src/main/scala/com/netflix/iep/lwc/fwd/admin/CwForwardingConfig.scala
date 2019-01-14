@@ -30,7 +30,8 @@ case class Expression(
   metricName: String,
   atlasUri: String,
   dimensions: Seq[Dimension] = Seq.empty[Dimension],
-  account: String
+  account: String,
+  region: Option[String] = None
 )
 
 case class Dimension(

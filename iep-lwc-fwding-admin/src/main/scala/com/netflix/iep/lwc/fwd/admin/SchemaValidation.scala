@@ -16,6 +16,7 @@
 package com.netflix.iep.lwc.fwd.admin
 
 import com.fasterxml.jackson.databind.JsonNode
+import com.github.fge.jsonschema.main.JsonSchema
 import com.github.fge.jsonschema.main.JsonSchemaFactory
 import com.netflix.atlas.json.Json
 import com.typesafe.scalalogging.StrictLogging
@@ -25,19 +26,25 @@ import scala.collection.JavaConverters._
 
 class SchemaValidation extends StrictLogging {
 
-  val schema = JsonSchemaFactory
-    .byDefault()
-    .getJsonSchema(
-      Json.decode[JsonNode](
-        Source.fromResource("cw-fwding-cfg-schema.json").reader()
-      )
-    )
+  val schema = getJsonSchema()
+
+  def getJsonSchema(): JsonSchema = {
+    val reader = Source.fromResource("cw-fwding-cfg-schema.json").reader()
+    try {
+      JsonSchemaFactory
+        .byDefault()
+        .getJsonSchema(Json.decode[JsonNode](reader))
+    } finally {
+      reader.close()
+    }
+  }
 
   def validate(key: String, json: JsonNode): Unit = {
     val pr = schema.validate(json)
     if (!pr.isSuccess) {
-      logger.info(s"Invalid schema for $key. Config: $json")
-      throw new IllegalArgumentException(pr.asScala.map(_.getMessage).mkString("\n"))
+      throw new IllegalArgumentException(
+        pr.asScala.map(_.getMessage).mkString("\n")
+      )
     }
   }
 

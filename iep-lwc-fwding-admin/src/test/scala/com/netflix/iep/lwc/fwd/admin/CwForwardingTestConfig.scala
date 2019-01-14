@@ -27,8 +27,11 @@ trait CwForwardingTestConfig {
                       |  :node-avg,
                       |  (,nf.account,nf.asg,),:by
                     """.stripMargin,
-    dimensions: Seq[Dimension] = Seq(Dimension("AutoScalingGroupName", "$(nf.asg)")),
+    dimensions: Seq[Dimension] = Seq(
+      Dimension("AutoScalingGroupName", "$(nf.asg)")
+    ),
     account: String = "$(nf.account)",
+    region: Option[String] = Some("$(nf.region)"),
     checksToSkip: Seq[String] = Seq.empty[String],
   ): CwForwardingConfig = {
     new CwForwardingConfig(
@@ -40,7 +43,8 @@ trait CwForwardingTestConfig {
             .filterNot(_.isWhitespace)
             .replace("\n", ""),
           dimensions,
-          account
+          account,
+          region
         )
       ),
       checksToSkip
@@ -60,26 +64,38 @@ trait CwForwardingTestConfig {
                       |  :node-avg,
                       |  (,nf.account,nf.asg,),:by
                     """.stripMargin,
-    dimensions: String = s"""[{"name":"$dimensionName", "value":"$dimensionValue"}]""",
+    dimensions: String = s"""
+         | [
+         |   {
+         |     "name":"$dimensionName",  
+         |     "value":"$dimensionValue"
+         |   }
+         | ]
+      """.stripMargin,
     account: String = "$(nf.account)",
+    region: String = "$(nf.region)",
     checksToSkip: String = """["AsgGrouping"]"""
   ): String = {
+
+    val uri = atlasUri
+      .filterNot(_.isWhitespace)
+      .replace("\n", "")
+
     s"""
        |{
        |  "email": "$email",
        |  "expressions": [
        |    {
        |      "metricName": "$metricName",
-       |      "atlasUri": "$atlasUri",
+       |      "atlasUri": "$uri",
        |      "dimensions": $dimensions,
-       |      "account": "$account"
+       |      "account": "$account",
+       |      "region": "$region"
        |    }
        |  ],
        |  "checksToSkip": $checksToSkip
        |}
       """.stripMargin
-      .filterNot(_.isWhitespace)
-      .replace("\n", "")
   }
 
 }

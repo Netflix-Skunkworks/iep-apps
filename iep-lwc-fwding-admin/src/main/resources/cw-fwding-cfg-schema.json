@@ -22,7 +22,7 @@
           "metricName": {
             "description": "Name of the metric that will be created in CloudWatch",
             "type": "string",
-            "pattern": "^([\\w\\-\\.]+|\\$\\([\\w\\-\\.]+\\))$"
+            "pattern": "^(?:(?:[\\w\\-\\.]+)|(?:\\$\\([\\w\\-\\.]+\\)))+$"
           },
           "atlasUri": {
             "description": "Atlas query",
@@ -48,7 +48,7 @@
                 "value": {
                   "description": "Atlas tag. Example: $(nf.asg)",
                   "type": "string",
-                  "pattern": "^([\\w\\-\\.]+|\\$\\([\\w\\-\\.]+\\))$"
+                  "pattern": "^(?:(?:[\\w\\-\\.]+)|(?:\\$\\([\\w\\-\\.]+\\)))+$"
                 }
               }
             }
@@ -57,6 +57,11 @@
             "description": "AWS account to send the metric to. Typically $(nf.account)",
             "type": "string",
             "pattern": "^([\\d]+|\\$\\([\\w\\-\\.]+\\))$"
+          },
+          "region": {
+            "description": "AWS region to send the metric to",
+            "type": "string",
+            "pattern": "^([\\w\\-\\.]+|\\$\\([\\w\\-\\.]+\\))$"
           }
         }
       }

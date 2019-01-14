@@ -49,22 +49,32 @@ class CwExprValidationMethodsSuite
     val expr = config.expressions.head
     val styleExpr = validations.interpreter.eval(expr.atlasUri)
 
-    assertFailure(validations.singleExpression(expr, styleExpr), "More than one expression found")
+    assertFailure(
+      validations.singleExpression(expr, styleExpr),
+      "More than one expression found"
+    )
   }
 
   test("Dimensions cannot be empty by default") {
     val expr = Expression("", "", Seq.empty[Dimension], "")
     assertFailure(
       validations.asgGrouping(expr, List.empty[StyleExpr]),
-      "Only `AutoScalingGroupName` dimension allowed by default and should use nf.asg grouping for value"
+      "Only `AutoScalingGroupName` dimension allowed by " +
+      "default and should use nf.asg grouping for value"
     )
   }
 
   test("Only one dimension allowed by default") {
-    val expr = Expression("", "", Seq(Dimension("d1", "v1"), Dimension("d2", "v2")), "")
+    val expr = Expression(
+      "",
+      "",
+      Seq(Dimension("d1", "v1"), Dimension("d2", "v2")),
+      ""
+    )
     assertFailure(
       validations.asgGrouping(expr, List.empty[StyleExpr]),
-      "Only `AutoScalingGroupName` dimension allowed by default and should use nf.asg grouping for value"
+      "Only `AutoScalingGroupName` dimension allowed by " +
+      "default and should use nf.asg grouping for value"
     )
   }
 
@@ -72,7 +82,8 @@ class CwExprValidationMethodsSuite
     val expr = Expression("", "", Seq(Dimension("d1", "v1")), "")
     assertFailure(
       validations.asgGrouping(expr, List.empty[StyleExpr]),
-      "Only `AutoScalingGroupName` dimension allowed by default and should use nf.asg grouping for value"
+      "Only `AutoScalingGroupName` dimension allowed by " +
+      "default and should use nf.asg grouping for value"
     )
   }
 
@@ -93,7 +104,8 @@ class CwExprValidationMethodsSuite
 
     assertFailure(
       validations.asgGrouping(expr, styleExpr),
-      "Only `AutoScalingGroupName` dimension allowed by default and should use nf.asg grouping for value"
+      "Only `AutoScalingGroupName` dimension allowed by " +
+      "default and should use nf.asg grouping for value"
     )
   }
 
@@ -144,7 +156,7 @@ class CwExprValidationMethodsSuite
     validations.accountGrouping(expr, styleExpr)
   }
 
-  test("All grouping tags should be mapped") {
+  test("Asg grouping should be mapped") {
     val config = makeConfig(
       dimensions = Seq.empty[Dimension],
       account = "$(nf.account)"
@@ -155,31 +167,85 @@ class CwExprValidationMethodsSuite
 
     assertFailure(
       validations.allGroupingsMapped(expr, styleExpr),
-      "Variable mapping missing for grouping tags [nf.asg]"
+      "Variable mapping missing for grouping [nf.asg]"
     )
   }
 
-  test("Account variable is not mapped") {
-    val config = makeConfig(account = "3456")
+  test("Account grouping should be mapped") {
+    val config = makeConfig(
+      account = "3456"
+    )
 
     val expr = config.expressions.head
     val styleExpr = validations.interpreter.eval(expr.atlasUri)
 
     assertFailure(
       validations.allGroupingsMapped(expr, styleExpr),
-      "Variable mapping missing for grouping tags [nf.account]"
+      "Variable mapping missing for grouping [nf.account]"
     )
   }
 
-  test("Valid grouping tags mapping") {
+  test("Grouping key for metric name should be mapped") {
     val config = makeConfig(
-      metricName = "$(customName)",
+      metricName = "foo-metric",
+      atlasUri = """
+                   | http://localhost/api/v1/graph?q=
+                   |  nf.app,foo_app1,:eq,
+                   |  name,nodejs.cpuUsage,:eq,:and,
+                   |  (,nf.account,nf.asg,tag1,),:by
+                 """.stripMargin
+    )
+
+    val expr = config.expressions.head
+    val styleExpr = validations.interpreter.eval(expr.atlasUri)
+
+    assertFailure(
+      validations.allGroupingsMapped(expr, styleExpr),
+      "Variable mapping missing for grouping [tag1]"
+    )
+  }
+
+  test("Region grouping should be mapped") {
+    val atlasUri = """
+                 | http://localhost/api/v1/graph?q=
+                 |  nf.app,foo_app1,:eq,
+                 |  name,nodejs.cpuUsage,:eq,:and,
+                 |  (,nf.region,nf.account,nf.asg,),:by
+               """.stripMargin
+    Seq(
+      makeConfig(
+        atlasUri = atlasUri,
+        region = None
+      ),
+      makeConfig(
+        atlasUri = atlasUri,
+        region = Some("us-east-1")
+      )
+    ).foreach { config =>
+      val expr = config.expressions.head
+      val styleExpr = validations.interpreter.eval(expr.atlasUri)
+
+      assertFailure(
+        validations.allGroupingsMapped(expr, styleExpr),
+        "Variable mapping missing for grouping [nf.region]"
+      )
+    }
+
+  }
+
+  test("Valid grouping keys mapping") {
+    val config = makeConfig(
+      metricName = "metric-$(tag1)",
       atlasUri = """
               | http://localhost/api/v1/graph?q=
               |  nf.app,foo_app1,:eq,
               |  name,nodejs.cpuUsage,:eq,:and,
-              |  (,customName,nf.account,nf.asg,),:by
-            """.stripMargin
+              |  (,nf.region,nf.account,nf.asg,tag1,tag2,tag3,),:by
+            """.stripMargin,
+      dimensions = Seq(
+        Dimension("AutoScalingGroupName", "$(nf.asg)"),
+        Dimension("AddInfo", "$(tag2)-$(tag3)")
+      )
     )
 
     val expr = config.expressions.head
@@ -187,22 +253,12 @@ class CwExprValidationMethodsSuite
     validations.allGroupingsMapped(expr, styleExpr)
   }
 
-  test("Valid grouping tags mapping with constant account") {
+  test("Variables should be part of exact match or grouping keys") {
     val config = makeConfig(
-      dimensions =
-        Seq(Dimension("AutoScalingGroupName", "$(nf.asg)"), Dimension("Account", "$(nf.account)")),
-      account = "3456"
-    )
-
-    val expr = config.expressions.head
-    val styleExpr = validations.interpreter.eval(expr.atlasUri)
-    validations.allGroupingsMapped(expr, styleExpr)
-  }
-
-  test("Variables used should be part of exact match or grouping keys") {
-    val config = makeConfig(
-      dimensions =
-        Seq(Dimension("AutoScalingGroupName", "$(nf.asg)"), Dimension("Zone", "$(nf.zone)"))
+      dimensions = Seq(
+        Dimension("AutoScalingGroupName", "$(nf.asg)"),
+        Dimension("Zone", "$(nf.zone)")
+      )
     )
 
     val expr = config.expressions.head
@@ -210,14 +266,17 @@ class CwExprValidationMethodsSuite
 
     assertFailure(
       validations.variablesSubstitution(expr, styleExpr),
-      "Variables not found in exact match or in grouping keys [nf.zone]"
+      "Variables not found in exact match or in grouping " +
+      "keys [nf.zone]"
     )
   }
 
   test("Valid variable substitution") {
     val config = makeConfig(
-      dimensions =
-        Seq(Dimension("AutoScalingGroupName", "$(nf.asg)"), Dimension("App", "$(nf.app)"))
+      dimensions = Seq(
+        Dimension("AutoScalingGroupName", "$(nf.asg)"),
+        Dimension("AddInfo", "$(nf.account)-$(nf.app)-$(nf.region)")
+      )
     )
 
     val expr = config.expressions.head
@@ -226,7 +285,7 @@ class CwExprValidationMethodsSuite
     validations.variablesSubstitution(expr, styleExpr)
   }
 
-  test("Exact match should be done for high cardinality groupings") {
+  test("Exact match expected for high cardinality groupings") {
     val config = makeConfig(
       atlasUri = """
                    | http://localhost/api/v1/graph?q=
@@ -241,11 +300,12 @@ class CwExprValidationMethodsSuite
 
     assertFailure(
       validations.unpredictableNoOfMetrics(expr, styleExpr),
-      "No of forwarded metrics might be very high because of grouping [name]"
+      "Number of forwarded metrics might be very high " +
+      "because of grouping [name]"
     )
   }
 
-  test("Valid expression with exact match for high cardinality groupings") {
+  test("Valid expr with exact match for high cardinality groupings") {
     val config = makeConfig(
       atlasUri = """
                    | http://localhost/api/v1/graph?q=
@@ -260,4 +320,5 @@ class CwExprValidationMethodsSuite
 
     validations.unpredictableNoOfMetrics(expr, styleExpr)
   }
+
 }

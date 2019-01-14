@@ -40,19 +40,12 @@ class Api(
     endpointPath("api" / "v1" / "check" / "cwf", Remaining) { key =>
       post {
         entity(as[JsonNode]) { json =>
-          val response = try {
+          complete {
             schemaValidation.validate(key, json)
             cwExprValidations.validate(key, json)
 
-            HttpResponse(StatusCodes.Accepted)
-          } catch {
-            case e @ (_: IllegalArgumentException | _: IllegalStateException) =>
-              HttpResponse(StatusCodes.BadRequest, entity = e.getMessage)
-            case e: Exception =>
-              HttpResponse(StatusCodes.InternalServerError, entity = e.getMessage)
+            HttpResponse(StatusCodes.OK)
           }
-
-          complete(response)
         }
       }
     }

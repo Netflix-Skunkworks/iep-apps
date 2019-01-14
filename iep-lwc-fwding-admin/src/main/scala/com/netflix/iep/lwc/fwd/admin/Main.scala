@@ -30,8 +30,8 @@ object Main {
   private def getBaseModules: java.util.List[Module] = {
     val modules = GuiceHelper.getModulesUsingServiceLoader
     if (!sys.env.contains("NETFLIX_ENVIRONMENT")) {
-      // If we are running in a local environment provide simple version of the config
-      // binding. These bindings are normally provided by the final package
+      // If we are running in a local environment provide simple version of the
+      // config binding. These bindings are normally provided by the final package
       // config for the app in the production setup.
       modules.add(new AbstractModule {
         override def configure(): Unit = {
@@ -45,13 +45,13 @@ object Main {
   def main(args: Array[String]): Unit = {
     try {
       val modules = getBaseModules
-      modules.add(new AppModule)
       val guice = new GuiceHelper
       guice.start(modules)
       guice.getInjector.getInstance(classOf[ServiceManager])
       guice.addShutdownHook()
     } catch {
-      // Send exceptions to main log file instead of wherever STDERR is sent for the process
+      // Send exceptions to main log file instead of wherever STDERR is sent
+      // for the process
       case t: Throwable => logger.error("fatal error on startup", t)
     }
   }

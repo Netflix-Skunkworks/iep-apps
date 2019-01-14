@@ -30,7 +30,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
   test("Fail when top level node is not an object") {
     assertFailure(
       validate("[]"),
-      "instance type (array) does not match any allowed primitive type (allowed: [\"object\"])"
+      "does not match any allowed primitive type"
     )
   }
 
@@ -44,14 +44,14 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
 
     assertFailure(
       validate(config),
-      "object has missing required properties ([\"expressions\"])"
+      "object has missing required properties"
     )
   }
 
   test("Fail for invalid email") {
     assertFailure(
       validate(makeConfigString()(email = "app-oncall")),
-      "string \"app-oncall\" is not a valid email address"
+      "not a valid email address"
     )
   }
 
@@ -66,7 +66,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
 
     assertFailure(
       validate(config),
-      "instance type (string) does not match any allowed primitive type (allowed: [\"array\"])"
+      "does not match any allowed primitive type"
     )
   }
 
@@ -81,7 +81,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
 
     assertFailure(
       validate(config),
-      "array is too short: must have at least 1 elements but instance has 0 elements"
+      "array is too short"
     )
   }
 
@@ -100,22 +100,40 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
       """.stripMargin
     assertFailure(
       validate(config),
-      "object has missing required properties ([\"account\"])"
+      "object has missing required properties"
     )
   }
 
+  test("Valid metric names") {
+    Seq(
+      "cons",
+      "$(var)",
+      "cons$(var)",
+      "$(var)cons",
+      "$(var)$(var)",
+      "cons$(var)cons",
+      "$(var)cons$(var)"
+    ).foreach(n => validate(makeConfigString()(metricName = n)))
+  }
+
   test("Fail for invalid metric name") {
-    assertFailure(
-      validate(makeConfigString()(metricName = "nodejs,cpuUsage")),
-      "ECMA 262 regex \"^([\\w\\-\\.]+|\\$\\([\\w\\-\\.]+\\))$\" does not match " +
-      "input string \"nodejs,cpuUsage\""
-    )
+    Seq(
+      "",
+      "nodejs,cpuUsage",
+      "${var}",
+      "$(nf:asg)"
+    ).foreach { n =>
+      assertFailure(
+        validate(makeConfigString()(metricName = n)),
+        "does not match input string"
+      )
+    }
   }
 
   test("Fail for invalid atlasUri name") {
     assertFailure(
       validate(makeConfigString()(atlasUri = "http://localhost?q=query")),
-      "ECMA 262 regex \"^(https?://)?[\\w-]+(\\.[\\w-]+)*(:\\d+)?/api/v(\\d+){1}/graph\\?.+$\" does not match input string \"http://localhost?q=query\""
+      "does not match input string"
     )
   }
 
@@ -137,7 +155,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
 
     assertFailure(
       validate(config),
-      "instance type (object) does not match any allowed primitive type (allowed: [\"array\"])"
+      "does not match any allowed primitive type"
     )
   }
 
@@ -161,80 +179,96 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
   }
 
   test("Fail for invalid dimension name") {
-    assertFailure(
-      validate(makeConfigString(dimensionName = "ASG,Name")()),
-      "ECMA 262 regex \"^[\\w\\-\\.]+$\" does not match input string \"ASG,Name\""
-    )
+    Seq(
+      "",
+      "asg:name",
+      "asg name"
+    ).foreach { d =>
+      assertFailure(
+        validate(makeConfigString(dimensionName = d)()),
+        "does not match input string"
+      )
+    }
   }
 
-  test("Allow hardcoded asg name") {
-    validate(makeConfigString(dimensionValue = "foo-test-v001")())
+  test("Valid dimension values") {
+    Seq(
+      "cons",
+      "$(var)",
+      "cons$(var)",
+      "$(var)cons",
+      "$(var)$(var)",
+      "cons$(var)cons",
+      "$(var)cons$(var)"
+    ).foreach(d => validate(makeConfigString(dimensionValue = d)()))
   }
 
-  test("Dimension value cannot be empty") {
-    assertFailure(
-      validate(makeConfigString(dimensionValue = "")()),
-      "ECMA 262 regex \"^([\\w\\-\\.]+|\\$\\([\\w\\-\\.]+\\))$\" does not match input string \"\""
-    )
-  }
-
-  test("Fail for invalid dimension value") {
-    assertFailure(
-      validate(makeConfigString(dimensionValue = "$(nf:asg)")()),
-      "ECMA 262 regex \"^([\\w\\-\\.]+|\\$\\([\\w\\-\\.]+\\))$\" does not match input string \"$(nf:asg)\""
-    )
-  }
-
-  test("Cannot mix hardcoded value and a variable for dimension") {
-    assertFailure(
-      validate(makeConfigString(dimensionValue = "foo-test-v001$(nf.asg)")()),
-      "ECMA 262 regex \"^([\\w\\-\\.]+|\\$\\([\\w\\-\\.]+\\))$\" does not match input string \"foo-test-v001$(nf.asg)\""
-    )
+  test("Fail for invalid dimension values") {
+    Seq(
+      "",
+      "asg:value",
+      "${var}",
+      "$(nf:asg)"
+    ).foreach { d =>
+      assertFailure(
+        validate(makeConfigString(dimensionValue = d)()),
+        "does not match input string"
+      )
+    }
   }
 
   test("Allow hardcoded account id") {
     validate(makeConfigString()(account = "23456"))
   }
 
-  test("Account value cannot by empty") {
-    assertFailure(
-      validate(makeConfigString()(account = "")),
-      "ECMA 262 regex \"^([\\d]+|\\$\\([\\w\\-\\.]+\\))$\" does not match input string \"\""
-    )
+  test("Fail for invalid accounts") {
+    Seq(
+      "",
+      "$(nf:account)",
+      "123$(nf.account)"
+    ).foreach { a =>
+      assertFailure(
+        validate(makeConfigString()(account = a)),
+        "does not match input string"
+      )
+    }
   }
 
-  test("Fail for invalid account variable") {
-    assertFailure(
-      validate(makeConfigString()(account = "$(nf:account)")),
-      "ECMA 262 regex \"^([\\d]+|\\$\\([\\w\\-\\.]+\\))$\" does not match input string \"$(nf:account)\""
-    )
+  test("Allow hardcoded region") {
+    validate(makeConfigString()(region = "us-east-1"))
   }
 
-  test("Cannot mix hardcoded value and a variable for account") {
-    assertFailure(
-      validate(makeConfigString()(account = "123$(nf.account)")),
-      "ECMA 262 regex \"^([\\d]+|\\$\\([\\w\\-\\.]+\\))$\" does not match input string \"123$(nf.account)\""
-    )
+  test("Fail for invalid regions") {
+    Seq(
+      "",
+      "$(nf:region)",
+      "us-$(region)"
+    ).foreach { r =>
+      assertFailure(
+        validate(makeConfigString()(region = r)),
+        "does not match input string"
+      )
+    }
   }
 
   test("checksToSkip cannot be empty") {
     assertFailure(
       validate(makeConfigString()(checksToSkip = "[]")),
-      "array is too short: must have at least 1 elements but instance has 0 elements"
+      "array is too short"
     )
   }
 
   test("checksToSkip entries cannot be empty") {
     assertFailure(
       validate(makeConfigString()(checksToSkip = """[""]""")),
-      "string \"\" is too short (length: 0, required minimum: 1)"
+      "string \"\" is too short"
     )
   }
 
   test("checksToSkip should be a string array") {
     assertFailure(
       validate(makeConfigString()(checksToSkip = "[1]")),
-      "instance type (integer) does not match any allowed primitive type (allowed: [\"string\"])"
+      "does not match any allowed primitive type"
     )
   }
 

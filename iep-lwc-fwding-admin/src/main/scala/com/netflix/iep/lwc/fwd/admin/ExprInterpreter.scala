@@ -33,7 +33,9 @@ class ExprInterpreter @Inject()(config: Config) {
 
   def eval(uri: Uri): List[StyleExpr] = {
     val expr = uri.query().get("q").getOrElse {
-      throw new IllegalArgumentException(s"missing required URI parameter `q`: $uri")
+      throw new IllegalArgumentException(
+        s"missing required URI parameter `q`: $uri"
+      )
     }
 
     doEval(expr)

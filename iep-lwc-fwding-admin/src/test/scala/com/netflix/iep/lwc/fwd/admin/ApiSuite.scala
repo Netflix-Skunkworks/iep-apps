@@ -46,7 +46,7 @@ class ApiSuite
     )
 
     postRequest ~> routes ~> check {
-      assert(response.status === StatusCodes.Accepted)
+      assert(response.status === StatusCodes.OK)
     }
   }
 
@@ -70,7 +70,11 @@ class ApiSuite
     postRequest ~> routes ~> check {
       assert(response.status === StatusCodes.BadRequest)
       assert(
-        entityAs[String] == "No of forwarded metrics might be very high because of grouping [name]"
+        entityAs[String]
+          .contains(
+            "IllegalArgumentException: Number of forwarded metrics might be " +
+            "very high because of grouping [name]"
+          )
       )
     }
   }
