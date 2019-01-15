@@ -43,11 +43,15 @@ class CwExprValidations @Inject()(
 
   val knownLowCardinalityKeys = Seq(
     "nf.account",
-    "nf.asg",
-    "nf.cluster",
-    "nf.stack",
     "nf.region",
     "nf.zone"
+  )
+
+  val scopeKeys = Seq(
+    "nf.asg",
+    "nf.stack",
+    "nf.cluster",
+    "nf.app"
   )
 
   def validate(key: String, json: JsonNode): Unit = {
@@ -191,15 +195,38 @@ class CwExprValidations @Inject()(
     expr: Expression,
     styleExprs: List[StyleExpr]
   ): Unit = {
-    // Any grouping key other than the whitelisted ones should be an exact
-    // match to avoid unpredictable number of metrics
+    // To make a best effort to avoid unpredictable number of metrics getting
+    // forwarded to CW, enforce the following restrictions by default.
+    //
+    // Allow grouping for the following low cardinality keys:
+    //   nf.account, nf.region, nf.zone
+    //
+    // Allow the following grouping keys if the query is using an exact
+    // match using another key from the same list of keys.
+    //   nf.asg, nf.stack, nf.cluster, nf.app
+    //
+    // Allow any other grouping key except the above
+    // if `name` is queried using an exact match.
+    //   `any other key` -> name
+    //
+    // Allow all the other grouping keys if the query uses the same
+    // key for an exact match
+
     val timeSeriesExpr = getOneTimeSeriesExpr(styleExprs)
-    val exMatchKeys = exactKeys(getFirstDataExpr(timeSeriesExpr).query)
+    val exMatchKeys = exactKeys(getFirstDataExpr(timeSeriesExpr).query).toSeq
 
     val highCardinalityKeys = timeSeriesExpr.finalGrouping
       .foldLeft(Seq.empty[String]) { (keys, grouping) =>
         val valid = {
           knownLowCardinalityKeys.contains(grouping) ||
+          (
+            scopeKeys.contains(grouping) &&
+            scopeKeys.intersect(exMatchKeys).nonEmpty
+          ) ||
+          (
+            scopeKeys.contains(grouping) == false &&
+            exMatchKeys.contains("name")
+          ) ||
           exMatchKeys.contains(grouping)
         }
 
@@ -210,7 +237,7 @@ class CwExprValidations @Inject()(
         }
       }
 
-    if (!highCardinalityKeys.isEmpty) {
+    if (highCardinalityKeys.nonEmpty) {
       throw new IllegalArgumentException(
         "Number of forwarded metrics might be very high because of " +
         s"grouping ${highCardinalityKeys.mkString("[", ",", "]")}"

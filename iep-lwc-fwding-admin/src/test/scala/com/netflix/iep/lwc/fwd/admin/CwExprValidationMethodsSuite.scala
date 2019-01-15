@@ -285,40 +285,60 @@ class CwExprValidationMethodsSuite
     validations.variablesSubstitution(expr, styleExpr)
   }
 
-  test("Exact match expected for high cardinality groupings") {
-    val config = makeConfig(
-      atlasUri = """
-                   | http://localhost/api/v1/graph?q=
-                   |  nf.app,nq_android_api,:eq,
-                   |  name,cgroup,:re,:and,
-                   |  (,name,nf.asg,nf.account,),:by
-                 """.stripMargin
-    )
+  test("Expr should not query unpredictable number of metrics") {
+    Seq(
+      """
+        | http://localhost/api/v1/graph?q=
+        |  name,requestsCompleted,:eq,
+        |  (,nf.asg,),:by
+      """,
+      """
+        | http://localhost/api/v1/graph?q=
+        |  nf.app,nq_android_api,:eq,
+        |  (,status,),:by
+      """,
+      """
+        | http://localhost/api/v1/graph?q=
+        |  status,500,:eq,
+        |  (,nf.asg,),:by
+      """
+    ).map(_.stripMargin)
+      .foreach { atlasUri =>
+        val config = makeConfig(atlasUri = atlasUri)
+        val expr = config.expressions.head
+        val styleExpr = validations.interpreter.eval(expr.atlasUri)
 
-    val expr = config.expressions.head
-    val styleExpr = validations.interpreter.eval(expr.atlasUri)
+        assertFailure(
+          validations.unpredictableNoOfMetrics(expr, styleExpr),
+          "Number of forwarded metrics might be very high"
+        )
+      }
 
-    assertFailure(
-      validations.unpredictableNoOfMetrics(expr, styleExpr),
-      "Number of forwarded metrics might be very high " +
-      "because of grouping [name]"
-    )
   }
 
-  test("Valid expr with exact match for high cardinality groupings") {
-    val config = makeConfig(
-      atlasUri = """
-                   | http://localhost/api/v1/graph?q=
-                   |  nf.app,nq_android_api,:eq,
-                   |  name,cgroup.mem.used,:eq,:and,
-                   |  (,name,nf.asg,nf.account,),:by
-                 """.stripMargin
-    )
+  test("Valid expr that queries predictable number of metrics") {
+    Seq(
+      """
+        | http://localhost/api/v1/graph?q=
+        |  nf.app,nq_android_api,:eq,
+        |  name,requestsCompleted,:eq,:and,
+        |  (,status,name,nf.asg,nf.account,),:by
+      """,
+      """
+        | http://localhost/api/v1/graph?q=
+        |  nf.app,nq_android_api,:eq,
+        |  name,requests.*,:re,:and,
+        |  reqType,errors,:eq,:and,
+        |  (,reqType,),:by
+      """
+    ).map(_.stripMargin)
+      .foreach { atlasUri =>
+        val config = makeConfig(atlasUri = atlasUri)
+        val expr = config.expressions.head
+        val styleExpr = validations.interpreter.eval(expr.atlasUri)
 
-    val expr = config.expressions.head
-    val styleExpr = validations.interpreter.eval(expr.atlasUri)
-
-    validations.unpredictableNoOfMetrics(expr, styleExpr)
+        validations.unpredictableNoOfMetrics(expr, styleExpr)
+      }
   }
 
 }
