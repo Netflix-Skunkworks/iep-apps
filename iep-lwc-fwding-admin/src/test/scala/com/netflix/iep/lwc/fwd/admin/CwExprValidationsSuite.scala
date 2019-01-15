@@ -36,7 +36,7 @@ class CwExprValidationsSuite
     validations.validate("foo", Json.decode[JsonNode](config))
   }
 
-  test("Skip a validation for a valid expression") {
+  test("Skip given validations for a valid expression") {
     val config = makeConfigString()(
       atlasUri = """
                    | http://localhost/api/v1/graph?q=
@@ -56,7 +56,7 @@ class CwExprValidationsSuite
                      |     "value": "$(nf.stack)"
                      |   }
                      | ]""".stripMargin,
-      checksToSkip = """["AsgGrouping"]"""
+      checksToSkip = """["AsgGrouping", "DefaultGrouping"]"""
     )
 
     validations.validate("foo", Json.decode[JsonNode](config))

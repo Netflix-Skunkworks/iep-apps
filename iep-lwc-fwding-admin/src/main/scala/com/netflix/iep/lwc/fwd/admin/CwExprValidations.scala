@@ -34,20 +34,16 @@ class CwExprValidations @Inject()(
     Validation("AccountGrouping", false, accountGrouping),
     Validation("AllGroupingsMapped", true, allGroupingsMapped),
     Validation("VariablesSubstitution", true, variablesSubstitution),
-    Validation("UnpredictableNoOfMetrics", false, unpredictableNoOfMetrics)
+    Validation("DefaultGrouping", false, defaultGrouping)
   )
 
   val defaultDimensions = Seq(Dimension("AutoScalingGroupName", "$(nf.asg)"))
 
   val varPattern = "\\$\\(([\\w\\-\\.]+)\\)".r
 
-  val knownLowCardinalityKeys = Seq(
+  val defaultGroupingKeys = List(
     "nf.account",
-    "nf.asg",
-    "nf.cluster",
-    "nf.stack",
-    "nf.region",
-    "nf.zone"
+    "nf.asg"
   )
 
   def validate(key: String, json: JsonNode): Unit = {
@@ -187,33 +183,21 @@ class CwExprValidations @Inject()(
     }
   }
 
-  def unpredictableNoOfMetrics(
+  def defaultGrouping(
     expr: Expression,
     styleExprs: List[StyleExpr]
   ): Unit = {
-    // Any grouping key other than the whitelisted ones should be an exact
-    // match to avoid unpredictable number of metrics
+    // To avoid unpredictable number of metrics getting
+    // forwarded to CW, by default allow only grouping by
+    // `nf.account` and `nf.asg`
+
     val timeSeriesExpr = getOneTimeSeriesExpr(styleExprs)
-    val exMatchKeys = exactKeys(getFirstDataExpr(timeSeriesExpr).query)
 
-    val highCardinalityKeys = timeSeriesExpr.finalGrouping
-      .foldLeft(Seq.empty[String]) { (keys, grouping) =>
-        val valid = {
-          knownLowCardinalityKeys.contains(grouping) ||
-          exMatchKeys.contains(grouping)
-        }
+    val keys = timeSeriesExpr.finalGrouping.diff(defaultGroupingKeys)
 
-        if (!valid) {
-          keys :+ grouping
-        } else {
-          keys
-        }
-      }
-
-    if (!highCardinalityKeys.isEmpty) {
+    if (keys.nonEmpty) {
       throw new IllegalArgumentException(
-        "Number of forwarded metrics might be very high because of " +
-        s"grouping ${highCardinalityKeys.mkString("[", ",", "]")}"
+        s"By default allowing only grouping by $defaultGroupingKeys"
       )
     }
   }

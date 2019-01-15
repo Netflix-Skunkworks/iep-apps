@@ -28,10 +28,12 @@ class ApiSuite
     with CwForwardingTestConfig
     with StrictLogging {
 
+  val validations = new CwExprValidations(new ExprInterpreter(ConfigFactory.load()))
+
   val routes = RequestHandler.standardOptions(
     new Api(
       new SchemaValidation,
-      new CwExprValidations(new ExprInterpreter(ConfigFactory.load())),
+      validations,
     ).routes
   )
 
@@ -72,8 +74,8 @@ class ApiSuite
       assert(
         entityAs[String]
           .contains(
-            "IllegalArgumentException: Number of forwarded metrics might be " +
-            "very high because of grouping [name]"
+            s"IllegalArgumentException: By default allowing only grouping by " +
+            s"${validations.defaultGroupingKeys}"
           )
       )
     }

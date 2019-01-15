@@ -285,13 +285,13 @@ class CwExprValidationMethodsSuite
     validations.variablesSubstitution(expr, styleExpr)
   }
 
-  test("Exact match expected for high cardinality groupings") {
+  test("By default allow only grouping by account and asg") {
     val config = makeConfig(
       atlasUri = """
                    | http://localhost/api/v1/graph?q=
-                   |  nf.app,nq_android_api,:eq,
-                   |  name,cgroup,:re,:and,
-                   |  (,name,nf.asg,nf.account,),:by
+                   |  nf.app,foo_app1,:eq,
+                   |  name,requestsCompleted,:eq,:and,
+                   |  (,nf.account,nf.asg,statusCode,),:by
                  """.stripMargin
     )
 
@@ -299,26 +299,25 @@ class CwExprValidationMethodsSuite
     val styleExpr = validations.interpreter.eval(expr.atlasUri)
 
     assertFailure(
-      validations.unpredictableNoOfMetrics(expr, styleExpr),
-      "Number of forwarded metrics might be very high " +
-      "because of grouping [name]"
+      validations.defaultGrouping(expr, styleExpr),
+      s"By default allowing only grouping by " +
+      s"${validations.defaultGroupingKeys}"
     )
   }
 
-  test("Valid expr with exact match for high cardinality groupings") {
+  test("Valid expr using default grouping keys") {
     val config = makeConfig(
       atlasUri = """
                    | http://localhost/api/v1/graph?q=
-                   |  nf.app,nq_android_api,:eq,
-                   |  name,cgroup.mem.used,:eq,:and,
-                   |  (,name,nf.asg,nf.account,),:by
+                   |  nf.app,foo_app1,:eq,
+                   |  name,nodejs.cpuUsage,:eq,:and,
+                   |  (,nf.asg,nf.account,),:by
                  """.stripMargin
     )
 
     val expr = config.expressions.head
     val styleExpr = validations.interpreter.eval(expr.atlasUri)
-
-    validations.unpredictableNoOfMetrics(expr, styleExpr)
+    validations.defaultGrouping(expr, styleExpr)
   }
 
 }
