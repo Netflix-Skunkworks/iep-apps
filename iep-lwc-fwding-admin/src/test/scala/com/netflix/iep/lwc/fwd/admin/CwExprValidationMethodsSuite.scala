@@ -285,60 +285,39 @@ class CwExprValidationMethodsSuite
     validations.variablesSubstitution(expr, styleExpr)
   }
 
-  test("Expr should not query unpredictable number of metrics") {
-    Seq(
-      """
-        | http://localhost/api/v1/graph?q=
-        |  name,requestsCompleted,:eq,
-        |  (,nf.asg,),:by
-      """,
-      """
-        | http://localhost/api/v1/graph?q=
-        |  nf.app,nq_android_api,:eq,
-        |  (,status,),:by
-      """,
-      """
-        | http://localhost/api/v1/graph?q=
-        |  status,500,:eq,
-        |  (,nf.asg,),:by
-      """
-    ).map(_.stripMargin)
-      .foreach { atlasUri =>
-        val config = makeConfig(atlasUri = atlasUri)
-        val expr = config.expressions.head
-        val styleExpr = validations.interpreter.eval(expr.atlasUri)
+  test("By default allow only grouping by account and asg") {
+    val config = makeConfig(
+      atlasUri = """
+                   | http://localhost/api/v1/graph?q=
+                   |  nf.app,foo_app1,:eq,
+                   |  name,requestsCompleted,:eq,:and,
+                   |  (,nf.account,nf.asg,statusCode,),:by
+                 """.stripMargin
+    )
 
-        assertFailure(
-          validations.unpredictableNoOfMetrics(expr, styleExpr),
-          "Number of forwarded metrics might be very high"
-        )
-      }
+    val expr = config.expressions.head
+    val styleExpr = validations.interpreter.eval(expr.atlasUri)
 
+    assertFailure(
+      validations.defaultGrouping(expr, styleExpr),
+      s"By default allowing only grouping by " +
+      s"${validations.defaultGroupingKeys}"
+    )
   }
 
-  test("Valid expr that queries predictable number of metrics") {
-    Seq(
-      """
-        | http://localhost/api/v1/graph?q=
-        |  nf.app,nq_android_api,:eq,
-        |  name,requestsCompleted,:eq,:and,
-        |  (,status,name,nf.asg,nf.account,),:by
-      """,
-      """
-        | http://localhost/api/v1/graph?q=
-        |  nf.app,nq_android_api,:eq,
-        |  name,requests.*,:re,:and,
-        |  reqType,errors,:eq,:and,
-        |  (,reqType,),:by
-      """
-    ).map(_.stripMargin)
-      .foreach { atlasUri =>
-        val config = makeConfig(atlasUri = atlasUri)
-        val expr = config.expressions.head
-        val styleExpr = validations.interpreter.eval(expr.atlasUri)
+  test("Valid expr using default grouping keys") {
+    val config = makeConfig(
+      atlasUri = """
+                   | http://localhost/api/v1/graph?q=
+                   |  nf.app,foo_app1,:eq,
+                   |  name,nodejs.cpuUsage,:eq,:and,
+                   |  (,nf.asg,nf.account,),:by
+                 """.stripMargin
+    )
 
-        validations.unpredictableNoOfMetrics(expr, styleExpr)
-      }
+    val expr = config.expressions.head
+    val styleExpr = validations.interpreter.eval(expr.atlasUri)
+    validations.defaultGrouping(expr, styleExpr)
   }
 
 }

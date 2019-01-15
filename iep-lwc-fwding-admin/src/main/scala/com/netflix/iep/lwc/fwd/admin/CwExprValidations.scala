@@ -34,24 +34,16 @@ class CwExprValidations @Inject()(
     Validation("AccountGrouping", false, accountGrouping),
     Validation("AllGroupingsMapped", true, allGroupingsMapped),
     Validation("VariablesSubstitution", true, variablesSubstitution),
-    Validation("UnpredictableNoOfMetrics", false, unpredictableNoOfMetrics)
+    Validation("DefaultGrouping", false, defaultGrouping)
   )
 
   val defaultDimensions = Seq(Dimension("AutoScalingGroupName", "$(nf.asg)"))
 
   val varPattern = "\\$\\(([\\w\\-\\.]+)\\)".r
 
-  val knownLowCardinalityKeys = Seq(
+  val defaultGroupingKeys = List(
     "nf.account",
-    "nf.region",
-    "nf.zone"
-  )
-
-  val scopeKeys = Seq(
-    "nf.asg",
-    "nf.stack",
-    "nf.cluster",
-    "nf.app"
+    "nf.asg"
   )
 
   def validate(key: String, json: JsonNode): Unit = {
@@ -191,56 +183,21 @@ class CwExprValidations @Inject()(
     }
   }
 
-  def unpredictableNoOfMetrics(
+  def defaultGrouping(
     expr: Expression,
     styleExprs: List[StyleExpr]
   ): Unit = {
-    // To make a best effort to avoid unpredictable number of metrics getting
-    // forwarded to CW, enforce the following restrictions by default.
-    //
-    // Allow grouping for the following low cardinality keys:
-    //   nf.account, nf.region, nf.zone
-    //
-    // Allow the following grouping keys if the query is using an exact
-    // match using another key from the same list of keys.
-    //   nf.asg, nf.stack, nf.cluster, nf.app
-    //
-    // Allow any other grouping key except the above
-    // if `name` is queried using an exact match.
-    //   `any other key` -> name
-    //
-    // Allow all the other grouping keys if the query uses the same
-    // key for an exact match
+    // To avoid unpredictable number of metrics getting
+    // forwarded to CW, by default allow only grouping by
+    // `nf.account` and `nf.asg`
 
     val timeSeriesExpr = getOneTimeSeriesExpr(styleExprs)
-    val exMatchKeys = exactKeys(getFirstDataExpr(timeSeriesExpr).query).toSeq
 
-    val highCardinalityKeys = timeSeriesExpr.finalGrouping
-      .foldLeft(Seq.empty[String]) { (keys, grouping) =>
-        val valid = {
-          knownLowCardinalityKeys.contains(grouping) ||
-          (
-            scopeKeys.contains(grouping) &&
-            scopeKeys.intersect(exMatchKeys).nonEmpty
-          ) ||
-          (
-            scopeKeys.contains(grouping) == false &&
-            exMatchKeys.contains("name")
-          ) ||
-          exMatchKeys.contains(grouping)
-        }
+    val keys = timeSeriesExpr.finalGrouping.diff(defaultGroupingKeys)
 
-        if (!valid) {
-          keys :+ grouping
-        } else {
-          keys
-        }
-      }
-
-    if (highCardinalityKeys.nonEmpty) {
+    if (keys.nonEmpty) {
       throw new IllegalArgumentException(
-        "Number of forwarded metrics might be very high because of " +
-        s"grouping ${highCardinalityKeys.mkString("[", ",", "]")}"
+        s"By default allowing only grouping by $defaultGroupingKeys"
       )
     }
   }
