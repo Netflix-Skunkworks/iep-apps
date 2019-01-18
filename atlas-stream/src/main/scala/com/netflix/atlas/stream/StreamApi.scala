@@ -15,6 +15,8 @@
  */
 package com.netflix.atlas.stream
 
+import java.time.Duration
+
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.model.HttpResponse
@@ -26,10 +28,14 @@ import akka.stream.ThrottleMode
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.netflix.atlas.akka.CustomDirectives._
+import com.netflix.atlas.akka.DiagnosticMessage
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.eval.stream.Evaluator
+import com.netflix.atlas.json.Json
 
-import scala.concurrent.duration._
+import scala.util.Failure
+import scala.util.Success
+import scala.util.Try
 
 class StreamApi(evaluator: Evaluator) extends WebApi {
 
@@ -42,6 +48,8 @@ class StreamApi(evaluator: Evaluator) extends WebApi {
     endpointPath("stream", RemainingPath) { path =>
       get {
         extractUri { uri =>
+          import scala.concurrent.duration._
+
           val q = uri.rawQueryString.getOrElse("")
           val atlasUri = s"$path?$q"
 
@@ -58,6 +66,22 @@ class StreamApi(evaluator: Evaluator) extends WebApi {
           val entity = HttpEntity(MediaTypes.`text/event-stream`, src)
           val headers = List(Connection("close"))
           complete(HttpResponse(StatusCodes.OK, headers = headers, entity = entity))
+        }
+      }
+    } ~
+    endpointPath("api" / "v1" / "validate") {
+      post {
+        parseEntity(json[List[String]]) { uris =>
+          val results = uris.map { uri =>
+            val ds = new Evaluator.DataSource("_", Duration.ZERO, uri)
+            val result = Try(evaluator.validate(ds)) match {
+              case Success(_) => DiagnosticMessage.info("ok")
+              case Failure(e) => DiagnosticMessage.error(e)
+            }
+            Map("uri" -> uri, "result" -> result)
+          }
+          val entity = HttpEntity(MediaTypes.`application/json`, Json.encode(results))
+          complete(HttpResponse(StatusCodes.OK, Nil, entity))
         }
       }
     }
