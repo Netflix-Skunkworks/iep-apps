@@ -15,21 +15,26 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
+import java.time.Duration
+
 import com.fasterxml.jackson.databind.JsonNode
 import com.netflix.atlas.core.model.DataExpr
 import com.netflix.atlas.core.model.Query._
 import com.netflix.atlas.core.model.StyleExpr
 import com.netflix.atlas.core.model.TimeSeriesExpr
+import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.json.Json
 import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
 
 class CwExprValidations @Inject()(
-  var interpreter: ExprInterpreter
+  interpreter: ExprInterpreter,
+  evaluator: Evaluator
 ) extends StrictLogging {
 
   val validations = Seq(
     Validation("SingleExpression", true, singleExpression),
+    Validation("ValidStreamingExpr", true, validStreamingExpr),
     Validation("AsgGrouping", false, asgGrouping),
     Validation("AccountGrouping", false, accountGrouping),
     Validation("AllGroupingsMapped", true, allGroupingsMapped),
@@ -52,10 +57,14 @@ class CwExprValidations @Inject()(
     validateChecksToSkip(config)
 
     config.expressions.foreach { expr =>
-      val styleExprs = interpreter.eval(expr.atlasUri)
+      val styleExprs = eval(expr.atlasUri)
       validations.foreach(_.validate(config, expr, styleExprs))
     }
 
+  }
+
+  def eval(atlasUri: String): List[StyleExpr] = {
+    interpreter.eval(atlasUri)
   }
 
   def validateChecksToSkip(config: CwForwardingConfig): Unit = {
@@ -73,6 +82,12 @@ class CwExprValidations @Inject()(
         throw new IllegalArgumentException(s"Invalid validation: $name")
       )
       .required
+  }
+
+  def validStreamingExpr(expr: Expression, styleExprs: List[StyleExpr]): Unit = {
+    evaluator.validate(
+      new Evaluator.DataSource("_", Duration.ZERO, expr.atlasUri)
+    )
   }
 
   def singleExpression(expr: Expression, styleExprs: List[StyleExpr]): Unit = {

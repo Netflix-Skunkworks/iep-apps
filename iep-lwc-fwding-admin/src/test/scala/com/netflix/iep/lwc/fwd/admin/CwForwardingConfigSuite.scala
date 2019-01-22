@@ -15,14 +15,21 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
+import akka.actor.ActorSystem
+import com.netflix.atlas.eval.stream.Evaluator
+import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.FunSuite
 
 class CwForwardingConfigSuite extends FunSuite with CwForwardingTestConfig with StrictLogging {
 
+  val config = ConfigFactory.load()
+  val system = ActorSystem()
+
   val validations = new CwExprValidations(
-    new ExprInterpreter(ConfigFactory.load())
+    new ExprInterpreter(config),
+    new Evaluator(config, new NoopRegistry(), system)
   )
 
   test("Skip the given checks") {
