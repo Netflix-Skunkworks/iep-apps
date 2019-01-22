@@ -15,8 +15,11 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
+import akka.actor.ActorSystem
 import com.fasterxml.jackson.databind.JsonNode
+import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.json.Json
+import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.FunSuite
@@ -27,8 +30,12 @@ class CwExprValidationsSuite
     with CwForwardingTestConfig
     with StrictLogging {
 
+  val config = ConfigFactory.load()
+  val system = ActorSystem()
+
   val validations = new CwExprValidations(
-    new ExprInterpreter(ConfigFactory.load())
+    new ExprInterpreter(config),
+    new Evaluator(config, new NoopRegistry(), system)
   )
 
   test("Run all checks for a valid expression") {

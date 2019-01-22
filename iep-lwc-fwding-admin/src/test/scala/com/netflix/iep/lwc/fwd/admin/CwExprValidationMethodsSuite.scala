@@ -15,7 +15,10 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
+import akka.actor.ActorSystem
 import com.netflix.atlas.core.model.StyleExpr
+import com.netflix.atlas.eval.stream.Evaluator
+import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.FunSuite
@@ -26,8 +29,12 @@ class CwExprValidationMethodsSuite
     with CwForwardingTestConfig
     with StrictLogging {
 
+  val config = ConfigFactory.load()
+  val system = ActorSystem()
+
   val validations = new CwExprValidations(
-    new ExprInterpreter(ConfigFactory.load())
+    new ExprInterpreter(config),
+    new Evaluator(config, new NoopRegistry(), system)
   )
 
   test("Only one expression allowed") {
@@ -47,12 +54,49 @@ class CwExprValidationMethodsSuite
     )
 
     val expr = config.expressions.head
-    val styleExpr = validations.interpreter.eval(expr.atlasUri)
+    val styleExpr = validations.eval(expr.atlasUri)
 
     assertFailure(
       validations.singleExpression(expr, styleExpr),
       "More than one expression found"
     )
+  }
+
+  test("Reject expensive queries that are not allowed for streaming") {
+    val config = makeConfig(
+      atlasUri = """
+                   | http://localhost/api/v1/graph?q=
+                   |  nf.app,nq_tvui_.*,:re,
+                   |  name,nodejs.cpu.*,:re,:and,
+                   |  :node-avg,
+                   |  (,nf.account,nf.asg,),:by
+                 """.stripMargin
+    )
+
+    val expr = config.expressions.head
+    val styleExpr = validations.eval(expr.atlasUri)
+
+    assertFailure(
+      validations.validStreamingExpr(expr, styleExpr),
+      "rejected expensive query"
+    )
+  }
+
+  test("Unknown streaming backend") {
+    val config = makeConfig(
+      atlasUri = """
+                   | http://unknown/api/v1/graph?q=
+                   |  nf.app,nq_tvui_darwin,:eq,
+                   |  name,nodejs.cpuUsage,:eq,:and,
+                   |  :node-avg,
+                   |  (,nf.account,nf.asg,),:by
+                 """.stripMargin
+    )
+
+    val expr = config.expressions.head
+    val styleExpr = validations.eval(expr.atlasUri)
+
+    intercept[NoSuchElementException](validations.validStreamingExpr(expr, styleExpr))
   }
 
   test("Dimensions cannot be empty by default") {
@@ -100,7 +144,7 @@ class CwExprValidationMethodsSuite
     )
 
     val expr = config.expressions.head
-    val styleExpr = validations.interpreter.eval(expr.atlasUri)
+    val styleExpr = validations.eval(expr.atlasUri)
 
     assertFailure(
       validations.asgGrouping(expr, styleExpr),
@@ -113,7 +157,7 @@ class CwExprValidationMethodsSuite
     val config = makeConfig()
 
     val expr = config.expressions.head
-    val styleExpr = validations.interpreter.eval(expr.atlasUri)
+    val styleExpr = validations.eval(expr.atlasUri)
 
     validations.asgGrouping(expr, styleExpr)
   }
@@ -139,7 +183,7 @@ class CwExprValidationMethodsSuite
     )
 
     val expr = config.expressions.head
-    val styleExpr = validations.interpreter.eval(expr.atlasUri)
+    val styleExpr = validations.eval(expr.atlasUri)
 
     assertFailure(
       validations.accountGrouping(expr, styleExpr),
@@ -151,7 +195,7 @@ class CwExprValidationMethodsSuite
     val config = makeConfig()
 
     val expr = config.expressions.head
-    val styleExpr = validations.interpreter.eval(expr.atlasUri)
+    val styleExpr = validations.eval(expr.atlasUri)
 
     validations.accountGrouping(expr, styleExpr)
   }
@@ -163,7 +207,7 @@ class CwExprValidationMethodsSuite
     )
 
     val expr = config.expressions.head
-    val styleExpr = validations.interpreter.eval(expr.atlasUri)
+    val styleExpr = validations.eval(expr.atlasUri)
 
     assertFailure(
       validations.allGroupingsMapped(expr, styleExpr),
@@ -177,7 +221,7 @@ class CwExprValidationMethodsSuite
     )
 
     val expr = config.expressions.head
-    val styleExpr = validations.interpreter.eval(expr.atlasUri)
+    val styleExpr = validations.eval(expr.atlasUri)
 
     assertFailure(
       validations.allGroupingsMapped(expr, styleExpr),
@@ -197,7 +241,7 @@ class CwExprValidationMethodsSuite
     )
 
     val expr = config.expressions.head
-    val styleExpr = validations.interpreter.eval(expr.atlasUri)
+    val styleExpr = validations.eval(expr.atlasUri)
 
     assertFailure(
       validations.allGroupingsMapped(expr, styleExpr),
@@ -223,7 +267,7 @@ class CwExprValidationMethodsSuite
       )
     ).foreach { config =>
       val expr = config.expressions.head
-      val styleExpr = validations.interpreter.eval(expr.atlasUri)
+      val styleExpr = validations.eval(expr.atlasUri)
 
       assertFailure(
         validations.allGroupingsMapped(expr, styleExpr),
@@ -249,7 +293,7 @@ class CwExprValidationMethodsSuite
     )
 
     val expr = config.expressions.head
-    val styleExpr = validations.interpreter.eval(expr.atlasUri)
+    val styleExpr = validations.eval(expr.atlasUri)
     validations.allGroupingsMapped(expr, styleExpr)
   }
 
@@ -262,7 +306,7 @@ class CwExprValidationMethodsSuite
     )
 
     val expr = config.expressions.head
-    val styleExpr = validations.interpreter.eval(expr.atlasUri)
+    val styleExpr = validations.eval(expr.atlasUri)
 
     assertFailure(
       validations.variablesSubstitution(expr, styleExpr),
@@ -280,7 +324,7 @@ class CwExprValidationMethodsSuite
     )
 
     val expr = config.expressions.head
-    val styleExpr = validations.interpreter.eval(expr.atlasUri)
+    val styleExpr = validations.eval(expr.atlasUri)
 
     validations.variablesSubstitution(expr, styleExpr)
   }
@@ -296,7 +340,7 @@ class CwExprValidationMethodsSuite
     )
 
     val expr = config.expressions.head
-    val styleExpr = validations.interpreter.eval(expr.atlasUri)
+    val styleExpr = validations.eval(expr.atlasUri)
 
     assertFailure(
       validations.defaultGrouping(expr, styleExpr),
@@ -316,7 +360,7 @@ class CwExprValidationMethodsSuite
     )
 
     val expr = config.expressions.head
-    val styleExpr = validations.interpreter.eval(expr.atlasUri)
+    val styleExpr = validations.eval(expr.atlasUri)
     validations.defaultGrouping(expr, styleExpr)
   }
 

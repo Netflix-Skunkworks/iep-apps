@@ -18,6 +18,8 @@ package com.netflix.iep.lwc.fwd.admin
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import com.netflix.atlas.akka.RequestHandler
+import com.netflix.atlas.eval.stream.Evaluator
+import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.FunSuite
@@ -28,7 +30,12 @@ class ApiSuite
     with CwForwardingTestConfig
     with StrictLogging {
 
-  val validations = new CwExprValidations(new ExprInterpreter(ConfigFactory.load()))
+  val config = ConfigFactory.load()
+
+  val validations = new CwExprValidations(
+    new ExprInterpreter(config),
+    new Evaluator(config, new NoopRegistry(), system)
+  )
 
   val routes = RequestHandler.standardOptions(
     new Api(
