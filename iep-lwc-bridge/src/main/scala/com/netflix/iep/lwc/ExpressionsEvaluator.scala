@@ -81,7 +81,7 @@ class ExpressionsEvaluator @Inject()(config: Config) extends StrictLogging {
       )
       pendingMessages.offer(msg)
     }
-    indexRef.set(index.copy(entries = Nil))
+    indexRef.set(index.copy(entries = Array.empty))
   }
 
   private def toEntry(sub: Subscription): QueryIndex.Entry[Subscription] = {
