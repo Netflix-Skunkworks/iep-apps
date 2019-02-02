@@ -33,7 +33,7 @@ class SchemaValidation extends StrictLogging {
     try {
       JsonSchemaFactory
         .byDefault()
-        .getJsonSchema(Json.decode[JsonNode](reader))
+        .getJsonSchema(Json.decode[SchemaCfg](reader).schema)
     } finally {
       reader.close()
     }
@@ -49,3 +49,5 @@ class SchemaValidation extends StrictLogging {
   }
 
 }
+
+case class SchemaCfg(schema: JsonNode, validationHook: String)
