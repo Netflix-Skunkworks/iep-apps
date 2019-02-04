@@ -4,18 +4,18 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val akka       = "2.5.16"
-    val akkaHttpV  = "10.1.5"
+    val akka       = "2.5.20"
+    val akkaHttpV  = "10.1.7"
     val atlas      = "1.6.0-SNAPSHOT"
-    val aws        = "1.11.435"
-    val iep        = "1.2.8"
+    val aws        = "1.11.482"
+    val iep        = "1.2.10"
     val guice      = "4.1.0"
-    val jackson    = "2.9.7"
+    val jackson    = "2.9.8"
     val log4j      = "2.11.1"
-    val scala      = "2.12.7"
+    val scala      = "2.12.8"
     val servo      = "0.12.25"
     val slf4j      = "1.7.25"
-    val spectator  = "0.78.0"
+    val spectator  = "0.83.0"
 
     val crossScala = Seq(scala)
   }
@@ -27,7 +27,7 @@ object Dependencies {
   val akkaHttpTestkit    = "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV
   val akkaSlf4j          = "com.typesafe.akka" %% "akka-slf4j" % akka
   val akkaTestkit        = "com.typesafe.akka" %% "akka-testkit" % akka
-  val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % "1.0-M1"
+  val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % "1.0-M2"
   val atlasEval          = "com.netflix.atlas_v1" %% "atlas-eval" % atlas
   val atlasJson          = "com.netflix.atlas_v1" %% "atlas-json" % atlas
   val atlasModuleAkka    = "com.netflix.atlas_v1" %% "atlas-module-akka" % atlas
@@ -42,7 +42,7 @@ object Dependencies {
   val awsSTS             = "com.amazonaws" % "aws-java-sdk-sts" % aws
   val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "2.4.0"
   val equalsVerifier     = "nl.jqno.equalsverifier" % "equalsverifier" % "2.2.1"
-  val frigga             = "com.netflix.frigga" % "frigga" % "0.18.0"
+  val frigga             = "com.netflix.frigga" % "frigga" % "0.19.0"
   val guiceCore          = "com.google.inject" % "guice" % guice
   val guiceMulti         = "com.google.inject.extensions" % "guice-multibindings" % guice
   val iepGuice           = "com.netflix.iep" % "iep-guice" % iep
@@ -73,7 +73,7 @@ object Dependencies {
   val scalaCompiler      = "org.scala-lang" % "scala-compiler" % scala
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
   val scalaLibraryAll    = "org.scala-lang" % "scala-library-all" % scala
-  val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.0"
+  val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
   val scalaReflect       = "org.scala-lang" % "scala-reflect" % scala
   val scalatest          = "org.scalatest" %% "scalatest" % "3.0.5"
   val servoCore          = "com.netflix.servo" % "servo-core" % servo

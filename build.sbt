@@ -32,6 +32,7 @@ lazy val `atlas-aggregator` = project
     Dependencies.spectatorAtlas,
 
     Dependencies.akkaHttpTestkit % "test",
+    Dependencies.akkaTestkit % "test",
     Dependencies.scalatest % "test"
   ))
 
@@ -57,6 +58,7 @@ lazy val `atlas-stream` = project
     Dependencies.log4jSlf4j,
 
     Dependencies.akkaHttpTestkit % "test",
+    Dependencies.akkaTestkit % "test",
     Dependencies.scalatest % "test"
   ))
 
@@ -74,6 +76,7 @@ lazy val `iep-archaius` = project
     Dependencies.log4jSlf4j,
 
     Dependencies.akkaHttpTestkit % "test",
+    Dependencies.akkaTestkit % "test",
     Dependencies.scalatest % "test"
   ))
 
@@ -119,6 +122,7 @@ lazy val `iep-lwc-bridge` = project
     Dependencies.spectatorAtlas,
 
     Dependencies.akkaHttpTestkit % "test",
+    Dependencies.akkaTestkit % "test",
     Dependencies.scalatest % "test"
   ))
 
@@ -136,6 +140,7 @@ lazy val `iep-lwc-cloudwatch` = project
     Dependencies.log4jSlf4j,
 
     Dependencies.akkaHttpTestkit % "test",
+    Dependencies.akkaTestkit % "test",
     Dependencies.scalatest % "test"
   ))
 
@@ -154,6 +159,7 @@ lazy val `iep-lwc-fwding-admin` = project
     Dependencies.jsonSchema,
 
     Dependencies.akkaHttpTestkit % "test",
+    Dependencies.akkaTestkit % "test",
     Dependencies.scalatest % "test"
   ))
 
@@ -170,6 +176,7 @@ lazy val `iep-lwc-loadgen` = project
     Dependencies.log4jSlf4j,
 
     Dependencies.akkaHttpTestkit % "test",
+    Dependencies.akkaTestkit % "test",
     Dependencies.scalatest % "test"
   ))
 
@@ -187,6 +194,7 @@ lazy val `iep-ses-monitor` = project
     Dependencies.log4jSlf4j,
 
     Dependencies.akkaHttpTestkit % "test",
+    Dependencies.akkaTestkit % "test",
     Dependencies.scalatest % "test"
   ))
 
