@@ -227,10 +227,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
 
     val commonTags = exactTags(query)
 
-    val dimensions = expr match {
-      case g: DataExpr.GroupBy => g.keys.filterNot(isSpecial).map(k => toDimensionSpec(k, query))
-      case _                   => Nil
-    }
+    val dimensions = getDimensions(expr)
 
     val intervals = List(toInterval(fetchContext))
     val druidQueries = metrics.map { m =>
@@ -361,11 +358,34 @@ object DruidDatabaseActor {
     }
   }
 
-  def exactTags(query: Query): Map[String, String] = {
+  private def exactTags(query: Query): Map[String, String] = {
     query match {
       case Query.And(q1, q2) => exactTags(q1) ++ exactTags(q2)
       case Query.Equal(k, v) => Map(k -> v)
       case _                 => Map.empty
     }
+  }
+
+  /**
+    * Extract keys that can have a range of values such as :has, :re, etc. For these keys
+    * we need the dimension to be included in the group by so enough information is retained
+    * to perform the local evaluation step with the result.
+    */
+  private def rangeKeys(query: Query): Set[String] = {
+    query match {
+      case Query.And(q1, q2) => rangeKeys(q1) ++ rangeKeys(q2)
+      case Query.Equal(_, _) => Set.empty
+      case q: Query.KeyQuery => Set(q.k)
+      case _                 => Set.empty
+    }
+  }
+
+  private def getDimensions(expr: DataExpr): List[DimensionSpec] = {
+    val query = expr.query
+    val keys = expr match {
+      case g: DataExpr.GroupBy => rangeKeys(query) ++ g.keys
+      case _                   => rangeKeys(query)
+    }
+    keys.filterNot(isSpecial).map(k => toDimensionSpec(k, query)).toList
   }
 }
