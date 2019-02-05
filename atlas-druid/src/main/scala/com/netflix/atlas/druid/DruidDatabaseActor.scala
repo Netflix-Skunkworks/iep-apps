@@ -221,40 +221,22 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
         context.copy(context.start - offset, context.end - offset)
       }
     val query = expr.query
-    val metrics = metadata.datasources.flatMap { ds =>
-      ds.metrics.filter(query.couldMatch)
-    }
 
-    val commonTags = exactTags(query)
-
-    val dimensions = getDimensions(expr)
-
-    val intervals = List(toInterval(fetchContext))
-    val druidQueries = metrics.map { m =>
-      val name = m("name")
-      val ds = m("nf.datasource")
-      val tags = commonTags ++ m
-      val groupByQuery = GroupByQuery(
-        dataSource = ds,
-        dimensions = dimensions,
-        intervals = intervals,
-        aggregations = List(toAggregation(name, expr)),
-        filter = DruidFilter.forQuery(query),
-        granularity = Granularity.millis(context.step)
-      )
-      client.groupBy(groupByQuery).map { result =>
-        val candidates = toTimeSeries(tags, fetchContext, result)
-        // See behavior on multi-value dimensions:
-        // http://druid.io/docs/latest/querying/groupbyquery.html
-        //
-        // The queries sent to druid will include a filtering dimension spec to do as
-        // much of the reduction server side as possible. However, it only supports list
-        // and regex filters. Some queries, e.g., greater than, cannot be done with the
-        // server side filter so we filter candidates locally to ensure the correct
-        // results are included.
-        val series = candidates.filter(ts => query.couldMatch(ts.tags))
-        if (offset == 0L) series else series.map(_.offset(offset))
-      }
+    val druidQueries = toDruidQueries(metadata, fetchContext, expr).map {
+      case (tags, groupByQuery) =>
+        client.groupBy(groupByQuery).map { result =>
+          val candidates = toTimeSeries(tags, fetchContext, result)
+          // See behavior on multi-value dimensions:
+          // http://druid.io/docs/latest/querying/groupbyquery.html
+          //
+          // The queries sent to druid will include a filtering dimension spec to do as
+          // much of the reduction server side as possible. However, it only supports list
+          // and regex filters. Some queries, e.g., greater than, cannot be done with the
+          // server side filter so we filter candidates locally to ensure the correct
+          // results are included.
+          val series = candidates.filter(ts => query.couldMatch(ts.tags))
+          if (offset == 0L) series else series.map(_.offset(offset))
+        }
     }
 
     Source(druidQueries)
@@ -358,7 +340,38 @@ object DruidDatabaseActor {
     }
   }
 
-  private def exactTags(query: Query): Map[String, String] = {
+  def toDruidQueries(
+    metadata: Metadata,
+    context: EvalContext,
+    expr: DataExpr
+  ): List[(Map[String, String], GroupByQuery)] = {
+    val query = expr.query
+    val metrics = metadata.datasources.flatMap { ds =>
+      ds.metrics.filter(query.couldMatch)
+    }
+
+    val commonTags = exactTags(query)
+
+    val dimensions = getDimensions(expr)
+
+    val intervals = List(toInterval(context))
+    metrics.map { m =>
+      val name = m("name")
+      val ds = m("nf.datasource")
+      val tags = commonTags ++ m
+      val groupByQuery = GroupByQuery(
+        dataSource = ds,
+        dimensions = dimensions,
+        intervals = intervals,
+        aggregations = List(toAggregation(name, expr)),
+        filter = DruidFilter.forQuery(query),
+        granularity = Granularity.millis(context.step)
+      )
+      tags -> groupByQuery
+    }
+  }
+
+  def exactTags(query: Query): Map[String, String] = {
     query match {
       case Query.And(q1, q2) => exactTags(q1) ++ exactTags(q2)
       case Query.Equal(k, v) => Map(k -> v)
@@ -371,7 +384,7 @@ object DruidDatabaseActor {
     * we need the dimension to be included in the group by so enough information is retained
     * to perform the local evaluation step with the result.
     */
-  private def rangeKeys(query: Query): Set[String] = {
+  def rangeKeys(query: Query): Set[String] = {
     query match {
       case Query.And(q1, q2) => rangeKeys(q1) ++ rangeKeys(q2)
       case Query.Equal(_, _) => Set.empty
@@ -380,7 +393,7 @@ object DruidDatabaseActor {
     }
   }
 
-  private def getDimensions(expr: DataExpr): List[DimensionSpec] = {
+  def getDimensions(expr: DataExpr): List[DimensionSpec] = {
     val query = expr.query
     val keys = expr match {
       case g: DataExpr.GroupBy => rangeKeys(query) ++ g.keys
