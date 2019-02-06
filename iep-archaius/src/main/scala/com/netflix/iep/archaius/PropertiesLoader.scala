@@ -36,7 +36,7 @@ class PropertiesLoader(config: Config, propContext: PropertiesContext, dynamoSer
 
   import scala.concurrent.duration._
   import scala.concurrent.ExecutionContext.Implicits.global
-  context.system.scheduler.schedule(0.seconds, 5.seconds, self, PropertiesLoader.Tick)
+  context.system.scheduler.schedule(5.seconds, 5.seconds, self, PropertiesLoader.Tick)
 
   def receive: Receive = {
     case PropertiesLoader.Tick =>
