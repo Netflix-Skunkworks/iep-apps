@@ -136,9 +136,15 @@ class DruidDatabaseActorSuite extends FunSuite {
     assert(rangeKeys(query) === expected)
   }
 
-  test("rangeKeys: ignore OR subtree") {
-    val expected = Set.empty[String]
-    val query = Query.And(Query.Equal("a", "1"), Query.Or(Query.HasKey("b"), Query.HasKey("c")))
+  test("rangeKeys: extract keys in OR subtree") {
+    val expected = Set("b", "c")
+    val query = Query.And(
+      Query.Equal("a", "1"),
+      Query.Or(
+        Query.Equal("b", "2"),
+        Query.HasKey("c")
+      )
+    )
     assert(rangeKeys(query) === expected)
   }
 
