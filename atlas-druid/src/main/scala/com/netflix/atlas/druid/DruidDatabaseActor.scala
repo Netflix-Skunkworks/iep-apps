@@ -387,7 +387,18 @@ object DruidDatabaseActor {
   def rangeKeys(query: Query): Set[String] = {
     query match {
       case Query.And(q1, q2) => rangeKeys(q1) ++ rangeKeys(q2)
+      case Query.Or(q1, q2)  => rangeKeysOr(q1) ++ rangeKeysOr(q2)
       case Query.Equal(_, _) => Set.empty
+      case q: Query.KeyQuery => Set(q.k)
+      case _                 => Set.empty
+    }
+  }
+
+  /** All keys should be extracted from an OR subtree in the expression. */
+  private def rangeKeysOr(query: Query): Set[String] = {
+    query match {
+      case Query.And(q1, q2) => rangeKeysOr(q1) ++ rangeKeysOr(q2)
+      case Query.Or(q1, q2)  => rangeKeysOr(q1) ++ rangeKeysOr(q2)
       case q: Query.KeyQuery => Set(q.k)
       case _                 => Set.empty
     }
