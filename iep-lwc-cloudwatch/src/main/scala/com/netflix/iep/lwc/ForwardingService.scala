@@ -326,7 +326,7 @@ object ForwardingService extends StrictLogging {
           }
           .recover {
             case t: Throwable =>
-              logger.warn("cloudwatch request failed", t)
+              logger.warn(s"cloudwatch request failed (region=$region, account=$account)", t)
               NotUsed
           }
       }
