@@ -256,10 +256,10 @@ object ForwardingService extends StrictLogging {
             false
         }
       }
-      .map { env =>
+      .flatMapConcat { env =>
         val expr = Json.decode[ForwardingExpression](env.getId)
         val msg = env.getMessage.asInstanceOf[TimeSeriesMessage]
-        expr.createMetricDatum(msg)
+        Source(expr.createMetricDatum(msg).toList)
       }
   }
 
@@ -421,25 +421,25 @@ object ForwardingService extends StrictLogging {
       new Evaluator.DataSource(id, atlasUri)
     }
 
-    def createMetricDatum(msg: TimeSeriesMessage): AccountDatum = {
+    def createMetricDatum(msg: TimeSeriesMessage): Option[AccountDatum] = {
       import scala.collection.JavaConverters._
       val name = Strings.substitute(metricName, msg.tags)
       val accountId = Strings.substitute(account, msg.tags)
 
       val regionStr = Strings.substitute(region.getOrElse(NetflixEnvironment.region()), msg.tags)
 
-      val value = msg.data match {
-        case data: ArrayData => data.values(0)
-        case _               => Double.NaN
+      msg.data match {
+        case data: ArrayData if !data.values(0).isNaN =>
+          val datum = new MetricDatum()
+            .withMetricName(name)
+            .withDimensions(dimensions.map(_.toDimension(msg.tags)).asJava)
+            .withTimestamp(new Date(msg.start))
+            .withValue(truncate(data.values(0)))
+          Some(AccountDatum(regionStr, accountId, datum))
+        case _ =>
+          None
       }
 
-      val datum = new MetricDatum()
-        .withMetricName(name)
-        .withDimensions(dimensions.map(_.toDimension(msg.tags)).asJava)
-        .withTimestamp(new Date(msg.start))
-        .withValue(truncate(value))
-
-      AccountDatum(regionStr, accountId, datum)
     }
   }
 
