@@ -177,11 +177,11 @@ class ForwardingServiceSuite extends FunSuite {
   // toMetricDatum tests
   //
 
-  def runToMetricDatum(env: Evaluator.MessageEnvelope): AccountDatum = {
+  def runToMetricDatum(env: Evaluator.MessageEnvelope): Option[AccountDatum] = {
     val future = Source
       .single(env)
       .via(toMetricDatum(new NoopRegistry))
-      .runWith(Sink.head)
+      .runWith(Sink.headOption)
     Await.result(future, Duration.Inf)
   }
 
@@ -207,9 +207,35 @@ class ForwardingServiceSuite extends FunSuite {
         |}
       """.stripMargin
     val env = new Evaluator.MessageEnvelope(id, msg)
-    val actual = runToMetricDatum(env)
+    val actual = runToMetricDatum(env).get
     assert(actual.account === "1234567890")
     assert(actual.datum.getMetricName === "ssCpuUser")
+  }
+
+  test("toMetricDatum: filter out NaN values") {
+    val msg = TimeSeriesMessage(
+      id = "abc",
+      query = "name,ssCpuUser,:eq,:sum",
+      groupByKeys = Nil,
+      start = 0L,
+      end = 60000L,
+      step = 60000L,
+      label = "test",
+      tags = Map("name" -> "ssCpuUser"),
+      data = ArrayData(Array(Double.NaN))
+    )
+    val id =
+      """
+        |{
+        |  "atlasUri": "http://atlas/api/v1/graph?q=name,ssCpuUser,:eq,:sum",
+        |  "account": "$(nf.account)",
+        |  "metricName": "ssCpuUser",
+        |  "dimensions": []
+        |}
+      """.stripMargin
+    val env = new Evaluator.MessageEnvelope(id, msg)
+    val actual = runToMetricDatum(env)
+    assert(actual === None)
   }
 
   //
