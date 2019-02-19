@@ -15,13 +15,12 @@
  */
 package com.netflix.iep.archaius
 
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
 import com.google.inject.AbstractModule
 import com.google.inject.Module
 import com.google.inject.Provides
 import com.google.inject.multibindings.Multibinder
+import com.netflix.iep.aws.AwsClientFactory
 import com.netflix.iep.guice.BaseModule
 import com.netflix.iep.guice.GuiceHelper
 import com.netflix.iep.service.Service
@@ -76,13 +75,8 @@ object Main {
 
     // Visibility of protected to avoid unused method warning from scala compiler
     @Provides
-    protected def providesDynamoDBClient(config: Config): AmazonDynamoDB = {
-      val region = config.getString("netflix.iep.env.region")
-      AmazonDynamoDBClient
-        .builder()
-        .withCredentials(new DefaultAWSCredentialsProviderChain)
-        .withRegion(region)
-        .build()
+    protected def providesDynamoDBClient(factory: AwsClientFactory): AmazonDynamoDB = {
+      factory.newInstance(classOf[AmazonDynamoDB])
     }
   }
 }

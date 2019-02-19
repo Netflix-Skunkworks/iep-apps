@@ -70,6 +70,7 @@ lazy val `iep-archaius` = project
     Dependencies.awsSTS,
     Dependencies.frigga,
     Dependencies.iepGuice,
+    Dependencies.iepModuleAws,
     Dependencies.iepNflxEnv,
     Dependencies.log4jApi,
     Dependencies.log4jCore,
