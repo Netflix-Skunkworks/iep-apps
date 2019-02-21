@@ -15,24 +15,20 @@
  */
 package com.netflix.iep.lwc
 
+import java.net.URI
 import java.nio.charset.StandardCharsets
+import java.time.Duration
+import java.time.Instant
 import java.util.Date
 import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
 
-import javax.inject.Inject
 import akka.NotUsed
 import akka.actor.ActorSystem
+import akka.http.scaladsl.client.RequestBuilding.Post
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.HttpMethods
-import akka.http.scaladsl.model.HttpRequest
-import akka.http.scaladsl.model.HttpResponse
-import akka.http.scaladsl.model.StatusCodes
-import akka.stream.AbruptTerminationException
-import akka.stream.ActorMaterializer
-import akka.stream.KillSwitch
-import akka.stream.KillSwitches
-import akka.stream.ThrottleMode
+import akka.http.scaladsl.model._
+import akka.stream._
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Framing
 import akka.stream.scaladsl.Keep
@@ -64,7 +60,9 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.patterns.PolledMeter
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
+import javax.inject.Inject
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Success
@@ -98,17 +96,21 @@ class ForwardingService @Inject()(
     val pattern = Pattern.compile(config.getString("iep.lwc.cloudwatch.filter"))
     val uri = config.getString("iep.lwc.cloudwatch.uri")
     val namespace = config.getString("iep.lwc.cloudwatch.namespace")
+    val adminUri = new URI(config.getString("iep.lwc.cloudwatch.adminUri"))
     val client = Http().superPool[AccessLogger]()
+
     def put(region: String, account: String, request: PutMetricDataRequest): PutMetricDataResult = {
       val cwClient = clientFactory.getInstance(region, classOf[AmazonCloudWatch], account)
       cwClient.putMetricData(request)
     }
+
     killSwitch = autoReconnectHttpSource(uri, client)
       .via(configInput(registry))
       .via(toDataSources(pattern))
       .via(Flow.fromProcessor(() => evaluator.createStreamsProcessor()))
       .via(toMetricDatum(registry))
       .via(sendToCloudWatch(lastSuccessfulPutTime, namespace, put))
+      .via(sendToAdmin(adminUri, client))
       .watchTermination() { (_, f) =>
         f.onComplete {
           case Success(_) | Failure(_: AbruptTerminationException) =>
@@ -233,22 +235,25 @@ object ForwardingService extends StrictLogging {
     Flow[Map[String, ClusterConfig]]
       .map { configs =>
         import scala.collection.JavaConverters._
-        val exprs = configs.values.flatMap { config =>
-          config.expressions
-            .filter(e => pattern.matcher(e.atlasUri).matches())
-            .map(_.toDataSource)
+        val exprs = configs.flatMap {
+          case (key, config) =>
+            config.expressions
+              .filter(e => pattern.matcher(e.atlasUri).matches())
+              .map(_.toDataSource(key))
         }
         new Evaluator.DataSources(exprs.toSet.asJava)
       }
   }
 
-  def toMetricDatum(registry: Registry): Flow[Evaluator.MessageEnvelope, AccountDatum, NotUsed] = {
+  def toMetricDatum(
+    registry: Registry
+  ): Flow[Evaluator.MessageEnvelope, ForwardingMsgEnvelope, NotUsed] = {
     val datapoints = registry.counter("forwarding.cloudWatchDatapoints")
 
     Flow[Evaluator.MessageEnvelope]
       .filter { env =>
         env.getMessage match {
-          case ts: TimeSeriesMessage =>
+          case _: TimeSeriesMessage =>
             datapoints.increment()
             true
           case other: JsonSupport =>
@@ -256,10 +261,10 @@ object ForwardingService extends StrictLogging {
             false
         }
       }
-      .flatMapConcat { env =>
-        val expr = Json.decode[ForwardingExpression](env.getId)
+      .map { env =>
+        val id = Json.decode[DataSourceId](env.getId)
         val msg = env.getMessage.asInstanceOf[TimeSeriesMessage]
-        Source(expr.createMetricDatum(msg).toList)
+        ForwardingMsgEnvelope(id, id.expression.createMetricDatum(msg), None)
       }
   }
 
@@ -300,37 +305,73 @@ object ForwardingService extends StrictLogging {
     lastSuccessfulPutTime: AtomicLong,
     namespace: String,
     doPut: PutFunction
-  ): Flow[AccountDatum, NotUsed, NotUsed] = {
+  ): Flow[ForwardingMsgEnvelope, ForwardingMsgEnvelope, NotUsed] = {
 
     import scala.collection.JavaConverters._
-    Flow[AccountDatum]
-      .groupBy(Int.MaxValue, d => s"${d.region}.${d.account}") // one client per region/account
+    Flow[ForwardingMsgEnvelope]
+      .groupBy(
+        Int.MaxValue,
+        d => s"${d.accountDatum.map(_.region)}.${d.accountDatum.map(_.account)}"
+      ) // one client per region/account or no client when accountDatum is empty
       .groupedWithin(20, 5.seconds)
       .flatMapConcat { data =>
-        val request = new PutMetricDataRequest()
-          .withNamespace(namespace)
-          .withMetricData(data.map(_.datum).asJava)
+        if (data.head.accountDatum.isDefined) {
+          val request = new PutMetricDataRequest()
+            .withNamespace(namespace)
+            .withMetricData(data.map(_.accountDatum.get.datum).asJava)
 
-        val region = data.head.region
-        val account = data.head.account
-        val pub = Pagination.createPublisher(
-          request,
-          (r: PutMetricDataRequest) => doPut(region, account, r)
-        )
-        Source
-          .fromPublisher(pub)
-          .map { response =>
-            logger.debug(s"cloudwatch put result: $response")
-            lastSuccessfulPutTime.set(System.currentTimeMillis())
-            NotUsed
-          }
-          .recover {
-            case t: Throwable =>
-              logger.warn(s"cloudwatch request failed (region=$region, account=$account)", t)
-              NotUsed
-          }
+          val region = data.head.accountDatum.get.region
+          val account = data.head.accountDatum.get.account
+          val pub = Pagination.createPublisher(
+            request,
+            (r: PutMetricDataRequest) => doPut(region, account, r)
+          )
+          Source
+            .fromPublisher(pub)
+            .map { response =>
+              logger.debug(s"cloudwatch put result: $response")
+              lastSuccessfulPutTime.set(System.currentTimeMillis())
+              data
+            }
+            .recover {
+              case t: Throwable =>
+                logger.warn(s"cloudwatch request failed (region=$region, account=$account)", t)
+                data.map(_.copy(error = Some(t)))
+            }
+            .mapConcat(identity)
+        } else {
+          Source(data)
+        }
       }
       .mergeSubstreams
+  }
+
+  def sendToAdmin(
+    adminUri: URI,
+    client: Client
+  )(
+    implicit mat: ActorMaterializer,
+    ec: ExecutionContext
+  ): Flow[ForwardingMsgEnvelope, NotUsed, NotUsed] = {
+
+    Flow[ForwardingMsgEnvelope]
+      .groupedWithin(100, 30.seconds)
+      .map { msgs =>
+        val request = Post(adminUri.toString, Json.encode(msgs.map(Report(_))))
+        (request -> AccessLogger.newClientLogger("admin", request))
+      }
+      .via(client)
+      .map {
+        case (result, accessLog) =>
+          accessLog.complete(result)
+          result match {
+            case Success(response) =>
+              response.discardEntityBytes()
+            case Failure(e) =>
+              logger.warn("Error posting report to Admin", e)
+          }
+          NotUsed
+      }
   }
 
   //
@@ -416,9 +457,9 @@ object ForwardingService extends StrictLogging {
     require(account != null, "account cannot be null")
     require(metricName != null, "metricName cannot be null")
 
-    def toDataSource: Evaluator.DataSource = {
-      val id = Json.encode(this)
-      new Evaluator.DataSource(id, atlasUri)
+    def toDataSource(key: String): Evaluator.DataSource = {
+      val id = Json.encode(DataSourceId(key, this))
+      new Evaluator.DataSource(id, Duration.ofSeconds(60L), atlasUri)
     }
 
     def createMetricDatum(msg: TimeSeriesMessage): Option[AccountDatum] = {
@@ -440,6 +481,50 @@ object ForwardingService extends StrictLogging {
           None
       }
 
+    }
+  }
+
+  case class DataSourceId(key: String, expression: ForwardingExpression)
+
+  case class ForwardingMsgEnvelope(
+    id: DataSourceId,
+    accountDatum: Option[AccountDatum],
+    error: Option[Throwable]
+  )
+
+  case class Report(
+    timestamp: Long,
+    id: DataSourceId,
+    metric: Option[FwdMetricInfo],
+    error: Option[Throwable]
+  )
+
+  case class FwdMetricInfo(
+    region: String,
+    account: String,
+    name: String,
+    dimensions: Map[String, String]
+  )
+
+  object Report {
+
+    def apply(msg: ForwardingMsgEnvelope): Report = {
+      import scala.collection.JavaConverters._
+
+      Report(
+        Instant.now().toEpochMilli,
+        msg.id,
+        msg.accountDatum.map(
+          a =>
+            FwdMetricInfo(
+              a.region,
+              a.account,
+              a.datum.getMetricName,
+              a.datum.getDimensions.asScala.map(d => (d.getName, d.getValue)).toMap
+          )
+        ),
+        msg.error
+      )
     }
   }
 

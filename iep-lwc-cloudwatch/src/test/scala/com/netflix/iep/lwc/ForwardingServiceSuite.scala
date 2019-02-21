@@ -15,25 +15,36 @@
  */
 package com.netflix.iep.lwc
 
+import java.net.URI
 import java.util.Date
 import java.util.concurrent.atomic.AtomicLong
 
+import akka.NotUsed
 import akka.actor.ActorSystem
+import akka.http.scaladsl.model.HttpRequest
+import akka.http.scaladsl.model.HttpResponse
+import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
 import com.amazonaws.services.cloudwatch.model.Dimension
 import com.amazonaws.services.cloudwatch.model.MetricDatum
 import com.amazonaws.services.cloudwatch.model.PutMetricDataRequest
 import com.amazonaws.services.cloudwatch.model.PutMetricDataResult
+import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.eval.model.ArrayData
 import com.netflix.atlas.eval.model.TimeSeriesMessage
 import com.netflix.atlas.eval.stream.Evaluator
+import com.netflix.atlas.json.Json
 import com.netflix.spectator.api.NoopRegistry
 import org.scalatest.FunSuite
 
 import scala.concurrent.Await
+import scala.concurrent.Future
 import scala.concurrent.duration.Duration
+import scala.util.Success
 
 class ForwardingServiceSuite extends FunSuite {
 
@@ -177,11 +188,11 @@ class ForwardingServiceSuite extends FunSuite {
   // toMetricDatum tests
   //
 
-  def runToMetricDatum(env: Evaluator.MessageEnvelope): Option[AccountDatum] = {
+  def runToMetricDatum(env: Evaluator.MessageEnvelope): ForwardingMsgEnvelope = {
     val future = Source
       .single(env)
       .via(toMetricDatum(new NoopRegistry))
-      .runWith(Sink.headOption)
+      .runWith(Sink.head)
     Await.result(future, Duration.Inf)
   }
 
@@ -200,16 +211,21 @@ class ForwardingServiceSuite extends FunSuite {
     val id =
       """
         |{
-        |  "atlasUri": "http://atlas/api/v1/graph?q=name,ssCpuUser,:eq,:sum",
-        |  "account": "1234567890",
-        |  "metricName": "ssCpuUser",
-        |  "dimensions": []
+        |  "key": "cluster1",
+        |  "expression": {
+        |    "atlasUri": "http://atlas/api/v1/graph?q=name,ssCpuUser,:eq,:sum",
+        |    "account": "1234567890",
+        |    "metricName": "ssCpuUser",
+        |    "dimensions": []
+        |  }
         |}
       """.stripMargin
     val env = new Evaluator.MessageEnvelope(id, msg)
-    val actual = runToMetricDatum(env).get
-    assert(actual.account === "1234567890")
-    assert(actual.datum.getMetricName === "ssCpuUser")
+    val actual = runToMetricDatum(env)
+
+    assert(actual.id === Json.decode[DataSourceId](id))
+    assert(actual.accountDatum.get.account === "1234567890")
+    assert(actual.accountDatum.get.datum.getMetricName === "ssCpuUser")
   }
 
   test("toMetricDatum: filter out NaN values") {
@@ -227,14 +243,17 @@ class ForwardingServiceSuite extends FunSuite {
     val id =
       """
         |{
-        |  "atlasUri": "http://atlas/api/v1/graph?q=name,ssCpuUser,:eq,:sum",
-        |  "account": "$(nf.account)",
-        |  "metricName": "ssCpuUser",
-        |  "dimensions": []
+        |  "key": "cluster1",
+        |  "expression": {
+        |    "atlasUri": "http://atlas/api/v1/graph?q=name,ssCpuUser,:eq,:sum",
+        |    "account": "$(nf.account)",
+        |    "metricName": "ssCpuUser",
+        |    "dimensions": []
+        |  }
         |}
       """.stripMargin
     val env = new Evaluator.MessageEnvelope(id, msg)
-    val actual = runToMetricDatum(env)
+    val actual = runToMetricDatum(env).accountDatum
     assert(actual === None)
   }
 
@@ -243,6 +262,23 @@ class ForwardingServiceSuite extends FunSuite {
   //
 
   def runCloudWatchPut(ns: String, vs: List[AccountDatum]): List[AccountRequest] = {
+    val id =
+      DataSourceId(
+        "",
+        ForwardingExpression("", "", None, "", List.empty[ForwardingDimension])
+      )
+
+    val (requests, _) = doRunCloudWatchPut(
+      ns,
+      vs.map(a => ForwardingMsgEnvelope(id, Some(a), None))
+    )
+    requests
+  }
+
+  def doRunCloudWatchPut(
+    ns: String,
+    msgs: List[ForwardingMsgEnvelope]
+  ): (List[AccountRequest], Seq[ForwardingMsgEnvelope]) = {
     val requests = List.newBuilder[AccountRequest]
     def doPut(
       region: String,
@@ -252,11 +288,12 @@ class ForwardingServiceSuite extends FunSuite {
       requests += AccountRequest(region, account, request)
       new PutMetricDataResult
     }
-    val future = Source(vs)
+    val future = Source(msgs)
       .via(sendToCloudWatch(new AtomicLong(), ns, doPut))
-      .runWith(Sink.ignore)
-    Await.result(future, Duration.Inf)
-    requests.result()
+      .runWith(Sink.seq)
+    val msgsOut = Await.result(future, Duration.Inf)
+
+    (requests.result(), msgsOut)
   }
 
   def createDataSet(n: Int): List[AccountDatum] = {
@@ -313,6 +350,45 @@ class ForwardingServiceSuite extends FunSuite {
       )
     }
     assert(actual === expected)
+  }
+
+  test("toCloudWatchPut: skip put and pass the msg through for no data") {
+    val id =
+      DataSourceId(
+        "",
+        ForwardingExpression("", "", None, "", List.empty[ForwardingDimension])
+      )
+    val msgs = List(ForwardingMsgEnvelope(id, None, None))
+    val (requests, msgsOut) = doRunCloudWatchPut("Netflix/Namespace", msgs)
+
+    assert(requests.isEmpty)
+    assert(msgsOut.toList === msgs)
+  }
+
+  test("toCloudWatchPut: stream with metric and no data") {
+    val ns = "Netflix/Namespace"
+    val id =
+      DataSourceId(
+        "",
+        ForwardingExpression("", "", None, "", List.empty[ForwardingDimension])
+      )
+    val dataMsgs = createDataSet(20).map(a => ForwardingMsgEnvelope(id, Some(a), None))
+    val noDataMsgsIn = List.fill(20)(ForwardingMsgEnvelope(id, None, None))
+
+    val (requests, msgsOut) = doRunCloudWatchPut(ns, dataMsgs ++ noDataMsgsIn)
+
+    val expectedReqs = List(
+      AccountRequest(
+        "us-east-1",
+        "12345",
+        new PutMetricDataRequest()
+          .withNamespace(ns)
+          .withMetricData(dataMsgs.map(_.accountDatum.get.datum).asJava)
+      )
+    )
+
+    assert(requests === expectedReqs)
+    assert(msgsOut.toList === (noDataMsgsIn ++ dataMsgs))
   }
 
   def createMultiAccountDataSet(mod: Int, n: Int): List[AccountDatum] = {
@@ -376,5 +452,55 @@ class ForwardingServiceSuite extends FunSuite {
       )
     }
     assert(actual.sortWith(_.account < _.account) === expected)
+  }
+
+  //
+  // sendToAdmin tests
+  //
+
+  test("Send the messages to Admin endpoint") {
+    implicit val ec = scala.concurrent.ExecutionContext.global
+    implicit val mat = ActorMaterializer()
+
+    val requests = List.newBuilder[HttpRequest]
+    val client: Client =
+      Flow[(HttpRequest, AccessLogger)]
+        .map {
+          case (request, accessLogger) =>
+            requests += request
+            (Success(HttpResponse(StatusCodes.OK)), accessLogger)
+        }
+
+    val id =
+      DataSourceId(
+        "",
+        ForwardingExpression("", "", None, "", List.empty[ForwardingDimension])
+      )
+    val msgs = createDataSet(1).map(a => ForwardingMsgEnvelope(id, Some(a), None))
+    val future = Source(msgs)
+      .via(sendToAdmin(new URI("http://local:7101/api/v1/report"), client))
+      .runWith(Sink.head)
+
+    val result = Await.result(future, Duration.Inf)
+
+    val reqBodyFuture = Future
+      .sequence(
+        requests.result().map(Unmarshal(_).to[String])
+      )
+      .map(_.head)
+      .map(Json.decode[Seq[Report]](_).head)
+
+    val reqBody = Await.result(reqBodyFuture, Duration.Inf)
+
+    val expectedReport = Report(
+      1L,
+      id,
+      Some(FwdMetricInfo("us-east-1", "12345", "0", Map("foo" -> "bar"))),
+      None
+    )
+
+    assert(result === NotUsed)
+    assert(reqBody.copy(timestamp = 1L) === expectedReport)
+
   }
 }
