@@ -349,10 +349,8 @@ object ForwardingService extends StrictLogging {
     Flow[ForwardingMsgEnvelope]
       .groupedWithin(100, 30.seconds)
       .map { msgs =>
-        val request = HttpRequest(
-          HttpMethods.POST,
-          adminUri,
-          entity = Json.encode(msgs.map(Report(_))))
+        val request =
+          HttpRequest(HttpMethods.POST, adminUri, entity = Json.encode(msgs.map(Report(_))))
         request -> AccessLogger.newClientLogger("admin", request)
       }
       .via(client)
