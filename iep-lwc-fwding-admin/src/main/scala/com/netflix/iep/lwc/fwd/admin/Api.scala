@@ -48,7 +48,18 @@ class Api(
           }
         }
       }
+    } ~
+    endpointPath("api" / "v1" / "report") {
+      post {
+        entity(as[JsonNode]) { json =>
+          complete {
+            logger.info(s"Received report $json")
+            HttpResponse(StatusCodes.OK)
+          }
+        }
+      }
     }
+
   }
 
 }
