@@ -15,7 +15,6 @@
  */
 package com.netflix.iep.lwc
 
-import java.net.URI
 import java.util.Date
 import java.util.concurrent.atomic.AtomicLong
 
@@ -24,6 +23,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model.Uri
 import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Flow
@@ -478,7 +478,7 @@ class ForwardingServiceSuite extends FunSuite {
       )
     val msgs = createDataSet(1).map(a => ForwardingMsgEnvelope(id, Some(a), None))
     val future = Source(msgs)
-      .via(sendToAdmin(new URI("http://local:7101/api/v1/report"), client))
+      .via(sendToAdmin(Uri("http://local:7101/api/v1/report"), client))
       .runWith(Sink.head)
 
     val result = Await.result(future, Duration.Inf)

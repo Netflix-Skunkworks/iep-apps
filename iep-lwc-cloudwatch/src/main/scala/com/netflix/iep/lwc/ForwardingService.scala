@@ -15,7 +15,6 @@
  */
 package com.netflix.iep.lwc
 
-import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.time.Instant
@@ -25,7 +24,6 @@ import java.util.regex.Pattern
 
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.http.scaladsl.client.RequestBuilding.Post
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.stream._
@@ -45,6 +43,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.databind.node.TextNode
 import com.netflix.atlas.akka.AccessLogger
+import com.netflix.atlas.akka.StreamOps
 import com.netflix.atlas.core.util.Strings
 import com.netflix.atlas.eval.model.ArrayData
 import com.netflix.atlas.eval.model.TimeSeriesMessage
@@ -62,7 +61,6 @@ import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
 
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Success
@@ -96,7 +94,7 @@ class ForwardingService @Inject()(
     val pattern = Pattern.compile(config.getString("iep.lwc.cloudwatch.filter"))
     val uri = config.getString("iep.lwc.cloudwatch.uri")
     val namespace = config.getString("iep.lwc.cloudwatch.namespace")
-    val adminUri = new URI(config.getString("iep.lwc.cloudwatch.adminUri"))
+    val adminUri = Uri(config.getString("iep.lwc.cloudwatch.admin-uri"))
     val client = Http().superPool[AccessLogger]()
 
     def put(region: String, account: String, request: PutMetricDataRequest): PutMetricDataResult = {
@@ -346,32 +344,29 @@ object ForwardingService extends StrictLogging {
       .mergeSubstreams
   }
 
-  def sendToAdmin(
-    adminUri: URI,
-    client: Client
-  )(
-    implicit mat: ActorMaterializer,
-    ec: ExecutionContext
-  ): Flow[ForwardingMsgEnvelope, NotUsed, NotUsed] = {
+  def sendToAdmin(adminUri: Uri, client: Client): Flow[ForwardingMsgEnvelope, NotUsed, NotUsed] = {
 
     Flow[ForwardingMsgEnvelope]
       .groupedWithin(100, 30.seconds)
       .map { msgs =>
-        val request = Post(adminUri.toString, Json.encode(msgs.map(Report(_))))
-        (request -> AccessLogger.newClientLogger("admin", request))
+        val request = HttpRequest(
+          HttpMethods.POST,
+          adminUri,
+          entity = Json.encode(msgs.map(Report(_))))
+        request -> AccessLogger.newClientLogger("admin", request)
       }
       .via(client)
-      .map {
-        case (result, accessLog) =>
-          accessLog.complete(result)
-          result match {
-            case Success(response) =>
-              response.discardEntityBytes()
-            case Failure(e) =>
-              logger.warn("Error posting report to Admin", e)
-          }
-          NotUsed
-      }
+      .via(StreamOps.map { (t, mat) =>
+        val (result, accessLog) = t
+        accessLog.complete(result)
+        result match {
+          case Success(response) =>
+            response.discardEntityBytes()(mat)
+          case Failure(e) =>
+            logger.warn("Error posting report to Admin", e)
+        }
+        NotUsed
+      })
   }
 
   //
@@ -512,7 +507,7 @@ object ForwardingService extends StrictLogging {
       import scala.collection.JavaConverters._
 
       Report(
-        Instant.now().toEpochMilli,
+        System.currentTimeMillis(),
         msg.id,
         msg.accountDatum.map(
           a =>
