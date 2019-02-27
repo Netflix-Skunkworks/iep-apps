@@ -1,0 +1,78 @@
+[
+  {
+    "id": "merged",
+    "intervals": null,
+    "columns": {
+      "__time": {
+        "type": "LONG",
+        "hasMultipleValues": false,
+        "size": 29937560,
+        "cardinality": null,
+        "minValue": null,
+        "maxValue": null,
+        "errorMessage": null
+      },
+      "test.metric.counter": {
+        "type": "LONG",
+        "hasMultipleValues": false,
+        "size": 23950048,
+        "cardinality": null,
+        "minValue": null,
+        "maxValue": null,
+        "errorMessage": null
+      },
+      "test.dim.1": {
+        "type": "STRING",
+        "hasMultipleValues": false,
+        "size": 3123,
+        "cardinality": 15,
+        "minValue": null,
+        "maxValue": null,
+        "errorMessage": null
+      },
+      "test.dim.2": {
+        "type": "STRING",
+        "hasMultipleValues": true,
+        "size": 9140,
+        "cardinality": 33,
+        "minValue": null,
+        "maxValue": null,
+        "errorMessage": null
+      },
+      "test.metric.histogram": {
+        "type": "netflixHistogram",
+        "hasMultipleValues": false,
+        "size": 0,
+        "cardinality": null,
+        "minValue": null,
+        "maxValue": null,
+        "errorMessage": null
+      }
+    },
+    "size": 158732338,
+    "numRows": 2993756,
+    "aggregators": {
+      "test.metric.counter": {
+        "type": "longSum",
+        "name": "test.metric.counter",
+        "fieldName": "test.metric.counter",
+        "expression": null
+      },
+      "test.metric.histogram": {
+        "type": "netflixHistogram",
+        "name": "test.metric.histogram",
+        "fieldName": "test.metric.histogram",
+        "quantile": 5e-324,
+        "quantiles": [],
+        "cdf": 5e-324,
+        "cdfs": [],
+        "compression": 50,
+        "histogram": true,
+        "staticBufferMax": 5000
+      }
+    },
+    "timestampSpec": null,
+    "queryGranularity": null,
+    "rollup": null
+  }
+]

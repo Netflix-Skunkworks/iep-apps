@@ -16,6 +16,7 @@
 package com.netflix.atlas.druid
 
 import java.io.IOException
+import java.nio.charset.StandardCharsets
 import java.time.Duration
 
 import akka.NotUsed
@@ -33,6 +34,7 @@ import akka.util.ByteString
 import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.json.Json
 import com.typesafe.config.Config
+import com.typesafe.scalalogging.StrictLogging
 
 import scala.util.Failure
 import scala.util.Success
@@ -42,7 +44,7 @@ class DruidClient(
   system: ActorSystem,
   materializer: ActorMaterializer,
   client: HttpClient
-) {
+) extends StrictLogging {
 
   import DruidClient._
 
@@ -69,6 +71,10 @@ class DruidClient(
         .dataBytes
         .fold(ByteString.empty)(_ ++ _)
     }
+    .map { data =>
+      logger.trace(s"raw response payload: ${data.decodeString(StandardCharsets.UTF_8)}")
+      data
+    }
 
   private def isOK(res: HttpResponse): Boolean = res.status == StatusCodes.OK
 
@@ -79,6 +85,7 @@ class DruidClient(
 
   private def mkRequest[T: Manifest](data: T): HttpRequest = {
     val json = Json.encode(data)
+    logger.trace(s"raw request payload: $json")
     val entity = HttpEntity(MediaTypes.`application/json`, json)
     HttpRequest(HttpMethods.POST, uri, entity = entity)
   }
@@ -99,6 +106,13 @@ class DruidClient(
       .map(data => Json.decode[Datasource](data.toArray))
   }
 
+  def segmentMetadata(query: SegmentMetadataQuery): Source[List[SegmentMetadataResult], NotUsed] = {
+    Source
+      .single(mkRequest(query))
+      .via(loggingClient)
+      .map(data => Json.decode[List[SegmentMetadataResult]](data.toArray))
+  }
+
   def search(query: SearchQuery): Source[List[SearchResult], NotUsed] = {
     Source
       .single(mkRequest(query))
@@ -116,7 +130,76 @@ class DruidClient(
 
 object DruidClient {
 
-  case class Datasource(dimensions: List[String], metrics: List[String])
+  case class Datasource(dimensions: List[String], metrics: List[Metric])
+
+  case class Metric(name: String, dataType: String) {
+    def isCounter: Boolean = dataType == "FLOAT" || dataType == "LONG"
+    def isHistogram: Boolean = dataType == "netflixHistogram"
+    def isSupported: Boolean = isCounter
+  }
+
+  // http://druid.io/docs/latest/querying/segmentmetadataquery.html
+  case class SegmentMetadataQuery(
+    dataSource: String,
+    intervals: List[String] = null,
+    toInclude: Option[ToInclude] = None,
+    merge: Boolean = true,
+    analysisTypes: List[String] = List("cardinality", "size", "aggregators"),
+    lenientAggregatorMerge: Boolean = false
+  ) {
+    val queryType: String = "segmentMetadata"
+  }
+
+  case class ToInclude(`type`: String, columns: List[String] = Nil)
+
+  object ToInclude {
+    def all: ToInclude = ToInclude("all")
+    def none: ToInclude = ToInclude("none")
+    def list(columns: List[String]): ToInclude = ToInclude("list", columns)
+  }
+
+  case object ToIncludeAll {
+    val `type`: String = "all"
+  }
+
+  case class SegmentMetadataResult(
+    id: String,
+    intervals: List[String] = Nil,
+    columns: Map[String, Column] = Map.empty,
+    aggregators: Map[String, Aggregator] = Map.empty,
+    size: Long = 0L,
+    numRows: Long = 0L
+  ) {
+
+    def toDatasource: Datasource = {
+      val dimensions = columns.filter(_._2.isDimension).keys.toList.sorted
+      val metrics = columns
+        .filter(_._1 != "__time")
+        .filter(_._2.isMetric)
+        .map {
+          case (name, column) => Metric(name, column.`type`)
+        }
+        .filter(_.isSupported)
+        .toList
+      Datasource(dimensions, metrics)
+    }
+  }
+
+  case class Column(
+    `type`: String,
+    hasMultipleValues: Boolean,
+    size: Long,
+    cardinality: Long
+  ) {
+    def isDimension: Boolean = `type` == "STRING"
+    def isMetric: Boolean = !isDimension
+  }
+
+  case class Aggregator(
+    `type`: String,
+    name: String,
+    fieldName: String
+  )
 
   // http://druid.io/docs/latest/querying/searchquery.html
   case class SearchQuery(
@@ -158,7 +241,7 @@ object DruidClient {
     val queryType: String = "groupBy"
   }
 
-  trait DimensionSpec
+  sealed trait DimensionSpec
 
   case class DefaultDimensionSpec(dimension: String, outputName: String) extends DimensionSpec {
     val `type`: String = "default"
