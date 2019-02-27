@@ -17,7 +17,6 @@ package com.netflix.iep.lwc
 
 import java.nio.charset.StandardCharsets
 import java.time.Duration
-import java.time.Instant
 import java.util.Date
 import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
