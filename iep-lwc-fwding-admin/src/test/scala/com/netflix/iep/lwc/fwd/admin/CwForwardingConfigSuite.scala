@@ -33,12 +33,12 @@ class CwForwardingConfigSuite extends FunSuite with CwForwardingTestConfig with 
   )
 
   test("Skip the given checks") {
-    val config = makeConfig(checksToSkip = Seq("DefaultDimension"))
+    val config = makeConfig(checksToSkip = List("DefaultDimension"))
     assert(config.shouldSkip("DefaultDimension"))
   }
 
   test("Do checks that are not flagged to skip") {
-    val config = makeConfig(checksToSkip = Seq("DefaultDimension"))
+    val config = makeConfig(checksToSkip = List("DefaultDimension"))
     assert(config.shouldSkip("SingleExpression") == false)
   }
 

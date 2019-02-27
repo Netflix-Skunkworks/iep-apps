@@ -93,14 +93,14 @@ class CwExprValidationsSuite
 
   test("Valid `checksToSkip` list") {
     validations.validateChecksToSkip(
-      makeConfig(checksToSkip = Seq("AsgGrouping"))
+      makeConfig(checksToSkip = List("AsgGrouping"))
     )
   }
 
   test("`checksToSkip` cannot contain a key of a required check") {
     assertFailure(
       validations.validateChecksToSkip(
-        makeConfig(checksToSkip = Seq("SingleExpression"))
+        makeConfig(checksToSkip = List("SingleExpression"))
       ),
       "SingleExpression cannot be optional"
     )
@@ -109,7 +109,7 @@ class CwExprValidationsSuite
   test("`checksToSkip` cannot contain a missing key") {
     assertFailure(
       validations.validateChecksToSkip(
-        makeConfig(checksToSkip = Seq("InvalidCheckName"))
+        makeConfig(checksToSkip = List("InvalidCheckName"))
       ),
       "Invalid validation: InvalidCheckName"
     )

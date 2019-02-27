@@ -38,6 +38,7 @@ import com.netflix.atlas.eval.model.ArrayData
 import com.netflix.atlas.eval.model.TimeSeriesMessage
 import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.json.Json
+import com.netflix.iep.lwc.fwd.cw._
 import com.netflix.spectator.api.NoopRegistry
 import org.scalatest.FunSuite
 
@@ -65,7 +66,19 @@ class ForwardingServiceSuite extends FunSuite {
     """name,http.req.complete,:eq,statistic,count,:eq,:and,:sum,(,nf.account,nf.asg,),:by"""
 
   private val payload =
-    s"""{"email":"bob@example.com","expressions":[{"atlasUri":"$expr","account":"$$(nf.account)","metricName":"requestsPerSecond","dimensions":[{"name":"AutoScalingGroupName","value":"$$(nf.asg)"}]}]}"""
+    s"""
+       |{
+       |  "email":"bob@example.com",
+       |  "expressions":[
+       |    {
+       |      "atlasUri":"$expr",
+       |      "account":"$$(nf.account)",
+       |      "metricName":"requestsPerSecond",
+       |      "dimensions":[{"name":"AutoScalingGroupName","value":"$$(nf.asg)"}]
+       |    }
+       |  ],
+       |  "checksToSkip": []
+       |}""".stripMargin
 
   test("parse update response") {
     val sample =

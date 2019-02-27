@@ -52,6 +52,7 @@ import com.netflix.atlas.json.JsonSupport
 import com.netflix.iep.NetflixEnvironment
 import com.netflix.iep.aws.AwsClientFactory
 import com.netflix.iep.aws.Pagination
+import com.netflix.iep.lwc.fwd.cw._
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Functions
 import com.netflix.spectator.api.Registry
@@ -229,6 +230,8 @@ object ForwardingService extends StrictLogging {
   def toDataSources(
     pattern: Pattern
   ): Flow[Map[String, ClusterConfig], Evaluator.DataSources, NotUsed] = {
+    import ForwardingExpressionObject._
+
     Flow[Map[String, ClusterConfig]]
       .map { configs =>
         import scala.collection.JavaConverters._
@@ -236,7 +239,7 @@ object ForwardingService extends StrictLogging {
           case (key, config) =>
             config.expressions
               .filter(e => pattern.matcher(e.atlasUri).matches())
-              .map(_.toDataSource(key))
+              .map(toDataSource(_, key))
         }
         new Evaluator.DataSources(exprs.toSet.asJava)
       }
@@ -245,6 +248,8 @@ object ForwardingService extends StrictLogging {
   def toMetricDatum(
     registry: Registry
   ): Flow[Evaluator.MessageEnvelope, ForwardingMsgEnvelope, NotUsed] = {
+    import ForwardingExpressionObject._
+
     val datapoints = registry.counter("forwarding.cloudWatchDatapoints")
 
     Flow[Evaluator.MessageEnvelope]
@@ -261,7 +266,7 @@ object ForwardingService extends StrictLogging {
       .map { env =>
         val id = Json.decode[DataSourceId](env.getId)
         val msg = env.getMessage.asInstanceOf[TimeSeriesMessage]
-        ForwardingMsgEnvelope(id, id.expression.createMetricDatum(msg), None)
+        ForwardingMsgEnvelope(id, createMetricDatum(id.expression, msg), None)
       }
   }
 
@@ -349,7 +354,7 @@ object ForwardingService extends StrictLogging {
       .groupedWithin(100, 30.seconds)
       .map { msgs =>
         val request =
-          HttpRequest(HttpMethods.POST, adminUri, entity = Json.encode(msgs.map(Report(_))))
+          HttpRequest(HttpMethods.POST, adminUri, entity = Json.encode(msgs.map(ReportObject(_))))
         request -> AccessLogger.newClientLogger("admin", request)
       }
       .via(client)
@@ -435,37 +440,33 @@ object ForwardingService extends StrictLogging {
     comment: Option[String] = None
   )
 
-  case class ClusterConfig(email: String, expressions: List[ForwardingExpression])
+  object ForwardingExpressionObject {
 
-  case class ForwardingExpression(
-    atlasUri: String,
-    account: String,
-    region: Option[String],
-    metricName: String,
-    dimensions: List[ForwardingDimension] = Nil
-  ) {
-
-    require(atlasUri != null, "atlasUri cannot be null")
-    require(account != null, "account cannot be null")
-    require(metricName != null, "metricName cannot be null")
-
-    def toDataSource(key: String): Evaluator.DataSource = {
-      val id = Json.encode(DataSourceId(key, this))
-      new Evaluator.DataSource(id, Duration.ofSeconds(60L), atlasUri)
+    def toDataSource(expression: ForwardingExpression, key: String): Evaluator.DataSource = {
+      val id = Json.encode(DataSourceId(key, expression))
+      new Evaluator.DataSource(id, Duration.ofSeconds(60L), expression.atlasUri)
     }
 
-    def createMetricDatum(msg: TimeSeriesMessage): Option[AccountDatum] = {
+    def createMetricDatum(
+      expression: ForwardingExpression,
+      msg: TimeSeriesMessage
+    ): Option[AccountDatum] = {
       import scala.collection.JavaConverters._
-      val name = Strings.substitute(metricName, msg.tags)
-      val accountId = Strings.substitute(account, msg.tags)
+      import ForwardingDimensionObject._
 
-      val regionStr = Strings.substitute(region.getOrElse(NetflixEnvironment.region()), msg.tags)
+      val name = Strings.substitute(expression.metricName, msg.tags)
+      val accountId = Strings.substitute(expression.account, msg.tags)
+
+      val regionStr =
+        Strings.substitute(expression.region.getOrElse(NetflixEnvironment.region()), msg.tags)
 
       msg.data match {
         case data: ArrayData if !data.values(0).isNaN =>
           val datum = new MetricDatum()
             .withMetricName(name)
-            .withDimensions(dimensions.map(_.toDimension(msg.tags)).asJava)
+            .withDimensions(
+              expression.dimensions.map(toDimension(_, msg.tags)).asJava
+            )
             .withTimestamp(new Date(msg.start))
             .withValue(truncate(data.values(0)))
           Some(AccountDatum(regionStr, accountId, datum))
@@ -476,29 +477,13 @@ object ForwardingService extends StrictLogging {
     }
   }
 
-  case class DataSourceId(key: String, expression: ForwardingExpression)
-
   case class ForwardingMsgEnvelope(
     id: DataSourceId,
     accountDatum: Option[AccountDatum],
     error: Option[Throwable]
   )
 
-  case class Report(
-    timestamp: Long,
-    id: DataSourceId,
-    metric: Option[FwdMetricInfo],
-    error: Option[Throwable]
-  )
-
-  case class FwdMetricInfo(
-    region: String,
-    account: String,
-    name: String,
-    dimensions: Map[String, String]
-  )
-
-  object Report {
+  object ReportObject {
 
     def apply(msg: ForwardingMsgEnvelope): Report = {
       import scala.collection.JavaConverters._
@@ -520,12 +505,12 @@ object ForwardingService extends StrictLogging {
     }
   }
 
-  case class ForwardingDimension(name: String, value: String) {
+  object ForwardingDimensionObject {
 
-    def toDimension(tags: Map[String, String]): Dimension = {
+    def toDimension(dimension: ForwardingDimension, tags: Map[String, String]): Dimension = {
       new Dimension()
-        .withName(name)
-        .withValue(Strings.substitute(value, tags))
+        .withName(dimension.name)
+        .withValue(Strings.substitute(dimension.value, tags))
     }
   }
 
