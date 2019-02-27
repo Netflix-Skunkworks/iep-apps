@@ -36,6 +36,7 @@ import com.netflix.atlas.core.model.Tag
 import com.netflix.atlas.core.model.TimeSeries
 import com.netflix.atlas.core.util.ArrayHelper
 import com.netflix.atlas.core.util.ListHelper
+import com.netflix.atlas.json.Json
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
@@ -79,7 +80,12 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
     client.datasources
       .flatMapConcat { ds =>
         val sources = ds.map { d =>
-          client.datasource(d).map(r => DatasourceMetadata(d, r))
+          client
+            .segmentMetadata(SegmentMetadataQuery(d, List(tagsQueryInterval)))
+            .filter(_.nonEmpty)
+            .map { rs =>
+              DatasourceMetadata(d, rs.head.toDatasource)
+            }
         }
         Source(sources)
       }
@@ -87,7 +93,10 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
       .fold(List.empty[DatasourceMetadata]) { (acc, v) =>
         v :: acc
       }
-      .map(vs => Metadata(vs))
+      .map { vs =>
+        logger.trace(s"metadata: ${Json.encode(vs)}")
+        Metadata(vs)
+      }
       .runWith(Sink.head)
       .onComplete {
         case Success(m) => ref ! m
@@ -263,7 +272,7 @@ object DruidDatabaseActor {
   case class DatasourceMetadata(name: String, datasource: Datasource) {
 
     val metrics: List[Map[String, String]] = datasource.metrics.map { metric =>
-      Map("name" -> metric, "nf.datasource" -> name)
+      Map("name" -> metric.name, "nf.datasource" -> name)
     }
 
     def nonEmpty: Boolean = datasource.metrics.nonEmpty

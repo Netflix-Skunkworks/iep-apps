@@ -241,14 +241,14 @@ class DruidDatabaseActorSuite extends FunSuite {
         "ds_1",
         Datasource(
           List("a", "b"),
-          List("m1", "m2")
+          List(Metric("m1", "LONG"), Metric("m2", "LONG"))
         )
       ),
       DatasourceMetadata(
         "ds_2",
         Datasource(
           List("a", "c"),
-          List("m1", "m3")
+          List(Metric("m1", "LONG"), Metric("m3", "LONG"))
         )
       )
     )

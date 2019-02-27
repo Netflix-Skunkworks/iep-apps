@@ -125,11 +125,58 @@ class DruidClientSuite extends FunSuite with BeforeAndAfterAll {
   }
 
   test("get datasource with data") {
-    val ds = Datasource(List("a", "b"), List("m1", "m2"))
+    val ds = Datasource(List("a", "b"), List(Metric("m1", "LONG"), Metric("m2", "LONG")))
     val client = newClient(Success(ok(ds)))
     val future = client.datasource("abc").runWith(Sink.head)
     val result = Await.result(future, Duration.Inf)
     assert(result === ds)
   }
 
+  private def executeSegmentMetadataRequest: List[SegmentMetadataResult] = {
+    import com.netflix.atlas.core.util.Streams._
+    val file = "segmentMetadataResponse.json"
+    val payload = scope(resource(file))(byteArray)
+    val response = HttpResponse(StatusCodes.OK, entity = payload)
+    val client = newClient(Success(response))
+    val query = SegmentMetadataQuery("test")
+    val future = client.segmentMetadata(query).runWith(Sink.head)
+    Await.result(future, Duration.Inf)
+  }
+
+  test("segmentMetadata columns") {
+    val result = executeSegmentMetadataRequest
+    assert(result.size === 1)
+
+    val columns = result.head.columns
+    assert(columns.size === 5)
+
+    val expected = Set(
+      "__time",
+      "test.metric.counter",
+      "test.dim.1",
+      "test.dim.2",
+      "test.metric.histogram"
+    )
+    assert(columns.keySet === expected)
+  }
+
+  test("segmentMetadata column types") {
+    val columns = executeSegmentMetadataRequest.head.columns
+    assert(columns("__time").`type` === "LONG")
+    assert(columns("test.metric.counter").`type` === "LONG")
+    assert(columns("test.metric.histogram").`type` === "netflixHistogram")
+    assert(columns("test.dim.1").`type` === "STRING")
+    assert(columns("test.dim.1").`type` === "STRING")
+  }
+
+  test("segmentMetadata aggregators") {
+    val aggregators = executeSegmentMetadataRequest.head.aggregators
+    assert(aggregators.size === 2)
+
+    val expected = Set(
+      "test.metric.counter",
+      "test.metric.histogram"
+    )
+    assert(aggregators.keySet === expected)
+  }
 }
