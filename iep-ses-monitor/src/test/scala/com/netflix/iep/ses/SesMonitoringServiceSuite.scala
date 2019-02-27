@@ -15,6 +15,9 @@
  */
 package com.netflix.iep.ses
 
+import java.net.UnknownHostException
+import java.time.{Duration => JTDuration}
+
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.Materializer
@@ -22,6 +25,7 @@ import akka.stream.alpakka.sqs.MessageAction
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
 import com.amazonaws.services.sqs.AbstractAmazonSQSAsync
+import com.amazonaws.services.sqs.model.GetQueueUrlResult
 import com.amazonaws.services.sqs.model.Message
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.NoopRegistry
@@ -55,6 +59,21 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     )
   }
 
+  test("processed notifications should be marked for deletion") {
+
+    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+
+    val processed = Await.result(
+      Source
+        .single(createNotificationMessage("{}"))
+        .via(messageProcessingFlow)
+        .runWith(Sink.head),
+      2.seconds
+    )
+
+    processed.getClass shouldEqual classOf[MessageAction.Delete]
+  }
+
   test(
     "notifications with no metadata should increment the ses.monitor.notifications metric " +
     "with dimension values of `unknown`."
@@ -80,30 +99,6 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     )
 
     counter.count() shouldEqual 1
-  }
-
-  test("processed notifications should be marked for deletion") {
-
-    val counter = metricRegistry.counter(
-      metricRegistry
-        .createId("ses.monitor.notifications")
-        .withTag("notificationType", "unknown")
-        .withTag("sourceEmail", "unknown")
-    )
-
-    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
-
-    counter.count() shouldEqual 0
-
-    val processed = Await.result(
-      Source
-        .single(createNotificationMessage("{}"))
-        .via(messageProcessingFlow)
-        .runWith(Sink.head),
-      2.seconds
-    )
-
-    processed.getClass shouldEqual classOf[MessageAction.Delete]
   }
 
   test(
@@ -621,6 +616,80 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     )
 
     loggerCalled shouldEqual true
+  }
+
+  test("sqs queue uri is returned on success") {
+    val result = new GetQueueUrlResult()
+    val queueUri = "queueUri"
+    result.setQueueUrl(queueUri)
+    val counter = metricRegistry.counter(metricRegistry.createId("ses.monitor.getQueueUriFailure"))
+    counter.count() shouldEqual 0
+
+    val uriString = sesMonitoringService.getSqsQueueUri(result, JTDuration.ofMillis(0))
+
+    counter.count() shouldEqual 0
+    uriString shouldEqual queueUri
+  }
+
+  test(
+    "multiple attempts are made to get the sqs queue uri if an unknown host exception occurs, " +
+    "since there are occasional dns blips"
+  ) {
+    var attempts = 0
+    val queueUri = "queueUri"
+
+    def getUriSpy: GetQueueUrlResult = {
+      attempts += 1
+
+      if (attempts < 3) {
+        throw new UnknownHostException("test")
+      }
+
+      val result = new GetQueueUrlResult()
+      result.setQueueUrl(queueUri)
+      result
+    }
+
+    val counter = metricRegistry.counter(
+      metricRegistry
+        .createId("ses.monitor.getQueueUriFailure")
+        .withTag("exception", "UnknownHostException")
+    )
+
+    counter.count() shouldEqual 0
+
+    val uriString = sesMonitoringService.getSqsQueueUri(getUriSpy, JTDuration.ofMillis(10))
+
+    counter.count() shouldEqual 2
+    attempts shouldEqual 3
+    uriString shouldEqual queueUri
+  }
+
+  test(
+    "if an unexpected host exception occurs while getting the sqs queue uri, a failure is " +
+    "recorded and it is rethrown"
+  ) {
+    var attempts = 0
+
+    def getUriSpy: GetQueueUrlResult = {
+      attempts += 1
+      throw new NullPointerException("test")
+    }
+
+    val counter = metricRegistry.counter(
+      metricRegistry
+        .createId("ses.monitor.getQueueUriFailure")
+        .withTag("exception", "NullPointerException")
+    )
+
+    counter.count() shouldEqual 0
+
+    intercept[NullPointerException] {
+      sesMonitoringService.getSqsQueueUri(getUriSpy, JTDuration.ofMillis(10))
+    }
+
+    counter.count() shouldEqual 1
+    attempts shouldEqual 1
   }
 
   private def createNotificationMessage(messageBody: String): Message = {

@@ -15,6 +15,8 @@
  */
 package com.netflix.iep.ses
 
+import java.time.Duration
+
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.AbruptTerminationException
@@ -29,6 +31,7 @@ import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.Sink
 import com.amazonaws.services.sqs.AmazonSQSAsync
+import com.amazonaws.services.sqs.model.GetQueueUrlResult
 import com.amazonaws.services.sqs.model.Message
 import com.netflix.atlas.json.Json
 import com.netflix.iep.service.AbstractService
@@ -39,6 +42,7 @@ import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
 
+import scala.annotation.tailrec
 import scala.util.Failure
 import scala.util.Success
 
@@ -55,7 +59,8 @@ class SesMonitoringService @Inject()(
   private val deletedMessageCount =
     registry.counter("ses.monitor.ackedMessages", "action", "delete")
 
-  private val deserializationFailuresId = registry.createId("ses.monitor.deserializationFailures")
+  private val queueUrlFailureId = registry.createId("ses.monitor.getQueueUriFailure")
+  private val deserializationFailureId = registry.createId("ses.monitor.deserializationFailure")
 
   private val notificationsId = registry.createId("ses.monitor.notifications")
   private val sourceEmailLimiter = CardinalityLimiters.mostFrequent(20)
@@ -73,14 +78,16 @@ class SesMonitoringService @Inject()(
     val notificationQueueName = config.getString("iep.ses.monitor.notification-queue-name")
     logger.debug(s"Getting queue URL for SQS queue $notificationQueueName")
 
-    val queueUrlResult = sqsAsync.getQueueUrl(notificationQueueName)
-    val queueUrl = queueUrlResult.getQueueUrl
+    val queueUri = getSqsQueueUri(
+      sqsAsync.getQueueUrl(notificationQueueName),
+      config.getDuration("iep.ses.monitor.sqs-unknown-host-retry-delay")
+    )
 
-    logger.info(s"Connecting to SQS queue $notificationQueueName at $queueUrl")
+    logger.info(s"Connecting to SQS queue $notificationQueueName at $queueUri")
 
-    killSwitch = SqsSource(queueUrl)
+    killSwitch = SqsSource(queueUri)
       .via(createMessageProcessingFlow())
-      .via(SqsAckFlow.grouped(queueUrl, SqsAckGroupedSettings.Defaults, sqsAsync))
+      .via(SqsAckFlow.grouped(queueUri, SqsAckGroupedSettings.Defaults, sqsAsync))
       .watchTermination() { (_, f) =>
         f.onComplete {
           case Success(_) | Failure(_: AbruptTerminationException) =>
@@ -96,6 +103,40 @@ class SesMonitoringService @Inject()(
       .viaMat(KillSwitches.single)(Keep.right)
       .toMat(Sink.ignore)(Keep.left)
       .run()
+  }
+
+  @tailrec
+  private[ses] final def getSqsQueueUri(
+    getQueueUri: => GetQueueUrlResult,
+    retryDelay: Duration
+  ): String = {
+    import java.net.UnknownHostException
+
+    import scala.util.Try
+
+    Try(getQueueUri) match {
+      case Success(result) =>
+        result.getQueueUrl
+
+      case Failure(e: UnknownHostException) =>
+        logger.warn(
+          "Unknown host getting SQS queue URI. This should clear on it's own. " +
+          s"Retrying after delay of ${retryDelay}.",
+          e
+        )
+        registry
+          .counter(queueUrlFailureId.withTag("exception", e.getClass.getSimpleName))
+          .increment()
+        Thread.sleep(retryDelay.toMillis)
+        getSqsQueueUri(getQueueUri, retryDelay)
+
+      case Failure(e) =>
+        logger.error("Exception getting SQS queue URI.", e)
+        registry
+          .counter(queueUrlFailureId.withTag("exception", e.getClass.getSimpleName))
+          .increment()
+        throw e
+    }
   }
 
   private[ses] def createMessageProcessingFlow(): Flow[Message, MessageAction, NotUsed] = {
@@ -118,7 +159,7 @@ class SesMonitoringService @Inject()(
       incrementCounter(messageObject)
     } catch {
       case e: Exception =>
-        registry.counter(deserializationFailuresId.withTag("exception", e.getClass.getSimpleName))
+        registry.counter(deserializationFailureId.withTag("exception", e.getClass.getSimpleName))
         logger.error(s"Error deserializing message: ${message.getBody}", e)
     }
 
