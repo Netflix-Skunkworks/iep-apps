@@ -24,6 +24,9 @@ import com.netflix.atlas.core.model.StyleExpr
 import com.netflix.atlas.core.model.TimeSeriesExpr
 import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.json.Json
+import com.netflix.iep.lwc.fwd.cw.ClusterConfig
+import com.netflix.iep.lwc.fwd.cw.ForwardingDimension
+import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
 import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
 
@@ -32,7 +35,7 @@ class CwExprValidations @Inject()(
   evaluator: Evaluator
 ) extends StrictLogging {
 
-  val validations = Seq(
+  val validations = List(
     Validation("SingleExpression", true, singleExpression),
     Validation("ValidStreamingExpr", true, validStreamingExpr),
     Validation("AsgGrouping", false, asgGrouping),
@@ -42,7 +45,7 @@ class CwExprValidations @Inject()(
     Validation("DefaultGrouping", false, defaultGrouping)
   )
 
-  val defaultDimensions = Seq(Dimension("AutoScalingGroupName", "$(nf.asg)"))
+  val defaultDimensions = List(ForwardingDimension("AutoScalingGroupName", "$(nf.asg)"))
 
   val varPattern = "\\$\\(([\\w\\-\\.]+)\\)".r
 
@@ -52,7 +55,7 @@ class CwExprValidations @Inject()(
   )
 
   def validate(key: String, json: JsonNode): Unit = {
-    val config = Json.decode[CwForwardingConfig](json)
+    val config = Json.decode[ClusterConfig](json)
 
     validateChecksToSkip(config)
 
@@ -67,7 +70,7 @@ class CwExprValidations @Inject()(
     interpreter.eval(atlasUri)
   }
 
-  def validateChecksToSkip(config: CwForwardingConfig): Unit = {
+  def validateChecksToSkip(config: ClusterConfig): Unit = {
     config.checksToSkip.foreach { name =>
       if (isRequiredValidation(name) != false) {
         throw new IllegalArgumentException(s"$name cannot be optional")
@@ -84,13 +87,13 @@ class CwExprValidations @Inject()(
       .required
   }
 
-  def validStreamingExpr(expr: Expression, styleExprs: List[StyleExpr]): Unit = {
+  def validStreamingExpr(expr: ForwardingExpression, styleExprs: List[StyleExpr]): Unit = {
     evaluator.validate(
       new Evaluator.DataSource("_", Duration.ZERO, expr.atlasUri)
     )
   }
 
-  def singleExpression(expr: Expression, styleExprs: List[StyleExpr]): Unit = {
+  def singleExpression(expr: ForwardingExpression, styleExprs: List[StyleExpr]): Unit = {
     if (styleExprs.isEmpty) {
       throw new RuntimeException(s"Missing styleExpr")
     }
@@ -100,7 +103,7 @@ class CwExprValidations @Inject()(
     }
   }
 
-  def asgGrouping(expr: Expression, styleExprs: List[StyleExpr]): Unit = {
+  def asgGrouping(expr: ForwardingExpression, styleExprs: List[StyleExpr]): Unit = {
     // By default allow only `AutoScalingGroupName` dimension and the asg value
     // should come from grouping the expression using `nf.asg`
     val valid = {
@@ -117,7 +120,7 @@ class CwExprValidations @Inject()(
 
   }
 
-  def accountGrouping(expr: Expression, styleExprs: List[StyleExpr]): Unit = {
+  def accountGrouping(expr: ForwardingExpression, styleExprs: List[StyleExpr]): Unit = {
     // By default account should be a variable and the query should use
     // nf.account grouping
     val valid = {
@@ -133,14 +136,14 @@ class CwExprValidations @Inject()(
   }
 
   def allGroupingsMapped(
-    expr: Expression,
+    expr: ForwardingExpression,
     styleExprs: List[StyleExpr]
   ): Unit = {
     // All the grouping keys should be used as a substitution variable in
     // a dimension, account, metric name or region.
     val missing =
       getOneTimeSeriesExpr(styleExprs).finalGrouping
-        .foldLeft(Seq.empty[String]) { (missingGroupings, grouping) =>
+        .foldLeft(List.empty[String]) { (missingGroupings, grouping) =>
           val varName = s"$$($grouping)"
 
           val valid = {
@@ -166,7 +169,7 @@ class CwExprValidations @Inject()(
   }
 
   def variablesSubstitution(
-    expr: Expression,
+    expr: ForwardingExpression,
     styleExprs: List[StyleExpr]
   ): Unit = {
     // All variables used should be available in grouping or exact match keys
@@ -199,7 +202,7 @@ class CwExprValidations @Inject()(
   }
 
   def defaultGrouping(
-    expr: Expression,
+    expr: ForwardingExpression,
     styleExprs: List[StyleExpr]
   ): Unit = {
     // To avoid unpredictable number of metrics getting
@@ -235,12 +238,12 @@ class CwExprValidations @Inject()(
 case class Validation(
   name: String,
   required: Boolean,
-  fn: (Expression, List[StyleExpr]) => Unit
+  fn: (ForwardingExpression, List[StyleExpr]) => Unit
 ) {
 
   def validate(
-    config: CwForwardingConfig,
-    expr: Expression,
+    config: ClusterConfig,
+    expr: ForwardingExpression,
     styleExprs: List[StyleExpr]
   ): Unit = {
     if (required || !config.shouldSkip(name)) {

@@ -11,6 +11,7 @@ lazy val root = project.in(file("."))
     `iep-atlas`,
     `iep-clienttest`,
     `iep-lwc-bridge`,
+    `iep-lwc-cloudwatch-model`,
     `iep-lwc-cloudwatch`,
     `iep-lwc-fwding-admin`,
     `iep-lwc-loadgen`,
@@ -127,8 +128,12 @@ lazy val `iep-lwc-bridge` = project
     Dependencies.scalatest % "test"
   ))
 
+lazy val `iep-lwc-cloudwatch-model` = project
+  .configure(BuildSettings.profile)
+
 lazy val `iep-lwc-cloudwatch` = project
   .configure(BuildSettings.profile)
+  .dependsOn(`iep-lwc-cloudwatch-model`)
   .settings(libraryDependencies ++= Seq(
     Dependencies.atlasModuleAkka,
     Dependencies.atlasModuleEval,
@@ -147,6 +152,7 @@ lazy val `iep-lwc-cloudwatch` = project
 
 lazy val `iep-lwc-fwding-admin` = project
   .configure(BuildSettings.profile)
+  .dependsOn(`iep-lwc-cloudwatch-model`)
   .settings(libraryDependencies ++= Seq(
     Dependencies.atlasEval,
     Dependencies.atlasModuleAkka,

@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 package com.netflix.iep.lwc.fwd.admin
+import com.netflix.iep.lwc.fwd.cw.ClusterConfig
+import com.netflix.iep.lwc.fwd.cw.ForwardingDimension
+import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
 
 trait CwForwardingTestConfig {
 
@@ -27,24 +30,24 @@ trait CwForwardingTestConfig {
                       |  :node-avg,
                       |  (,nf.account,nf.asg,),:by
                     """.stripMargin,
-    dimensions: Seq[Dimension] = Seq(
-      Dimension("AutoScalingGroupName", "$(nf.asg)")
+    dimensions: List[ForwardingDimension] = List(
+      ForwardingDimension("AutoScalingGroupName", "$(nf.asg)")
     ),
     account: String = "$(nf.account)",
     region: Option[String] = Some("$(nf.region)"),
-    checksToSkip: Seq[String] = Seq.empty[String],
-  ): CwForwardingConfig = {
-    new CwForwardingConfig(
+    checksToSkip: List[String] = List.empty[String],
+  ): ClusterConfig = {
+    new ClusterConfig(
       email,
-      Seq(
-        Expression(
-          metricName,
+      List(
+        ForwardingExpression(
           atlasUri
             .filterNot(_.isWhitespace)
             .replace("\n", ""),
-          dimensions,
           account,
-          region
+          region,
+          metricName,
+          dimensions,
         )
       ),
       checksToSkip

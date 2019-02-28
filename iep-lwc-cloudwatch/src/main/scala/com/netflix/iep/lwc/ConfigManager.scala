@@ -23,8 +23,8 @@ import akka.stream.stage.GraphStage
 import akka.stream.stage.GraphStageLogic
 import akka.stream.stage.InHandler
 import akka.stream.stage.OutHandler
-import com.netflix.iep.lwc.ForwardingService.ClusterConfig
 import com.netflix.iep.lwc.ForwardingService.Message
+import com.netflix.iep.lwc.fwd.cw.ClusterConfig
 import com.typesafe.scalalogging.StrictLogging
 
 class ConfigManager

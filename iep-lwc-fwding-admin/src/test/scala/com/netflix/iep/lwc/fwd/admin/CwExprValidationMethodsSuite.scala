@@ -18,6 +18,8 @@ package com.netflix.iep.lwc.fwd.admin
 import akka.actor.ActorSystem
 import com.netflix.atlas.core.model.StyleExpr
 import com.netflix.atlas.eval.stream.Evaluator
+import com.netflix.iep.lwc.fwd.cw.ForwardingDimension
+import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
 import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
@@ -100,7 +102,7 @@ class CwExprValidationMethodsSuite
   }
 
   test("Dimensions cannot be empty by default") {
-    val expr = Expression("", "", Seq.empty[Dimension], "")
+    val expr = ForwardingExpression("", "", None, "", List.empty[ForwardingDimension])
     assertFailure(
       validations.asgGrouping(expr, List.empty[StyleExpr]),
       "Only `AutoScalingGroupName` dimension allowed by " +
@@ -109,11 +111,12 @@ class CwExprValidationMethodsSuite
   }
 
   test("Only one dimension allowed by default") {
-    val expr = Expression(
+    val expr = ForwardingExpression(
       "",
       "",
-      Seq(Dimension("d1", "v1"), Dimension("d2", "v2")),
-      ""
+      None,
+      "",
+      List(ForwardingDimension("d1", "v1"), ForwardingDimension("d2", "v2")),
     )
     assertFailure(
       validations.asgGrouping(expr, List.empty[StyleExpr]),
@@ -123,7 +126,13 @@ class CwExprValidationMethodsSuite
   }
 
   test("Only AutoScalingGroupName allowed by default") {
-    val expr = Expression("", "", Seq(Dimension("d1", "v1")), "")
+    val expr = ForwardingExpression(
+      "",
+      "",
+      None,
+      "",
+      List(ForwardingDimension("d1", "v1"))
+    )
     assertFailure(
       validations.asgGrouping(expr, List.empty[StyleExpr]),
       "Only `AutoScalingGroupName` dimension allowed by " +
@@ -140,7 +149,7 @@ class CwExprValidationMethodsSuite
                    |  :node-avg,
                    |  (,nf.account,),:by
                  """.stripMargin,
-      dimensions = Seq(Dimension("AutoScalingGroupName", "$(nf.asg)"))
+      dimensions = List(ForwardingDimension("AutoScalingGroupName", "$(nf.asg)"))
     )
 
     val expr = config.expressions.head
@@ -163,7 +172,7 @@ class CwExprValidationMethodsSuite
   }
 
   test("Account should be a variable by default") {
-    val expr = Expression("", "", Seq.empty[Dimension], "3456")
+    val expr = ForwardingExpression("", "3456", None, "", List.empty[ForwardingDimension])
     assertFailure(
       validations.accountGrouping(expr, List.empty[StyleExpr]),
       "Account by default should use nf.account grouping for value"
@@ -202,7 +211,7 @@ class CwExprValidationMethodsSuite
 
   test("Asg grouping should be mapped") {
     val config = makeConfig(
-      dimensions = Seq.empty[Dimension],
+      dimensions = List.empty[ForwardingDimension],
       account = "$(nf.account)"
     )
 
@@ -286,9 +295,9 @@ class CwExprValidationMethodsSuite
               |  name,nodejs.cpuUsage,:eq,:and,
               |  (,nf.region,nf.account,nf.asg,tag1,tag2,tag3,),:by
             """.stripMargin,
-      dimensions = Seq(
-        Dimension("AutoScalingGroupName", "$(nf.asg)"),
-        Dimension("AddInfo", "$(tag2)-$(tag3)")
+      dimensions = List(
+        ForwardingDimension("AutoScalingGroupName", "$(nf.asg)"),
+        ForwardingDimension("AddInfo", "$(tag2)-$(tag3)")
       )
     )
 
@@ -299,9 +308,9 @@ class CwExprValidationMethodsSuite
 
   test("Variables should be part of exact match or grouping keys") {
     val config = makeConfig(
-      dimensions = Seq(
-        Dimension("AutoScalingGroupName", "$(nf.asg)"),
-        Dimension("Zone", "$(nf.zone)")
+      dimensions = List(
+        ForwardingDimension("AutoScalingGroupName", "$(nf.asg)"),
+        ForwardingDimension("Zone", "$(nf.zone)")
       )
     )
 
@@ -317,9 +326,9 @@ class CwExprValidationMethodsSuite
 
   test("Valid variable substitution") {
     val config = makeConfig(
-      dimensions = Seq(
-        Dimension("AutoScalingGroupName", "$(nf.asg)"),
-        Dimension("AddInfo", "$(nf.account)-$(nf.app)-$(nf.region)")
+      dimensions = List(
+        ForwardingDimension("AutoScalingGroupName", "$(nf.asg)"),
+        ForwardingDimension("AddInfo", "$(nf.account)-$(nf.app)-$(nf.region)")
       )
     )
 

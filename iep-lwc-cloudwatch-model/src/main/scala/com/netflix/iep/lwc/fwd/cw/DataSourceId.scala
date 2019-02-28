@@ -13,28 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.iep.lwc.fwd.admin
+package com.netflix.iep.lwc.fwd.cw
 
-case class CwForwardingConfig(
-  email: String,
-  expressions: Seq[Expression],
-  checksToSkip: Seq[String] = Seq.empty[String]
-) {
-
-  def shouldSkip(name: String): Boolean = {
-    checksToSkip.exists(_ == name)
-  }
-}
-
-case class Expression(
-  metricName: String,
-  atlasUri: String,
-  dimensions: Seq[Dimension] = Seq.empty[Dimension],
-  account: String,
-  region: Option[String] = None
-)
-
-case class Dimension(
-  name: String,
-  value: String
-)
+case class DataSourceId(key: String, expression: ForwardingExpression)

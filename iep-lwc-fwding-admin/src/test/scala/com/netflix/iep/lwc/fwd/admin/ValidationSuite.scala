@@ -16,6 +16,8 @@
 package com.netflix.iep.lwc.fwd.admin
 
 import com.netflix.atlas.core.model.StyleExpr
+import com.netflix.iep.lwc.fwd.cw.ForwardingDimension
+import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
 import org.scalatest.FunSuite
 
 class ValidationSuite extends FunSuite with TestAssertions with CwForwardingTestConfig {
@@ -30,7 +32,7 @@ class ValidationSuite extends FunSuite with TestAssertions with CwForwardingTest
     assertFailure(
       validation.validate(
         makeConfig(),
-        Expression("", "", Seq.empty[Dimension], ""),
+        ForwardingExpression("", "", None, "", List.empty[ForwardingDimension]),
         List.empty[StyleExpr]
       ),
       "Validation failed"
@@ -48,7 +50,7 @@ class ValidationSuite extends FunSuite with TestAssertions with CwForwardingTest
     assertFailure(
       validation.validate(
         makeConfig(),
-        Expression("", "", Seq.empty[Dimension], ""),
+        ForwardingExpression("", "", None, "", List.empty[ForwardingDimension]),
         List.empty[StyleExpr]
       ),
       "Validation failed"
@@ -64,8 +66,8 @@ class ValidationSuite extends FunSuite with TestAssertions with CwForwardingTest
     )
 
     validation.validate(
-      makeConfig(checksToSkip = Seq("OptionalCheck")),
-      Expression("", "", Seq.empty[Dimension], ""),
+      makeConfig(checksToSkip = List("OptionalCheck")),
+      ForwardingExpression("", "", None, "", List.empty[ForwardingDimension]),
       List.empty[StyleExpr]
     )
   }
