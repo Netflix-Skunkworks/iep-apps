@@ -61,6 +61,8 @@ object AppModule {
       tags.put("atlas.aggr", config.getString("netflix.iep.env.instance-id"))
       tags
     }
+
+    override def validTagCharacters(): String = "-._A-Za-z0-9~"
   }
 
   @Singleton

@@ -16,7 +16,6 @@
 package com.netflix.atlas.aggregator
 
 import javax.inject.Singleton
-
 import com.google.inject.AbstractModule
 import com.google.inject.ConfigurationException
 import com.google.inject.Guice
@@ -25,6 +24,7 @@ import com.netflix.spectator.api.Clock
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.atlas.AtlasConfig
 import com.netflix.spectator.atlas.AtlasRegistry
+import com.netflix.spectator.impl.AsciiSet
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import org.scalatest.FunSuite
@@ -72,6 +72,23 @@ class AppModuleSuite extends FunSuite {
       """.stripMargin)
     val aggr = new AppModule.AggrConfig(config)
     assert(aggr.uri() === "test")
+  }
+
+  test("aggr config should allow ~") {
+    val config = ConfigFactory.empty()
+    val aggr = new AppModule.AggrConfig(config)
+    val set = AsciiSet.fromPattern(aggr.validTagCharacters())
+
+    // quick sanity check of the allowed values
+    assert(set.contains('7'))
+    assert(set.contains('c'))
+    assert(set.contains('C'))
+    assert(set.contains('~'))
+    assert(set.contains('_'))
+    assert(!set.contains('!'))
+    assert(!set.contains('%'))
+    assert(!set.contains('/'))
+    assert(!set.contains(':'))
   }
 
   test("aggr config should use default for missing props") {
