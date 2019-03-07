@@ -1,7 +1,7 @@
 ```text
 iep.lwc.fwd.cw.ExpressionDetails {
 
-    // use DataSourceId
+    // use ExpressionId
     partition key: ExpressionId
 
     // Config key and expression
