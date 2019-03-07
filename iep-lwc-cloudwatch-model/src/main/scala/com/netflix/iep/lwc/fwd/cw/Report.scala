@@ -17,7 +17,7 @@ package com.netflix.iep.lwc.fwd.cw
 
 case class Report(
   timestamp: Long,
-  id: DataSourceId,
+  id: ExpressionId,
   metric: Option[FwdMetricInfo],
   error: Option[Throwable]
 )

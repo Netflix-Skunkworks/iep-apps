@@ -1,0 +1,22 @@
+{
+  "TableName": "iep.lwc.fwd.cw.ExpressionDetails",
+
+  "KeySchema": [
+    {
+      "KeyType": "HASH",
+      "AttributeName": "ExpressionId"
+    }
+  ],
+
+  "AttributeDefinitions": [
+    {
+      "AttributeName": "ExpressionId",
+      "AttributeType": "S"
+    }
+  ],
+
+  "ProvisionedThroughput": {
+    "WriteCapacityUnits": 5,
+    "ReadCapacityUnits": 5
+  }
+}

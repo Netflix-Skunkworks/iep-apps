@@ -244,7 +244,7 @@ object ForwardingService extends StrictLogging {
   }
 
   def toDataSource(expression: ForwardingExpression, key: String): Evaluator.DataSource = {
-    val id = Json.encode(DataSourceId(key, expression))
+    val id = Json.encode(ExpressionId(key, expression))
     new Evaluator.DataSource(id, Duration.ofSeconds(60L), expression.atlasUri)
   }
 
@@ -265,7 +265,7 @@ object ForwardingService extends StrictLogging {
         }
       }
       .map { env =>
-        val id = Json.decode[DataSourceId](env.getId)
+        val id = Json.decode[ExpressionId](env.getId)
         val msg = env.getMessage.asInstanceOf[TimeSeriesMessage]
         ForwardingMsgEnvelope(id, createMetricDatum(id.expression, msg), None)
       }
@@ -494,7 +494,7 @@ object ForwardingService extends StrictLogging {
   )
 
   case class ForwardingMsgEnvelope(
-    id: DataSourceId,
+    id: ExpressionId,
     accountDatum: Option[AccountDatum],
     error: Option[Throwable]
   )

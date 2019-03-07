@@ -236,7 +236,7 @@ class ForwardingServiceSuite extends FunSuite {
     val env = new Evaluator.MessageEnvelope(id, msg)
     val actual = runToMetricDatum(env)
 
-    assert(actual.id === Json.decode[DataSourceId](id))
+    assert(actual.id === Json.decode[ExpressionId](id))
     assert(actual.accountDatum.get.account === "1234567890")
     assert(actual.accountDatum.get.datum.getMetricName === "ssCpuUser")
   }
@@ -276,7 +276,7 @@ class ForwardingServiceSuite extends FunSuite {
 
   def runCloudWatchPut(ns: String, vs: List[AccountDatum]): List[AccountRequest] = {
     val id =
-      DataSourceId(
+      ExpressionId(
         "",
         ForwardingExpression("", "", None, "", List.empty[ForwardingDimension])
       )
@@ -367,7 +367,7 @@ class ForwardingServiceSuite extends FunSuite {
 
   test("toCloudWatchPut: skip put and pass the msg through for no data") {
     val id =
-      DataSourceId(
+      ExpressionId(
         "",
         ForwardingExpression("", "", None, "", List.empty[ForwardingDimension])
       )
@@ -381,7 +381,7 @@ class ForwardingServiceSuite extends FunSuite {
   test("toCloudWatchPut: stream with metric and no data") {
     val ns = "Netflix/Namespace"
     val id =
-      DataSourceId(
+      ExpressionId(
         "",
         ForwardingExpression("", "", None, "", List.empty[ForwardingDimension])
       )
@@ -485,7 +485,7 @@ class ForwardingServiceSuite extends FunSuite {
         }
 
     val id =
-      DataSourceId(
+      ExpressionId(
         "",
         ForwardingExpression("", "", None, "", List.empty[ForwardingDimension])
       )
