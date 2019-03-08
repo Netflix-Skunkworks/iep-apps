@@ -18,12 +18,11 @@ package com.netflix.iep.lwc.fwd.admin
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.stream.ActorMaterializer
-import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.Sink
-import akka.stream.scaladsl.Source
-import akka.stream.scaladsl.SourceQueue
+import com.netflix.atlas.akka.StreamOps.SourceQueue
 import com.netflix.atlas.akka.RequestHandler
+import com.netflix.atlas.akka.StreamOps
 import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.json.Json
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
@@ -133,8 +132,8 @@ class MarkerServiceTest(
 
   var result = List.newBuilder[Report]
 
-  override var queue: SourceQueue[Report] = Source
-    .queue[Report](1, OverflowStrategy.dropNew)
+  override var queue: SourceQueue[Report] = StreamOps
+    .blockingQueue[Report](new NoopRegistry(), "fwdingAdminCwReports", 1)
     .map(result += _)
     .toMat(Sink.ignore)(Keep.left)
     .run()

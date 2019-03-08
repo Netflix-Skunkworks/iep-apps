@@ -15,8 +15,6 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import java.util.concurrent.TimeUnit._
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
@@ -24,6 +22,7 @@ import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
+import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo
 import com.netflix.iep.lwc.fwd.cw.Report
 import org.scalatest.FunSuite
 
@@ -93,35 +92,13 @@ class MarkerServiceSuite extends FunSuite {
     assert(actual === List(((reports.find(_.id.key == "c2").get, None))))
   }
 
-  test("Make ExpressionDetails for a new Report") {
-    val report = Report(
-      System.currentTimeMillis(),
-      ExpressionId("c1", ForwardingExpression("", "", None, "")),
-      None,
-      None
-    )
+  test("Make ExpressionDetails from a new Report with data") {
+    import ExpressionDetails._
 
-    val expected =
-      ExpressionDetails(report.id, report.timestamp, report.metric, report.error, 0, 0, None)
-    val actual = toExprDetails(report, None)
-
-    assert(actual === expected)
-  }
-
-  test("Update ExpressionDetails for the given report") {
     val report = Report(
       1551820461000L,
       ExpressionId("c1", ForwardingExpression("", "", None, "")),
-      None,
-      None
-    )
-    val exprDetails = ExpressionDetails(
-      report.id,
-      report.timestamp - Duration(2, MINUTES).toMillis,
-      report.metric,
-      report.error,
-      0,
-      0,
+      Some(FwdMetricInfo("", "", "", Map.empty[String, String])),
       None
     )
 
@@ -131,11 +108,64 @@ class MarkerServiceSuite extends FunSuite {
         report.timestamp,
         report.metric,
         report.error,
-        2,
-        0,
+        Map(DataFoundEvent -> report.timestamp),
         None
       )
-    val actual = toExprDetails(report, Some(exprDetails))
+    val actual = toExprDetails(report, None)
+
+    assert(actual === expected)
+  }
+
+  test("Make ExpressionDetails from a new Report with no data") {
+    val report = Report(
+      1551820461000L,
+      ExpressionId("c1", ForwardingExpression("", "", None, "")),
+      None,
+      None
+    )
+
+    val expected =
+      ExpressionDetails(
+        report.id,
+        report.timestamp,
+        report.metric,
+        report.error,
+        Map.empty[String, Long],
+        None
+      )
+    val actual = toExprDetails(report, None)
+
+    assert(actual === expected)
+  }
+
+  test("Make ExpressionDetails from a Report with no data & prev ExpressionDetails") {
+    import ExpressionDetails._
+
+    val report = Report(
+      1551820461000L,
+      ExpressionId("c1", ForwardingExpression("", "", None, "")),
+      None,
+      None
+    )
+    val prevExprDetails = ExpressionDetails(
+      report.id,
+      1551820341000L,
+      report.metric,
+      report.error,
+      Map(DataFoundEvent -> 1551820341000L),
+      None
+    )
+
+    val expected =
+      ExpressionDetails(
+        report.id,
+        report.timestamp,
+        report.metric,
+        report.error,
+        Map(DataFoundEvent -> 1551820341000L),
+        None
+      )
+    val actual = toExprDetails(report, Some(prevExprDetails))
     assert(actual === expected)
   }
 
@@ -161,8 +191,7 @@ class MarkerServiceSuite extends FunSuite {
       report.timestamp,
       report.metric,
       report.error,
-      0,
-      0,
+      Map.empty[String, Long],
       None
     )
 
@@ -196,8 +225,7 @@ class MarkerServiceSuite extends FunSuite {
       report.timestamp,
       report.metric,
       report.error,
-      0,
-      0,
+      Map.empty[String, Long],
       None
     )
 

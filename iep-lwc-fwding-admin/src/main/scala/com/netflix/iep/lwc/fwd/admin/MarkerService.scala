@@ -15,16 +15,14 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import java.util.concurrent.TimeUnit._
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream._
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.Sink
-import akka.stream.scaladsl.Source
-import akka.stream.scaladsl.SourceQueue
+import com.netflix.atlas.akka.StreamOps
+import com.netflix.atlas.akka.StreamOps.SourceQueue
 import com.netflix.iep.aws.AwsClientFactory
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.Report
@@ -34,7 +32,6 @@ import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
 
-import scala.concurrent.duration.Duration
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
@@ -61,8 +58,8 @@ class MarkerServiceImpl @Inject()(
   override var queue: SourceQueue[Report] = _
 
   override def startImpl(): Unit = {
-    val (q, k) = Source
-      .queue[Report](10, OverflowStrategy.dropNew)
+    val (q, k) = StreamOps
+      .blockingQueue[Report](registry, "fwdingAdminCwReports", 10)
       .via(readExprDetails(expressionDetailsDao))
       .map { case (r, e) => toExprDetails(r, e) }
       .via(saveExprDetails(expressionDetailsDao))
@@ -105,24 +102,26 @@ object MarkerServiceImpl extends StrictLogging {
       .collect { case (r, Success(ed)) => (r, ed) }
   }
 
-  def toExprDetails(report: Report, exprDetails: Option[ExpressionDetails]): ExpressionDetails = {
-    val ed = ExpressionDetails(report.id, report.timestamp, report.metric, report.error, 0, 0, None)
+  def toExprDetails(
+    report: Report,
+    prevExprDetails: Option[ExpressionDetails]
+  ): ExpressionDetails = {
+    import ExpressionDetails._
 
-    exprDetails
-      .map { e =>
-        val noDataAgeMins = report.metric
-          .map(_ => 0L)
-          .getOrElse(
-            e.noDataAgeMins + Duration(
-              (report.timestamp - e.lastReportTs),
-              MILLISECONDS
-            ).toMinutes
-          )
-          .toInt
-
-        ed.copy(noDataAgeMins = noDataAgeMins)
-      }
-      .getOrElse(ed)
+    ExpressionDetails(
+      report.id,
+      report.timestamp,
+      report.metric,
+      report.error,
+      report.metric
+        .map(_ => Map(DataFoundEvent -> report.timestamp))
+        .getOrElse(
+          prevExprDetails
+            .map(_.events)
+            .getOrElse(Map.empty[String, Long])
+        ),
+      None
+    )
   }
 
   def saveExprDetails(

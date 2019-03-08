@@ -8,7 +8,7 @@ iep.lwc.fwd.cw.ExpressionDetails {
     ExpressionId: string
 
     // report timestamp
-    LastReportTs: number
+    timestamp: number
 
     // FwdMetricInfo
     FwdMetricInfo: document
@@ -16,8 +16,8 @@ iep.lwc.fwd.cw.ExpressionDetails {
     // Throwable
     Error: string
 
-    // if (no data) reportTs - lastReportTs
-    NoDataAgeMins: number
+    // name -> timestamp
+    events: Map[string, number]
 
     // if (no scaling policy) reportTs - lastReportTs
     NoScalingPolicyAgeMins: number

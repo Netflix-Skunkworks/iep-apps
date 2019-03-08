@@ -20,7 +20,6 @@ import akka.http.scaladsl.server.Directives.entity
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.unmarshalling.PredefinedFromEntityUnmarshallers._
-import akka.stream.QueueOfferResult
 import com.fasterxml.jackson.databind.JsonNode
 import com.netflix.atlas.akka.CustomDirectives._
 import com.netflix.atlas.akka.WebApi
@@ -28,8 +27,6 @@ import com.netflix.atlas.json.Json
 import com.netflix.iep.lwc.fwd.cw.Report
 import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
-
-import scala.concurrent.Future
 
 class Api(
   registry: Registry,
@@ -41,7 +38,6 @@ class Api(
 
   private implicit val configUnmarshaller =
     byteArrayUnmarshaller.map(Json.decode[JsonNode](_))
-  private implicit val ec = scala.concurrent.ExecutionContext.global
 
   def routes: Route = {
 
@@ -63,14 +59,13 @@ class Api(
           complete {
             Json
               .decode[List[Report]](json)
-              .foldLeft(Future[Unit] {}) { (future, report) =>
-                future.flatMap { _ =>
-                  markerService.queue
-                    .offer(report)
-                    .map(recordQueueOfferResult(_))
+              .map { report =>
+                val enqueued = markerService.queue.offer(report)
+                if (!enqueued) {
+                  logger.warn(s"Unable to queue report $report")
                 }
               }
-              .map(_ => HttpResponse(StatusCodes.OK))
+            HttpResponse(StatusCodes.OK)
           }
         }
       }
@@ -78,15 +73,4 @@ class Api(
 
   }
 
-  private def recordQueueOfferResult(result: QueueOfferResult): Unit = {
-    registry
-      .counter("fwdingAdmin.queueOffers", "result", result.getClass.getSimpleName)
-      .increment()
-
-    result match {
-      case QueueOfferResult.Failure(e) =>
-        logger.error(s"Failed to queue report $json", e)
-      case _ =>
-    }
-  }
 }

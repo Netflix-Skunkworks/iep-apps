@@ -32,14 +32,8 @@ trait ExpressionDetailsDao {
 class ExpressionDetailsDaoImpl @Inject()(dynamoDBClient: AmazonDynamoDB)
     extends ExpressionDetailsDao
     with StrictLogging {
-
-  val ExpressionId = "ExpressionId"
-  val LastReportTs = "LastReportTs"
-  val NoDataAgeMins = "NoDataAgeMins"
-  val NoScalingPolicyAgeMins = "NoScalingPolicyAgeMins"
-  val FwdMetricInfo = "FwdMetricInfo"
-  val Error = "Error"
-  val ScalingPolicy = "ScalingPolicy"
+  import scala.collection.JavaConverters._
+  import ExpressionDetails._
 
   private val table = new DynamoDB(dynamoDBClient)
     .getTable("iep.lwc.fwd.cw.ExpressionDetails")
@@ -47,37 +41,35 @@ class ExpressionDetailsDaoImpl @Inject()(dynamoDBClient: AmazonDynamoDB)
   override def save(exprDetails: ExpressionDetails): Unit = {
     var item =
       new Item()
-        .withPrimaryKey(ExpressionId, Json.encode(exprDetails.expressionId))
-        .withNumber(LastReportTs, exprDetails.lastReportTs)
-        .withNumber(NoDataAgeMins, exprDetails.noDataAgeMins)
-        .withNumber(NoScalingPolicyAgeMins, exprDetails.noScalingPolicyMins)
+        .withPrimaryKey(ExpressionIdAttr, Json.encode(exprDetails.expressionId))
+        .withNumber(Timestamp, exprDetails.timestamp)
+        .withMap(Events, exprDetails.events.asJava)
 
     exprDetails.fwdMetricInfo.map { m =>
-      item = item.withJSON(FwdMetricInfo, Json.encode(m))
+      item = item.withString(FwdMetricInfoAttr, Json.encode(m))
     }
 
     exprDetails.error.map { e =>
-      item = item.withJSON(Error, Json.encode(e))
+      item = item.withString(Error, Json.encode(e))
     }
 
     exprDetails.scalingPolicy.map { s =>
-      item = item.withJSON(ScalingPolicy, Json.encode(s))
+      item = item.withString(ScalingPolicy, Json.encode(s))
     }
 
     table.putItem(item)
   }
 
   override def read(id: ExpressionId): Option[ExpressionDetails] = {
-    val item = table.getItem(new PrimaryKey(ExpressionId, Json.encode(id)))
+    val item = table.getItem(new PrimaryKey(ExpressionIdAttr, Json.encode(id)))
     Option(item).map { i =>
       new ExpressionDetails(
         id,
-        i.getNumber(LastReportTs).longValue(),
-        Option(i.getJSON(FwdMetricInfo)).map(Json.decode[FwdMetricInfo](_)),
-        Option(i.getJSON(Error)).map(Json.decode[Throwable](_)),
-        i.getNumber(NoDataAgeMins).intValue(),
-        i.getNumber(NoScalingPolicyAgeMins).intValue(),
-        Option(i.getJSON(ScalingPolicy)).map(Json.decode[JsonNode](_))
+        i.getNumber(Timestamp).longValue(),
+        Option(i.getString(FwdMetricInfoAttr)).map(Json.decode[FwdMetricInfo](_)),
+        Option(i.getString(Error)).map(Json.decode[Throwable](_)),
+        i.getMap[Long](Events).asScala.toMap,
+        Option(i.getString(ScalingPolicy)).map(Json.decode[JsonNode](_))
       )
     }
   }
@@ -86,12 +78,22 @@ class ExpressionDetailsDaoImpl @Inject()(dynamoDBClient: AmazonDynamoDB)
 
 case class ExpressionDetails(
   expressionId: ExpressionId,
-  lastReportTs: Long,
+  timestamp: Long,
   fwdMetricInfo: Option[FwdMetricInfo],
   error: Option[Throwable],
-  noDataAgeMins: Int,
-  noScalingPolicyMins: Int,
+  events: Map[String, Long],
   scalingPolicy: Option[JsonNode]
 )
+
+object ExpressionDetails {
+  val ExpressionIdAttr = "ExpressionId"
+  val Timestamp = "timestamp"
+  val FwdMetricInfoAttr = "FwdMetricInfo"
+  val Error = "Error"
+  val Events = "events"
+  val DataFoundEvent = "dataFoundEvent"
+  val ScalingPolicyFoundEvent = "scalingPolicyFoundEvent"
+  val ScalingPolicy = "ScalingPolicy"
+}
 
 case class VersionMismatchException() extends Exception

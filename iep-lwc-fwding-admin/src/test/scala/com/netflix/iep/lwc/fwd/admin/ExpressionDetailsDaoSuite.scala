@@ -63,8 +63,7 @@ class ExpressionDetailsDaoSuite extends FunSuite with StrictLogging {
         )
       ),
       None,
-      0,
-      0,
+      Map.empty[String, Long],
       None
     )
 
