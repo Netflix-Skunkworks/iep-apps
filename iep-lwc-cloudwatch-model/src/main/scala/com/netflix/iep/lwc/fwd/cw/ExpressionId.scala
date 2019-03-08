@@ -15,4 +15,4 @@
  */
 package com.netflix.iep.lwc.fwd.cw
 
-case class DataSourceId(key: String, expression: ForwardingExpression)
+case class ExpressionId(key: String, expression: ForwardingExpression)

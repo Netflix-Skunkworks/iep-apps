@@ -24,11 +24,15 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.netflix.atlas.akka.CustomDirectives._
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.json.Json
+import com.netflix.iep.lwc.fwd.cw.Report
+import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
 
 class Api(
+  registry: Registry,
   schemaValidation: SchemaValidation,
   cwExprValidations: CwExprValidations,
+  markerService: MarkerService,
 ) extends WebApi
     with StrictLogging {
 
@@ -53,7 +57,14 @@ class Api(
       post {
         entity(as[JsonNode]) { json =>
           complete {
-            logger.info(s"Received report $json")
+            Json
+              .decode[List[Report]](json)
+              .map { report =>
+                val enqueued = markerService.queue.offer(report)
+                if (!enqueued) {
+                  logger.warn(s"Unable to queue report $report")
+                }
+              }
             HttpResponse(StatusCodes.OK)
           }
         }

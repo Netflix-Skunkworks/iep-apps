@@ -157,6 +157,7 @@ lazy val `iep-lwc-fwding-admin` = project
     Dependencies.atlasEval,
     Dependencies.atlasModuleAkka,
     Dependencies.atlasModuleEval,
+    Dependencies.awsDynamoDB,
     Dependencies.iepGuice,
     Dependencies.iepModuleAtlas,
     Dependencies.iepModuleAws,

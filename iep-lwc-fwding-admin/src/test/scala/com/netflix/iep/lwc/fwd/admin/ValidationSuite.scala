@@ -71,4 +71,5 @@ class ValidationSuite extends FunSuite with TestAssertions with CwForwardingTest
       List.empty[StyleExpr]
     )
   }
+
 }
