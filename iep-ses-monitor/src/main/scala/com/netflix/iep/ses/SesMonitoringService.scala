@@ -118,25 +118,35 @@ class SesMonitoringService @Inject()(
       case Success(result) =>
         result.getQueueUrl
 
-      case Failure(e: UnknownHostException) =>
-        logger.warn(
-          "Unknown host getting SQS queue URI. This should clear on it's own. " +
-          s"Retrying after delay of ${retryDelay}.",
-          e
-        )
-        registry
-          .counter(queueUrlFailureId.withTag("exception", e.getClass.getSimpleName))
-          .increment()
-        Thread.sleep(retryDelay.toMillis)
-        getSqsQueueUri(getQueueUri, retryDelay)
-
       case Failure(e) =>
-        logger.error("Exception getting SQS queue URI.", e)
-        registry
-          .counter(queueUrlFailureId.withTag("exception", e.getClass.getSimpleName))
-          .increment()
-        throw e
+        e.getCause match {
+          case _: UnknownHostException =>
+            logger.warn(
+              "Unknown host getting SQS queue URI. This should clear on it's own. " +
+              s"Retrying after delay of ${retryDelay}.",
+              e
+            )
+            incrementQueueUrlFailure(e)
+            Thread.sleep(retryDelay.toMillis)
+            getSqsQueueUri(getQueueUri, retryDelay)
+          case _ => {
+            logger.error("Exception getting SQS queue URI.", e)
+            incrementQueueUrlFailure(e)
+            throw e
+          }
+        }
     }
+  }
+
+  private def incrementQueueUrlFailure(t: Throwable) = {
+    val id = Option(t.getCause).foldLeft {
+      queueUrlFailureId.withTag("exception", t.getClass.getSimpleName)
+    } {
+      case (i, c) =>
+        i.withTag("cause", c.getClass.getSimpleName)
+    }
+
+    registry.counter(id).increment()
   }
 
   private[ses] def createMessageProcessingFlow(): Flow[Message, MessageAction, NotUsed] = {

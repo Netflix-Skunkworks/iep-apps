@@ -24,6 +24,7 @@ import akka.stream.Materializer
 import akka.stream.alpakka.sqs.MessageAction
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
+import com.amazonaws.SdkClientException
 import com.amazonaws.services.sqs.AbstractAmazonSQSAsync
 import com.amazonaws.services.sqs.model.GetQueueUrlResult
 import com.amazonaws.services.sqs.model.Message
@@ -642,7 +643,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
       attempts += 1
 
       if (attempts < 3) {
-        throw new UnknownHostException("test")
+        throw new SdkClientException(new UnknownHostException("test"))
       }
 
       val result = new GetQueueUrlResult()
@@ -653,7 +654,8 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     val counter = metricRegistry.counter(
       metricRegistry
         .createId("ses.monitor.getQueueUriFailure")
-        .withTag("exception", "UnknownHostException")
+        .withTag("exception", "SdkClientException")
+        .withTag("cause", "UnknownHostException")
     )
 
     counter.count() shouldEqual 0
@@ -666,7 +668,35 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
   }
 
   test(
-    "if an unexpected host exception occurs while getting the sqs queue uri, a failure is " +
+    "if an unexpected aws sdk exception occurs while getting the sqs queue uri, a failure is " +
+    "recorded and it is rethrown"
+  ) {
+    var attempts = 0
+
+    def getUriSpy: GetQueueUrlResult = {
+      attempts += 1
+      throw new SdkClientException(new NullPointerException("test"))
+    }
+
+    val counter = metricRegistry.counter(
+      metricRegistry
+        .createId("ses.monitor.getQueueUriFailure")
+        .withTag("exception", "SdkClientException")
+        .withTag("cause", "NullPointerException")
+    )
+
+    counter.count() shouldEqual 0
+
+    intercept[SdkClientException] {
+      sesMonitoringService.getSqsQueueUri(getUriSpy, JTDuration.ofMillis(10))
+    }
+
+    counter.count() shouldEqual 1
+    attempts shouldEqual 1
+  }
+
+  test(
+    "if an unexpected exception occurs while getting the sqs queue uri, a failure is " +
     "recorded and it is rethrown"
   ) {
     var attempts = 0
