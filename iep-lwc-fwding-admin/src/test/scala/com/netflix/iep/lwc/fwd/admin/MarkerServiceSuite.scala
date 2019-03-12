@@ -32,18 +32,16 @@ import scala.concurrent.duration.Duration
 class MarkerServiceSuite extends FunSuite {
 
   import MarkerServiceImpl._
+  import ExpressionDetails._
 
   private implicit val system = ActorSystem(getClass.getSimpleName)
   private implicit val mat = ActorMaterializer()
 
   test("Read ExpressionDetails using a dedicated dispatcher") {
-    val exprDetailsDao = new ExpressionDetailsDao {
-      override def save(exprDetails: ExpressionDetails): Unit = {}
-      override def read(id: ExpressionId): Option[ExpressionDetails] = None
-    }
+    val exprDetailsDao = new ExpressionDetailsDaoTestImpl
 
     val report = Report(
-      System.currentTimeMillis(),
+      1551820461000L,
       ExpressionId("c1", ForwardingExpression("", "", None, "")),
       None,
       None
@@ -59,8 +57,7 @@ class MarkerServiceSuite extends FunSuite {
   }
 
   test("Read errors should be filtered out from the stream") {
-    val exprDetailsDao = new ExpressionDetailsDao {
-      override def save(exprDetails: ExpressionDetails): Unit = {}
+    val exprDetailsDao = new ExpressionDetailsDaoTestImpl {
       override def read(id: ExpressionId): Option[ExpressionDetails] = {
         if (id.key == "c1") {
           throw new Exception("Read failed. Test error")
@@ -71,13 +68,13 @@ class MarkerServiceSuite extends FunSuite {
 
     val reports = List(
       Report(
-        System.currentTimeMillis(),
+        1551820461000L,
         ExpressionId("c1", ForwardingExpression("", "", None, "")),
         None,
         None
       ),
       Report(
-        System.currentTimeMillis(),
+        1551820461000L,
         ExpressionId("c2", ForwardingExpression("", "", None, "")),
         None,
         None
@@ -93,8 +90,6 @@ class MarkerServiceSuite extends FunSuite {
   }
 
   test("Make ExpressionDetails from a new Report with data") {
-    import ExpressionDetails._
-
     val report = Report(
       1551820461000L,
       ExpressionId("c1", ForwardingExpression("", "", None, "")),
@@ -108,7 +103,7 @@ class MarkerServiceSuite extends FunSuite {
         report.timestamp,
         report.metric,
         report.error,
-        Map(DataFoundEvent -> report.timestamp),
+        Map.empty[String, Long],
         None
       )
     val actual = toExprDetails(report, None)
@@ -130,7 +125,7 @@ class MarkerServiceSuite extends FunSuite {
         report.timestamp,
         report.metric,
         report.error,
-        Map.empty[String, Long],
+        Map(NoDataFoundEvent -> 1551820461000L),
         None
       )
     val actual = toExprDetails(report, None)
@@ -138,9 +133,7 @@ class MarkerServiceSuite extends FunSuite {
     assert(actual === expected)
   }
 
-  test("Make ExpressionDetails from a Report with no data & prev ExpressionDetails") {
-    import ExpressionDetails._
-
+  test("Make ExpressionDetails from a Report with no data & prev Report with data") {
     val report = Report(
       1551820461000L,
       ExpressionId("c1", ForwardingExpression("", "", None, "")),
@@ -152,7 +145,7 @@ class MarkerServiceSuite extends FunSuite {
       1551820341000L,
       report.metric,
       report.error,
-      Map(DataFoundEvent -> 1551820341000L),
+      Map.empty[String, Long],
       None
     )
 
@@ -162,7 +155,36 @@ class MarkerServiceSuite extends FunSuite {
         report.timestamp,
         report.metric,
         report.error,
-        Map(DataFoundEvent -> 1551820341000L),
+        Map(NoDataFoundEvent -> 1551820461000L),
+        None
+      )
+    val actual = toExprDetails(report, Some(prevExprDetails))
+    assert(actual === expected)
+  }
+
+  test("Make ExpressionDetails from a Report with no data & prev Report with no data") {
+    val report = Report(
+      1551820461000L,
+      ExpressionId("c1", ForwardingExpression("", "", None, "")),
+      None,
+      None
+    )
+    val prevExprDetails = ExpressionDetails(
+      report.id,
+      1551820341000L,
+      report.metric,
+      report.error,
+      Map(NoDataFoundEvent -> 1551820341000L),
+      None
+    )
+
+    val expected =
+      ExpressionDetails(
+        report.id,
+        report.timestamp,
+        report.metric,
+        report.error,
+        Map(NoDataFoundEvent -> 1551820341000L),
         None
       )
     val actual = toExprDetails(report, Some(prevExprDetails))
@@ -172,12 +194,10 @@ class MarkerServiceSuite extends FunSuite {
   test("Save ExpressionDetails using a dedicated dispatcher") {
     val saved = List.newBuilder[ExpressionDetails]
 
-    val exprDetailsDao = new ExpressionDetailsDao {
-
+    val exprDetailsDao = new ExpressionDetailsDaoTestImpl {
       override def save(exprDetails: ExpressionDetails): Unit = {
         saved += exprDetails
       }
-      override def read(id: ExpressionId): Option[ExpressionDetails] = None
     }
 
     val report = Report(
@@ -206,12 +226,10 @@ class MarkerServiceSuite extends FunSuite {
   }
 
   test("Save errors should be filtered out") {
-    val exprDetailsDao = new ExpressionDetailsDao {
-
+    val exprDetailsDao = new ExpressionDetailsDaoTestImpl {
       override def save(exprDetails: ExpressionDetails): Unit = {
         throw new Exception("Save failed. Test error")
       }
-      override def read(id: ExpressionId): Option[ExpressionDetails] = None
     }
 
     val report = Report(

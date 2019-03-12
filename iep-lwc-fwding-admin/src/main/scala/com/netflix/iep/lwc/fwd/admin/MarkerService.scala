@@ -58,8 +58,10 @@ class MarkerServiceImpl @Inject()(
   override var queue: SourceQueue[Report] = _
 
   override def startImpl(): Unit = {
+    val sizeLimit = config.getInt("iep.lwc.fwding-admin.queue-size-limit")
+
     val (q, k) = StreamOps
-      .blockingQueue[Report](registry, "fwdingAdminCwReports", 10)
+      .blockingQueue[Report](registry, "fwdingAdminCwReports", sizeLimit)
       .via(readExprDetails(expressionDetailsDao))
       .map { case (r, e) => toExprDetails(r, e) }
       .via(saveExprDetails(expressionDetailsDao))
@@ -108,18 +110,24 @@ object MarkerServiceImpl extends StrictLogging {
   ): ExpressionDetails = {
     import ExpressionDetails._
 
+    val noDataFoundEvent = report.metric
+      .map(_ => Map.empty[String, Long])
+      .getOrElse(
+        Map(
+          NoDataFoundEvent -> prevExprDetails
+            .flatMap(_.events.get(NoDataFoundEvent))
+            .getOrElse(report.timestamp)
+        )
+      )
+
+    val noScalingPolicyFoundEvent = Map.empty[String, Long]
+
     ExpressionDetails(
       report.id,
       report.timestamp,
       report.metric,
       report.error,
-      report.metric
-        .map(_ => Map(DataFoundEvent -> report.timestamp))
-        .getOrElse(
-          prevExprDetails
-            .map(_.events)
-            .getOrElse(Map.empty[String, Long])
-        ),
+      noDataFoundEvent ++ noScalingPolicyFoundEvent,
       None
     )
   }

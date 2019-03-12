@@ -8,21 +8,22 @@ iep.lwc.fwd.cw.ExpressionDetails {
     ExpressionId: string
 
     // report timestamp
-    timestamp: number
+    Timestamp: number
 
     // FwdMetricInfo
-    FwdMetricInfo: document
+    FwdMetricInfo: string
 
     // Throwable
     Error: string
 
     // name -> timestamp
-    events: Map[string, number]
-
-    // if (no scaling policy) reportTs - lastReportTs
-    NoScalingPolicyAgeMins: number
+    Events: Map[string, number]
 
     // scaling policy
-    ScalingPolicy: document
+    ScalingPolicy: string
 }
+```
+
+```
+aws dynamodb create-table --region us-east-1 --cli-input-json file://ExpressionDetails.json
 ```
