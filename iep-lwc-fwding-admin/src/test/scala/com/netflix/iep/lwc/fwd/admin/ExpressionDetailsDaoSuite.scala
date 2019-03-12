@@ -14,17 +14,48 @@
  * limitations under the License.
  */
 package com.netflix.iep.lwc.fwd.admin
+import com.amazonaws.client.builder.AwsClientBuilder
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB
-import com.netflix.iep.aws.AwsClientFactory
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder
+import com.netflix.iep.lwc.fwd.admin.ExpressionDetails._
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.ForwardingDimension
 import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
 import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
+import org.scalatest.BeforeAndAfter
 import org.scalatest.FunSuite
 
-class ExpressionDetailsDaoSuite extends FunSuite with StrictLogging {
+import scala.concurrent.duration._
+
+class ExpressionDetailsDaoSuite extends FunSuite with BeforeAndAfter with StrictLogging {
+
+  val dao = new ExpressionDetailsDaoImpl(ConfigFactory.load(), makeDynamoDBClient())
+
+  def makeDynamoDBClient(): AmazonDynamoDB = {
+    AmazonDynamoDBClientBuilder
+      .standard()
+      .withEndpointConfiguration(
+        new AwsClientBuilder.EndpointConfiguration(
+          "http://localhost:8000",
+          "us-east-1"
+        )
+      )
+      .build()
+  }
+
+  def localTest(testName: String)(testFun: => Any): Unit = {
+    if (sys.env.get("LOCAL_TESTS").isDefined) {
+      test(testName)(testFun)
+    } else {
+      logger.info(s"Skipped local only test: $testName")
+    }
+  }
+
+  after {
+    dao.scan().foreach(dao.delete(_))
+  }
 
   localTest("Save ExpressionDetails") {
     val id = ExpressionId(
@@ -53,7 +84,7 @@ class ExpressionDetailsDaoSuite extends FunSuite with StrictLogging {
 
     val exprDetails = new ExpressionDetails(
       id,
-      System.currentTimeMillis(),
+      1551820461000L,
       Some(
         FwdMetricInfo(
           "us-east-1",
@@ -67,23 +98,48 @@ class ExpressionDetailsDaoSuite extends FunSuite with StrictLogging {
       None
     )
 
-    val dao = new ExpressionDetailsDaoImpl(makeDynamoDBClient())
     dao.save(exprDetails)
     val actual = dao.read(id)
     assert(actual === Some(exprDetails))
+
   }
 
-  def makeDynamoDBClient(): AmazonDynamoDB = {
-    new AwsClientFactory(ConfigFactory.load())
-      .newInstance(classOf[AmazonDynamoDB])
+  localTest("Query purge eligible") {
+    val id = ExpressionId("", ForwardingExpression("", "", None, "", Nil))
+
+    val reportTs = 1551820461000L
+    val timestampThen = 1551820461000L + 11.minutes.toMillis
+
+    val exprDetailsList = List(
+      new ExpressionDetails(
+        id.copy(key = "config2"),
+        reportTs,
+        None,
+        None,
+        Map.empty[String, Long],
+        None
+      ),
+      new ExpressionDetails(
+        id.copy(key = "config3"),
+        reportTs,
+        None,
+        None,
+        Map(NoDataFoundEvent -> reportTs),
+        None
+      )
+    )
+
+    exprDetailsList.foreach(dao.save(_))
+    val actual = dao.queryPurgeEligible(timestampThen, List(NoDataFoundEvent))
+
+    assert(actual === List(id.copy(key = "config3")))
   }
 
-  def localTest(testName: String)(testFun: => Any): Unit = {
-    if (sys.env.get("LOCAL_TESTS").isDefined) {
-      test(testName)(testFun)
-    } else {
-      logger.info(s"Skipped local only test: $testName")
-    }
+  localTest("Fail querying purge eligible for unknown event markers") {
+    assertThrows[IllegalArgumentException](dao.queryPurgeEligible(0L, List("foo")))
   }
 
+  localTest("Fail querying purge eligible for no event markers") {
+    assertThrows[IllegalArgumentException](dao.queryPurgeEligible(0L, Nil))
+  }
 }

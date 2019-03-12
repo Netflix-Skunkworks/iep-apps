@@ -19,10 +19,11 @@ iep.lwc.fwd.cw.ExpressionDetails {
     // name -> timestamp
     events: Map[string, number]
 
-    // if (no scaling policy) reportTs - lastReportTs
-    NoScalingPolicyAgeMins: number
-
     // scaling policy
     ScalingPolicy: document
 }
+```
+
+```
+aws dynamodb create-table --region us-east-1 --cli-input-json file://ExpressionDetails.json
 ```

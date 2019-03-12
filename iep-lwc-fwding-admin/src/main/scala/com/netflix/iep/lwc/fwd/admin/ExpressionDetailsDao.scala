@@ -14,29 +14,45 @@
  * limitations under the License.
  */
 package com.netflix.iep.lwc.fwd.admin
+import java.util.concurrent.TimeUnit
+
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB
 import com.amazonaws.services.dynamodbv2.document.DynamoDB
 import com.amazonaws.services.dynamodbv2.document.Item
 import com.amazonaws.services.dynamodbv2.document.PrimaryKey
+import com.amazonaws.services.dynamodbv2.document.spec.ScanSpec
+import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.fasterxml.jackson.databind.JsonNode
 import com.netflix.atlas.json.Json
 import com.netflix.iep.lwc.fwd.cw._
+import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
+
+import scala.concurrent.duration.Duration
 
 trait ExpressionDetailsDao {
   def save(exprDetails: ExpressionDetails): Unit
   def read(id: ExpressionId): Option[ExpressionDetails]
+  def scan(): List[ExpressionId]
+  def queryPurgeEligible(now: Long, events: List[String]): List[ExpressionId]
+  def delete(id: ExpressionId): Unit
 }
 
-class ExpressionDetailsDaoImpl @Inject()(dynamoDBClient: AmazonDynamoDB)
-    extends ExpressionDetailsDao
+class ExpressionDetailsDaoImpl @Inject()(
+  config: Config,
+  dynamoDBClient: AmazonDynamoDB,
+) extends ExpressionDetailsDao
     with StrictLogging {
   import scala.collection.JavaConverters._
   import ExpressionDetails._
 
-  private val table = new DynamoDB(dynamoDBClient)
-    .getTable("iep.lwc.fwd.cw.ExpressionDetails")
+  private val ageLimitMillis = Duration(
+    config.getLong("iep.lwc.fwding-admin.ageLimitMins"),
+    TimeUnit.MINUTES
+  ).toMillis
+
+  private val table = new DynamoDB(dynamoDBClient).getTable(TableName)
 
   override def save(exprDetails: ExpressionDetails): Unit = {
     var item =
@@ -74,6 +90,57 @@ class ExpressionDetailsDaoImpl @Inject()(dynamoDBClient: AmazonDynamoDB)
     }
   }
 
+  override def scan(): List[ExpressionId] = {
+    val spec = new ScanSpec()
+      .withProjectionExpression(ExpressionIdAttr)
+
+    val result = table.scan(spec)
+    val idList = result
+      .iterator()
+      .asScala
+      .map(item => Json.decode[ExpressionId](item.getString(ExpressionIdAttr)))
+      .toList
+
+    if (Option(
+          result.getLastLowLevelResult.getScanResult.getLastEvaluatedKey
+        ).isDefined) {
+      logger.warn("Multiple pages found when querying for purge eligible expressions")
+    }
+    idList
+  }
+
+  override def queryPurgeEligible(now: Long, events: List[String]): List[ExpressionId] = {
+    import scala.collection.JavaConverters._
+
+    require(events.nonEmpty, s"Event markers required. Use $PurgeMarkerEvents")
+    require(events.forall(PurgeMarkerEvents.contains), s"Invalid $events. Use: $PurgeMarkerEvents")
+
+    val spec = new ScanSpec()
+      .withProjectionExpression(ExpressionIdAttr)
+      .withFilterExpression(events.map(e => s"$Events.$e < :ageThreshold").mkString(" OR "))
+      .withValueMap(new ValueMap().withNumber(":ageThreshold", (now - ageLimitMillis)))
+
+    val result = table.scan(spec)
+
+    val idList = result
+      .iterator()
+      .asScala
+      .map(item => Json.decode[ExpressionId](item.getString(ExpressionIdAttr)))
+      .toList
+
+    if (Option(
+          result.getLastLowLevelResult.getScanResult.getLastEvaluatedKey
+        ).isDefined) {
+      logger.warn("Multiple pages found when querying for purge eligible expressions")
+    }
+
+    idList
+  }
+
+  override def delete(id: ExpressionId): Unit = {
+    table.deleteItem(new PrimaryKey(ExpressionIdAttr, Json.encode(id)))
+  }
+
 }
 
 case class ExpressionDetails(
@@ -86,14 +153,18 @@ case class ExpressionDetails(
 )
 
 object ExpressionDetails {
+  val TableName = "iep.lwc.fwd.cw.ExpressionDetails"
+
   val ExpressionIdAttr = "ExpressionId"
-  val Timestamp = "timestamp"
+  val Timestamp = "Timestamp"
   val FwdMetricInfoAttr = "FwdMetricInfo"
   val Error = "Error"
-  val Events = "events"
-  val DataFoundEvent = "dataFoundEvent"
-  val ScalingPolicyFoundEvent = "scalingPolicyFoundEvent"
+  val Events = "Events"
   val ScalingPolicy = "ScalingPolicy"
+
+  val NoDataFoundEvent = "NoDataFoundEvent"
+  val NoScalingPolicyFoundEvent = "NoScalingPolicyFoundEvent"
+  val PurgeMarkerEvents = List(NoDataFoundEvent, NoScalingPolicyFoundEvent)
 }
 
 case class VersionMismatchException() extends Exception

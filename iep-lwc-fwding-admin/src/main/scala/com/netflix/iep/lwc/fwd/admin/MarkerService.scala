@@ -108,18 +108,24 @@ object MarkerServiceImpl extends StrictLogging {
   ): ExpressionDetails = {
     import ExpressionDetails._
 
+    val noDataFoundEvent = report.metric
+      .map(_ => Map.empty[String, Long])
+      .getOrElse(
+        Map(
+          NoDataFoundEvent -> prevExprDetails
+            .flatMap(_.events.get(NoDataFoundEvent))
+            .getOrElse(report.timestamp)
+        )
+      )
+
+    val noScalingPolicyFoundEvent = Map.empty[String, Long]
+
     ExpressionDetails(
       report.id,
       report.timestamp,
       report.metric,
       report.error,
-      report.metric
-        .map(_ => Map(DataFoundEvent -> report.timestamp))
-        .getOrElse(
-          prevExprDetails
-            .map(_.events)
-            .getOrElse(Map.empty[String, Long])
-        ),
+      noDataFoundEvent ++ noScalingPolicyFoundEvent,
       None
     )
   }

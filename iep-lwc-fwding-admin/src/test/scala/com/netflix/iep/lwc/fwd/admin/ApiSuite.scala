@@ -32,6 +32,7 @@ import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.FunSuite
+import ExpressionDetails._
 
 class ApiSuite
     extends FunSuite
@@ -53,7 +54,9 @@ class ApiSuite
       new NoopRegistry,
       new SchemaValidation,
       validations,
-      markerService
+      markerService,
+      new ExpressionDetailsDaoTestImpl,
+      system
     ).routes
   )
 
@@ -63,7 +66,7 @@ class ApiSuite
 
     val postRequest = HttpRequest(
       HttpMethods.POST,
-      uri = "/api/v1/check/cwf/foo_cluster_config",
+      uri = "/api/v1/cw/check/foo_cluster_config",
       entity = HttpEntity(MediaTypes.`application/json`, config)
     )
 
@@ -85,7 +88,7 @@ class ApiSuite
 
     val postRequest = HttpRequest(
       HttpMethods.POST,
-      uri = "/api/v1/check/cwf/foo_cluster_config",
+      uri = "/api/v1/cw/check/foo_cluster_config",
       entity = HttpEntity(MediaTypes.`application/json`, config)
     )
 
@@ -114,13 +117,25 @@ class ApiSuite
 
     val postRequest = HttpRequest(
       HttpMethods.POST,
-      uri = "/api/v1/report",
+      uri = "/api/v1/cw/report",
       entity = HttpEntity(MediaTypes.`application/json`, Json.encode(reports))
     )
 
     postRequest ~> routes ~> check {
       assert(response.status === StatusCodes.OK)
       assert(markerService.result.result() === reports)
+    }
+  }
+
+  test("Query purge eligible expressions") {
+    val getRequest = HttpRequest(
+      HttpMethods.GET,
+      uri = s"/api/v1/cw/expr/purgeEligible?events=$NoDataFoundEvent,$NoScalingPolicyFoundEvent"
+    )
+
+    getRequest ~> routes ~> check {
+      assert(response.status === StatusCodes.OK)
+      assert(responseAs[String] === "[]")
     }
   }
 
