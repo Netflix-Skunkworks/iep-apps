@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 package com.netflix.iep.lwc.fwd.admin
-import java.util.concurrent.TimeUnit
 
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB
 import com.amazonaws.services.dynamodbv2.document.DynamoDB
@@ -28,8 +27,6 @@ import com.netflix.iep.lwc.fwd.cw._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
-
-import scala.concurrent.duration.Duration
 
 trait ExpressionDetailsDao {
   def save(exprDetails: ExpressionDetails): Unit
@@ -47,10 +44,7 @@ class ExpressionDetailsDaoImpl @Inject()(
   import scala.collection.JavaConverters._
   import ExpressionDetails._
 
-  private val ageLimitMillis = Duration(
-    config.getLong("iep.lwc.fwding-admin.ageLimitMins"),
-    TimeUnit.MINUTES
-  ).toMillis
+  private val ageLimitMillis = config.getDuration("iep.lwc.fwding-admin.age-limit").toMillis
 
   private val table = new DynamoDB(dynamoDBClient).getTable(TableName)
 
@@ -128,9 +122,7 @@ class ExpressionDetailsDaoImpl @Inject()(
       .map(item => Json.decode[ExpressionId](item.getString(ExpressionIdAttr)))
       .toList
 
-    if (Option(
-          result.getLastLowLevelResult.getScanResult.getLastEvaluatedKey
-        ).isDefined) {
+    if (result.getLastLowLevelResult.getScanResult.getLastEvaluatedKey != null) {
       logger.warn("Multiple pages found when querying for purge eligible expressions")
     }
 
