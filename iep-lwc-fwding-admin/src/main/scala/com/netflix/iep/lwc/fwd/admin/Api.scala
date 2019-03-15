@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.netflix.atlas.akka.CustomDirectives._
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.json.Json
+import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.Report
 import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
@@ -36,6 +37,7 @@ class Api(
   schemaValidation: SchemaValidation,
   cwExprValidations: CwExprValidations,
   markerService: MarkerService,
+  purger: Purger,
   exprDetailsDao: ExpressionDetailsDao,
   system: ActorSystem
 ) extends WebApi
@@ -126,8 +128,16 @@ class Api(
           }
         }
       }
+    } ~
+    endpointPath("api" / "v1" / "cw" / "expr" / "purge") {
+      delete {
+        entity(as[JsonNode]) { json =>
+          complete {
+            purger.purge(Json.decode[List[ExpressionId]](json))
+          }
+        }
+      }
     }
-
   }
 
 }

@@ -251,11 +251,8 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
     }
   }
 
-  test("checksToSkip cannot be empty") {
-    assertFailure(
-      validate(makeConfigString()(checksToSkip = "[]")),
-      "array is too short"
-    )
+  test("checksToSkip can be empty") {
+    validate(makeConfigString()(checksToSkip = "[]"))
   }
 
   test("checksToSkip entries cannot be empty") {

@@ -486,13 +486,6 @@ object ForwardingService extends StrictLogging {
     }
   }
 
-  case class ConfigBinVersion(
-    ts: Long,
-    hash: String,
-    user: Option[String] = None,
-    comment: Option[String] = None
-  )
-
   case class ForwardingMsgEnvelope(
     id: ExpressionId,
     accountDatum: Option[AccountDatum],

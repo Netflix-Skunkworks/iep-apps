@@ -33,6 +33,9 @@ import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.FunSuite
 import ExpressionDetails._
+import akka.Done
+
+import scala.concurrent.Future
 
 class ApiSuite
     extends FunSuite
@@ -49,12 +52,17 @@ class ApiSuite
 
   val markerService = new MarkerServiceTest()
 
+  val purger = new Purger {
+    override def purge(expressions: List[ExpressionId]): Future[Done] = Future(Done)
+  }
+
   val routes = RequestHandler.standardOptions(
     new Api(
       new NoopRegistry,
       new SchemaValidation,
       validations,
       markerService,
+      purger,
       new ExpressionDetailsDaoTestImpl,
       system
     ).routes
@@ -136,6 +144,20 @@ class ApiSuite
     getRequest ~> routes ~> check {
       assert(response.status === StatusCodes.OK)
       assert(responseAs[String] === "[]")
+    }
+  }
+
+  test("Purge given expressions") {
+    val expressions = List(ExpressionId("", ForwardingExpression("", "", None, "")))
+
+    val delRequest = HttpRequest(
+      HttpMethods.DELETE,
+      uri = "/api/v1/cw/expr/purge",
+      entity = HttpEntity(MediaTypes.`application/json`, Json.encode(expressions))
+    )
+
+    delRequest ~> routes ~> check {
+      assert(response.status === StatusCodes.OK)
     }
   }
 
