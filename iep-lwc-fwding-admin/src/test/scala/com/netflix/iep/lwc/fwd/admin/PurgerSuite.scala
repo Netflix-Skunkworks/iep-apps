@@ -26,19 +26,66 @@ import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.json.Json
 import com.netflix.iep.lwc.fwd.cw.ClusterConfig
 import com.netflix.iep.lwc.fwd.cw.ConfigBinVersion
+import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
 import org.scalatest.FunSuite
 
 import scala.concurrent.Await
+import scala.concurrent.duration._
 import scala.concurrent.duration.Duration
 import scala.util.Success
 
 class PurgerSuite extends FunSuite {
 
   import PurgerImpl._
+  import ExpressionDetails._
 
   private implicit val system = ActorSystem(getClass.getSimpleName)
   private implicit val mat = ActorMaterializer()
+
+  test("Filter purge eligible expressions") {
+    val data = List(
+      ExpressionDetails(
+        ExpressionId("cluster1", ForwardingExpression("", "", None, "")),
+        1552891811000L,
+        None,
+        None,
+        Map(NoDataFoundEvent -> (1552891811000L - 11.minutes.toMillis)),
+        None
+      ),
+      ExpressionDetails(
+        ExpressionId("cluster2", ForwardingExpression("", "", None, "")),
+        1552891811000L,
+        None,
+        None,
+        Map.empty[String, Long],
+        None
+      )
+    )
+
+    val dao = new ExpressionDetailsDaoTestImpl {
+      override def read(
+        id: ExpressionId
+      ): Option[ExpressionDetails] = {
+        data.find(_.expressionId == id)
+      }
+      override def isPurgeEligible(
+        ed: ExpressionDetails,
+        now: Long
+      ): Boolean = {
+        ed.expressionId.key == "cluster1"
+      }
+    }
+
+    val future = Source(data.map(_.expressionId).groupBy(_.key))
+      .via(filterPurgeEligibleExprs(dao))
+      .runWith(Sink.seq)
+
+    val actual = Await.result(future, Duration.Inf)
+    val expected = data.filter(_.expressionId.key == "cluster1").groupBy(_.expressionId.key).toSeq
+
+    assert(actual === expected)
+  }
 
   test("Read cluster config") {
 
@@ -101,22 +148,36 @@ class PurgerSuite extends FunSuite {
       ForwardingExpression("uri2", "", None, "")
     )
 
-    val clusterConfig = ClusterConfig("", expressions)
+    val cfgPayload = ClusterCfgPayload(
+      ConfigBinVersion(0, "", None, None),
+      ClusterConfig("", expressions)
+    )
 
-    val toPurge = expressions.filter(_.atlasUri == "uri1")
-    val actual = removeExpressions(toPurge, clusterConfig)
+    val now = 1552891811000L
+    val exprToRemove = List(
+      ExpressionDetails(
+        ExpressionId("cluster1", expressions.find(_.atlasUri == "uri1").get),
+        1552891811000L,
+        None,
+        None,
+        Map(NoDataFoundEvent -> (now - 11.minutes.toMillis)),
+        None
+      )
+    )
 
-    val expected = expressions.filterNot(_.atlasUri == "uri1")
-    assert(actual === Some(ClusterConfig("", expected)))
-  }
+    val actual = makeClusterCfgPayload(exprToRemove, cfgPayload)
 
-  test("Remove cluster config") {
-    val exprs = List(ForwardingExpression("uri1", "", None, ""))
-    val clusterConfig = ClusterConfig("", exprs)
+    val expected = ClusterCfgPayload(
+      ConfigBinVersion(
+        0,
+        "",
+        Some("admin"),
+        Some("Removed 1 expressions. Purge Markers: NoDataFoundEvent")
+      ),
+      ClusterConfig("", expressions.filterNot(_.atlasUri == "uri1"))
+    )
 
-    val actual = removeExpressions(exprs, clusterConfig)
-
-    assert(actual === None)
+    assert(actual === expected)
   }
 
   test("Send out PUT req for purging expr in cluster config") {
@@ -135,7 +196,7 @@ class PurgerSuite extends FunSuite {
     )
 
     val future = Source
-      .single(("config1", Some(cfgPayload)))
+      .single(("config1", cfgPayload))
       .via(doPurge("http://local/%s", client))
       .runWith(Sink.head)
 
@@ -151,30 +212,25 @@ class PurgerSuite extends FunSuite {
     assert(requests.result() === List(expected))
   }
 
-  test("Send out DELETE req for removing a cluster config") {
-    val requests = List.newBuilder[HttpRequest]
-    val client: Client =
-      Flow[(HttpRequest, AccessLogger)]
-        .map {
-          case (request, accessLogger) =>
-            requests += request
-            (Success(HttpResponse(StatusCodes.OK)), accessLogger)
-        }
+  test("Remove expression details") {
+    val dao = new ExpressionDetailsDaoTestImpl
 
-    val future = Source
-      .single(("config1", None))
-      .via(doPurge("http://local/%s", client))
-      .runWith(Sink.head)
-
-    val expected = HttpRequest(
-      HttpMethods.DELETE,
-      Uri("http://local/config1?user=admin&comment=cleanup"),
+    val ed = ExpressionDetails(
+      ExpressionId("", ForwardingExpression("", "", None, "", Nil)),
+      1552891811000L,
+      None,
+      None,
+      Map.empty[String, Long],
+      None
     )
 
-    val result = Await.result(future, Duration.Inf)
+    val future = Source
+      .single(ed)
+      .via(removeExprDetails(dao))
+      .runWith(Sink.head)
 
-    assert(result === NotUsed)
-    assert(requests.result() === List(expected))
+    val actual = Await.result(future, Duration.Inf)
+    assert(actual === NotUsed)
   }
 
 }

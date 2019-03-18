@@ -15,7 +15,9 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
+import com.amazonaws.client.builder.AwsClientBuilder
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB
+import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder
 import com.amazonaws.services.dynamodbv2.document.DynamoDB
 import com.amazonaws.services.dynamodbv2.document.Item
 import com.amazonaws.services.dynamodbv2.document.PrimaryKey
@@ -34,6 +36,7 @@ trait ExpressionDetailsDao {
   def scan(): List[ExpressionId]
   def queryPurgeEligible(now: Long, events: List[String]): List[ExpressionId]
   def delete(id: ExpressionId): Unit
+  def isPurgeEligible(ed: ExpressionDetails, now: Long): Boolean
 }
 
 class ExpressionDetailsDaoImpl @Inject()(
@@ -78,7 +81,9 @@ class ExpressionDetailsDaoImpl @Inject()(
         i.getNumber(Timestamp).longValue(),
         Option(i.getString(FwdMetricInfoAttr)).map(Json.decode[FwdMetricInfo](_)),
         Option(i.getString(Error)).map(Json.decode[Throwable](_)),
-        i.getMap[Long](Events).asScala.toMap,
+        i.getMap[java.math.BigDecimal](Events).asScala.toMap.map {
+          case (k, v) => (k, BigDecimal(v).toLong)
+        },
         Option(i.getString(ScalingPolicy)).map(Json.decode[JsonNode](_))
       )
     }
@@ -133,6 +138,10 @@ class ExpressionDetailsDaoImpl @Inject()(
     table.deleteItem(new PrimaryKey(ExpressionIdAttr, Json.encode(id)))
   }
 
+  override def isPurgeEligible(ed: ExpressionDetails, now: Long): Boolean = {
+    ed.isPurgeEligible(now, ageLimitMillis)
+  }
+
 }
 
 case class ExpressionDetails(
@@ -142,7 +151,16 @@ case class ExpressionDetails(
   error: Option[Throwable],
   events: Map[String, Long],
   scalingPolicy: Option[JsonNode]
-)
+) {
+  import ExpressionDetails._
+
+  def isPurgeEligible(now: Long, ageLimitMillis: Long): Boolean = {
+    val ageThreshold = now - ageLimitMillis
+    events
+      .filter { case (k, _) => PurgeMarkerEvents.contains(k) }
+      .exists { case (_, v) => v < ageThreshold }
+  }
+}
 
 object ExpressionDetails {
   val TableName = "iep.lwc.fwd.cw.ExpressionDetails"

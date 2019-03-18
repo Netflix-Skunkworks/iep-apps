@@ -22,6 +22,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.RawHeader
+import akka.stream.ActorAttributes
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Sink
@@ -45,6 +46,7 @@ trait Purger {
 
 class PurgerImpl @Inject()(
   config: Config,
+  expressionDetailsDao: ExpressionDetailsDao,
   implicit val system: ActorSystem
 ) extends Purger
     with StrictLogging {
@@ -56,32 +58,31 @@ class PurgerImpl @Inject()(
   private val client = Http().superPool[AccessLogger]()
 
   override def purge(expressions: List[ExpressionId]): Future[Done] = {
-
     Source(expressions.groupBy(_.key))
+      .via(filterPurgeEligibleExprs(expressionDetailsDao))
       .flatMapConcat { exprGrp =>
         val (k, _) = exprGrp
         Source
           .single(k)
           .via(getClusterConfig(cwExprUri, client))
           .map(out => (exprGrp, out))
-
       }
       .map {
         case ((k, e), c) =>
           (
-            k,
-            removeExpressions(
-              e.map(_.expression),
-              c.payload
-            ).map(
-              ClusterCfgPayload(
-                c.version.copy(user = Some("admin"), comment = Some("Cleanup")),
-                _
-              )
-            )
+            (k, e),
+            makeClusterCfgPayload(e, c)
           )
       }
-      .via(doPurge(cwExprUri, client))
+      .flatMapConcat {
+        case ((k, e), c) =>
+          Source
+            .single((k, c))
+            .via(doPurge(cwExprUri, client))
+            .map(_ => e)
+      }
+      .mapConcat(identity)
+      .via(removeExprDetails(expressionDetailsDao))
       .runWith(Sink.ignore)
   }
 
@@ -89,7 +90,44 @@ class PurgerImpl @Inject()(
 
 object PurgerImpl extends StrictLogging {
 
+  val BlockingDispatcher = "blocking-dispatcher"
+
   type Client = Flow[(HttpRequest, AccessLogger), (Try[HttpResponse], AccessLogger), NotUsed]
+
+  def filterPurgeEligibleExprs(
+    expressionDetailsDao: ExpressionDetailsDao
+  ): Flow[(String, List[ExpressionId]), (String, List[ExpressionDetails]), NotUsed] = {
+    Flow[(String, List[ExpressionId])]
+      .flatMapConcat {
+        case (k, e) =>
+          Source(e)
+            .via(readExprDetails(expressionDetailsDao))
+            .filter(expressionDetailsDao.isPurgeEligible(_, System.currentTimeMillis()))
+            .fold(List.empty[ExpressionDetails])(_ :+ _)
+            .map((k, _))
+      }
+      .filter { case (_, v) => v.nonEmpty }
+  }
+
+  def readExprDetails(
+    expressionDetailsDao: ExpressionDetailsDao
+  ): Flow[ExpressionId, ExpressionDetails, NotUsed] = {
+
+    def read(id: ExpressionId): Try[Option[ExpressionDetails]] = {
+      val result = Try(expressionDetailsDao.read(id))
+      result match {
+        case Failure(e) =>
+          logger.error(s"Error reading from DynamoDB", e)
+        case _ =>
+      }
+      result
+    }
+
+    Flow[ExpressionId]
+      .map(read(_))
+      .withAttributes(ActorAttributes.dispatcher(BlockingDispatcher))
+      .collect { case Success(Some(ed)) => ed }
+  }
 
   def getClusterConfig(
     cwExprUri: String,
@@ -121,39 +159,36 @@ object PurgerImpl extends StrictLogging {
       }
   }
 
-  def removeExpressions(
-    expressions: List[ForwardingExpression],
-    clusterCfg: ClusterConfig
-  ): Option[ClusterConfig] = {
-    val e = clusterCfg.expressions.diff(expressions)
+  def makeClusterCfgPayload(
+    exprToRemove: List[ExpressionDetails],
+    clusterCfgPayload: ClusterCfgPayload
+  ): ClusterCfgPayload = {
 
-    if (e.nonEmpty) {
-      Some(clusterCfg.copy(expressions = e))
-    } else {
-      None
-    }
+    val markers = exprToRemove.flatMap(_.events.keys).toSet.mkString(",")
+    val comment = s"Removed ${exprToRemove.size} expressions. Purge Markers: $markers"
+
+    ClusterCfgPayload(
+      clusterCfgPayload.version.copy(user = Some("admin"), comment = Some(comment)),
+      clusterCfgPayload.payload.copy(
+        expressions = clusterCfgPayload.payload.expressions.diff(
+          exprToRemove.map(_.expressionId.expression)
+        )
+      )
+    )
   }
 
   def doPurge(
     cwExprUri: String,
     client: Client
-  ): Flow[(String, Option[ClusterCfgPayload]), NotUsed, NotUsed] = {
-    Flow[(String, Option[ClusterCfgPayload])]
+  ): Flow[(String, ClusterCfgPayload), NotUsed, NotUsed] = {
+    Flow[(String, ClusterCfgPayload)]
       .map {
         case (k, c) =>
-          c.map { cfg =>
-              HttpRequest(
-                HttpMethods.PUT,
-                Uri(cwExprUri.format(k)),
-                entity = Json.encode(cfg)
-              ).withHeaders(RawHeader("conditional", "true"))
-            }
-            .getOrElse(
-              HttpRequest(
-                HttpMethods.DELETE,
-                Uri(s"${cwExprUri.format(k)}?user=admin&comment=cleanup")
-              )
-            )
+          HttpRequest(
+            HttpMethods.PUT,
+            Uri(cwExprUri.format(k)),
+            entity = Json.encode(c)
+          ).withHeaders(RawHeader("conditional", "true"))
       }
       .map { r =>
         r -> AccessLogger.newClientLogger("configbin", r)
@@ -170,6 +205,26 @@ object PurgerImpl extends StrictLogging {
         }
         NotUsed
       })
+  }
+
+  def removeExprDetails(
+    expressionDetailsDao: ExpressionDetailsDao
+  ): Flow[ExpressionDetails, NotUsed, NotUsed] = {
+    def delete(id: ExpressionId): Try[Unit] = {
+      val result = Try(expressionDetailsDao.delete(id))
+      result match {
+        case Failure(e) =>
+          logger.error(s"Error removing from DynamoDB", e)
+        case _ =>
+      }
+      result
+    }
+
+    Flow[ExpressionDetails]
+      .map(ed => delete(ed.expressionId))
+      .withAttributes(ActorAttributes.dispatcher(BlockingDispatcher))
+      .collect { case Success(result) => result }
+      .map(_ => NotUsed)
   }
 
 }

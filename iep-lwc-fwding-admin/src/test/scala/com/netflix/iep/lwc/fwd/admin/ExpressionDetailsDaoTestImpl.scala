@@ -22,4 +22,5 @@ class ExpressionDetailsDaoTestImpl extends ExpressionDetailsDao {
   override def scan(): List[ExpressionId] = Nil
   override def queryPurgeEligible(now: Long, events: List[String]): List[ExpressionId] = Nil
   override def delete(id: ExpressionId): Unit = {}
+  override def isPurgeEligible(ed: ExpressionDetails, now: Long): Boolean = true
 }
