@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.netflix.atlas.akka.CustomDirectives._
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.json.Json
+import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.Report
 import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
@@ -36,6 +37,7 @@ class Api(
   schemaValidation: SchemaValidation,
   cwExprValidations: CwExprValidations,
   markerService: MarkerService,
+  purger: Purger,
   exprDetailsDao: ExpressionDetailsDao,
   system: ActorSystem
 ) extends WebApi
@@ -48,18 +50,6 @@ class Api(
 
   def routes: Route = {
 
-    endpointPath("api" / "v1" / "check" / "cwf", Remaining) { key =>
-      post {
-        entity(as[JsonNode]) { json =>
-          complete {
-            schemaValidation.validate(key, json)
-            cwExprValidations.validate(key, json)
-
-            HttpResponse(StatusCodes.OK)
-          }
-        }
-      }
-    } ~
     endpointPath("api" / "v1" / "cw" / "check", Remaining) { key =>
       post {
         entity(as[JsonNode]) { json =>
@@ -67,23 +57,6 @@ class Api(
             schemaValidation.validate(key, json)
             cwExprValidations.validate(key, json)
 
-            HttpResponse(StatusCodes.OK)
-          }
-        }
-      }
-    } ~
-    endpointPath("api" / "v1" / "report") {
-      post {
-        entity(as[JsonNode]) { json =>
-          complete {
-            Json
-              .decode[List[Report]](json)
-              .map { report =>
-                val enqueued = markerService.queue.offer(report)
-                if (!enqueued) {
-                  logger.warn(s"Unable to queue report $report")
-                }
-              }
             HttpResponse(StatusCodes.OK)
           }
         }
@@ -126,8 +99,16 @@ class Api(
           }
         }
       }
+    } ~
+    endpointPath("api" / "v1" / "cw" / "expr" / "purge") {
+      delete {
+        entity(as[JsonNode]) { json =>
+          complete {
+            purger.purge(Json.decode[List[ExpressionId]](json))
+          }
+        }
+      }
     }
-
   }
 
 }

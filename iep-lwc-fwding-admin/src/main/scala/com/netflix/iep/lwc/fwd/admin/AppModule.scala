@@ -27,6 +27,7 @@ class AppModule extends AbstractModule {
     val serviceBinder = Multibinder.newSetBinder(binder(), classOf[Service])
     serviceBinder.addBinding().to(classOf[MarkerServiceImpl])
     bind(classOf[MarkerService]).to(classOf[MarkerServiceImpl])
+    bind(classOf[Purger]).to(classOf[PurgerImpl])
     bind(classOf[ExpressionDetailsDao]).to(classOf[ExpressionDetailsDaoImpl])
   }
 

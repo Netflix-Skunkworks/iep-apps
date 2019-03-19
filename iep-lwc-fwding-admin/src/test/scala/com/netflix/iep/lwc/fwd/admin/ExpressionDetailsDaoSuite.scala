@@ -108,7 +108,7 @@ class ExpressionDetailsDaoSuite extends FunSuite with BeforeAndAfter with Strict
     val id = ExpressionId("", ForwardingExpression("", "", None, "", Nil))
 
     val reportTs = 1551820461000L
-    val timestampThen = 1551820461000L + 11.minutes.toMillis
+    val timestampThen = reportTs + 11.minutes.toMillis
 
     val exprDetailsList = List(
       new ExpressionDetails(
@@ -141,5 +141,64 @@ class ExpressionDetailsDaoSuite extends FunSuite with BeforeAndAfter with Strict
 
   localTest("Fail querying purge eligible for no event markers") {
     assertThrows[IllegalArgumentException](dao.queryPurgeEligible(0L, Nil))
+  }
+}
+
+class ExpressionDetailsSuite extends FunSuite with StrictLogging {
+  test("Purge eligible expression") {
+    val reportTs = 1551820461000L
+    val timestampThen = reportTs + 11.minutes.toMillis
+
+    val ed = new ExpressionDetails(
+      ExpressionId("config1", ForwardingExpression("", "", None, "", Nil)),
+      reportTs,
+      None,
+      None,
+      Map(
+        NoDataFoundEvent          -> reportTs,
+        NoScalingPolicyFoundEvent -> timestampThen
+      ),
+      None
+    )
+
+    val actual = ed.isPurgeEligible(timestampThen, 10.minutes.toMillis)
+
+    assert(actual)
+  }
+
+  test("Not eligible for purge for unknown events") {
+    val reportTs = 1551820461000L
+    val timestampThen = reportTs + 11.minutes.toMillis
+
+    val ed = new ExpressionDetails(
+      ExpressionId("config1", ForwardingExpression("", "", None, "", Nil)),
+      reportTs,
+      None,
+      None,
+      Map("foo" -> reportTs),
+      None
+    )
+
+    val actual = ed.isPurgeEligible(timestampThen, 10.minutes.toMillis)
+
+    assert(actual == false)
+  }
+
+  test("Not eligible for purge") {
+    val reportTs = 1551820461000L
+    val timestampThen = reportTs + 11.minutes.toMillis
+
+    val ed = new ExpressionDetails(
+      ExpressionId("config1", ForwardingExpression("", "", None, "", Nil)),
+      reportTs,
+      None,
+      None,
+      Map.empty[String, Long],
+      None
+    )
+
+    val actual = ed.isPurgeEligible(timestampThen, 10.minutes.toMillis)
+
+    assert(actual == false)
   }
 }

@@ -70,7 +70,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
     )
   }
 
-  test("Fail when no expression is found") {
+  test("Allow empty list for expressions") {
     val config =
       """
         |{
@@ -78,11 +78,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
         |  "expressions": []
         |}
       """.stripMargin
-
-    assertFailure(
-      validate(config),
-      "array is too short"
-    )
+    validate(config)
   }
 
   test("Fail for missing fields in an expression") {
@@ -251,11 +247,8 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
     }
   }
 
-  test("checksToSkip cannot be empty") {
-    assertFailure(
-      validate(makeConfigString()(checksToSkip = "[]")),
-      "array is too short"
-    )
+  test("checksToSkip can be empty") {
+    validate(makeConfigString()(checksToSkip = "[]"))
   }
 
   test("checksToSkip entries cannot be empty") {

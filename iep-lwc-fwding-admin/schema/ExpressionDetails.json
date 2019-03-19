@@ -16,7 +16,7 @@
   ],
 
   "ProvisionedThroughput": {
-    "WriteCapacityUnits": 5,
-    "ReadCapacityUnits": 5
+    "WriteCapacityUnits": 10,
+    "ReadCapacityUnits": 10
   }
 }

@@ -14,7 +14,6 @@
       "expressions": {
         "description": "List of metric expressions",
         "type": "array",
-        "minItems": 1,
         "uniqueItems": true,
         "items": {
           "type": "object",
@@ -70,7 +69,6 @@
       "checksToSkip": {
         "description": "The list of validations to skip",
         "type": "array",
-        "minItems": 1,
         "uniqueItems": true,
         "items": {
           "type": "string",
@@ -79,5 +77,5 @@
       }
     }
   },
-  "validationHook": "http://localhost/api/v1/check/cwf/$configName"
+  "validationHook": "http://localhost/api/v1/cw/check/$configName"
 }

@@ -13,14 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.iep.lwc.fwd.admin
-import com.netflix.iep.lwc.fwd.cw.ExpressionId
+package com.netflix.iep.lwc.fwd.cw
 
-class ExpressionDetailsDaoTestImpl extends ExpressionDetailsDao {
-  override def save(exprDetails: ExpressionDetails): Unit = {}
-  override def read(id: ExpressionId): Option[ExpressionDetails] = None
-  override def scan(): List[ExpressionId] = Nil
-  override def queryPurgeEligible(now: Long, events: List[String]): List[ExpressionId] = Nil
-  override def delete(id: ExpressionId): Unit = {}
-  override def isPurgeEligible(ed: ExpressionDetails, now: Long): Boolean = true
-}
+case class ConfigBinVersion(
+  ts: Long,
+  hash: String,
+  user: Option[String] = None,
+  comment: Option[String] = None
+)
