@@ -125,6 +125,7 @@ class DruidClient(
       .single(mkRequest(query))
       .via(loggingClient)
       .map(data => Json.decode[List[GroupByDatapoint]](data.toArray))
+      .map(_.filter(_.isValid))
   }
 }
 
@@ -283,7 +284,16 @@ object DruidClient {
     def fromDuration(dur: Duration): Granularity = Granularity(dur.toMillis)
   }
 
-  case class GroupByDatapoint(timestamp: String, event: Map[String, String])
+  case class GroupByDatapoint(timestamp: String, event: Map[String, String]) {
+    /**
+      * Checks that all values in the event are non-null. Druid treats empty strings and
+      * null values as being the same. Some older threads suggest server side filtering
+      * for null values may not be reliable. This could be fixed now, but as it is a fairly
+      * rare occurrence in our use-cases and unlikely to have a big performance benefit, we
+      * do a client side filtering to remove entries with null values.
+      */
+    def isValid: Boolean = event.forall(_._2 != null)
+  }
 
   case class Event(tags: Map[String, String], value: Double)
 }
