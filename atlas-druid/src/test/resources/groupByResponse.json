@@ -1,0 +1,50 @@
+[
+  {
+    "version": "v1",
+    "timestamp": "2019-03-28T15:25:00.000Z",
+    "event": {
+      "value": 0,
+      "percentile": null
+    }
+  },
+  {
+    "version": "v1",
+    "timestamp": "2019-03-28T15:25:00.000Z",
+    "event": {
+      "value": 0,
+      "percentile": "T0000"
+    }
+  },
+  {
+    "version": "v1",
+    "timestamp": "2019-03-28T15:25:00.000Z",
+    "event": {
+      "value": 0,
+      "percentile": "T0002"
+    }
+  },
+  {
+    "version": "v1",
+    "timestamp": "2019-03-28T15:25:00.000Z",
+    "event": {
+      "value": 1,
+      "percentile": "T002A"
+    }
+  },
+  {
+    "version": "v1",
+    "timestamp": "2019-03-28T15:25:00.000Z",
+    "event": {
+      "value": 1,
+      "percentile": "T002B"
+    }
+  },
+  {
+    "version": "v1",
+    "timestamp": "2019-03-28T15:25:00.000Z",
+    "event": {
+      "value": 1,
+      "percentile": "T002C"
+    }
+  }
+]
