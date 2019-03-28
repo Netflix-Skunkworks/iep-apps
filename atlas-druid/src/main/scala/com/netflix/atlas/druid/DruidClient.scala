@@ -285,6 +285,7 @@ object DruidClient {
   }
 
   case class GroupByDatapoint(timestamp: String, event: Map[String, String]) {
+
     /**
       * Checks that all values in the event are non-null. Druid treats empty strings and
       * null values as being the same. Some older threads suggest server side filtering
