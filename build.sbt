@@ -6,6 +6,7 @@ lazy val root = project.in(file("."))
   .aggregate(
     `atlas-aggregator`,
     `atlas-druid`,
+    `atlas-slotting`,
     `atlas-stream`,
     `iep-archaius`,
     `iep-atlas`,
@@ -46,6 +47,28 @@ lazy val `atlas-druid` = project
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j
+  ))
+
+lazy val `atlas-slotting` = project
+  .configure(BuildSettings.profile)
+  .settings(libraryDependencies ++= Seq(
+      Dependencies.atlasModuleAkka,
+      Dependencies.awsAutoScaling,
+      Dependencies.awsDynamoDB,
+      Dependencies.awsEC2,
+      Dependencies.frigga,
+      Dependencies.iepGuice,
+      Dependencies.iepModuleAdmin,
+      Dependencies.iepModuleAws,
+      Dependencies.iepModuleAwsMetrics,
+      Dependencies.iepNflxEnv,
+      Dependencies.log4jApi,
+      Dependencies.log4jCore,
+      Dependencies.log4jSlf4j,
+
+      Dependencies.akkaHttpTestkit % "test",
+      Dependencies.akkaTestkit % "test",
+      Dependencies.scalatest % "test"
   ))
 
 lazy val `atlas-stream` = project

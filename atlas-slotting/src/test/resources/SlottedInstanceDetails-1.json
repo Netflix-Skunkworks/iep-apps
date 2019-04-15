@@ -1,0 +1,11 @@
+{
+  "availabilityZone": "us-west-2b",
+  "imageId": "ami-001",
+  "instanceId": "i-002",
+  "instanceType": "r4.large",
+  "launchTime": 1555430010290,
+  "lifecycleState": "InService",
+  "privateIpAddress": "192.168.1.2",
+  "publicDnsName": "",
+  "slot": 1
+}
