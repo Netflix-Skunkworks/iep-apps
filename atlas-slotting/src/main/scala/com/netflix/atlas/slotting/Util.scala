@@ -15,34 +15,41 @@
  */
 package com.netflix.atlas.slotting
 
+import java.nio.ByteBuffer
 import java.time.Duration
+import java.util.concurrent.ScheduledFuture
 
+import com.netflix.spectator.api.Registry
+import com.netflix.spectator.impl.Scheduler
 import com.typesafe.scalalogging.StrictLogging
 
 object Util extends StrictLogging {
 
-  def createBackgroundThread(
+  def compress(s: String): ByteBuffer = {
+    ByteBuffer.wrap(Gzip.compressString(s))
+  }
+
+  def decompress(buf: ByteBuffer): String = {
+    Gzip.decompressString(toByteArray(buf))
+  }
+
+  def toByteArray(buf: ByteBuffer): Array[Byte] = {
+    val bytes = new Array[Byte](buf.remaining)
+    buf.get(bytes, 0, bytes.length)
+    buf.clear()
+    bytes
+  }
+
+  def startScheduler(
+    registry: Registry,
     name: String,
     interval: Duration,
-    callback: () => Unit
-  ): Thread = {
-    new Thread(
-      () => {
-        logger.info(s"$name started")
-
-        while (true) {
-          try {
-            callback()
-          } catch {
-            case e: Exception =>
-              logger.error(s"error in $name: ${e.getMessage}", e)
-          }
-
-          Thread.sleep(interval.toMillis)
-        }
-      },
-      s"$name"
-    )
+    fn: () => Unit
+  ): ScheduledFuture[_] = {
+    val scheduler = new Scheduler(registry, name, 2)
+    val options = new Scheduler.Options()
+      .withFrequency(Scheduler.Policy.FIXED_RATE_SKIP_IF_LONG, interval)
+    scheduler.schedule(options, () => fn())
   }
 
 }

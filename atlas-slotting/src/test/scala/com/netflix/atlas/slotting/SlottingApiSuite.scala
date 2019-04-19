@@ -19,6 +19,7 @@ import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCode
 import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model.headers.Host
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.RouteTestTimeout
 import akka.http.scaladsl.testkit.ScalatestRouteTest
@@ -51,7 +52,7 @@ class SlottingApiSuite extends FunSuite with ScalatestRouteTest {
   }
 
   test("service description") {
-    Get("/") ~> routes ~> check {
+    Get("/") ~> Host("localhost", 7101) ~> routes ~> check {
       val description = Json.decode[Map[String, Any]](responseAs[String])
       val endpoints = description("endpoints").asInstanceOf[List[String]]
       assertResponse(response, StatusCodes.OK)
@@ -148,20 +149,23 @@ class SlottingApiSuite extends FunSuite with ScalatestRouteTest {
     Get("/api/v1/autoScalingGroups/atlas_app-main-all-v001") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val res = Json.decode[SlottedAsgDetails](responseAs[String])
+
+      assert(res.name === "atlas_app-main-all-v001")
       assert(res.cluster === "atlas_app-main-all")
       assert(res.desiredCapacity === 3)
-      assert(res.instances.size === 3)
-      assert(res.instances.head.availabilityZone === "us-west-2b")
-      assert(res.instances.head.imageId === "ami-00000000000000001")
-      assert(res.instances.head.instanceId === "i-00000000000000001")
-      assert(res.instances.head.instanceType === "r4.large")
-      assert(res.instances.head.lifecycleState === "InService")
-      assert(res.instances.head.privateIpAddress === "192.168.1.1")
-      assert(res.instances.head.publicDnsName === "")
-      assert(res.instances.head.slot === 0)
       assert(res.maxSize === 6)
       assert(res.minSize === 0)
-      assert(res.name === "atlas_app-main-all-v001")
+      assert(res.instances.size === 3)
+
+      assert(res.instances.head.instanceId === "i-001")
+      assert(res.instances.head.privateIpAddress === "192.168.1.1")
+      assert(res.instances.head.publicIpAddress === None)
+      assert(res.instances.head.publicDnsName === None)
+      assert(res.instances.head.slot === 0)
+      assert(res.instances.head.availabilityZone === "us-west-2b")
+      assert(res.instances.head.imageId === "ami-001")
+      assert(res.instances.head.instanceType === "r4.large")
+      assert(res.instances.head.lifecycleState === "InService")
     }
   }
 

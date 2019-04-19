@@ -1,6 +1,6 @@
 ## Introduction
 
-Describe the minimum configuration required for the IAM role used by the Atlas Slotting Service.
+Describes the minimum configuration required for the IAM role used by the Atlas Slotting Service.
 
 ## Role
 

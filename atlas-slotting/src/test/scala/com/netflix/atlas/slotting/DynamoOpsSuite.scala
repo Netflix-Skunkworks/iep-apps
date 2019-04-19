@@ -15,8 +15,8 @@
  */
 package com.netflix.atlas.slotting
 
-import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
+import java.nio.charset.StandardCharsets
 import java.time.Duration
 
 import org.scalatest.FunSuite
@@ -24,62 +24,58 @@ import org.scalatest.FunSuite
 class DynamoOpsSuite extends FunSuite with DynamoOps {
 
   def mkByteBuffer(s: String): ByteBuffer = {
-    val bytes = s.getBytes("UTF-8")
-    val baos = new ByteArrayOutputStream(bytes.length)
-    baos.write(bytes)
-    baos.close()
-    ByteBuffer.wrap(baos.toByteArray)
+    ByteBuffer.wrap(s.getBytes(StandardCharsets.UTF_8))
   }
 
   test("compress and decompress") {
     val input = "Atlas Slotting Service"
-    val compressed = compress(input)
-    assert(input === decompress(compressed))
+    val compressed = Util.compress(input)
+    assert(input === Util.decompress(compressed))
   }
 
-  test("scan active items") {
-    val scanSpec = scanActiveItems()
+  test("active items spec") {
+    val scanSpec = activeItemsScanSpec()
     assert(scanSpec.getFilterExpression === "#a = :v1")
     assert(scanSpec.getNameMap.toString === s"{#a=$Active}")
     assert(scanSpec.getValueMap.toString === "{:v1=true}")
   }
 
-  test("scan old items") {
-    val scanSpec = scanOldItems(Duration.ofDays(1))
+  test("old items spec") {
+    val scanSpec = oldItemsScanSpec(Duration.ofDays(1))
     assert(scanSpec.getFilterExpression === "#t < :v1")
     assert(scanSpec.getProjectionExpression === "#n")
     assert(scanSpec.getNameMap.toString === s"{#n=$Name, #t=$Timestamp}")
   }
 
-  test("put slotted asg") {
+  test("new asg item") {
     val newData = mkByteBuffer("""{"name": "atlas_app-main-all-v001", "desiredCapacity": 3}""")
-    val item = putSlottedAsg("atlas_app-main-all-v001", newData)
+    val item = newAsgItem("atlas_app-main-all-v001", newData)
     assert(item.hasAttribute(Name))
     assert(item.hasAttribute(Data))
     assert(item.hasAttribute(Active))
     assert(item.hasAttribute(Timestamp))
   }
 
-  test("update slotted asg") {
+  test("update asg spec") {
     val oldData = mkByteBuffer("""{"name": "atlas_app-main-all-v001", "desiredCapacity": 3}""")
     val newData = mkByteBuffer("""{"name": "atlas_app-main-all-v001", "desiredCapacity": 6}""")
-    val updateSpec = updateSlottedAsg("atlas_app-main-all-v001", oldData, newData)
+    val updateSpec = updateAsgItemSpec("atlas_app-main-all-v001", oldData, newData)
     assert(updateSpec.getConditionExpression === "#d = :v1")
     assert(updateSpec.getUpdateExpression === s"set #d = :v2, #a = :v3, #t = :v4")
     assert(updateSpec.getNameMap.toString === s"{#d=data, #a=$Active, #t=$Timestamp}")
   }
 
-  test("update timestamp") {
+  test("update timestamp spec") {
     val oldData = mkByteBuffer("""{"name": "atlas_app-main-all-v001", "desiredCapacity": 3}""")
-    val updateSpec = updateTimestamp("atlas_app-main-all-v001", oldData)
+    val updateSpec = updateTimestampItemSpec("atlas_app-main-all-v001", oldData)
     assert(updateSpec.getConditionExpression === "#d = :v1")
     assert(updateSpec.getUpdateExpression === s"set #a = :v2, #t = :v3")
     assert(updateSpec.getNameMap.toString === s"{#d=data, #a=$Active, #t=$Timestamp}")
   }
 
-  test("deactivate asg") {
+  test("deactivate asg spec") {
     val oldData = mkByteBuffer("""{"name": "atlas_app-main-all-v001", "desiredCapacity": 3}""")
-    val updateSpec = deactivateAsg("atlas_app-main-all-v001", oldData)
+    val updateSpec = deactivateAsgItemSpec("atlas_app-main-all-v001", oldData)
     assert(updateSpec.getConditionExpression === "#d = :v1")
     assert(updateSpec.getUpdateExpression === s"set #a = :v2, #t = :v3")
     assert(updateSpec.getNameMap.toString === s"{#d=data, #a=$Active, #t=$Timestamp}")

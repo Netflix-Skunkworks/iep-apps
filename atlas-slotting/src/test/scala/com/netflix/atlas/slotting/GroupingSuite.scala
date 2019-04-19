@@ -15,6 +15,8 @@
  */
 package com.netflix.atlas.slotting
 
+import java.time.Instant
+
 import com.amazonaws.services.autoscaling.model.AutoScalingGroup
 import com.amazonaws.services.autoscaling.model.{Instance => AsgInstance}
 import com.amazonaws.services.ec2.model.{Instance => Ec2Instance}
@@ -26,17 +28,6 @@ import scala.io.Source
 
 class GroupingSuite extends FunSuite with Grouping {
 
-  test("excluded ec2 instance states") {
-    val res = List(
-      "pending",
-      "shutting-down",
-      "terminating",
-      "terminated",
-    ).map(excludedInstanceState)
-
-    assert(res === List(true, true, true, true))
-  }
-
   test("get app") {
     val res = List(
       "atlas_app-v001",
@@ -45,6 +36,16 @@ class GroupingSuite extends FunSuite with Grouping {
     ).map(getApp)
 
     assert(res === List("atlas_app", "atlas_app", "atlas_app"))
+  }
+
+  test("get cluster") {
+    val res = List(
+      "atlas_app-v001",
+      "atlas_app-main-v002",
+      "atlas_app-main-all-v003"
+    ).map(getCluster)
+
+    assert(res === List("atlas_app", "atlas_app-main", "atlas_app-main-all"))
   }
 
   test("make asg details") {
@@ -74,6 +75,10 @@ class GroupingSuite extends FunSuite with Grouping {
     val asgDetails = mkAsgDetails(asg)
 
     assert(asgDetails.name === "atlas_app-main-all-v001")
+    assert(asgDetails.cluster === "atlas_app-main-all")
+    assert(asgDetails.desiredCapacity === 3)
+    assert(asgDetails.maxSize === 6)
+    assert(asgDetails.minSize === 0)
     assert(asgDetails.instances.map(_.instanceId) === List("i-001", "i-002", "i-003"))
   }
 
@@ -93,28 +98,28 @@ class GroupingSuite extends FunSuite with Grouping {
   }
 
   test("make slotted instance details") {
-    val date = new java.util.Date()
+    val instant = Instant.now()
 
     val asgInstances = List(
-      AsgInstanceDetails("us-west-2b", "i-001", "InService"),
-      AsgInstanceDetails("us-west-2a", "i-002", "InService"),
-      AsgInstanceDetails("us-west-2b", "i-003", "InService")
+      AsgInstanceDetails("i-001", "us-west-2b", "InService"),
+      AsgInstanceDetails("i-002", "us-west-2a", "InService"),
+      AsgInstanceDetails("i-003", "us-west-2b", "InService"),
     )
 
     val asgDetails = AsgDetails(
+      "atlas_app-main-all-v001",
       "atlas_app",
-      date,
+      instant,
       3,
-      asgInstances,
       6,
       0,
-      "atlas_app-main-all-v001"
+      asgInstances,
     )
 
     val instanceInfo = Map(
-      "i-001" -> Ec2InstanceDetails("ami-001", "r4.large", date, "192.168.1.1", "", None),
-      "i-002" -> Ec2InstanceDetails("ami-001", "r4.large", date, "192.168.1.2", "", None),
-      "i-003" -> Ec2InstanceDetails("ami-001", "r4.large", date, "192.168.1.3", "", None)
+      "i-001" -> Ec2InstanceDetails("192.168.1.1", None, None, instant, "ami-001", "r4.large"),
+      "i-002" -> Ec2InstanceDetails("192.168.1.2", None, None, instant, "ami-001", "r4.large"),
+      "i-003" -> Ec2InstanceDetails("192.168.1.3", None, None, instant, "ami-001", "r4.large"),
     )
 
     val slotted = mkSlottedInstanceDetailsList(asgDetails, instanceInfo)
@@ -124,29 +129,51 @@ class GroupingSuite extends FunSuite with Grouping {
     assert(slotted.map(_.slot) === List(-1, -1, -1))
   }
 
+  test("slotted asg details - too many instances") {
+    val instances = List(
+      loadSlottedInstanceDetails("/SlottedInstanceDetails-0.json"),
+      loadSlottedInstanceDetails("/SlottedInstanceDetails-1.json"),
+      loadSlottedInstanceDetails("/SlottedInstanceDetails-2.json"),
+    )
+
+    val caught = intercept[IllegalArgumentException] {
+      SlottedAsgDetails(
+        "atlas_app-main-all-v001",
+        "atlas_app-main-all",
+        Instant.now(),
+        2,
+        4,
+        0,
+        instances
+      )
+    }
+
+    assert(caught.getMessage === "requirement failed: instances.size > desiredCapacity")
+  }
+
   test("assign slots") {
-    val date = new java.util.Date()
+    val instant = Instant.now()
 
     val asgInstances = List(
-      AsgInstanceDetails("us-west-2b", "i-001", "InService"),
-      AsgInstanceDetails("us-west-2a", "i-002", "InService"),
-      AsgInstanceDetails("us-west-2b", "i-003", "InService")
+      AsgInstanceDetails("i-001", "us-west-2b", "InService"),
+      AsgInstanceDetails("i-002", "us-west-2a", "InService"),
+      AsgInstanceDetails("i-003", "us-west-2b", "InService"),
     )
 
     val asgDetails = AsgDetails(
+      "atlas_app-main-all-v001",
       "atlas_app",
-      date,
+      instant,
       3,
-      asgInstances,
       6,
       0,
-      "atlas_app-main-all-v001"
+      asgInstances,
     )
 
     val instanceInfo = Map(
-      "i-001" -> Ec2InstanceDetails("ami-001", "r4.large", date, "192.168.1.1", "", None),
-      "i-002" -> Ec2InstanceDetails("ami-001", "r4.large", date, "192.168.1.2", "", None),
-      "i-003" -> Ec2InstanceDetails("ami-001", "r4.large", date, "192.168.1.3", "", None)
+      "i-001" -> Ec2InstanceDetails("192.168.1.1", None, None, instant, "ami-001", "r4.large"),
+      "i-002" -> Ec2InstanceDetails("192.168.1.2", None, None, instant, "ami-001", "r4.large"),
+      "i-003" -> Ec2InstanceDetails("192.168.1.3", None, None, instant, "ami-001", "r4.large"),
     )
 
     val slotted = assignSlots(asgDetails, instanceInfo)
@@ -164,44 +191,143 @@ class GroupingSuite extends FunSuite with Grouping {
   }
 
   test("merge slots") {
-    val date = new java.util.Date()
+    val instant = Instant.now()
 
     val oldAsgInstances = List(
       loadSlottedInstanceDetails("/SlottedInstanceDetails-0.json"),
       loadSlottedInstanceDetails("/SlottedInstanceDetails-1.json"),
-      loadSlottedInstanceDetails("/SlottedInstanceDetails-2.json")
+      loadSlottedInstanceDetails("/SlottedInstanceDetails-2.json"),
     )
 
     val oldAsgSlotted = SlottedAsgDetails(
+      "atlas_app-main-all-v001",
       "atlas_app-main-all",
-      date,
+      instant,
       3,
-      oldAsgInstances,
       6,
       0,
-      "atlas_app-main-all-v001"
+      oldAsgInstances,
     )
 
     val newAsgInstances = List(
-      AsgInstanceDetails("us-west-2b", "i-001", "InService"),
-      AsgInstanceDetails("us-west-2b", "i-003", "InService"),
-      AsgInstanceDetails("us-west-2a", "i-004", "InService")
+      AsgInstanceDetails("i-001", "us-west-2b", "InService"),
+      AsgInstanceDetails("i-003", "us-west-2b", "InService"),
+      AsgInstanceDetails("i-004", "us-west-2a", "InService"),
     )
 
     val newAsgDetails = AsgDetails(
+      "atlas_app-main-all-v001",
       "atlas_app",
-      date,
+      instant,
       3,
-      newAsgInstances,
       6,
       0,
-      "atlas_app-main-all-v001"
+      newAsgInstances,
     )
 
     val instanceInfo = Map(
-      "i-001" -> Ec2InstanceDetails("ami-001", "r4.large", date, "192.168.1.1", "", None),
-      "i-003" -> Ec2InstanceDetails("ami-001", "r4.large", date, "192.168.1.3", "", None),
-      "i-004" -> Ec2InstanceDetails("ami-001", "r4.large", date, "192.168.1.4", "", None)
+      "i-001" -> Ec2InstanceDetails("192.168.1.1", None, None, instant, "ami-001", "r4.large"),
+      "i-003" -> Ec2InstanceDetails("192.168.1.3", None, None, instant, "ami-001", "r4.large"),
+      "i-004" -> Ec2InstanceDetails("192.168.1.4", None, None, instant, "ami-001", "r4.large"),
+    )
+
+    val merged = mergeSlots(oldAsgSlotted, newAsgDetails, instanceInfo)
+
+    assert(merged.map(_.instanceId) === List("i-001", "i-004", "i-003"))
+    assert(merged.map(_.privateIpAddress) === List("192.168.1.1", "192.168.1.4", "192.168.1.3"))
+    assert(merged.map(_.slot) === List(0, 1, 2))
+  }
+
+  test("merge slots - too many instances") {
+    val instant = Instant.now()
+
+    val oldAsgInstances = List(
+      loadSlottedInstanceDetails("/SlottedInstanceDetails-0.json"),
+      loadSlottedInstanceDetails("/SlottedInstanceDetails-1.json"),
+      loadSlottedInstanceDetails("/SlottedInstanceDetails-2.json"),
+    )
+
+    val oldAsgSlotted = SlottedAsgDetails(
+      "atlas_app-main-all-v001",
+      "atlas_app-main-all",
+      instant,
+      3,
+      6,
+      0,
+      oldAsgInstances,
+    )
+
+    val newAsgInstances = List(
+      AsgInstanceDetails("i-001", "us-west-2b", "InService"),
+      AsgInstanceDetails("i-003", "us-west-2b", "InService"),
+      AsgInstanceDetails("i-004", "us-west-2a", "InService"),
+      AsgInstanceDetails("i-005", "us-west-2a", "InService"),
+    )
+
+    val newAsgDetails = AsgDetails(
+      "atlas_app-main-all-v001",
+      "atlas_app",
+      instant,
+      3,
+      6,
+      0,
+      newAsgInstances,
+    )
+
+    val instanceInfo = Map(
+      "i-001" -> Ec2InstanceDetails("192.168.1.1", None, None, instant, "ami-001", "r4.large"),
+      "i-003" -> Ec2InstanceDetails("192.168.1.3", None, None, instant, "ami-001", "r4.large"),
+      "i-004" -> Ec2InstanceDetails("192.168.1.4", None, None, instant, "ami-001", "r4.large"),
+      "i-005" -> Ec2InstanceDetails("192.168.1.5", None, None, instant, "ami-001", "r4.large"),
+    )
+
+    val caught = intercept[NoSuchElementException] {
+      mergeSlots(oldAsgSlotted, newAsgDetails, instanceInfo)
+    }
+
+    assert(caught.getMessage === "key not found: i-005")
+  }
+
+  test("merge slots - too many instances, no entry in instanceInfo") {
+    val instant = Instant.now()
+
+    val oldAsgInstances = List(
+      loadSlottedInstanceDetails("/SlottedInstanceDetails-0.json"),
+      loadSlottedInstanceDetails("/SlottedInstanceDetails-1.json"),
+      loadSlottedInstanceDetails("/SlottedInstanceDetails-2.json"),
+    )
+
+    val oldAsgSlotted = SlottedAsgDetails(
+      "atlas_app-main-all-v001",
+      "atlas_app-main-all",
+      instant,
+      3,
+      6,
+      0,
+      oldAsgInstances,
+    )
+
+    val newAsgInstances = List(
+      AsgInstanceDetails("i-001", "us-west-2b", "InService"),
+      AsgInstanceDetails("i-003", "us-west-2b", "InService"),
+      AsgInstanceDetails("i-004", "us-west-2a", "InService"),
+      AsgInstanceDetails("i-005", "us-west-2a", "Terminating"),
+    )
+
+    val newAsgDetails = AsgDetails(
+      "atlas_app-main-all-v001",
+      "atlas_app",
+      instant,
+      3,
+      6,
+      0,
+      newAsgInstances,
+    )
+
+    val instanceInfo = Map(
+      "i-001" -> Ec2InstanceDetails("192.168.1.1", None, None, instant, "ami-001", "r4.large"),
+      "i-003" -> Ec2InstanceDetails("192.168.1.3", None, None, instant, "ami-001", "r4.large"),
+      "i-004" -> Ec2InstanceDetails("192.168.1.4", None, None, instant, "ami-001", "r4.large"),
     )
 
     val merged = mergeSlots(oldAsgSlotted, newAsgDetails, instanceInfo)

@@ -17,7 +17,6 @@
     <Logger name="akka" level="warn"/>
     <Logger name="com.netflix" level="error"/>
     <Logger name="com.netflix.atlas" level="warn"/>
-    <Logger name="com.netflix.atlas.plugin" level="warn"/>
     <Logger name="com.netflix.atlas.slotting" level="debug"/>
     <Logger name="com.netflix.iep" level="warn"/>
     <Logger name="com.netflix.spectator" level="debug"/>

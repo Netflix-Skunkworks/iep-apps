@@ -32,6 +32,7 @@ import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
+import javax.inject.Singleton
 
 object Main extends StrictLogging {
 
@@ -79,18 +80,21 @@ object Main extends StrictLogging {
     }
 
     @Provides
+    @Singleton
     protected def providesAmazonDynamoDB(factory: AwsClientFactory): AmazonDynamoDB = {
-      factory.newInstance(classOf[AmazonDynamoDB])
+      factory.getInstance(classOf[AmazonDynamoDB])
     }
 
     @Provides
+    @Singleton
     protected def providesAmazonEC2(factory: AwsClientFactory): AmazonEC2 = {
-      factory.newInstance(classOf[AmazonEC2])
+      factory.getInstance(classOf[AmazonEC2])
     }
 
     @Provides
+    @Singleton
     protected def providesAmazonAutoScaling(factory: AwsClientFactory): AmazonAutoScaling = {
-      factory.newInstance(classOf[AmazonAutoScaling])
+      factory.getInstance(classOf[AmazonAutoScaling])
     }
   }
 }

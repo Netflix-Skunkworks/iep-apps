@@ -15,8 +15,6 @@
  */
 package com.netflix.atlas.slotting
 
-import java.net.InetAddress
-
 import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
@@ -24,6 +22,7 @@ import akka.http.scaladsl.model.StatusCode
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
+import com.netflix.atlas.akka.CustomDirectives._
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.json.Json
 import com.typesafe.scalalogging.StrictLogging
@@ -38,7 +37,7 @@ class SlottingApi @Inject()(slottingCache: SlottingCache) extends WebApi with St
   override def routes: Route = {
     // standard endpoints
     pathPrefix("api" / "v1") {
-      path("autoScalingGroups") {
+      endpointPath("autoScalingGroups") {
         get {
           parameters("verbose".as[Boolean].?) { verbose =>
             if (verbose.contains(true)) {
@@ -49,7 +48,7 @@ class SlottingApi @Inject()(slottingCache: SlottingCache) extends WebApi with St
           }
         }
       } ~
-      path("autoScalingGroups" / Remaining) { asgName =>
+      endpointPath("autoScalingGroups", Remaining) { asgName =>
         get {
           complete(singleItem(slottingCache, asgName))
         }
@@ -57,7 +56,7 @@ class SlottingApi @Inject()(slottingCache: SlottingCache) extends WebApi with St
     } ~
     // edda compatibility endpoints
     pathPrefix(("api" | "REST") / "v2" / "group") {
-      path("autoScalingGroups") {
+      endpointPath("autoScalingGroups") {
         get {
           complete(indexList(slottingCache))
         }
@@ -67,7 +66,7 @@ class SlottingApi @Inject()(slottingCache: SlottingCache) extends WebApi with St
           complete(verboseList(slottingCache))
         }
       } ~
-      path("autoScalingGroups" / Remaining) { asgNameWithArgs =>
+      endpointPath("autoScalingGroups", Remaining) { asgNameWithArgs =>
         val asgName = stripEddaArgs.replaceAllIn(asgNameWithArgs, "")
         get {
           complete(singleItem(slottingCache, asgName))
@@ -75,40 +74,16 @@ class SlottingApi @Inject()(slottingCache: SlottingCache) extends WebApi with St
       }
     } ~
     pathEndOrSingleSlash {
-      complete(mkResponse(StatusCodes.OK, serviceDescription))
+      headerValueByName("Host") { host =>
+        complete(serviceDescription(host))
+      }
     }
   }
 }
 
 object SlottingApi {
 
-  val serviceDescription: Map[String, Any] = {
-    val instanceId = Option(System.getenv("EC2_INSTANCE_ID"))
-
-    val baseUrl =
-      if (instanceId.isEmpty) {
-        "http://localhost:7101"
-      } else {
-        val localhost: InetAddress = InetAddress.getLocalHost
-        val localIpAddress: String = localhost.getHostAddress
-        s"http://$localIpAddress"
-      }
-
-    Map(
-      "description" -> "Atlas Slotting Service",
-      "endpoints" -> List(
-        s"$baseUrl/healthcheck",
-        s"$baseUrl/api/v1/autoScalingGroups",
-        s"$baseUrl/api/v1/autoScalingGroups?verbose=true",
-        s"$baseUrl/api/v1/autoScalingGroups/:name",
-        s"$baseUrl/api/v2/group/autoScalingGroups",
-        s"$baseUrl/api/v2/group/autoScalingGroups;_expand",
-        s"$baseUrl/api/v2/group/autoScalingGroups/:name",
-      )
-    )
-  }
-
-  val autoScalingGroupsExpand: Regex = "autoScalingGroups(?:;_expand.*|;_pp.*)".r
+  val autoScalingGroupsExpand: Regex = "autoScalingGroups(?:;_expand.*|;_pp;_expand.*)".r
 
   val stripEddaArgs: Regex = "(?:;_.*|:\\(.*)".r
 
@@ -128,10 +103,29 @@ object SlottingApi {
   }
 
   def singleItem(slottingCache: SlottingCache, asgName: String): HttpResponse = {
-    if (slottingCache.asgs.contains(asgName)) {
-      mkResponse(StatusCodes.OK, slottingCache.asgs(asgName))
-    } else {
-      mkResponse(StatusCodes.NotFound, Map("message" -> "Not Found"))
+    slottingCache.asgs.get(asgName) match {
+      case Some(slottedAsgDetails) =>
+        mkResponse(StatusCodes.OK, slottedAsgDetails)
+      case None =>
+        mkResponse(StatusCodes.NotFound, Map("message" -> "Not Found"))
     }
+  }
+
+  def serviceDescription(host: String): HttpResponse = {
+    mkResponse(
+      StatusCodes.OK,
+      Map(
+        "description" -> "Atlas Slotting Service",
+        "endpoints" -> List(
+          s"http://$host/healthcheck",
+          s"http://$host/api/v1/autoScalingGroups",
+          s"http://$host/api/v1/autoScalingGroups?verbose=true",
+          s"http://$host/api/v1/autoScalingGroups/:name",
+          s"http://$host/api/v2/group/autoScalingGroups",
+          s"http://$host/api/v2/group/autoScalingGroups;_expand",
+          s"http://$host/api/v2/group/autoScalingGroups/:name",
+        )
+      )
+    )
   }
 }

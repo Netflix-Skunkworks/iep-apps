@@ -15,12 +15,8 @@
  */
 package com.netflix.atlas.slotting
 
-import java.io.ByteArrayInputStream
-import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.time.Duration
-import java.util.zip.GZIPInputStream
-import java.util.zip.GZIPOutputStream
 
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB
 import com.amazonaws.services.dynamodbv2.document.Item
@@ -38,41 +34,16 @@ import com.amazonaws.services.dynamodbv2.model.ResourceNotFoundException
 import com.amazonaws.services.dynamodbv2.model.UpdateTableRequest
 import com.netflix.iep.NetflixEnvironment
 import com.netflix.spectator.api.Counter
-import com.typesafe.scalalogging.Logger
+import com.typesafe.scalalogging.StrictLogging
 
-trait DynamoOps {
+trait DynamoOps extends StrictLogging {
 
   val Name = "name"
   val Data = "data"
   val Active = "active"
   val Timestamp = "timestamp"
 
-  def compress(s: String): ByteBuffer = {
-    val bytes = s.getBytes("UTF-8")
-    val baos = new ByteArrayOutputStream(bytes.length)
-    val gzos = new GZIPOutputStream(baos)
-
-    gzos.write(bytes)
-    gzos.close()
-    baos.close()
-
-    ByteBuffer.wrap(baos.toByteArray)
-  }
-
-  def toByteArray(buf: ByteBuffer): Array[Byte] = {
-    val bytes = new Array[Byte](buf.remaining)
-    buf.get(bytes, 0, bytes.length)
-    buf.clear()
-    bytes
-  }
-
-  def decompress(buf: ByteBuffer): String = {
-    val bytes = toByteArray(buf)
-    val is = new GZIPInputStream(new ByteArrayInputStream(bytes))
-    scala.io.Source.fromInputStream(is).mkString
-  }
-
-  def scanActiveItems(): ScanSpec = {
+  def activeItemsScanSpec(): ScanSpec = {
     val nameMap = new NameMap()
       .`with`("#a", Active)
 
@@ -85,7 +56,7 @@ trait DynamoOps {
       .withValueMap(valueMap)
   }
 
-  def scanOldItems(cutoffInterval: Duration): ScanSpec = {
+  def oldItemsScanSpec(cutoffInterval: Duration): ScanSpec = {
     val cutoffMillis = System.currentTimeMillis() - cutoffInterval.toMillis
 
     val nameMap = new NameMap()
@@ -102,7 +73,7 @@ trait DynamoOps {
       .withValueMap(valueMap)
   }
 
-  def putSlottedAsg(name: String, newData: ByteBuffer): Item = {
+  def newAsgItem(name: String, newData: ByteBuffer): Item = {
     new Item()
       .withPrimaryKey(Name, name)
       .withBinary(Data, newData)
@@ -110,15 +81,15 @@ trait DynamoOps {
       .withLong(Timestamp, System.currentTimeMillis)
   }
 
-  def updateSlottedAsg(name: String, oldData: ByteBuffer, newData: ByteBuffer): UpdateItemSpec = {
+  def updateAsgItemSpec(name: String, oldData: ByteBuffer, newData: ByteBuffer): UpdateItemSpec = {
     val nameMap = new NameMap()
       .`with`("#d", Data)
       .`with`("#a", Active)
       .`with`("#t", Timestamp)
 
     val valueMap = new ValueMap()
-      .withBinary(":v1", toByteArray(oldData))
-      .withBinary(":v2", toByteArray(newData))
+      .withBinary(":v1", Util.toByteArray(oldData))
+      .withBinary(":v2", Util.toByteArray(newData))
       .withBoolean(":v3", true)
       .withLong(":v4", System.currentTimeMillis)
 
@@ -130,14 +101,14 @@ trait DynamoOps {
       .withValueMap(valueMap)
   }
 
-  def updateTimestamp(name: String, oldData: ByteBuffer): UpdateItemSpec = {
+  def updateTimestampItemSpec(name: String, oldData: ByteBuffer): UpdateItemSpec = {
     val nameMap = new NameMap()
       .`with`("#d", Data)
       .`with`("#a", Active)
       .`with`("#t", Timestamp)
 
     val valueMap = new ValueMap()
-      .withBinary(":v1", toByteArray(oldData))
+      .withBinary(":v1", Util.toByteArray(oldData))
       .withBoolean(":v2", true)
       .withLong(":v3", System.currentTimeMillis)
 
@@ -149,14 +120,14 @@ trait DynamoOps {
       .withValueMap(valueMap)
   }
 
-  def deactivateAsg(name: String, oldData: ByteBuffer): UpdateItemSpec = {
+  def deactivateAsgItemSpec(name: String, oldData: ByteBuffer): UpdateItemSpec = {
     val nameMap = new NameMap()
       .`with`("#d", Data)
       .`with`("#a", Active)
       .`with`("#t", Timestamp)
 
     val valueMap = new ValueMap()
-      .withBinary(":v1", toByteArray(oldData))
+      .withBinary(":v1", Util.toByteArray(oldData))
       .withBoolean(":v2", false)
       .withLong(":v3", System.currentTimeMillis)
 
@@ -169,34 +140,32 @@ trait DynamoOps {
   }
 
   def initTable(
-    logger: Logger,
     ddbClient: AmazonDynamoDB,
     tableName: String,
     desiredRead: Long,
     desiredWrite: Long,
-    dynamoDbErrors: Counter
+    dynamodbErrors: Counter
   ): Unit = {
     var continue = true
 
     while (continue) {
       try {
-        val tableStatus = checkCapacity(logger, ddbClient, tableName, desiredRead, desiredWrite)
+        val tableStatus = syncCapacity(ddbClient, tableName, desiredRead, desiredWrite)
         continue = tableStatus != "ACTIVE"
         Thread.sleep(1000)
       } catch {
         case _: ResourceNotFoundException =>
-          createTable(logger, ddbClient, tableName, desiredRead, desiredWrite)
+          createTable(ddbClient, tableName, desiredRead, desiredWrite)
           Thread.sleep(5000)
         case e: Exception =>
           logger.error(s"failed to update table $tableName: ${e.getMessage}", e)
-          dynamoDbErrors.increment()
+          dynamodbErrors.increment()
           Thread.sleep(1000)
       }
     }
   }
 
-  def checkCapacity(
-    logger: Logger,
+  def syncCapacity(
     ddbClient: AmazonDynamoDB,
     tableName: String,
     desiredRead: Long,
@@ -229,7 +198,6 @@ trait DynamoOps {
   }
 
   def createTable(
-    logger: Logger,
     ddbClient: AmazonDynamoDB,
     tableName: String,
     desiredRead: Long,

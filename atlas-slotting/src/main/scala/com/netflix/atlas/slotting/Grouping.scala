@@ -15,81 +15,74 @@
  */
 package com.netflix.atlas.slotting
 
+import java.nio.ByteBuffer
+import java.time.Instant
+
 import com.amazonaws.services.autoscaling.model.AutoScalingGroup
 import com.amazonaws.services.autoscaling.model.{Instance => AsgInstance}
 import com.amazonaws.services.ec2.model.{Instance => Ec2Instance}
-import com.netflix.frigga.Names
+import com.netflix.atlas.json.Json
+import com.netflix.spectator.api.Counter
+import com.netflix.spectator.ipc.ServerGroup
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.collection.JavaConverters._
 
 case class AsgDetails(
+  name: String,
   cluster: String,
-  createdTime: java.util.Date,
+  createdTime: Instant,
   desiredCapacity: Int,
-  instances: List[AsgInstanceDetails],
   maxSize: Int,
   minSize: Int,
-  name: String,
+  instances: List[AsgInstanceDetails],
 )
 
 case class AsgInstanceDetails(
-  availabilityZone: String,
   instanceId: String,
+  availabilityZone: String,
   lifecycleState: String,
 )
 
 case class Ec2InstanceDetails(
+  privateIpAddress: String,
+  publicIpAddress: Option[String],
+  publicDnsName: Option[String],
+  launchTime: Instant,
   imageId: String,
   instanceType: String,
-  launchTime: java.util.Date,
-  privateIpAddress: String,
-  publicDnsName: String,
-  publicIpAddress: Option[String],
 )
 
 case class SlottedAsgDetails(
+  name: String,
   cluster: String,
-  createdTime: java.util.Date,
+  createdTime: Instant,
   desiredCapacity: Int,
-  instances: List[SlottedInstanceDetails],
   maxSize: Int,
   minSize: Int,
-  name: String,
-)
+  instances: List[SlottedInstanceDetails],
+) {
+  require(instances.size <= desiredCapacity, "instances.size > desiredCapacity")
+}
 
 case class SlottedInstanceDetails(
-  availabilityZone: String,
-  imageId: String,
   instanceId: String,
-  instanceType: String,
-  launchTime: java.util.Date,
-  lifecycleState: String,
   privateIpAddress: String,
-  publicDnsName: String,
   publicIpAddress: Option[String],
+  publicDnsName: Option[String],
   slot: Int,
+  launchTime: Instant,
+  imageId: String,
+  instanceType: String,
+  availabilityZone: String,
+  lifecycleState: String,
 )
 
 trait Grouping extends StrictLogging {
 
-  /** Instance state names that should be excluded during crawls.
-    *
-    * @param stateName
-    *     An Ec2 Model Instance state name.
-    * @return
-    *     Is the state name excluded from crawl results?
-    */
-  def excludedInstanceState(stateName: String): Boolean = {
-    Set(
-      "pending",
-      "shutting-down",
-      "terminating",
-      "terminated",
-    ).contains(stateName)
-  }
-
   /** Parse the app name from an AutoScalingGroup name.
+    *
+    * See https://github.com/Netflix/spectator/pull/551 for details.
     *
     * @param name
     *     An AutoScalingGroup name.
@@ -97,7 +90,20 @@ trait Grouping extends StrictLogging {
     *     An app name.
     */
   def getApp(name: String): String = {
-    Names.parseName(name).getApp
+    ServerGroup.parse(name).app
+  }
+
+  /** Parse the cluster name from an AutoScalingGroup name.
+    *
+    * See https://github.com/Netflix/spectator/pull/551 for details.
+    *
+    * @param name
+    *     An AutoScalingGroup name.
+    * @return
+    *     A cluster name.
+    */
+  def getCluster(name: String): String = {
+    ServerGroup.parse(name).cluster
   }
 
   /** Make a case class with details from an instance of an AutoScalingGroup.
@@ -109,13 +115,13 @@ trait Grouping extends StrictLogging {
     */
   def mkAsgDetails(asg: AutoScalingGroup): AsgDetails = {
     AsgDetails(
-      getApp(asg.getAutoScalingGroupName),
-      asg.getCreatedTime,
+      asg.getAutoScalingGroupName,
+      getCluster(asg.getAutoScalingGroupName),
+      asg.getCreatedTime.toInstant,
       asg.getDesiredCapacity,
-      mkAsgInstanceDetailsList(asg.getInstances),
       asg.getMaxSize,
       asg.getMinSize,
-      asg.getAutoScalingGroupName,
+      mkAsgInstanceDetailsList(asg.getInstances),
     )
   }
 
@@ -130,8 +136,8 @@ trait Grouping extends StrictLogging {
     instances.asScala.toList
       .map { i =>
         AsgInstanceDetails(
-          i.getAvailabilityZone,
           i.getInstanceId,
+          i.getAvailabilityZone,
           i.getLifecycleState,
         )
       }
@@ -146,12 +152,15 @@ trait Grouping extends StrictLogging {
     */
   def mkEc2InstanceDetails(instance: Ec2Instance): Ec2InstanceDetails = {
     Ec2InstanceDetails(
+      instance.getPrivateIpAddress,
+      Option(instance.getPublicIpAddress),
+      instance.getPublicDnsName match {
+        case ""      => None
+        case default => Some(default)
+      },
+      instance.getLaunchTime.toInstant,
       instance.getImageId,
       instance.getInstanceType,
-      instance.getLaunchTime,
-      instance.getPrivateIpAddress,
-      instance.getPublicDnsName,
-      Option(instance.getPublicIpAddress),
     )
   }
 
@@ -181,16 +190,16 @@ trait Grouping extends StrictLogging {
         val instance = instanceInfo(i.instanceId)
 
         SlottedInstanceDetails(
-          i.availabilityZone,
-          instance.imageId,
           i.instanceId,
-          instance.instanceType,
-          instance.launchTime,
-          i.lifecycleState,
           instance.privateIpAddress,
-          instance.publicDnsName,
           instance.publicIpAddress,
+          instance.publicDnsName,
           UNASSIGNED_SLOT,
+          instance.launchTime,
+          instance.imageId,
+          instance.instanceType,
+          i.availabilityZone,
+          i.lifecycleState,
         )
       }
   }
@@ -208,15 +217,44 @@ trait Grouping extends StrictLogging {
     newAsgDetails: AsgDetails,
     instanceInfo: Map[String, Ec2InstanceDetails]
   ): List[SlottedInstanceDetails] = {
-    val newInstances = mkSlottedInstanceDetailsList(newAsgDetails, instanceInfo)
-    var unusedSlots: IndexedSeq[Int] = newInstances.indices
-
-    newInstances
-      .map { i =>
-        val updatedSlot = unusedSlots.head
-        unusedSlots = unusedSlots.tail
-        i.copy(slot = updatedSlot)
+    mkSlottedInstanceDetailsList(newAsgDetails, instanceInfo).zipWithIndex
+      .map {
+        case (instance, slot) => instance.copy(slot = slot)
       }
+  }
+
+  /** Create a Gzip compressed JSON payload of ASG data with new slot numbers, for DynamoDB.
+    *
+    * Compression is necessary to ensure that the largest ASGs remain within the DynamoDB
+    * item size limit of 400KB, including attribute names and values. For the typical case,
+    * a 10:1 reduction in payload size has been observed with compression (1MB -> 94KB).
+    *
+    * The SlottedAsgDetails constructor can fail with an IllegalArgumentException when the
+    * number of instances exceeds the desired capacity of the ASG. This is intended as a
+    * double-check to keep the slot numbers stable for a statically-sized ASG.
+    *
+    * @param newAsgDetails
+    *   An AutoScalingGroup from a recent AWS API crawl, without slot numbers.
+    * @return
+    *   A Gzip compressed JSON payload of ASG data with new slot numbers, for DynamoDB.
+    */
+  def mkNewDataAssignSlots(
+    newAsgDetails: AsgDetails,
+    instanceInfo: Map[String, Ec2InstanceDetails]
+  ): ByteBuffer = {
+    Util.compress(
+      Json.encode(
+        SlottedAsgDetails(
+          newAsgDetails.name,
+          newAsgDetails.cluster,
+          newAsgDetails.createdTime,
+          newAsgDetails.desiredCapacity,
+          newAsgDetails.maxSize,
+          newAsgDetails.minSize,
+          assignSlots(newAsgDetails, instanceInfo),
+        )
+      )
+    )
   }
 
   /** Make a map of existing slot assignments, which will be merged with new instances.
@@ -237,6 +275,11 @@ trait Grouping extends StrictLogging {
     * If a slot number already exists for an instance, then reuse it. Otherwise, use the first
     * unassigned number, starting with 0.
     *
+    * If the number of instances in the ASG exceeds the desired capacity for any reason, this
+    * function will fail with a NoSuchElementException, rather than assign slots. This prevents
+    * the slot map from being disturbed in the event of inconsistent results from AWS or a bug
+    * in the Slotting Service code. The slot map update should be retried on the next iteration.
+    *
     * @param oldAsgDetails
     *     An AutoScalingGroup loaded from DynamoDB, with slot numbers.
     * @param newAsgDetails
@@ -251,31 +294,79 @@ trait Grouping extends StrictLogging {
     newAsgDetails: AsgDetails,
     instanceInfo: Map[String, Ec2InstanceDetails]
   ): List[SlottedInstanceDetails] = {
-    val slotMap = mkSlotMap(oldAsgDetails)
     val newInstances = mkSlottedInstanceDetailsList(newAsgDetails, instanceInfo)
 
-    val usedSlots: Set[Int] = newInstances
-      .map(_.instanceId)
-      .filter(slotMap.contains)
-      .map(slotMap)
-      .toSet
+    // get the old slot map and remove instances that are no longer present
+    val idSet = newInstances.map(_.instanceId).toSet
+    val oldSlotMap = mkSlotMap(oldAsgDetails).filterKeys(idSet.contains)
 
-    var unusedSlots: IndexedSeq[Int] = newInstances.indices
-      .filterNot(usedSlots.contains)
+    // create a new slot map, merging added instances into empty slots
+    val addedInstances = newInstances.filterNot(i => oldSlotMap.contains(i.instanceId))
+    val unusedSlots = (0 until newAsgDetails.desiredCapacity).toSet -- oldSlotMap.values
+    val newSlotMap = oldSlotMap ++ addedInstances.zip(unusedSlots).map {
+      case (i, slot) => i.instanceId -> slot
+    }
 
+    // update slots for the new instances and fail if the instances.size > desiredCapacity
     newInstances
       .map { i =>
-        val updatedSlot = slotMap.get(i.instanceId) match {
-          case Some(slot) =>
-            slot
-          case None =>
-            val slot = unusedSlots.head
-            unusedSlots = unusedSlots.tail
-            slot
-        }
-
-        i.copy(slot = updatedSlot)
+        i.copy(slot = newSlotMap(i.instanceId))
       }
-      .sortWith((a, b) => a.slot < b.slot)
+      .sortWith(_.slot < _.slot)
+  }
+
+  /** Create a Gzip compressed JSON payload of ASG data with merged slot numbers, for DynamoDB.
+    *
+    * Compression is necessary to ensure that the largest ASGs remain within the DynamoDB
+    * item size limit of 400KB, including attribute names and values. For the typical case,
+    * a 10:1 reduction in payload size has been observed with compression (1MB -> 94KB).
+    *
+    * The mergeSlots function can fail with a NoSuchElementException when the number of
+    * instances exceeds the desired capacity of the ASG. This is intended as a double-check
+    * to keep the slot numbers stable for a statically-sized ASG.
+    *
+    * The SlottedAsgDetails constructor can fail with an IllegalArgumentException when the
+    * number of instances exceeds the desired capacity of the ASG. This is intended as a
+    * double-check to keep the slot numbers stable for a statically-sized ASG.
+    *
+    * In both of these failure cases, return the old data. This will result in updating the
+    * timestamp of the existing item in DynamoDB, while allowing the main processing tasks to
+    * continue uninterrupted.
+    *
+    * @param oldData
+    *   A Gzip compressed JSON payload of old ASG data with slot numbers, from DynamoDB.
+    * @param newAsgDetails
+    *   An AutoScalingGroup from a recent AWS API crawl, without slot numbers.
+    * @return
+    *   A Gzip compressed JSON payload of ASG data with merged slot numbers, for DynamoDB.
+    */
+  def mkNewDataMergeSlots(
+    oldData: ByteBuffer,
+    newAsgDetails: AsgDetails,
+    instanceInfo: Map[String, Ec2InstanceDetails],
+    slotsErrors: Counter
+  ): ByteBuffer = {
+    val oldAsgDetails = Json.decode[SlottedAsgDetails](Util.decompress(oldData))
+
+    try {
+      Util.compress(
+        Json.encode(
+          SlottedAsgDetails(
+            newAsgDetails.name,
+            newAsgDetails.cluster,
+            newAsgDetails.createdTime,
+            newAsgDetails.desiredCapacity,
+            newAsgDetails.maxSize,
+            newAsgDetails.minSize,
+            mergeSlots(oldAsgDetails, newAsgDetails, instanceInfo),
+          )
+        )
+      )
+    } catch {
+      case e: Exception =>
+        logger.error(s"failed to merge slots ${newAsgDetails.name}: ${e.getMessage}")
+        slotsErrors.increment()
+        oldData
+    }
   }
 }

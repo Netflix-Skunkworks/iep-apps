@@ -56,7 +56,6 @@ lazy val `atlas-slotting` = project
       Dependencies.awsAutoScaling,
       Dependencies.awsDynamoDB,
       Dependencies.awsEC2,
-      Dependencies.frigga,
       Dependencies.iepGuice,
       Dependencies.iepModuleAdmin,
       Dependencies.iepModuleAws,

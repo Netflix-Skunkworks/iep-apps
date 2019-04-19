@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.atlas.slotting
+package com.netflix.atlas
 
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsRequest
 import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsResult
 import com.amazonaws.services.ec2.model.DescribeInstancesRequest
 import com.amazonaws.services.ec2.model.DescribeInstancesResult
 
-trait AwsTypes {
+package object slotting {
   type AsgReq = DescribeAutoScalingGroupsRequest
   type AsgRes = DescribeAutoScalingGroupsResult
 

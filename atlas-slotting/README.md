@@ -1,13 +1,17 @@
 ## Introduction
 
 Given a set of app names, the service periodically polls AWS AutoScalingGroups (ASGs) and AWS EC2
-Instances, so that it can assign slot numbers to the instances, from 0 to N. As instances in the
+Instances, so that it can assign slot numbers to the instances, from 0 to N-1. As instances in the
 ASG are replaced, they take over missing slot numbers on a first-come, first-served basis. To the
 extent that instances in the ASG remain stable, so will the slot numbers.
 
-Slotting information is used by Atlas in the consistent hashing scheme which divides data between
-nodes in large backend clusters. This information is one of the pre-requisites for running large
-Atlas clusters.
+The slotting service should only monitor apps with statically sized ASGs - it does not provide the
+necessary slot number stability when dynamic scaling is configured. A monitored app can be scaled
+up or down in size, as long as this is done through new ASG deployments.
+
+Slotting information is used by Atlas in the hashing scheme which divides data between nodes in
+large backend clusters. This information is one of the pre-requisites for running large Atlas
+deployments.
 
 DynamoDB is used for durable storage, so that slot numbers remain consistent between deployments
 of the slotting service and instance replacements that may occur. If a DynamoDB table does not
@@ -34,10 +38,13 @@ foo_webapp-main-canary-v042
    app   stack  detail  sequence
 ```
 
-[Frigga] is a Java library used by Spinnaker, Insight, and other teams for parsing names when
-needed. Look at this library for the authoritative rules on server group names.
+[Frigga] is a Java library used by Netflix for parsing ASG names into component parts and it
+defines the authoritative rules for server group names. For performing this string parsing, we
+use the Spectator IPC [ServerGroup] utility instead, which provides 274X more throughput, with
+159X fewer allocations, as compared to Frigga in micro-benchmarks.
 
 [frigga]: https://github.com/netflix/frigga
+[ServerGroup]: https://github.com/Netflix/spectator/pull/551
 
 ## Initial Synchronization
 
@@ -56,8 +63,7 @@ to assist with internal migration efforts at Netflix.
 * Review [application.conf](./src/main/resources/application.conf)
     * aws
         * Set the crawl interval and page size for autoScaling and ec2.
-    * dynamoDb
-        * Set the table name, read capacity and write capacity.
+        * Set the dynamodb table name, read capacity and write capacity.
     * slotting
         * Set the list of app names and the background thread intervals.
 
@@ -80,17 +86,17 @@ The following Atlas metrics are published:
         <td>id=asgs, instances
         <td>Time, in seconds, required to crawl the AWS collection
     <tr>
-        <td>dynamoDb.errors
+        <td>dynamodb.errors
         <td>--
         <td>Number of errors that have occurred during DynamoDB updates
     <tr>
-        <td>lastUpdate
+        <td>last.update
         <td>id=cache, janitor, slots
         <td>Time, in seconds, since the last cache update, janitor run or slot update
     <tr>
-        <td>slots.update
+        <td>slots.changed
         <td>asg=$ASG_NAME
-        <td>Number of ASGs where slots were updated
+        <td>Number of ASGs where slots were changed
 </table>
 
 ## API
@@ -119,7 +125,8 @@ The following Atlas metrics are published:
 ### Edda Compatibility
 
 This API is designed to ease the transition from using Edda for slotting data. Any matrix args and
-field selectors will be stripped from the request URL and standard payloads will be returned.
+field selectors will be stripped from the request URL and standard slotting service payloads will
+be returned.
 
 <table>
     <tr><th>Action <th>Specification
@@ -164,11 +171,5 @@ sbt "project atlas-slotting" run
 ```
 
 ```
-curl http://localhost:7101/healthcheck
+curl http://localhost:7101
 ```
-
-<script>
-    var stripMargin = document.querySelectorAll(".stripmargin");
-    stripMargin.forEach(p => p.textContent = p.textContent.replace(/^\s+\|/mg, ""))
-    document.body.removeAttribute('loading');
-</script>
