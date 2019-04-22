@@ -16,6 +16,7 @@
 package com.netflix.atlas.slotting
 
 import akka.http.scaladsl.model.HttpEntity
+import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCode
@@ -74,8 +75,8 @@ class SlottingApi @Inject()(slottingCache: SlottingCache) extends WebApi with St
       }
     } ~
     pathEndOrSingleSlash {
-      headerValueByName("Host") { host =>
-        complete(serviceDescription(host))
+      extractRequest { request =>
+        complete(serviceDescription(request))
       }
     }
   }
@@ -111,19 +112,22 @@ object SlottingApi {
     }
   }
 
-  def serviceDescription(host: String): HttpResponse = {
+  def serviceDescription(request: HttpRequest): HttpResponse = {
+    val scheme = request.uri.scheme
+    val host = request.headers.filter(_.name == "Host").map(_.value).head
+
     mkResponse(
       StatusCodes.OK,
       Map(
         "description" -> "Atlas Slotting Service",
         "endpoints" -> List(
-          s"http://$host/healthcheck",
-          s"http://$host/api/v1/autoScalingGroups",
-          s"http://$host/api/v1/autoScalingGroups?verbose=true",
-          s"http://$host/api/v1/autoScalingGroups/:name",
-          s"http://$host/api/v2/group/autoScalingGroups",
-          s"http://$host/api/v2/group/autoScalingGroups;_expand",
-          s"http://$host/api/v2/group/autoScalingGroups/:name",
+          s"$scheme://$host/healthcheck",
+          s"$scheme://$host/api/v1/autoScalingGroups",
+          s"$scheme://$host/api/v1/autoScalingGroups?verbose=true",
+          s"$scheme://$host/api/v1/autoScalingGroups/:name",
+          s"$scheme://$host/api/v2/group/autoScalingGroups",
+          s"$scheme://$host/api/v2/group/autoScalingGroups;_expand",
+          s"$scheme://$host/api/v2/group/autoScalingGroups/:name",
         )
       )
     )
