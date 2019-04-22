@@ -356,27 +356,36 @@ object DruidDatabaseActor {
   ): List[(Map[String, String], GroupByQuery)] = {
     val query = expr.query
     val metrics = metadata.datasources.flatMap { ds =>
-      ds.metrics.filter(query.couldMatch)
+      ds.metrics.filter(query.couldMatch).map { m =>
+        m -> ds.datasource.dimensions
+      }
     }
 
     val commonTags = exactTags(query)
 
-    val dimensions = getDimensions(expr)
-
     val intervals = List(toInterval(context))
-    metrics.map { m =>
-      val name = m("name")
-      val ds = m("nf.datasource")
-      val tags = commonTags ++ m
-      val groupByQuery = GroupByQuery(
-        dataSource = ds,
-        dimensions = dimensions,
-        intervals = intervals,
-        aggregations = List(toAggregation(name, expr)),
-        filter = DruidFilter.forQuery(query),
-        granularity = Granularity.millis(context.step)
-      )
-      tags -> groupByQuery
+    metrics.flatMap {
+      case (m, ds) =>
+        val name = m("name")
+        val datasource = m("nf.datasource")
+        val tags = commonTags ++ m
+
+        val simpleQuery = simplify(query, ds)
+        if (simpleQuery == Query.False) {
+          None
+        } else {
+          val dimensions = getDimensions(simpleQuery, expr.finalGrouping)
+
+          val groupByQuery = GroupByQuery(
+            dataSource = datasource,
+            dimensions = dimensions,
+            intervals = intervals,
+            aggregations = List(toAggregation(name, expr)),
+            filter = DruidFilter.forQuery(simpleQuery),
+            granularity = Granularity.millis(context.step)
+          )
+          Some(tags -> groupByQuery)
+        }
     }
   }
 
@@ -414,11 +423,28 @@ object DruidDatabaseActor {
   }
 
   def getDimensions(expr: DataExpr): List[DimensionSpec] = {
-    val query = expr.query
-    val keys = expr match {
-      case g: DataExpr.GroupBy => rangeKeys(query) ++ g.keys
-      case _                   => rangeKeys(query)
-    }
+    getDimensions(expr.query, expr.finalGrouping)
+  }
+
+  def getDimensions(query: Query, groupByKeys: List[String]): List[DimensionSpec] = {
+    val keys = rangeKeys(query) ++ groupByKeys
     keys.filterNot(isSpecial).map(k => toDimensionSpec(k, query)).toList
+  }
+
+  /**
+    * Simplify the query by mapping clauses for dimensions that are not present in the data source
+    * to false.
+    */
+  private def simplify(query: Query, ds: List[String]): Query = {
+    val simpleQuery = query match {
+      case Query.And(q1, q2)               => Query.And(simplify(q1, ds), simplify(q2, ds))
+      case Query.Or(q1, q2)                => Query.Or(simplify(q1, ds), simplify(q2, ds))
+      case Query.Not(q)                    => Query.Not(simplify(q, ds))
+      case q: KeyQuery if isSpecial(q.k)   => q
+      case q: KeyQuery if ds.contains(q.k) => q
+      case q: KeyQuery                     => Query.False
+      case q: Query                        => q
+    }
+    Query.simplify(simpleQuery)
   }
 }

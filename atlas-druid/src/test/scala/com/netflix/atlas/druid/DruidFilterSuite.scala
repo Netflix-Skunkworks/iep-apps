@@ -95,7 +95,7 @@ class DruidFilterSuite extends FunSuite {
 
   test("forQuery - :has") {
     val actual = DruidFilter.forQuery(eval("country,:has"))
-    val expected = Some(DruidFilter.JavaScript("country", "function(x) { return true; }"))
+    val expected = Some(DruidFilter.Not(DruidFilter.Equal("country", "")))
     assert(actual === expected)
   }
 
