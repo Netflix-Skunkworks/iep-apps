@@ -25,3 +25,6 @@ target
 .idea
 .idea_modules
 out
+
+# python virtualenv
+venv

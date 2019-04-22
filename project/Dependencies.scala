@@ -33,6 +33,7 @@ object Dependencies {
   val atlasModuleAkka    = "com.netflix.atlas_v1" %% "atlas-module-akka" % atlas
   val atlasModuleEval    = "com.netflix.atlas_v1" %% "atlas-module-eval" % atlas
   val atlasModuleWebApi  = "com.netflix.atlas_v1" %% "atlas-module-webapi" % atlas
+  val awsAutoScaling     = "com.amazonaws" % "aws-java-sdk-autoscaling" % aws
   val awsCloudWatch      = "com.amazonaws" % "aws-java-sdk-cloudwatch" % aws
   val awsCore            = "com.amazonaws" % "aws-java-sdk-core" % aws
   val awsDynamoDB        = "com.amazonaws" % "aws-java-sdk-dynamodb" % aws

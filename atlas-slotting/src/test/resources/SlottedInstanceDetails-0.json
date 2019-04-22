@@ -1,0 +1,10 @@
+{
+  "instanceId": "i-001",
+  "privateIpAddress": "192.168.1.1",
+  "slot": 0,
+  "launchTime": 1555430010290,
+  "imageId": "ami-001",
+  "instanceType": "r4.large",
+  "availabilityZone": "us-west-2b",
+  "lifecycleState": "InService"
+}
