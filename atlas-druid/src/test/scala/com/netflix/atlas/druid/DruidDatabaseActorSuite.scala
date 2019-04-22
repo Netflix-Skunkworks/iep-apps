@@ -270,4 +270,22 @@ class DruidDatabaseActorSuite extends FunSuite {
     assert(queries.map(_._1("name")).toSet === Set("m1", "m2", "m3"))
     assert(queries.map(_._1("nf.datasource")).toSet === Set("ds_1", "ds_2"))
   }
+
+  test("toDruidQueries: unknown dimensions") {
+    val expr = DataExpr.Sum(Query.HasKey("c"))
+    val queries = toDruidQueries(metadata, context, expr)
+
+    assert(queries.size === 2)
+    assert(queries.map(_._1("name")).toSet === Set("m1", "m3"))
+    assert(queries.map(_._1("nf.datasource")).toSet === Set("ds_2"))
+  }
+
+  test("toDruidQueries: unknown dimensions missing") {
+    val expr = DataExpr.Sum(Query.Not(Query.HasKey("c")))
+    val queries = toDruidQueries(metadata, context, expr)
+
+    assert(queries.size === 4)
+    assert(queries.map(_._1("name")).toSet === Set("m1", "m2", "m3"))
+    assert(queries.map(_._1("nf.datasource")).toSet === Set("ds_1", "ds_2"))
+  }
 }

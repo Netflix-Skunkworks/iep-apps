@@ -42,7 +42,7 @@ object DruidFilter {
       case Query.GreaterThanEqual(k, v) => js(k, ">=", v)
       case Query.LessThan(k, v)         => js(k, "<", v)
       case Query.LessThanEqual(k, v)    => js(k, "<=", v)
-      case Query.HasKey(k)              => JavaScript(k, "function(x) { return true; }")
+      case Query.HasKey(k)              => Not(Equal(k, "")) // druid: empty string is same as null
       case Query.Regex(k, v)            => Regex(k, s"^$v")
       case Query.RegexIgnoreCase(k, v)  => reic(k, v)
       case Query.And(q1, q2)            => And(List(toFilter(q1), toFilter(q2)))
