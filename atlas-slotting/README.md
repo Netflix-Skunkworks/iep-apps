@@ -75,28 +75,37 @@ The following Atlas metrics are published:
     <tr><th>Name <th>Tags <th>Description
     <tr>
         <td>crawl.count
-        <td>id=asgs, instances
-        <td>Number of matching items crawled in the AWS collection
+        <td>id=&lt;asgs, instances&gt;
+        <td>Number of asgs matching defined appNames or running instances crawled in AWS collections
     <tr>
         <td>crawl.errors
-        <td>id=asgs, instances
-        <td>Number of errors that occurred during collection crawls   
+        <td>id=&lt;asgs, instances&gt;
+        <td>Number of errors that occurred during AWS collection crawls
     <tr>
         <td>crawl.timer
-        <td>id=asgs, instances
+        <td>id=&lt;asgs, instances&gt;
         <td>Time, in seconds, required to crawl the AWS collection
+    <tr>
+        <td>deleted.count
+        <td>--
+        <td>Number of items deleted from the DynamoDB table by the janitor task
     <tr>
         <td>dynamodb.errors
         <td>--
         <td>Number of errors that have occurred during DynamoDB updates
     <tr>
         <td>last.update
-        <td>id=cache, janitor, slots
-        <td>Time, in seconds, since the last cache update, janitor run or slot update
+        <td>id=&lt;asgs, cache, instances, janitor, slots&gt;
+        <td>Time, in seconds, since the last asgs crawl, cache update, instances crawl, janitor run
+        or slots update
     <tr>
         <td>slots.changed
         <td>asg=$ASG_NAME
         <td>Number of ASGs where slots were changed
+    <tr>
+        <td>slots.errors
+        <td>asg=$ASG_NAME
+        <td>Number of ASGs where slot assignments failed validation checks
 </table>
 
 ## API

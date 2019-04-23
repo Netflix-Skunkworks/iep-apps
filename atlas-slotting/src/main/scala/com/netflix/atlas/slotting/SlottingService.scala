@@ -98,13 +98,18 @@ class SlottingService @Inject()(
       }
 
       logger.info(s"crawled ${asgs.size} asgs in ${fmtTime(elapsed)}")
-      crawlAsgsCount.increment(asgs.size)
       lastUpdateAsgs.set(clock.wallTime())
     }
 
     if (allDataAvailable) updateSlots()
   }
 
+  /** Crawl ASGs and return a map of asgName -> AsgDetails, for defined appNames.
+    *
+    * Count the ASGs here, to avoid data consistency issues with publishing the count
+    * on the minute boundary when the task runs.
+    *
+    */
   def crawlAutoScalingGroups(
     pageSize: Int,
     includedApps: Set[String]
@@ -118,6 +123,7 @@ class SlottingService @Inject()(
       .asScala
       .flatMap(_.getAutoScalingGroups.asScala)
       .filter(asg => includedApps.contains(getApp(asg.getAutoScalingGroupName)))
+      .map(asg => { crawlAsgsCount.increment(); asg })
       .map(asg => asg.getAutoScalingGroupName -> mkAsgDetails(asg))
       .toMap
   }
@@ -157,7 +163,6 @@ class SlottingService @Inject()(
       }
 
       logger.info(s"crawled ${instanceInfo.size} instances in ${fmtTime(elapsed)}")
-      crawlInstancesCount.increment(instanceInfo.size)
       lastUpdateInstances.set(clock.wallTime())
     }
 
@@ -171,6 +176,9 @@ class SlottingService @Inject()(
     *
     * See [[com.amazonaws.services.ec2.model.InstanceStateName]] for a list of possible states.
     *
+    * Count the instances here, to avoid data consistency issues with publishing the count
+    * on the minute boundary when the task runs.
+    *
     */
   def crawlInstances(pageSize: Int): Map[String, Ec2InstanceDetails] = {
     val request: DescribeInstancesRequest =
@@ -183,6 +191,7 @@ class SlottingService @Inject()(
       .flatMap(_.getReservations.asScala)
       .flatMap(_.getInstances.asScala)
       .filter(_.getState.getName == "running")
+      .map(i => { crawlInstancesCount.increment(); i })
       .map(i => i.getInstanceId -> mkEc2InstanceDetails(i))
       .toMap
   }
@@ -209,6 +218,8 @@ class SlottingService @Inject()(
     slottingCache.asgs = updatedAsgs
     lastUpdateCache.set(clock.wallTime())
   }
+
+  private val deletedCount = registry.counter("deleted.count")
 
   private val lastUpdateJanitor = PolledMeter
     .using(registry)
@@ -238,6 +249,7 @@ class SlottingService @Inject()(
     }
 
     logger.info(s"removed $count items older than $cutoffInterval from table $tableName")
+    deletedCount.increment(count)
     lastUpdateJanitor.set(clock.wallTime())
   }
 
@@ -303,8 +315,8 @@ class SlottingService @Inject()(
     instanceInfoAvailable = false
   }
 
-  private val slotsChanged = registry.createId("slots.changed")
-  private val slotsErrors = registry.counter("slots.errors")
+  private val slotsChangedId = registry.createId("slots.changed")
+  private val slotsErrorsId = registry.createId("slots.errors")
 
   def updateItem(
     name: String,
@@ -312,7 +324,9 @@ class SlottingService @Inject()(
     newAsgDetails: AsgDetails
   ): Unit = {
     val oldData = item.getByteBuffer("data")
+    val slotsErrors = registry.counter(slotsErrorsId.withTag("asg", name))
     val newData = mkNewDataMergeSlots(oldData, newAsgDetails, instanceInfo, slotsErrors)
+
     val table = dynamodb.getTable(tableName)
 
     try {
@@ -322,7 +336,7 @@ class SlottingService @Inject()(
       } else {
         logger.info(s"merge slots for asg $name")
         table.updateItem(updateAsgItemSpec(name, oldData, newData))
-        registry.counter(slotsChanged.withTag("asg", name)).increment()
+        registry.counter(slotsChangedId.withTag("asg", name)).increment()
       }
     } catch {
       case e: Exception =>
@@ -354,11 +368,11 @@ class SlottingService @Inject()(
 
       logger.info(s"assign slots for asg $name")
       table.putItem(newAsgItem(name, newData))
-      registry.counter(slotsChanged.withTag("asg", name)).increment()
+      registry.counter(slotsChangedId.withTag("asg", name)).increment()
     } catch {
       case e: IllegalArgumentException =>
         logger.error(s"failed to assign slots, not updating item $name: ${e.getMessage}")
-        slotsErrors.increment()
+        registry.counter(slotsErrorsId.withTag("asg", name)).increment()
       case e: Exception =>
         logger.error(s"failed to update item $name: ${e.getMessage}")
         dynamodbErrors.increment()
