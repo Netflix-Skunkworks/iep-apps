@@ -19,11 +19,23 @@ import java.nio.ByteBuffer
 import java.time.Duration
 import java.util.concurrent.ScheduledFuture
 
+import com.netflix.iep.NetflixEnvironment
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.impl.Scheduler
+import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
 object Util extends StrictLogging {
+
+  def getLongOrDefault(config: Config, basePath: String): Long = {
+    val env = NetflixEnvironment.accountEnv()
+    val region = NetflixEnvironment.region()
+
+    if (config.hasPath(s"$basePath.$env.$region"))
+      config.getLong(s"$basePath.$env.$region")
+    else
+      config.getLong(s"$basePath.default")
+  }
 
   def compress(s: String): ByteBuffer = {
     ByteBuffer.wrap(Gzip.compressString(s))
