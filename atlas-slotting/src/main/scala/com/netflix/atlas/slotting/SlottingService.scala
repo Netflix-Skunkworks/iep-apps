@@ -254,8 +254,8 @@ class SlottingService @Inject()(
   }
 
   override def startImpl(): Unit = {
-    val desiredRead = config.getLong("aws.dynamodb.read-capacity")
-    val desiredWrite = config.getLong("aws.dynamodb.write-capacity")
+    val desiredRead = Util.getLongOrDefault(config, "aws.dynamodb.read-capacity")
+    val desiredWrite = Util.getLongOrDefault(config, "aws.dynamodb.write-capacity")
 
     initTable(ddbClient, tableName, desiredRead, desiredWrite, dynamodbErrors)
 
@@ -332,7 +332,7 @@ class SlottingService @Inject()(
     try {
       if (newData == oldData) {
         logger.debug(s"update timestamp for asg $name")
-        table.updateItem(updateTimestampItemSpec(name, oldData))
+        table.updateItem(updateTimestampItemSpec(name, item.getLong("timestamp")))
       } else {
         logger.info(s"merge slots for asg $name")
         table.updateItem(updateAsgItemSpec(name, oldData, newData))
@@ -348,12 +348,11 @@ class SlottingService @Inject()(
   }
 
   def deactivateItem(name: String, item: Item): Unit = {
-    val oldData = item.getByteBuffer("data")
     val table = dynamodb.getTable(tableName)
 
     try {
       logger.info(s"deactivate asg $name")
-      table.updateItem(deactivateAsgItemSpec(name, oldData))
+      table.updateItem(deactivateAsgItemSpec(name))
     } catch {
       case e: Exception =>
         logger.error(s"failed to update item $name: ${e.getMessage}")

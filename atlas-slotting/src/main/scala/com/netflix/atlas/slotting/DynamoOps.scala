@@ -101,39 +101,37 @@ trait DynamoOps extends StrictLogging {
       .withValueMap(valueMap)
   }
 
-  def updateTimestampItemSpec(name: String, oldData: ByteBuffer): UpdateItemSpec = {
+  def updateTimestampItemSpec(name: String, oldTimestamp: Long): UpdateItemSpec = {
     val nameMap = new NameMap()
-      .`with`("#d", Data)
       .`with`("#a", Active)
       .`with`("#t", Timestamp)
 
     val valueMap = new ValueMap()
-      .withBinary(":v1", Util.toByteArray(oldData))
+      .withLong(":v1", oldTimestamp)
       .withBoolean(":v2", true)
       .withLong(":v3", System.currentTimeMillis)
 
     new UpdateItemSpec()
       .withPrimaryKey(Name, name)
-      .withConditionExpression("#d = :v1")
+      .withConditionExpression("#t = :v1")
       .withUpdateExpression("set #a = :v2, #t = :v3")
       .withNameMap(nameMap)
       .withValueMap(valueMap)
   }
 
-  def deactivateAsgItemSpec(name: String, oldData: ByteBuffer): UpdateItemSpec = {
+  def deactivateAsgItemSpec(name: String): UpdateItemSpec = {
     val nameMap = new NameMap()
-      .`with`("#d", Data)
       .`with`("#a", Active)
       .`with`("#t", Timestamp)
 
     val valueMap = new ValueMap()
-      .withBinary(":v1", Util.toByteArray(oldData))
+      .withBoolean(":v1", true)
       .withBoolean(":v2", false)
       .withLong(":v3", System.currentTimeMillis)
 
     new UpdateItemSpec()
       .withPrimaryKey(Name, name)
-      .withConditionExpression("#d = :v1")
+      .withConditionExpression("#a = :v1")
       .withUpdateExpression("set #a = :v2, #t = :v3")
       .withNameMap(nameMap)
       .withValueMap(valueMap)

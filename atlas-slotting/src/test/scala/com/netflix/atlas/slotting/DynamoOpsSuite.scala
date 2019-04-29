@@ -66,18 +66,16 @@ class DynamoOpsSuite extends FunSuite with DynamoOps {
   }
 
   test("update timestamp spec") {
-    val oldData = mkByteBuffer("""{"name": "atlas_app-main-all-v001", "desiredCapacity": 3}""")
-    val updateSpec = updateTimestampItemSpec("atlas_app-main-all-v001", oldData)
-    assert(updateSpec.getConditionExpression === "#d = :v1")
+    val updateSpec = updateTimestampItemSpec("atlas_app-main-all-v001", 1556568270713L)
+    assert(updateSpec.getConditionExpression === "#t = :v1")
     assert(updateSpec.getUpdateExpression === s"set #a = :v2, #t = :v3")
-    assert(updateSpec.getNameMap.toString === s"{#d=data, #a=$Active, #t=$Timestamp}")
+    assert(updateSpec.getNameMap.toString === s"{#a=$Active, #t=$Timestamp}")
   }
 
   test("deactivate asg spec") {
-    val oldData = mkByteBuffer("""{"name": "atlas_app-main-all-v001", "desiredCapacity": 3}""")
-    val updateSpec = deactivateAsgItemSpec("atlas_app-main-all-v001", oldData)
-    assert(updateSpec.getConditionExpression === "#d = :v1")
+    val updateSpec = deactivateAsgItemSpec("atlas_app-main-all-v001")
+    assert(updateSpec.getConditionExpression === "#a = :v1")
     assert(updateSpec.getUpdateExpression === s"set #a = :v2, #t = :v3")
-    assert(updateSpec.getNameMap.toString === s"{#d=data, #a=$Active, #t=$Timestamp}")
+    assert(updateSpec.getNameMap.toString === s"{#a=$Active, #t=$Timestamp}")
   }
 }
