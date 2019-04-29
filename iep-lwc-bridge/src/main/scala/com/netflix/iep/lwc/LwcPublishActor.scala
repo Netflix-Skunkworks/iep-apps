@@ -77,16 +77,16 @@ class LwcPublishActor(config: Config, registry: Registry, evaluator: Expressions
   // response should come from the publish endpoint with the response here merely acknowledging
   // receipt. For now to avoid spurious retries and confusion this response is always OK.
   def receive: Receive = {
-    case req @ PublishRequest(_, Nil, Nil, _, _) =>
+    case req @ PublishRequest(Nil, Nil, _, _) =>
       req.complete(DiagnosticMessage.error(StatusCodes.OK, "empty payload"))
-    case req @ PublishRequest(_, Nil, failures, _, _) =>
+    case req @ PublishRequest(Nil, failures, _, _) =>
       updateStats(failures)
       val msg = FailureMessage.error(failures)
       sendError(req, StatusCodes.OK, msg)
-    case req @ PublishRequest(_, values, Nil, _, _) =>
+    case req @ PublishRequest(values, Nil, _, _) =>
       process(values)
       req.complete(HttpResponse(StatusCodes.OK))
-    case req @ PublishRequest(_, values, failures, _, _) =>
+    case req @ PublishRequest(values, failures, _, _) =>
       process(values)
       updateStats(failures)
       val msg = FailureMessage.partial(failures)
