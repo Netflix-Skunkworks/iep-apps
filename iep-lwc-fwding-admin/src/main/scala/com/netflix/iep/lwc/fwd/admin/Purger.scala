@@ -149,6 +149,12 @@ object PurgerImpl extends StrictLogging {
           result
       }
       .collect { case Success(r) => r }
+      .via(StreamOps.map { (r, mat) =>
+        if (r.status != StatusCodes.OK) {
+          r.discardEntityBytes()(mat)
+        }
+        r
+      })
       .filter(_.status == StatusCodes.OK)
       .flatMapConcat(r => r.entity.dataBytes)
       .map { d =>

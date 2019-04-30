@@ -29,6 +29,7 @@ class AppModule extends AbstractModule {
     bind(classOf[MarkerService]).to(classOf[MarkerServiceImpl])
     bind(classOf[Purger]).to(classOf[PurgerImpl])
     bind(classOf[ExpressionDetailsDao]).to(classOf[ExpressionDetailsDaoImpl])
+    bind(classOf[ScalingPoliciesDao]).to(classOf[ScalingPoliciesDaoImpl])
   }
 
   // Visibility of protected to avoid unused method warning from scala compiler

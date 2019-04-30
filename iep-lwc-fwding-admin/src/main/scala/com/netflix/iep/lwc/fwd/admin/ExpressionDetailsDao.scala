@@ -21,7 +21,6 @@ import com.amazonaws.services.dynamodbv2.document.Item
 import com.amazonaws.services.dynamodbv2.document.PrimaryKey
 import com.amazonaws.services.dynamodbv2.document.spec.ScanSpec
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
-import com.fasterxml.jackson.databind.JsonNode
 import com.netflix.atlas.json.Json
 import com.netflix.iep.lwc.fwd.cw._
 import com.typesafe.config.Config
@@ -56,17 +55,13 @@ class ExpressionDetailsDaoImpl @Inject()(
         .withNumber(Timestamp, exprDetails.timestamp)
         .withMap(Events, exprDetails.events.asJava)
 
-    exprDetails.fwdMetricInfo.map { m =>
-      item = item.withString(FwdMetricInfoAttr, Json.encode(m))
-    }
+    item = item.withString(ForwardedMetrics, Json.encode(exprDetails.forwardedMetrics))
 
     exprDetails.error.map { e =>
       item = item.withString(Error, Json.encode(e))
     }
 
-    exprDetails.scalingPolicy.map { s =>
-      item = item.withString(ScalingPolicy, Json.encode(s))
-    }
+    item = item.withString(ScalingPoliciesAttr, Json.encode(exprDetails.scalingPolicies))
 
     table.putItem(item)
   }
@@ -77,12 +72,12 @@ class ExpressionDetailsDaoImpl @Inject()(
       new ExpressionDetails(
         id,
         i.getNumber(Timestamp).longValue(),
-        Option(i.getString(FwdMetricInfoAttr)).map(Json.decode[FwdMetricInfo](_)),
+        Json.decode[List[FwdMetricInfo]](i.getString(ForwardedMetrics)),
         Option(i.getString(Error)).map(Json.decode[Throwable](_)),
         i.getMap[java.math.BigDecimal](Events).asScala.toMap.map {
           case (k, v) => (k, BigDecimal(v).toLong)
         },
-        Option(i.getString(ScalingPolicy)).map(Json.decode[JsonNode](_))
+        Json.decode[List[ScalingPolicy]](i.getString(ScalingPoliciesAttr))
       )
     }
   }
@@ -145,10 +140,10 @@ class ExpressionDetailsDaoImpl @Inject()(
 case class ExpressionDetails(
   expressionId: ExpressionId,
   timestamp: Long,
-  fwdMetricInfo: Option[FwdMetricInfo],
+  forwardedMetrics: List[FwdMetricInfo],
   error: Option[Throwable],
   events: Map[String, Long],
-  scalingPolicy: Option[JsonNode]
+  scalingPolicies: List[ScalingPolicy]
 ) {
   import ExpressionDetails._
 
@@ -160,19 +155,22 @@ case class ExpressionDetails(
   }
 }
 
+case class ScalingPolicyStatus(
+  unknown: Boolean,
+  scalingPolicy: Option[ScalingPolicy]
+)
+
 object ExpressionDetails {
   val TableName = "iep.lwc.fwd.cw.ExpressionDetails"
 
   val ExpressionIdAttr = "ExpressionId"
   val Timestamp = "Timestamp"
-  val FwdMetricInfoAttr = "FwdMetricInfo"
+  val ForwardedMetrics = "ForwardedMetrics"
   val Error = "Error"
   val Events = "Events"
-  val ScalingPolicy = "ScalingPolicy"
+  val ScalingPoliciesAttr = "ScalingPolicies"
 
   val NoDataFoundEvent = "NoDataFoundEvent"
   val NoScalingPolicyFoundEvent = "NoScalingPolicyFoundEvent"
   val PurgeMarkerEvents = List(NoDataFoundEvent, NoScalingPolicyFoundEvent)
 }
-
-case class VersionMismatchException() extends Exception

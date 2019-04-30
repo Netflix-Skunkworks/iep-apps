@@ -15,12 +15,16 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
+import java.util.concurrent.TimeoutException
+
 import akka.NotUsed
+import akka.actor.ActorSelection
 import akka.actor.ActorSystem
 import akka.stream._
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.Sink
+import akka.stream.scaladsl.Source
 import com.netflix.atlas.akka.StreamOps
 import com.netflix.atlas.akka.StreamOps.SourceQueue
 import com.netflix.iep.aws.AwsClientFactory
@@ -35,6 +39,12 @@ import javax.inject.Inject
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
+import akka.pattern.ask
+import akka.util.Timeout
+
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
+import scala.concurrent.duration._
 
 trait MarkerService {
   var queue: SourceQueue[Report]
@@ -53,17 +63,31 @@ class MarkerServiceImpl @Inject()(
   import MarkerServiceImpl._
 
   private implicit val mat = ActorMaterializer()
+  private implicit val ec = scala.concurrent.ExecutionContext.global
   private var killSwitch: KillSwitch = _
 
   override var queue: SourceQueue[Report] = _
 
   override def startImpl(): Unit = {
     val sizeLimit = config.getInt("iep.lwc.fwding-admin.queue-size-limit")
+    val scalingPolicies = system.actorSelection("/user/scalingPolicies")
 
     val (q, k) = StreamOps
       .blockingQueue[Report](registry, "fwdingAdminCwReports", sizeLimit)
-      .via(readExprDetails(expressionDetailsDao))
-      .map { case (r, e) => toExprDetails(r, e) }
+      .flatMapConcat { r =>
+        Source
+          .single(r)
+          .via(readExprDetails(expressionDetailsDao))
+          .map(e => (r, e))
+      }
+      .flatMapConcat {
+        case (r, e) =>
+          Source
+            .single(r)
+            .via(lookupScalingPolicy(scalingPolicies))
+            .map(s => (r, s, e))
+      }
+      .map { case (r, s, e) => toExprDetails(r, s, e) }
       .via(saveExprDetails(expressionDetailsDao))
       .viaMat(KillSwitches.single)(Keep.both)
       .toMat(Sink.ignore)(Keep.left)
@@ -84,9 +108,32 @@ object MarkerServiceImpl extends StrictLogging {
 
   val BlockingDispatcher = "blocking-dispatcher"
 
+  def lookupScalingPolicy(
+    scalingPolicies: ActorSelection
+  )(implicit ec: ExecutionContext): Flow[Report, ScalingPolicyStatus, NotUsed] = {
+    import ScalingPolicies._
+    implicit val askTimeout = Timeout(15.seconds)
+
+    Flow[Report]
+      .mapAsync(1) { r =>
+        r.metric
+          .map { metricInfo =>
+            (scalingPolicies ? GetScalingPolicy(metricInfo))
+              .mapTo[Option[ScalingPolicy]]
+              .map(ScalingPolicyStatus(false, _))
+              .recover {
+                case _: TimeoutException =>
+                  logger.error(s"Looking up scaling policy timed out for $metricInfo")
+                  ScalingPolicyStatus(true, None)
+              }
+          }
+          .getOrElse(Future(ScalingPolicyStatus(true, None)))
+      }
+  }
+
   def readExprDetails(
     expressionDetailsDao: ExpressionDetailsDao
-  ): Flow[Report, (Report, Option[ExpressionDetails]), NotUsed] = {
+  ): Flow[Report, Option[ExpressionDetails], NotUsed] = {
 
     def read(id: ExpressionId): Try[Option[ExpressionDetails]] = {
       val result = Try(expressionDetailsDao.read(id))
@@ -99,13 +146,14 @@ object MarkerServiceImpl extends StrictLogging {
     }
 
     Flow[Report]
-      .map(r => (r, read(r.id)))
+      .map(r => read(r.id))
       .withAttributes(ActorAttributes.dispatcher(BlockingDispatcher))
-      .collect { case (r, Success(ed)) => (r, ed) }
+      .collect { case Success(ed) => ed }
   }
 
   def toExprDetails(
     report: Report,
+    scalingPolicyStatus: ScalingPolicyStatus,
     prevExprDetails: Option[ExpressionDetails]
   ): ExpressionDetails = {
     import ExpressionDetails._
@@ -120,16 +168,36 @@ object MarkerServiceImpl extends StrictLogging {
         )
       )
 
-    val noScalingPolicyFoundEvent = Map.empty[String, Long]
+    val noScalingPolicyFoundEvent =
+      if (scalingPolicyStatus.unknown || scalingPolicyStatus.scalingPolicy.isDefined) {
+        Map.empty[String, Long]
+      } else {
+        Map(
+          NoScalingPolicyFoundEvent -> prevExprDetails
+            .flatMap(_.events.get(NoScalingPolicyFoundEvent))
+            .getOrElse(report.timestamp)
+        )
+      }
 
     ExpressionDetails(
       report.id,
       report.timestamp,
-      report.metric,
+      addOrMake(report.metric, prevExprDetails, _.forwardedMetrics),
       report.error,
       noDataFoundEvent ++ noScalingPolicyFoundEvent,
-      None
+      addOrMake(scalingPolicyStatus.scalingPolicy, prevExprDetails, _.scalingPolicies)
     )
+  }
+
+  def addOrMake[T](
+    item: Option[T],
+    prev: Option[ExpressionDetails],
+    getList: ExpressionDetails => List[T]
+  ): List[T] = {
+    val prevItems = prev.fold(List.empty[T])(getList)
+    item.foldLeft(prevItems) { (items, i) =>
+      (i :: items).distinct
+    }
   }
 
   def saveExprDetails(
