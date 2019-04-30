@@ -48,18 +48,18 @@ class PurgerSuite extends FunSuite {
       ExpressionDetails(
         ExpressionId("cluster1", ForwardingExpression("", "", None, "")),
         1552891811000L,
-        None,
+        Nil,
         None,
         Map(NoDataFoundEvent -> (1552891811000L - 11.minutes.toMillis)),
-        None
+        Nil
       ),
       ExpressionDetails(
         ExpressionId("cluster2", ForwardingExpression("", "", None, "")),
         1552891811000L,
-        None,
+        Nil,
         None,
         Map.empty[String, Long],
-        None
+        Nil
       )
     )
 
@@ -158,10 +158,10 @@ class PurgerSuite extends FunSuite {
       ExpressionDetails(
         ExpressionId("cluster1", expressions.find(_.atlasUri == "uri1").get),
         1552891811000L,
-        None,
+        Nil,
         None,
         Map(NoDataFoundEvent -> (now - 11.minutes.toMillis)),
-        None
+        Nil
       )
     )
 
@@ -218,10 +218,10 @@ class PurgerSuite extends FunSuite {
     val ed = ExpressionDetails(
       ExpressionId("", ForwardingExpression("", "", None, "", Nil)),
       1552891811000L,
-      None,
+      Nil,
       None,
       Map.empty[String, Long],
-      None
+      Nil
     )
 
     val future = Source

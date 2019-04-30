@@ -64,7 +64,7 @@ class ExpressionDetailsDaoSuite extends FunSuite with BeforeAndAfter with Strict
         """
           | http://localhost/api/v1/graph?q=
           |  nf.app,foo_app1,:eq,
-          |  name,nodejs.cpuUsage,:eq,:and,
+          |  name,metric1,:eq,:and,
           |  :node-avg,
           |  (,nf.account,nf.asg,),:by
         """.stripMargin
@@ -72,7 +72,7 @@ class ExpressionDetailsDaoSuite extends FunSuite with BeforeAndAfter with Strict
           .replace("\n", ""),
         "$(nf.account)",
         Some("us-east-1"),
-        "nodejs.cpuUsage",
+        "metric1",
         List(
           ForwardingDimension(
             "AutoScalingGroup",
@@ -85,17 +85,17 @@ class ExpressionDetailsDaoSuite extends FunSuite with BeforeAndAfter with Strict
     val exprDetails = new ExpressionDetails(
       id,
       1551820461000L,
-      Some(
+      List(
         FwdMetricInfo(
           "us-east-1",
           "1234",
-          "nodejs.cpuUsage",
+          "metric1",
           Map("AutoScalingGroup" -> "asg1-v00")
         )
       ),
       None,
       Map.empty[String, Long],
-      None
+      List(ScalingPolicy("ec2Policy1", ScalingPolicy.Ec2, "metric1", Nil))
     )
 
     dao.save(exprDetails)
@@ -114,18 +114,18 @@ class ExpressionDetailsDaoSuite extends FunSuite with BeforeAndAfter with Strict
       new ExpressionDetails(
         id.copy(key = "config2"),
         reportTs,
-        None,
+        Nil,
         None,
         Map.empty[String, Long],
-        None
+        Nil
       ),
       new ExpressionDetails(
         id.copy(key = "config3"),
         reportTs,
-        None,
+        Nil,
         None,
         Map(NoDataFoundEvent -> reportTs),
-        None
+        Nil
       )
     )
 
@@ -152,13 +152,13 @@ class ExpressionDetailsSuite extends FunSuite with StrictLogging {
     val ed = new ExpressionDetails(
       ExpressionId("config1", ForwardingExpression("", "", None, "", Nil)),
       reportTs,
-      None,
+      Nil,
       None,
       Map(
         NoDataFoundEvent          -> reportTs,
         NoScalingPolicyFoundEvent -> timestampThen
       ),
-      None
+      Nil
     )
 
     val actual = ed.isPurgeEligible(timestampThen, 10.minutes.toMillis)
@@ -173,10 +173,10 @@ class ExpressionDetailsSuite extends FunSuite with StrictLogging {
     val ed = new ExpressionDetails(
       ExpressionId("config1", ForwardingExpression("", "", None, "", Nil)),
       reportTs,
-      None,
+      Nil,
       None,
       Map("foo" -> reportTs),
-      None
+      Nil
     )
 
     val actual = ed.isPurgeEligible(timestampThen, 10.minutes.toMillis)
@@ -191,10 +191,10 @@ class ExpressionDetailsSuite extends FunSuite with StrictLogging {
     val ed = new ExpressionDetails(
       ExpressionId("config1", ForwardingExpression("", "", None, "", Nil)),
       reportTs,
-      None,
+      Nil,
       None,
       Map.empty[String, Long],
-      None
+      Nil
     )
 
     val actual = ed.isPurgeEligible(timestampThen, 10.minutes.toMillis)

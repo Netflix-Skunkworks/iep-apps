@@ -163,6 +163,7 @@ lazy val `iep-lwc-cloudwatch` = project
     Dependencies.iepGuice,
     Dependencies.iepModuleAtlas,
     Dependencies.iepModuleAws,
+    Dependencies.iepNflxEnv,
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,
