@@ -4,18 +4,18 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val akka       = "2.5.20"
-    val akkaHttpV  = "10.1.7"
-    val atlas      = "1.6.0-SNAPSHOT"
-    val aws        = "1.11.482"
-    val iep        = "1.2.10"
+    val akka       = "2.5.22"
+    val akkaHttpV  = "10.1.8"
+    val atlas      = "1.6.0"
+    val aws        = "1.11.534"
+    val iep        = "2.0.3"
     val guice      = "4.1.0"
     val jackson    = "2.9.8"
-    val log4j      = "2.11.1"
+    val log4j      = "2.11.2"
     val scala      = "2.12.8"
     val servo      = "0.12.25"
-    val slf4j      = "1.7.25"
-    val spectator  = "0.83.0"
+    val slf4j      = "1.7.26"
+    val spectator  = "0.91.0"
 
     val crossScala = Seq(scala)
   }
@@ -76,7 +76,7 @@ object Dependencies {
   val scalaLibraryAll    = "org.scala-lang" % "scala-library-all" % scala
   val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
   val scalaReflect       = "org.scala-lang" % "scala-reflect" % scala
-  val scalatest          = "org.scalatest" %% "scalatest" % "3.0.5"
+  val scalatest          = "org.scalatest" %% "scalatest" % "3.0.7"
   val servoCore          = "com.netflix.servo" % "servo-core" % servo
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
   val slf4jLog4j         = "org.slf4j" % "slf4j-log4j12" % slf4j
@@ -86,7 +86,7 @@ object Dependencies {
   val spectatorLog4j     = "com.netflix.spectator" % "spectator-ext-log4j2" % spectator
   val spectatorM2        = "com.netflix.spectator" % "spectator-reg-metrics2" % spectator
   val spectatorSandbox   = "com.netflix.spectator" % "spectator-ext-sandbox" % spectator
-  val typesafeConfig     = "com.typesafe" % "config" % "1.3.3"
+  val typesafeConfig     = "com.typesafe" % "config" % "1.3.4"
 }
 
 // format: on
