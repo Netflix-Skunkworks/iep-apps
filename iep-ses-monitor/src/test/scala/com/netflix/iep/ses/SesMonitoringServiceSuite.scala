@@ -577,10 +577,11 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
       """.stripMargin
 
     var loggerCalled = false
+    var notificationBody = ""
 
     setup(new NoopRegistry(), message => {
-      message shouldEqual bounceNotification
       loggerCalled = true
+      notificationBody = message
     })
 
     val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
@@ -596,6 +597,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     )
 
     loggerCalled shouldEqual true
+    notificationBody shouldEqual bounceNotification
   }
 
   test(
