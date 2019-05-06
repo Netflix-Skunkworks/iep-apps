@@ -216,8 +216,8 @@ class SesMonitoringService @Inject()(
 
     val commonTags = Vector(
       new BasicTag(notificationTypeKey, notificationTypeValue),
-      new BasicTag("sourceEmail", sourceEmailLimiter(sourceEmail)),
-      new BasicTag("sendingAccountId", sendingAccountId)
+      new BasicTag("sendingAccountId", sendingAccountId),
+      new BasicTag("sourceEmail", sourceEmailLimiter(sourceEmail))
     )
 
     notificationTypeValue match {
