@@ -84,6 +84,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
       metricRegistry
         .createId("ses.monitor.notifications")
         .withTag("notificationType", "unknown")
+        .withTag("sendingAccountId", "unknown")
         .withTag("sourceEmail", "unknown")
     )
 
@@ -109,7 +110,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     val messageBody =
       """
         |{
-        |  "Message": "{\"notificationType\": \"Bounce\",\"mail\": {\"source\": \"bouncer@example.com\"},\"bounce\": {\"bounceType\": \"Transient\",\"bounceSubType\": \"MailboxFull\"}}"
+        |  "Message": "{\"notificationType\": \"Bounce\",\"mail\": {\"source\": \"bouncer@example.com\", \"sendingAccountId\": \"12345\"},\"bounce\": {\"bounceType\": \"Transient\",\"bounceSubType\": \"MailboxFull\"}}"
         |}
       """.stripMargin
 
@@ -117,6 +118,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
       metricRegistry
         .createId("ses.monitor.notifications")
         .withTag("notificationType", "Bounce")
+        .withTag("sendingAccountId", "12345")
         .withTag("sourceEmail", "bouncer@example.com")
         .withTag("type", "Transient")
         .withTag("subType", "MailboxFull")
@@ -144,7 +146,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     val messageBody =
       """
         |{
-        |  "Message": "{\"notificationType\": \"Bounce\",\"mail\": {\"source\": \"bouncer@example.com\"},\"bounce\": {\"bounceType\": \"Transient\",\"bounceSubType\": \"MailboxFull\", \"bounceRecipients\": [ ]}}"
+        |  "Message": "{\"notificationType\": \"Bounce\",\"mail\": {\"source\": \"bouncer@example.com\", \"sendingAccountId\": \"12345\"},\"bounce\": {\"bounceType\": \"Transient\",\"bounceSubType\": \"MailboxFull\", \"bounceRecipients\": [ ]}}"
         |}
       """.stripMargin
 
@@ -152,6 +154,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
       metricRegistry
         .createId("ses.monitor.notifications")
         .withTag("notificationType", "Bounce")
+        .withTag("sendingAccountId", "12345")
         .withTag("sourceEmail", "bouncer@example.com")
         .withTag("type", "Transient")
         .withTag("subType", "MailboxFull")
@@ -179,7 +182,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     val messageBody =
       """
         |{
-        |  "Message": "{\"notificationType\": \"Bounce\",\"mail\": {\"source\": \"bouncer@example.com\"},\"bounce\": {\"bounceType\": \"Transient\",\"bounceSubType\": \"MailboxFull\", \"bouncedRecipients\": [ {\"emailAddress\": \"engineer@example.com\"} ]}}"
+        |  "Message": "{\"notificationType\": \"Bounce\",\"mail\": {\"source\": \"bouncer@example.com\", \"sendingAccountId\": \"12345\"},\"bounce\": {\"bounceType\": \"Transient\",\"bounceSubType\": \"MailboxFull\", \"bouncedRecipients\": [ {\"emailAddress\": \"engineer@example.com\"} ]}}"
         |}
       """.stripMargin
 
@@ -187,6 +190,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
       metricRegistry
         .createId("ses.monitor.notifications")
         .withTag("notificationType", "Bounce")
+        .withTag("sendingAccountId", "12345")
         .withTag("sourceEmail", "bouncer@example.com")
         .withTag("bouncedRecipient", "engineer@example.com")
         .withTag("type", "Transient")
@@ -216,13 +220,14 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     val messageBody =
       """
         |{
-        |  "Message": "{\"notificationType\": \"Bounce\",\"mail\": {\"source\": \"bouncer@example.com\"},\"bounce\": {\"bounceType\": \"Transient\",\"bounceSubType\": \"MailboxFull\", \"bouncedRecipients\": [ {\"emailAddress\": \"engineer@example.com\"}, {\"emailAddress\": \"manager@example.com\"} ]}}"
+        |  "Message": "{\"notificationType\": \"Bounce\",\"mail\": {\"source\": \"bouncer@example.com\", \"sendingAccountId\": \"12345\"},\"bounce\": {\"bounceType\": \"Transient\",\"bounceSubType\": \"MailboxFull\", \"bouncedRecipients\": [ {\"emailAddress\": \"engineer@example.com\"}, {\"emailAddress\": \"manager@example.com\"} ]}}"
         |}
       """.stripMargin
 
     val baseId = metricRegistry
       .createId("ses.monitor.notifications")
       .withTag("notificationType", "Bounce")
+      .withTag("sendingAccountId", "12345")
       .withTag("sourceEmail", "bouncer@example.com")
       .withTag("type", "Transient")
       .withTag("subType", "MailboxFull")
@@ -257,7 +262,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     val messageBody =
       """
         |{
-        |  "Message": "{\"notificationType\": \"Bounce\",\"mail\": {\"source\": \"bouncer@example.com\"},\"bounce\": {\"bounceType\": \"Transient\",\"bounceSubType\": \"MailboxFull\"}}"
+        |  "Message": "{\"notificationType\": \"Bounce\",\"mail\": {\"source\": \"bouncer@example.com\", \"sendingAccountId\": \"12345\"},\"bounce\": {\"bounceType\": \"Transient\",\"bounceSubType\": \"MailboxFull\"}}"
         |}
       """.stripMargin
 
@@ -265,6 +270,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
       metricRegistry
         .createId("ses.monitor.notifications")
         .withTag("notificationType", "Bounce")
+        .withTag("sendingAccountId", "12345")
         .withTag("sourceEmail", "bouncer@example.com")
         .withTag("type", "Transient")
         .withTag("subType", "MailboxFull")
@@ -307,6 +313,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
       metricRegistry
         .createId("ses.monitor.notifications")
         .withTag("notificationType", "Bounce")
+        .withTag("sendingAccountId", "unknown")
         .withTag("sourceEmail", "unknown")
         .withTag("type", "unknown")
         .withTag("subType", "unknown")
@@ -335,7 +342,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     val messageBody =
       """
         |{
-        |  "Message": "{\"notificationType\": \"Complaint\",\"mail\": {\"source\": \"bouncer@example.com\"},\"complaint\": {\"complaintFeedbackType\": \"not-spam\"}}"
+        |  "Message": "{\"notificationType\": \"Complaint\",\"mail\": {\"source\": \"bouncer@example.com\", \"sendingAccountId\": \"12345\"},\"complaint\": {\"complaintFeedbackType\": \"not-spam\"}}"
         |}
       """.stripMargin
 
@@ -343,6 +350,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
       metricRegistry
         .createId("ses.monitor.notifications")
         .withTag("notificationType", "Complaint")
+        .withTag("sendingAccountId", "12345")
         .withTag("sourceEmail", "bouncer@example.com")
         .withTag("type", "not-spam")
     )
@@ -370,7 +378,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     val messageBody =
       """
         |{
-        |  "Message": "{\"notificationType\": \"Complaint\",\"mail\": {\"source\": \"bouncer@example.com\"},\"complaint\": {\"complaintFeedbackType\": \"not-spam\"}}"
+        |  "Message": "{\"notificationType\": \"Complaint\",\"mail\": {\"source\": \"bouncer@example.com\", \"sendingAccountId\": \"12345\"},\"complaint\": {\"complaintFeedbackType\": \"not-spam\"}}"
         |}
       """.stripMargin
 
@@ -378,6 +386,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
       metricRegistry
         .createId("ses.monitor.notifications")
         .withTag("notificationType", "Complaint")
+        .withTag("sendingAccountId", "12345")
         .withTag("sourceEmail", "bouncer@example.com")
         .withTag("type", "not-spam")
     )
@@ -417,6 +426,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
       metricRegistry
         .createId("ses.monitor.notifications")
         .withTag("notificationType", "Complaint")
+        .withTag("sendingAccountId", "unknown")
         .withTag("sourceEmail", "unknown")
         .withTag("type", "unknown")
     )
@@ -444,7 +454,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     val messageBody =
       """
         |{
-        |  "Message": "{\"notificationType\": \"Delivery\",\"mail\": {\"source\": \"bouncer@example.com\"}}"
+        |  "Message": "{\"notificationType\": \"Delivery\",\"mail\": {\"source\": \"bouncer@example.com\", \"sendingAccountId\": \"12345\"}}"
         |}
       """.stripMargin
 
@@ -452,6 +462,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
       metricRegistry
         .createId("ses.monitor.notifications")
         .withTag("notificationType", "Delivery")
+        .withTag("sendingAccountId", "12345")
         .withTag("sourceEmail", "bouncer@example.com")
     )
 
@@ -478,7 +489,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     val messageBody =
       """
         |{
-        |  "Message": "{\"notificationType\": \"Delivery\",\"mail\": {\"source\": \"bouncer@example.com\"}}"
+        |  "Message": "{\"notificationType\": \"Delivery\",\"mail\": {\"source\": \"bouncer@example.com\", \"sendingAccountId\": \"12345\"}}"
         |}
       """.stripMargin
 
@@ -486,6 +497,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
       metricRegistry
         .createId("ses.monitor.notifications")
         .withTag("notificationType", "Delivery")
+        .withTag("sendingAccountId", "12345")
         .withTag("sourceEmail", "bouncer@example.com")
     )
 
@@ -527,6 +539,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
       metricRegistry
         .createId("ses.monitor.notifications")
         .withTag("notificationType", "Delivery")
+        .withTag("sendingAccountId", "unknown")
         .withTag("sourceEmail", "unknown")
     )
 
