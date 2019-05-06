@@ -162,7 +162,7 @@ class SesMonitoringService @Inject()(
   }
 
   private[ses] def processNotification(message: Message): MessageAction = {
-    val (notificationAsMap, successfulDeserialization) = try {
+    val (notificationAsMap, deserializationSucceeded) = try {
       // decoding to Map since we only record a few fields
       // ... may want to create a model object at some point
       val json = Json.decode[Map[String, Any]](message.getBody)
@@ -183,7 +183,7 @@ class SesMonitoringService @Inject()(
       if (notificationAsMap.nonEmpty) {
         val notificationJson = Json.encode(notificationAsMap)
         sesNotificationLogger.log(notificationJson)
-      } else if (successfulDeserialization) {
+      } else if (deserializationSucceeded) {
         registry
           .counter(notificationLoggingFailureId.withTag("reason", "EmptyJsonDocument"))
           .increment()
