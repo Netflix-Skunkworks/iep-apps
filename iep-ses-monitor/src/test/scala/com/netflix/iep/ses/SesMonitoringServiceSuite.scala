@@ -28,7 +28,9 @@ import com.amazonaws.SdkClientException
 import com.amazonaws.services.sqs.AbstractAmazonSQSAsync
 import com.amazonaws.services.sqs.model.GetQueueUrlResult
 import com.amazonaws.services.sqs.model.Message
+import com.netflix.atlas.json.Json
 import com.netflix.spectator.api.DefaultRegistry
+import com.netflix.spectator.api.Functions
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.ConfigFactory
@@ -50,13 +52,17 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
   private var metricRegistry: Registry = _
 
   override def beforeEach(): Unit = {
-    metricRegistry = new DefaultRegistry()
+    setup(new DefaultRegistry(), _ => Unit)
+  }
+
+  private def setup(testRegistry: Registry, notificationLoggerSpy: NotificationLogger): Unit = {
+    metricRegistry = testRegistry
     sesMonitoringService = new SesMonitoringService(
       ConfigFactory.load(),
       metricRegistry,
       DummyAmazonSQSAsync,
       system,
-      _ => Unit
+      notificationLoggerSpy
     )
   }
 
@@ -560,25 +566,22 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
 
   test("the raw notification message body should be logged") {
 
+    val bounceNotification =
+      """{"notificationType":"Bounce","mail":{"source":"bouncer@example.com","sendingAccountId":"12345"},"bounce":{"bounceType":"Transient","bounceSubType":"MailboxFull"}}"""
+
     val messageBody =
-      """
+      s"""
         |{
-        |  "Message": "{\"notificationType\": \"Bounce\",\"mail\": {\"source\": \"bouncer@example.com\"},\"bounce\": {\"bounceType\": \"Transient\",\"bounceSubType\": \"MailboxFull\"}}"
+        |  "Message":${Json.encode(bounceNotification)}
         |}
       """.stripMargin
 
     var loggerCalled = false
 
-    val sesMonitoringService = new SesMonitoringService(
-      ConfigFactory.load(),
-      new NoopRegistry(),
-      DummyAmazonSQSAsync,
-      system,
-      message => {
-        message shouldEqual messageBody
-        loggerCalled = true
-      }
-    )
+    setup(new NoopRegistry(), message => {
+      message shouldEqual bounceNotification
+      loggerCalled = true
+    })
 
     val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
@@ -595,27 +598,24 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     loggerCalled shouldEqual true
   }
 
-  test("the raw notification message body should be logged, even if it can't be parsed as json") {
+  test(
+    "downstream consumers expect valid JSON so the raw notification message body should not be logged if it can't be parsed as json"
+  ) {
 
     val messageBody =
-      """
-        |{
-        |  "Message": "{\"notificationType\": \"Bounce\",\"mail\": {\"source\": \"bouncer@example.com\"},\"bounce\": {\"bounceType\": \"Transient\",\"bounceSubType\": \"MailboxFull\"}"
-        |}
+      s"""
+         |{
+         |  "Message":{\"notificationType\":\"Bounce\",\"mail\":{\"source\":\"bouncer@example.com\", \"sendingAccountId\": \"12345\"},\"bounce\":{\"bounceType\":\"Transient\",\"bounceSubType\":\"MailboxFull\"}
+         |}
       """.stripMargin
 
     var loggerCalled = false
+    var msg = ""
 
-    val sesMonitoringService = new SesMonitoringService(
-      ConfigFactory.load(),
-      new NoopRegistry(),
-      DummyAmazonSQSAsync,
-      system,
-      message => {
-        message shouldEqual messageBody
-        loggerCalled = true
-      }
-    )
+    setup(new NoopRegistry(), message => {
+      loggerCalled = true
+      msg = s"logger should not have been called with invalid JSON: ${message}"
+    })
 
     val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
@@ -629,7 +629,122 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
       2.seconds
     )
 
-    loggerCalled shouldEqual true
+    assert(loggerCalled === false, msg)
+  }
+
+  test(
+    "a raw notification message body that can't be parsed as json is handled by recording a metric"
+  ) {
+
+    val messageBody =
+      s"""
+         |{
+         |  "Message":{\"notificationType\":\"Bounce\",\"mail\":{\"source\":\"bouncer@example.com\", \"sendingAccountId\": \"12345\"},\"bounce\":{\"bounceType\":\"Transient\",\"bounceSubType\":\"MailboxFull\"}
+         |}
+      """.stripMargin
+
+    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+
+    val counter = metricRegistry.counter(
+      metricRegistry
+        .createId("ses.monitor.deserializationFailure")
+        .withTag("reason", "JsonEOFException")
+    )
+    counter.count() shouldEqual 0
+
+    Await.result(
+      Source
+        .single(createNotificationMessage(messageBody))
+        .via(messageProcessingFlow)
+        .runWith(Sink.ignore),
+      2.seconds
+    )
+
+    counter.count() shouldEqual 1
+    val notificationLoggingFailureCount = metricRegistry
+      .counters()
+      .filter(Functions.nameEquals("ses.monitor.notificationLoggingFailure"))
+      .mapToLong(_.count)
+      .reduce(0L, (left: Long, right: Long) => left + right)
+    notificationLoggingFailureCount shouldEqual 0
+
+  }
+
+  test(
+    "an empty notification to log is handled by recording a metric, only if successfully deserialized"
+  ) {
+
+    val messageBody =
+      s"""
+         |{
+         |  "Message":"{}"
+         |}
+      """.stripMargin
+
+    setup(new DefaultRegistry(), _ => {
+      throw new IllegalStateException("this exception should never cause the test to fail directly")
+    })
+    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+
+    val counter = metricRegistry.counter(
+      metricRegistry
+        .createId("ses.monitor.notificationLoggingFailure")
+        .withTag("reason", "EmptyJsonDocument")
+    )
+    counter.count() shouldEqual 0
+
+    Await.result(
+      Source
+        .single(createNotificationMessage(messageBody))
+        .via(messageProcessingFlow)
+        .runWith(Sink.ignore),
+      2.seconds
+    )
+
+    counter.count() shouldEqual 1
+    val deserializationFailureCount = metricRegistry
+      .counters()
+      .filter(Functions.nameEquals("ses.monitor.deserializationFailure"))
+      .mapToLong(_.count)
+      .reduce(0L, (left: Long, right: Long) => left + right)
+    deserializationFailureCount shouldEqual 0
+  }
+
+  test(
+    "a notification logger that throws is handled by recording a metric"
+  ) {
+
+    val bounceNotification =
+      """{"notificationType":"Bounce","mail":{"source":"bouncer@example.com","sendingAccountId":"12345"},"bounce":{"bounceType":"Transient","bounceSubType":"MailboxFull"}}"""
+
+    val messageBody =
+      s"""
+         |{
+         |  "Message":${Json.encode(bounceNotification)}
+         |}
+      """.stripMargin
+
+    setup(new DefaultRegistry(), _ => {
+      throw new IllegalStateException("this exception should never cause the test to fail directly")
+    })
+    val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
+
+    val counter = metricRegistry.counter(
+      metricRegistry
+        .createId("ses.monitor.notificationLoggingFailure")
+        .withTag("reason", "IllegalStateException")
+    )
+    counter.count() shouldEqual 0
+
+    Await.result(
+      Source
+        .single(createNotificationMessage(messageBody))
+        .via(messageProcessingFlow)
+        .runWith(Sink.ignore),
+      2.seconds
+    )
+
+    counter.count() shouldEqual 1
   }
 
   test("sqs queue uri is returned on success") {

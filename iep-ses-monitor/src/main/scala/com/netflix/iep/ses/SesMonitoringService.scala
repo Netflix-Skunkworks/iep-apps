@@ -25,7 +25,7 @@ import akka.stream.KillSwitch
 import akka.stream.KillSwitches
 import akka.stream.alpakka.sqs.MessageAction
 import akka.stream.alpakka.sqs.SqsAckGroupedSettings
-import akka.stream.alpakka.sqs.javadsl.SqsAckFlow
+import akka.stream.alpakka.sqs.scaladsl.SqsAckFlow
 import akka.stream.alpakka.sqs.scaladsl.SqsSource
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Keep
@@ -61,6 +61,8 @@ class SesMonitoringService @Inject()(
 
   private val queueUrlFailureId = registry.createId("ses.monitor.getQueueUriFailure")
   private val deserializationFailureId = registry.createId("ses.monitor.deserializationFailure")
+  private val notificationLoggingFailureId =
+    registry.createId("ses.monitor.notificationLoggingFailure")
 
   private val notificationsId = registry.createId("ses.monitor.notifications")
   private val sourceEmailLimiter = CardinalityLimiters.mostFrequent(20)
@@ -87,7 +89,7 @@ class SesMonitoringService @Inject()(
 
     killSwitch = SqsSource(queueUri)
       .via(createMessageProcessingFlow())
-      .via(SqsAckFlow.grouped(queueUri, SqsAckGroupedSettings.Defaults, sqsAsync))
+      .via(SqsAckFlow.grouped(queueUri, SqsAckGroupedSettings.Defaults))
       .watchTermination() { (_, f) =>
         f.onComplete {
           case Success(_) | Failure(_: AbruptTerminationException) =>
@@ -138,7 +140,7 @@ class SesMonitoringService @Inject()(
     }
   }
 
-  private def incrementQueueUrlFailure(t: Throwable) = {
+  private def incrementQueueUrlFailure(t: Throwable): Unit = {
     val id = Option(t.getCause).foldLeft {
       queueUrlFailureId.withTag("exception", t.getClass.getSimpleName)
     } {
@@ -156,21 +158,42 @@ class SesMonitoringService @Inject()(
         message
       }
       .map(logNotification)
-      .map(publishMetrics)
+      .map(processNotification)
   }
 
-  private[ses] def publishMetrics(message: Message): MessageAction = {
-    try {
+  private[ses] def processNotification(message: Message): MessageAction = {
+    val (notificationAsMap, successfulDeserialization) = try {
       // decoding to Map since we only record a few fields
       // ... may want to create a model object at some point
       val json = Json.decode[Map[String, Any]](message.getBody)
       val messageObject =
         Json.decode[Map[String, Any]](json.getOrElse("Message", "{}").asInstanceOf[String])
       incrementCounter(messageObject)
+      (messageObject, true)
     } catch {
       case e: Exception =>
-        registry.counter(deserializationFailureId.withTag("exception", e.getClass.getSimpleName))
-        logger.error(s"Error deserializing message: ${message.getBody}", e)
+        registry
+          .counter(deserializationFailureId.withTag("reason", e.getClass.getSimpleName))
+          .increment()
+        logger.error(s"Error deserializing JSON notification: ${message.getBody}", e)
+        (Map.empty[String, Any], false)
+    }
+
+    try {
+      if (notificationAsMap.nonEmpty) {
+        val notificationJson = Json.encode(notificationAsMap)
+        sesNotificationLogger.log(notificationJson)
+      } else if (successfulDeserialization) {
+        registry
+          .counter(notificationLoggingFailureId.withTag("reason", "EmptyJsonDocument"))
+          .increment()
+      }
+    } catch {
+      case e: Exception =>
+        registry
+          .counter(notificationLoggingFailureId.withTag("reason", e.getClass.getSimpleName))
+          .increment()
+        logger.error(s"Error logging notification JSON string: ${notificationAsMap}", e)
     }
 
     // Delete regardless of exception since it probably would throw again given the types of
@@ -261,8 +284,8 @@ class SesMonitoringService @Inject()(
       }
   }
 
-  private[ses] def logNotification(message: Message): Message = {
-    sesNotificationLogger.log(message.getBody)
+  private def logNotification(message: Message): Message = {
+    logger.debug(message.getBody)
     message
   }
 
