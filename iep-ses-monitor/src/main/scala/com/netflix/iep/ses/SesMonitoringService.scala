@@ -212,10 +212,12 @@ class SesMonitoringService @Inject()(
     val notificationTypeValue = getPathAsString(notification, notificationTypeKey)
 
     val sourceEmail = getPathAsString(notification, "mail", "source")
+    val sendingAccountId = getPathAsString(notification, "mail", "sendingAccountId")
 
     val commonTags = Vector(
       new BasicTag(notificationTypeKey, notificationTypeValue),
-      new BasicTag("sourceEmail", sourceEmailLimiter(sourceEmail))
+      new BasicTag("sourceEmail", sourceEmailLimiter(sourceEmail)),
+      new BasicTag("sendingAccountId", sendingAccountId)
     )
 
     notificationTypeValue match {
