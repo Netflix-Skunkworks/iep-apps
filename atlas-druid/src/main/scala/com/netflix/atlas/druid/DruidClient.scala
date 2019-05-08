@@ -145,7 +145,7 @@ object DruidClient {
     intervals: List[String] = null,
     toInclude: Option[ToInclude] = None,
     merge: Boolean = true,
-    analysisTypes: List[String] = List("cardinality", "size", "aggregators"),
+    analysisTypes: List[String] = List("aggregators"),
     lenientAggregatorMerge: Boolean = false
   ) {
     val queryType: String = "segmentMetadata"
