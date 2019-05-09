@@ -50,14 +50,14 @@ class DruidClient(
 
   private val uri = config.getString("uri")
 
-  private implicit val mat = materializer
+  private implicit val mat: ActorMaterializer = materializer
 
   private val loggingClient = Flow[HttpRequest]
     .map(req => req -> AccessLogger.newClientLogger("druid", req))
     .via(client)
     .map {
-      case (result, logger) =>
-        logger.complete(result)
+      case (result, log) =>
+        log.complete(result)
         result
     }
     .flatMapConcat {
