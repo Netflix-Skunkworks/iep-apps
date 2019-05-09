@@ -20,6 +20,7 @@ import java.time.Instant
 import akka.NotUsed
 import akka.actor.Actor
 import akka.actor.ActorRef
+import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
@@ -54,8 +55,8 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
   import com.netflix.atlas.webapi.GraphApi._
   import com.netflix.atlas.webapi.TagsApi._
 
-  private implicit val sys = context.system
-  private implicit val mat = ActorMaterializer()
+  private implicit val sys: ActorSystem = context.system
+  private implicit val mat: ActorMaterializer = ActorMaterializer()
 
   private val client =
     new DruidClient(config.getConfig("atlas.druid"), sys, mat, Http().superPool[AccessLogger]())
@@ -132,7 +133,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
     tq.key.getOrElse("name") match {
       case "name"          => listNames(callback, tq)
       case "nf.datasource" => listDatasources(callback, tq)
-      case k               => listDimension(callback, tq)
+      case _               => listDimension(callback, tq)
     }
   }
 
@@ -309,10 +310,10 @@ object DruidDatabaseActor {
       case _: DataExpr.All              => throw new UnsupportedOperationException(":all")
       case DataExpr.GroupBy(e, _)       => toAggregation(name, e)
       case DataExpr.Consolidation(e, _) => toAggregation(name, e)
-      case e: DataExpr.Sum              => Aggregation.sum(name)
-      case e: DataExpr.Max              => Aggregation.max(name)
-      case e: DataExpr.Min              => Aggregation.min(name)
-      case e: DataExpr.Count            => Aggregation.count(name)
+      case _: DataExpr.Sum              => Aggregation.sum(name)
+      case _: DataExpr.Max              => Aggregation.max(name)
+      case _: DataExpr.Min              => Aggregation.min(name)
+      case _: DataExpr.Count            => Aggregation.count(name)
     }
   }
 
@@ -442,7 +443,7 @@ object DruidDatabaseActor {
       case Query.Not(q)                    => Query.Not(simplify(q, ds))
       case q: KeyQuery if isSpecial(q.k)   => q
       case q: KeyQuery if ds.contains(q.k) => q
-      case q: KeyQuery                     => Query.False
+      case _: KeyQuery                     => Query.False
       case q: Query                        => q
     }
     Query.simplify(simpleQuery)

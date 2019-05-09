@@ -49,8 +49,8 @@ class DruidClientSuite extends FunSuite with BeforeAndAfterAll {
 
   private val config = ConfigFactory.load().getConfig("atlas.druid")
 
-  private implicit val system = ActorSystem(getClass.getSimpleName)
-  private implicit val materializer = ActorMaterializer()
+  private implicit val system: ActorSystem = ActorSystem(getClass.getSimpleName)
+  private implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   private def newClient(result: Try[HttpResponse]): DruidClient = {
     val client = Flow[(HttpRequest, AccessLogger)]
