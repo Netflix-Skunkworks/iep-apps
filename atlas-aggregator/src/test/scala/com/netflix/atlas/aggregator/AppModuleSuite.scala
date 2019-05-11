@@ -16,12 +16,12 @@
 package com.netflix.atlas.aggregator
 
 import javax.inject.Singleton
-
 import com.google.inject.AbstractModule
 import com.google.inject.ConfigurationException
 import com.google.inject.Guice
 import com.google.inject.Provider
 import com.netflix.spectator.api.Clock
+import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.atlas.AtlasConfig
 import com.netflix.spectator.atlas.AtlasRegistry
@@ -34,21 +34,6 @@ class AppModuleSuite extends FunSuite {
   import AppModuleSuite._
 
   private val config = ConfigFactory.load()
-
-  test("aggr registry only") {
-    val injector = Guice.createInjector(new AppModule, new AbstractModule {
-      override def configure(): Unit = {
-        bind(classOf[Config]).toInstance(config)
-      }
-    })
-
-    val aggr = injector.getInstance(classOf[AtlasRegistry])
-    assert(aggr != null)
-
-    intercept[ConfigurationException] {
-      injector.getInstance(classOf[Registry])
-    }
-  }
 
   test("app and aggr registry") {
     val injector = Guice.createInjector(
@@ -70,7 +55,7 @@ class AppModuleSuite extends FunSuite {
     val config = ConfigFactory.parseString("""
         |netflix.atlas.aggr.registry.atlas.uri = "test"
       """.stripMargin)
-    val aggr = new AppModule.AggrConfig(config)
+    val aggr = new AppModule.AggrConfig(config, new NoopRegistry)
     assert(aggr.uri() === "test")
   }
 
@@ -78,7 +63,7 @@ class AppModuleSuite extends FunSuite {
     val config = ConfigFactory.parseString("""
         |netflix.atlas.aggr.registry.atlas.uri = "test"
       """.stripMargin)
-    val aggr = new AppModule.AggrConfig(config)
+    val aggr = new AppModule.AggrConfig(config, new NoopRegistry)
     assert(aggr.batchSize() === 10000)
   }
 }
