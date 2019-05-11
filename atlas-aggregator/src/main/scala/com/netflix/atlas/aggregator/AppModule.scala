@@ -26,6 +26,7 @@ import com.netflix.iep.admin.guice.AdminModule
 import com.netflix.iep.service.AbstractService
 import com.netflix.iep.service.Service
 import com.netflix.spectator.api.Clock
+import com.netflix.spectator.api.Registry
 import com.netflix.spectator.atlas.AtlasConfig
 import com.netflix.spectator.atlas.AtlasRegistry
 import com.typesafe.config.Config
@@ -49,7 +50,7 @@ class AppModule extends AbstractModule {
 
 object AppModule {
 
-  class AggrConfig(config: Config) extends AtlasConfig {
+  class AggrConfig(config: Config, registry: Registry) extends AtlasConfig {
 
     override def get(k: String): String = {
       val prop = s"netflix.atlas.aggr.registry.$k"
@@ -61,6 +62,8 @@ object AppModule {
       tags.put("atlas.aggr", config.getString("netflix.iep.env.instance-id"))
       tags
     }
+
+    override def debugRegistry(): Registry = registry
   }
 
   @Singleton
@@ -75,9 +78,10 @@ object AppModule {
   }
 
   @Singleton
-  class AtlasRegistryProvider @Inject()(config: Config) extends Provider[AtlasRegistry] {
+  class AtlasRegistryProvider @Inject()(config: Config, registry: Registry)
+      extends Provider[AtlasRegistry] {
     override def get(): AtlasRegistry = {
-      val cfg = new AggrConfig(config)
+      val cfg = new AggrConfig(config, registry)
       new AtlasRegistry(Clock.SYSTEM, cfg)
     }
   }
