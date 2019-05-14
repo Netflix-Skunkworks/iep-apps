@@ -144,6 +144,8 @@ trait DynamoOps extends StrictLogging {
     desiredWrite: Long,
     dynamodbErrors: Counter
   ): Unit = {
+    logger.info(s"init dynamodb table $tableName in ${NetflixEnvironment.region()}")
+
     var continue = true
 
     while (continue) {
