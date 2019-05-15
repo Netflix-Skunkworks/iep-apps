@@ -27,6 +27,7 @@ import com.netflix.atlas.akka.RequestHandler
 import com.netflix.atlas.json.Json
 import org.scalatest.FunSuite
 
+import scala.collection.immutable.SortedMap
 import scala.concurrent.duration._
 import scala.io.Source
 
@@ -128,7 +129,7 @@ class SlottingApiSuite extends FunSuite with ScalatestRouteTest {
   }
 
   test("load cache") {
-    slottingCache.asgs = Map(
+    slottingCache.asgs = SortedMap(
       "atlas_app-main-all-v001" -> loadSlottedAsgDetails("/atlas_app-main-all-v001.json")
     )
 

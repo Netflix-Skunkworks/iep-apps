@@ -17,9 +17,11 @@ package com.netflix.atlas.slotting
 
 import javax.inject.Singleton
 
+import scala.collection.immutable.SortedMap
+
 @Singleton
 class SlottingCache() {
 
   @volatile
-  var asgs = Map.empty[String, SlottedAsgDetails]
+  var asgs: SortedMap[String, SlottedAsgDetails] = SortedMap.empty[String, SlottedAsgDetails]
 }
