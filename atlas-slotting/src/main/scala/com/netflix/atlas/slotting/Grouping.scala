@@ -62,7 +62,10 @@ case class SlottedAsgDetails(
   minSize: Int,
   instances: List[SlottedInstanceDetails],
 ) {
-  require(instances.size <= desiredCapacity, "instances.size > desiredCapacity")
+  require(
+    instances.size <= desiredCapacity,
+    s"instances.size (${instances.size}) > desiredCapacity ($desiredCapacity)"
+  )
 }
 
 case class SlottedInstanceDetails(

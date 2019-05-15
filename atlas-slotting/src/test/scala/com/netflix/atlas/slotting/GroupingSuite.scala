@@ -148,7 +148,7 @@ class GroupingSuite extends FunSuite with Grouping {
       )
     }
 
-    assert(caught.getMessage === "requirement failed: instances.size > desiredCapacity")
+    assert(caught.getMessage === "requirement failed: instances.size (3) > desiredCapacity (2)")
   }
 
   test("assign slots") {
