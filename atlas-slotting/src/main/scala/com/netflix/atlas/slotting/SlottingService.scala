@@ -37,6 +37,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 import scala.collection.JavaConverters._
+import scala.collection.immutable.SortedMap
 
 @Singleton
 class SlottingService @Inject()(
@@ -202,7 +203,7 @@ class SlottingService @Inject()(
     .monitorValue(new AtomicLong(clock.wallTime()), Functions.AGE)
 
   private def updateCacheTask(): Unit = {
-    var updatedAsgs = Map.empty[String, SlottedAsgDetails]
+    var updatedAsgs = SortedMap.empty[String, SlottedAsgDetails]
 
     val table = dynamodb.getTable(tableName)
     val iter = table.scan(activeItemsScanSpec()).iterator
