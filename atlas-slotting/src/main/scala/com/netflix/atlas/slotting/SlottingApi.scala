@@ -26,6 +26,7 @@ import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCode
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.Uri
+import akka.http.scaladsl.model.headers._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.RequestContext
 import akka.http.scaladsl.server.Route
@@ -57,9 +58,7 @@ class SlottingApi @Inject()(system: ActorSystem, slottingCache: SlottingCache)
     * the need for converting into a JSON payload and then compressing that payload.
     */
   override def routes: Route = cache(lfuCache, keyerFunction) {
-    encodeResponse {
-      innerRoutes
-    }
+    innerRoutes
   }
 
   /**
@@ -67,47 +66,51 @@ class SlottingApi @Inject()(system: ActorSystem, slottingCache: SlottingCache)
     * behavior when testing.
     */
   def innerRoutes: Route = {
-    // standard endpoints
-    pathPrefix("api" / "v1") {
-      endpointPath("autoScalingGroups") {
-        get {
-          parameters("verbose".as[Boolean].?) { verbose =>
-            if (verbose.contains(true)) {
-              complete(verboseList(slottingCache))
-            } else {
-              complete(indexList(slottingCache))
+    extractRequest { request =>
+      val compress = useGzip(request)
+
+      // standard endpoints
+      pathPrefix("api" / "v1") {
+        endpointPath("autoScalingGroups") {
+          get {
+            parameters("verbose".as[Boolean].?) { verbose =>
+              if (verbose.contains(true)) {
+                complete(verboseList(compress, slottingCache))
+              } else {
+                complete(indexList(compress, slottingCache))
+              }
             }
+          }
+        } ~
+        endpointPath("autoScalingGroups", Remaining) { asgName =>
+          get {
+            complete(singleItem(compress, slottingCache, asgName))
           }
         }
       } ~
-      endpointPath("autoScalingGroups", Remaining) { asgName =>
-        get {
-          complete(singleItem(slottingCache, asgName))
-        }
-      }
-    } ~
-    // edda compatibility endpoints
-    pathPrefix(("api" | "REST") / "v2" / "group") {
-      endpointPath("autoScalingGroups") {
-        get {
-          complete(indexList(slottingCache))
+      // edda compatibility endpoints
+      pathPrefix(("api" | "REST") / "v2" / "group") {
+        endpointPath("autoScalingGroups") {
+          get {
+            complete(indexList(compress, slottingCache))
+          }
+        } ~
+        path(autoScalingGroupsExpand) { _ =>
+          get {
+            complete(verboseList(compress, slottingCache))
+          }
+        } ~
+        endpointPath("autoScalingGroups", Remaining) { asgNameWithArgs =>
+          val asgName = stripEddaArgs.replaceAllIn(asgNameWithArgs, "")
+          get {
+            complete(singleItem(compress, slottingCache, asgName))
+          }
         }
       } ~
-      path(autoScalingGroupsExpand) { _ =>
-        get {
-          complete(verboseList(slottingCache))
+      pathEndOrSingleSlash {
+        extractRequest { request =>
+          complete(serviceDescription(request))
         }
-      } ~
-      endpointPath("autoScalingGroups", Remaining) { asgNameWithArgs =>
-        val asgName = stripEddaArgs.replaceAllIn(asgNameWithArgs, "")
-        get {
-          complete(singleItem(slottingCache, asgName))
-        }
-      }
-    } ~
-    pathEndOrSingleSlash {
-      extractRequest { request =>
-        complete(serviceDescription(request))
       }
     }
   }
@@ -119,27 +122,44 @@ object SlottingApi {
 
   val stripEddaArgs: Regex = "(?:;_.*|:\\(.*)".r
 
-  def mkResponse(statusCode: StatusCode, data: Any): HttpResponse = {
-    HttpResponse(
-      statusCode,
-      entity = HttpEntity(MediaTypes.`application/json`, Json.encode(data))
-    )
+  private def useGzip(request: HttpRequest): Boolean = {
+    request.headers.exists {
+      case enc: `Accept-Encoding` => enc.encodings.exists(_.matches(HttpEncodings.gzip))
+      case _                      => false
+    }
   }
 
-  def indexList(slottingCache: SlottingCache): HttpResponse = {
-    mkResponse(StatusCodes.OK, slottingCache.asgs.keySet)
+  def mkResponse(compress: Boolean, statusCode: StatusCode, data: Any): HttpResponse = {
+    // We compress locally rather than relying on the encodeResponse directive to ensure the
+    // cache will have a strict entity that can be reused.
+    if (compress) {
+      HttpResponse(
+        statusCode,
+        headers = List(`Content-Encoding`(HttpEncodings.gzip)),
+        entity = HttpEntity(MediaTypes.`application/json`, Gzip.compressString(Json.encode(data)))
+      )
+    } else {
+      HttpResponse(
+        statusCode,
+        entity = HttpEntity(MediaTypes.`application/json`, Json.encode(data))
+      )
+    }
   }
 
-  def verboseList(slottingCache: SlottingCache): HttpResponse = {
-    mkResponse(StatusCodes.OK, slottingCache.asgs.values.toList)
+  def indexList(compress: Boolean, slottingCache: SlottingCache): HttpResponse = {
+    mkResponse(compress, StatusCodes.OK, slottingCache.asgs.keySet)
   }
 
-  def singleItem(slottingCache: SlottingCache, asgName: String): HttpResponse = {
+  def verboseList(compress: Boolean, slottingCache: SlottingCache): HttpResponse = {
+    mkResponse(compress, StatusCodes.OK, slottingCache.asgs.values.toList)
+  }
+
+  def singleItem(compress: Boolean, slottingCache: SlottingCache, asgName: String): HttpResponse = {
     slottingCache.asgs.get(asgName) match {
       case Some(slottedAsgDetails) =>
-        mkResponse(StatusCodes.OK, slottedAsgDetails)
+        mkResponse(compress, StatusCodes.OK, slottedAsgDetails)
       case None =>
-        mkResponse(StatusCodes.NotFound, Map("message" -> "Not Found"))
+        mkResponse(compress, StatusCodes.NotFound, Map("message" -> "Not Found"))
     }
   }
 
@@ -148,6 +168,7 @@ object SlottingApi {
     val host = request.headers.filter(_.name == "Host").map(_.value).head
 
     mkResponse(
+      useGzip(request),
       StatusCodes.OK,
       Map(
         "description" -> "Atlas Slotting Service",
