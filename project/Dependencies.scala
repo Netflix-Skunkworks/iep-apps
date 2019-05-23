@@ -23,6 +23,7 @@ object Dependencies {
   import Versions._
 
   val akkaActor          = "com.typesafe.akka" %% "akka-actor" % akka
+  val akkaHttpCaching    = "com.typesafe.akka" %% "akka-http-caching" % akkaHttpV
   val akkaHttpCore       = "com.typesafe.akka" %% "akka-http-core" % akkaHttpV
   val akkaHttpTestkit    = "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV
   val akkaSlf4j          = "com.typesafe.akka" %% "akka-slf4j" % akka

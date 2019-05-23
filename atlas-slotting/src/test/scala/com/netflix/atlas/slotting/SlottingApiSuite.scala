@@ -37,8 +37,8 @@ class SlottingApiSuite extends FunSuite with ScalatestRouteTest {
   implicit val routeTestTimeout: RouteTestTimeout = RouteTestTimeout(5.second)
 
   val slottingCache = new SlottingCache()
-  val endpoint = new SlottingApi(slottingCache)
-  val routes: Route = RequestHandler.standardOptions(endpoint.routes)
+  val endpoint = new SlottingApi(system, slottingCache)
+  val routes: Route = RequestHandler.standardOptions(endpoint.innerRoutes)
 
   private def assertResponse(response: HttpResponse, expectedStatus: StatusCode): Unit = {
     assert(response.status === expectedStatus)

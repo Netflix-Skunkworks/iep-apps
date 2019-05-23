@@ -52,6 +52,7 @@ lazy val `atlas-druid` = project
 lazy val `atlas-slotting` = project
   .configure(BuildSettings.profile)
   .settings(libraryDependencies ++= Seq(
+      Dependencies.akkaHttpCaching,
       Dependencies.atlasModuleAkka,
       Dependencies.awsAutoScaling,
       Dependencies.awsDynamoDB,
