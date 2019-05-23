@@ -15,14 +15,22 @@
  */
 package com.netflix.atlas.slotting
 
+import akka.actor.ActorSystem
+import akka.http.caching.LfuCache
+import akka.http.caching.scaladsl.Cache
+import akka.http.caching.scaladsl.CachingSettings
 import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCode
 import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model.Uri
 import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.RequestContext
 import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.server.RouteResult
+import akka.http.scaladsl.server.directives.CachingDirectives._
 import com.netflix.atlas.akka.CustomDirectives._
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.json.Json
@@ -31,11 +39,34 @@ import javax.inject.Inject
 
 import scala.util.matching.Regex
 
-class SlottingApi @Inject()(slottingCache: SlottingCache) extends WebApi with StrictLogging {
+class SlottingApi @Inject()(system: ActorSystem, slottingCache: SlottingCache)
+    extends WebApi
+    with StrictLogging {
 
   import SlottingApi._
 
-  override def routes: Route = {
+  private val keyerFunction: PartialFunction[RequestContext, Uri] = {
+    case r: RequestContext => r.request.uri
+  }
+
+  private val lfuCache: Cache[Uri, RouteResult] = LfuCache(CachingSettings(system))
+
+  /**
+    * In general the results for a given GET call do not change that often, but are likely to
+    * be refreshed frequently by many instances. The results will be briefly cached to avoid
+    * the need for converting into a JSON payload and then compressing that payload.
+    */
+  override def routes: Route = cache(lfuCache, keyerFunction) {
+    encodeResponse {
+      innerRoutes
+    }
+  }
+
+  /**
+    * Routes for GET requests without any encoding or caching. Primarily used to avoid caching
+    * behavior when testing.
+    */
+  def innerRoutes: Route = {
     // standard endpoints
     pathPrefix("api" / "v1") {
       endpointPath("autoScalingGroups") {
