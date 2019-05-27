@@ -103,7 +103,7 @@ class GroupingSuite extends FunSuite with Grouping {
     val asgInstances = List(
       AsgInstanceDetails("i-001", "us-west-2b", "InService"),
       AsgInstanceDetails("i-002", "us-west-2a", "InService"),
-      AsgInstanceDetails("i-003", "us-west-2b", "InService"),
+      AsgInstanceDetails("i-003", "us-west-2b", "InService")
     )
 
     val asgDetails = AsgDetails(
@@ -113,13 +113,13 @@ class GroupingSuite extends FunSuite with Grouping {
       3,
       6,
       0,
-      asgInstances,
+      asgInstances
     )
 
     val instanceInfo = Map(
       "i-001" -> Ec2InstanceDetails("192.168.1.1", None, None, instant, "ami-001", "r4.large"),
       "i-002" -> Ec2InstanceDetails("192.168.1.2", None, None, instant, "ami-001", "r4.large"),
-      "i-003" -> Ec2InstanceDetails("192.168.1.3", None, None, instant, "ami-001", "r4.large"),
+      "i-003" -> Ec2InstanceDetails("192.168.1.3", None, None, instant, "ami-001", "r4.large")
     )
 
     val slotted = mkSlottedInstanceDetailsList(asgDetails, instanceInfo)
@@ -133,7 +133,7 @@ class GroupingSuite extends FunSuite with Grouping {
     val instances = List(
       loadSlottedInstanceDetails("/SlottedInstanceDetails-0.json"),
       loadSlottedInstanceDetails("/SlottedInstanceDetails-1.json"),
-      loadSlottedInstanceDetails("/SlottedInstanceDetails-2.json"),
+      loadSlottedInstanceDetails("/SlottedInstanceDetails-2.json")
     )
 
     val caught = intercept[IllegalArgumentException] {
@@ -157,7 +157,7 @@ class GroupingSuite extends FunSuite with Grouping {
     val asgInstances = List(
       AsgInstanceDetails("i-001", "us-west-2b", "InService"),
       AsgInstanceDetails("i-002", "us-west-2a", "InService"),
-      AsgInstanceDetails("i-003", "us-west-2b", "InService"),
+      AsgInstanceDetails("i-003", "us-west-2b", "InService")
     )
 
     val asgDetails = AsgDetails(
@@ -167,13 +167,13 @@ class GroupingSuite extends FunSuite with Grouping {
       3,
       6,
       0,
-      asgInstances,
+      asgInstances
     )
 
     val instanceInfo = Map(
       "i-001" -> Ec2InstanceDetails("192.168.1.1", None, None, instant, "ami-001", "r4.large"),
       "i-002" -> Ec2InstanceDetails("192.168.1.2", None, None, instant, "ami-001", "r4.large"),
-      "i-003" -> Ec2InstanceDetails("192.168.1.3", None, None, instant, "ami-001", "r4.large"),
+      "i-003" -> Ec2InstanceDetails("192.168.1.3", None, None, instant, "ami-001", "r4.large")
     )
 
     val slotted = assignSlots(asgDetails, instanceInfo)
@@ -196,7 +196,7 @@ class GroupingSuite extends FunSuite with Grouping {
     val oldAsgInstances = List(
       loadSlottedInstanceDetails("/SlottedInstanceDetails-0.json"),
       loadSlottedInstanceDetails("/SlottedInstanceDetails-1.json"),
-      loadSlottedInstanceDetails("/SlottedInstanceDetails-2.json"),
+      loadSlottedInstanceDetails("/SlottedInstanceDetails-2.json")
     )
 
     val oldAsgSlotted = SlottedAsgDetails(
@@ -206,13 +206,13 @@ class GroupingSuite extends FunSuite with Grouping {
       3,
       6,
       0,
-      oldAsgInstances,
+      oldAsgInstances
     )
 
     val newAsgInstances = List(
       AsgInstanceDetails("i-001", "us-west-2b", "InService"),
       AsgInstanceDetails("i-003", "us-west-2b", "InService"),
-      AsgInstanceDetails("i-004", "us-west-2a", "InService"),
+      AsgInstanceDetails("i-004", "us-west-2a", "InService")
     )
 
     val newAsgDetails = AsgDetails(
@@ -222,13 +222,13 @@ class GroupingSuite extends FunSuite with Grouping {
       3,
       6,
       0,
-      newAsgInstances,
+      newAsgInstances
     )
 
     val instanceInfo = Map(
       "i-001" -> Ec2InstanceDetails("192.168.1.1", None, None, instant, "ami-001", "r4.large"),
       "i-003" -> Ec2InstanceDetails("192.168.1.3", None, None, instant, "ami-001", "r4.large"),
-      "i-004" -> Ec2InstanceDetails("192.168.1.4", None, None, instant, "ami-001", "r4.large"),
+      "i-004" -> Ec2InstanceDetails("192.168.1.4", None, None, instant, "ami-001", "r4.large")
     )
 
     val merged = mergeSlots(oldAsgSlotted, newAsgDetails, instanceInfo)
@@ -244,7 +244,7 @@ class GroupingSuite extends FunSuite with Grouping {
     val oldAsgInstances = List(
       loadSlottedInstanceDetails("/SlottedInstanceDetails-0.json"),
       loadSlottedInstanceDetails("/SlottedInstanceDetails-1.json"),
-      loadSlottedInstanceDetails("/SlottedInstanceDetails-2.json"),
+      loadSlottedInstanceDetails("/SlottedInstanceDetails-2.json")
     )
 
     val oldAsgSlotted = SlottedAsgDetails(
@@ -254,14 +254,14 @@ class GroupingSuite extends FunSuite with Grouping {
       3,
       6,
       0,
-      oldAsgInstances,
+      oldAsgInstances
     )
 
     val newAsgInstances = List(
       AsgInstanceDetails("i-001", "us-west-2b", "InService"),
       AsgInstanceDetails("i-003", "us-west-2b", "InService"),
       AsgInstanceDetails("i-004", "us-west-2a", "InService"),
-      AsgInstanceDetails("i-005", "us-west-2a", "InService"),
+      AsgInstanceDetails("i-005", "us-west-2a", "InService")
     )
 
     val newAsgDetails = AsgDetails(
@@ -271,14 +271,14 @@ class GroupingSuite extends FunSuite with Grouping {
       3,
       6,
       0,
-      newAsgInstances,
+      newAsgInstances
     )
 
     val instanceInfo = Map(
       "i-001" -> Ec2InstanceDetails("192.168.1.1", None, None, instant, "ami-001", "r4.large"),
       "i-003" -> Ec2InstanceDetails("192.168.1.3", None, None, instant, "ami-001", "r4.large"),
       "i-004" -> Ec2InstanceDetails("192.168.1.4", None, None, instant, "ami-001", "r4.large"),
-      "i-005" -> Ec2InstanceDetails("192.168.1.5", None, None, instant, "ami-001", "r4.large"),
+      "i-005" -> Ec2InstanceDetails("192.168.1.5", None, None, instant, "ami-001", "r4.large")
     )
 
     val caught = intercept[NoSuchElementException] {
@@ -294,7 +294,7 @@ class GroupingSuite extends FunSuite with Grouping {
     val oldAsgInstances = List(
       loadSlottedInstanceDetails("/SlottedInstanceDetails-0.json"),
       loadSlottedInstanceDetails("/SlottedInstanceDetails-1.json"),
-      loadSlottedInstanceDetails("/SlottedInstanceDetails-2.json"),
+      loadSlottedInstanceDetails("/SlottedInstanceDetails-2.json")
     )
 
     val oldAsgSlotted = SlottedAsgDetails(
@@ -304,14 +304,14 @@ class GroupingSuite extends FunSuite with Grouping {
       3,
       6,
       0,
-      oldAsgInstances,
+      oldAsgInstances
     )
 
     val newAsgInstances = List(
       AsgInstanceDetails("i-001", "us-west-2b", "InService"),
       AsgInstanceDetails("i-003", "us-west-2b", "InService"),
       AsgInstanceDetails("i-004", "us-west-2a", "InService"),
-      AsgInstanceDetails("i-005", "us-west-2a", "Terminating"),
+      AsgInstanceDetails("i-005", "us-west-2a", "Terminating")
     )
 
     val newAsgDetails = AsgDetails(
@@ -321,13 +321,13 @@ class GroupingSuite extends FunSuite with Grouping {
       3,
       6,
       0,
-      newAsgInstances,
+      newAsgInstances
     )
 
     val instanceInfo = Map(
       "i-001" -> Ec2InstanceDetails("192.168.1.1", None, None, instant, "ami-001", "r4.large"),
       "i-003" -> Ec2InstanceDetails("192.168.1.3", None, None, instant, "ami-001", "r4.large"),
-      "i-004" -> Ec2InstanceDetails("192.168.1.4", None, None, instant, "ami-001", "r4.large"),
+      "i-004" -> Ec2InstanceDetails("192.168.1.4", None, None, instant, "ami-001", "r4.large")
     )
 
     val merged = mergeSlots(oldAsgSlotted, newAsgDetails, instanceInfo)

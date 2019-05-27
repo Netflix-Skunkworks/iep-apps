@@ -280,7 +280,7 @@ class SlottingService @Inject()(
   }
 
   def fmtTime(elapsed: Long): String = {
-    f"${elapsed / 1000000000D}%.2f seconds"
+    f"${elapsed / 1000000000d}%.2f seconds"
   }
 
   private val lastUpdateSlots = PolledMeter

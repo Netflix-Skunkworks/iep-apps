@@ -179,7 +179,7 @@ object SlottingApi {
           s"$scheme://$host/api/v1/autoScalingGroups/:name",
           s"$scheme://$host/api/v2/group/autoScalingGroups",
           s"$scheme://$host/api/v2/group/autoScalingGroups;_expand",
-          s"$scheme://$host/api/v2/group/autoScalingGroups/:name",
+          s"$scheme://$host/api/v2/group/autoScalingGroups/:name"
         )
       )
     )

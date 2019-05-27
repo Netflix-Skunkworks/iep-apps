@@ -66,10 +66,10 @@ class PropertiesLoaderSuite
     assert(propContext.initialized)
     assert(
       propContext.getAll === List(
-        PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L),
-        PropertiesApi.Property("foo-main::1", "foo-main", "1", "2", 12345L),
-        PropertiesApi.Property("bar-main::c", "bar-main", "c", "d", 12345L)
-      )
+          PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L),
+          PropertiesApi.Property("foo-main::1", "foo-main", "1", "2", 12345L),
+          PropertiesApi.Property("bar-main::c", "bar-main", "c", "d", 12345L)
+        )
     )
   }
 
@@ -82,9 +82,9 @@ class PropertiesLoaderSuite
 
     assert(
       propContext.getAll === List(
-        PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L),
-        PropertiesApi.Property("bar-main::c", "bar-main", "c", "d", 12345L)
-      )
+          PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L),
+          PropertiesApi.Property("bar-main::c", "bar-main", "c", "d", 12345L)
+        )
     )
   }
 

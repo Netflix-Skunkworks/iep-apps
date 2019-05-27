@@ -258,8 +258,8 @@ class SesMonitoringService @Inject()(
     commonTags: Vector[BasicTag]
   ): Unit = {
     val tags = commonTags ++ Vector(
-      new BasicTag("type", getPathAsString(notification, "complaint", "complaintFeedbackType"))
-    )
+        new BasicTag("type", getPathAsString(notification, "complaint", "complaintFeedbackType"))
+      )
     registry.counter(notificationsId.withTags(tags: _*)).increment()
   }
 
@@ -268,9 +268,9 @@ class SesMonitoringService @Inject()(
     commonTags: Vector[BasicTag]
   ): Unit = {
     val tags = commonTags ++ Vector(
-      new BasicTag("type", getPathAsString(notification, "bounce", "bounceType")),
-      new BasicTag("subType", getPathAsString(notification, "bounce", "bounceSubType"))
-    )
+        new BasicTag("type", getPathAsString(notification, "bounce", "bounceType")),
+        new BasicTag("subType", getPathAsString(notification, "bounce", "bounceSubType"))
+      )
     val idWithCommonTags = notificationsId.withTags(tags: _*)
     val bouncedRecipients =
       getPathAsList(notification, "emailAddress", "bounce", "bouncedRecipients")

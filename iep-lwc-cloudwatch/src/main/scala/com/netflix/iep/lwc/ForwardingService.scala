@@ -418,7 +418,7 @@ object ForwardingService extends StrictLogging {
             a.account,
             a.datum.getMetricName,
             a.datum.getDimensions.asScala.map(d => (d.getName, d.getValue)).toMap
-        )
+          )
       ),
       msg.error
     )

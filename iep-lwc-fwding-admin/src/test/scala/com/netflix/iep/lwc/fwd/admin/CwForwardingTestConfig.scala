@@ -35,7 +35,7 @@ trait CwForwardingTestConfig {
     ),
     account: String = "$(nf.account)",
     region: Option[String] = Some("$(nf.region)"),
-    checksToSkip: List[String] = List.empty[String],
+    checksToSkip: List[String] = List.empty[String]
   ): ClusterConfig = {
     new ClusterConfig(
       email,
@@ -47,7 +47,7 @@ trait CwForwardingTestConfig {
           account,
           region,
           metricName,
-          dimensions,
+          dimensions
         )
       ),
       checksToSkip

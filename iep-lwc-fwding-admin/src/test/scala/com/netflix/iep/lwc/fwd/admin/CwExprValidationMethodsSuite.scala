@@ -116,7 +116,7 @@ class CwExprValidationMethodsSuite
       "",
       None,
       "",
-      List(ForwardingDimension("d1", "v1"), ForwardingDimension("d2", "v2")),
+      List(ForwardingDimension("d1", "v1"), ForwardingDimension("d2", "v2"))
     )
     assertFailure(
       validations.asgGrouping(expr, List.empty[StyleExpr]),

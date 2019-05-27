@@ -4,18 +4,18 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val akka       = "2.5.22"
+    val akka       = "2.5.23"
     val akkaHttpV  = "10.1.8"
     val atlas      = "1.6.0"
-    val aws        = "1.11.534"
-    val iep        = "2.0.3"
+    val aws        = "1.11.556"
+    val iep        = "2.0.4"
     val guice      = "4.1.0"
     val jackson    = "2.9.8"
     val log4j      = "2.11.2"
     val scala      = "2.12.8"
-    val servo      = "0.12.25"
+    val servo      = "0.12.26"
     val slf4j      = "1.7.26"
-    val spectator  = "0.92.0-SNAPSHOT"
+    val spectator  = "0.92.0"
 
     val crossScala = Seq(scala)
   }

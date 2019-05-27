@@ -55,8 +55,8 @@ class ScalingPoliciesSuite
     )
 
     val future = scalingPolicies ? GetScalingPolicy(
-      FwdMetricInfo("us-east-1", "123", "metric1", Map.empty[String, String])
-    )
+        FwdMetricInfo("us-east-1", "123", "metric1", Map.empty[String, String])
+      )
     val actual = Await.result(future.mapTo[Option[ScalingPolicy]], Duration.Inf)
     val expected = Some(ec2Policy1)
     assert(actual === expected)
@@ -75,8 +75,8 @@ class ScalingPoliciesSuite
     )
 
     var future = scalingPolicies ? GetScalingPolicy(
-      FwdMetricInfo("us-east-1", "123", "metric1", Map.empty[String, String])
-    )
+        FwdMetricInfo("us-east-1", "123", "metric1", Map.empty[String, String])
+      )
     val actual = Await.result(future.mapTo[Option[ScalingPolicy]], Duration.Inf)
 
     val expected = Some(ec2Policy1)
@@ -102,8 +102,8 @@ class ScalingPoliciesSuite
       )
     )
     val future = scalingPolicies ? GetScalingPolicy(
-      FwdMetricInfo("us-east-1", "123", "metric1", Map.empty[String, String])
-    )
+        FwdMetricInfo("us-east-1", "123", "metric1", Map.empty[String, String])
+      )
 
     assertThrows[AskTimeoutException](
       Await.result(future.mapTo[Option[ScalingPolicy]], Duration.Inf)

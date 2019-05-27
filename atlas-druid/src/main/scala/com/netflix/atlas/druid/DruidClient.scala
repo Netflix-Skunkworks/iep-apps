@@ -210,7 +210,7 @@ object DruidClient {
     filter: Option[DruidFilter] = None,
     sort: DruidSort = DruidSort.Lexicographic,
     granularity: String = "all",
-    limit: Int = 1000,
+    limit: Int = 1000
   ) {
     val queryType: String = "search"
     val query: DruidQuery.type = DruidQuery
@@ -237,7 +237,7 @@ object DruidClient {
     intervals: List[String],
     aggregations: List[Aggregation],
     filter: Option[DruidFilter] = None,
-    granularity: Granularity = Granularity.millis(60000),
+    granularity: Granularity = Granularity.millis(60000)
   ) {
     val queryType: String = "groupBy"
   }
