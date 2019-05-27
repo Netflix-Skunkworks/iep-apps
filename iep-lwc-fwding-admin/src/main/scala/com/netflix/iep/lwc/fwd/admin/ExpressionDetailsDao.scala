@@ -38,7 +38,7 @@ trait ExpressionDetailsDao {
 
 class ExpressionDetailsDaoImpl @Inject()(
   config: Config,
-  dynamoDBClient: AmazonDynamoDB,
+  dynamoDBClient: AmazonDynamoDB
 ) extends ExpressionDetailsDao
     with StrictLogging {
   import scala.collection.JavaConverters._

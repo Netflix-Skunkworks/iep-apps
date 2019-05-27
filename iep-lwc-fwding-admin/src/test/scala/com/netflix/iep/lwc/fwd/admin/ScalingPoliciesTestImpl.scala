@@ -22,7 +22,7 @@ import com.typesafe.config.Config
 class ScalingPoliciesTestImpl(
   config: Config,
   dao: ScalingPoliciesDao,
-  policies: Map[EddaEndpoint, List[ScalingPolicy]] = Map.empty[EddaEndpoint, List[ScalingPolicy]],
+  policies: Map[EddaEndpoint, List[ScalingPolicy]] = Map.empty[EddaEndpoint, List[ScalingPolicy]]
 ) extends ScalingPolicies(config, dao) {
   scalingPolicies = policies
   override def startPeriodicTimer(): Unit = {}

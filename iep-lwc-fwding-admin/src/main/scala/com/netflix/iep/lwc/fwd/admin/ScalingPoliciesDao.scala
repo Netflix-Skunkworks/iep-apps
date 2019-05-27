@@ -61,8 +61,8 @@ class ScalingPoliciesDaoImpl @Inject()(
     Flow[EddaEndpoint]
       .filter { eddaEndpoint =>
         val valid = eddaEndpoint.account.nonEmpty &&
-        eddaEndpoint.region.nonEmpty &&
-        eddaEndpoint.env.nonEmpty
+          eddaEndpoint.region.nonEmpty &&
+          eddaEndpoint.env.nonEmpty
 
         if (!valid) {
           logger.error(s"Invalid EddaEndpoint $eddaEndpoint")
@@ -167,7 +167,7 @@ class ScalingPoliciesDaoImpl @Inject()(
           HttpRequest(HttpMethods.GET, uri).withHeaders(
             `Accept-Encoding`(HttpEncodings.gzip),
             Accept(MediaTypes.`application/json`)
-        )
+          )
       )
       .map(r => r -> AccessLogger.newClientLogger("edda", r))
       .via(client)

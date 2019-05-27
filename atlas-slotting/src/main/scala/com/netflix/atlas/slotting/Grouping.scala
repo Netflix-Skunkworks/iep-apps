@@ -35,13 +35,13 @@ case class AsgDetails(
   desiredCapacity: Int,
   maxSize: Int,
   minSize: Int,
-  instances: List[AsgInstanceDetails],
+  instances: List[AsgInstanceDetails]
 )
 
 case class AsgInstanceDetails(
   instanceId: String,
   availabilityZone: String,
-  lifecycleState: String,
+  lifecycleState: String
 )
 
 case class Ec2InstanceDetails(
@@ -50,7 +50,7 @@ case class Ec2InstanceDetails(
   publicDnsName: Option[String],
   launchTime: Instant,
   imageId: String,
-  instanceType: String,
+  instanceType: String
 )
 
 case class SlottedAsgDetails(
@@ -60,7 +60,7 @@ case class SlottedAsgDetails(
   desiredCapacity: Int,
   maxSize: Int,
   minSize: Int,
-  instances: List[SlottedInstanceDetails],
+  instances: List[SlottedInstanceDetails]
 ) {
   require(
     instances.size <= desiredCapacity,
@@ -78,7 +78,7 @@ case class SlottedInstanceDetails(
   imageId: String,
   instanceType: String,
   availabilityZone: String,
-  lifecycleState: String,
+  lifecycleState: String
 )
 
 trait Grouping extends StrictLogging {
@@ -124,7 +124,7 @@ trait Grouping extends StrictLogging {
       asg.getDesiredCapacity,
       asg.getMaxSize,
       asg.getMinSize,
-      mkAsgInstanceDetailsList(asg.getInstances),
+      mkAsgInstanceDetailsList(asg.getInstances)
     )
   }
 
@@ -141,7 +141,7 @@ trait Grouping extends StrictLogging {
         AsgInstanceDetails(
           i.getInstanceId,
           i.getAvailabilityZone,
-          i.getLifecycleState,
+          i.getLifecycleState
         )
       }
   }
@@ -163,7 +163,7 @@ trait Grouping extends StrictLogging {
       },
       instance.getLaunchTime.toInstant,
       instance.getImageId,
-      instance.getInstanceType,
+      instance.getInstanceType
     )
   }
 
@@ -202,7 +202,7 @@ trait Grouping extends StrictLogging {
           instance.imageId,
           instance.instanceType,
           i.availabilityZone,
-          i.lifecycleState,
+          i.lifecycleState
         )
       }
   }
@@ -254,7 +254,7 @@ trait Grouping extends StrictLogging {
           newAsgDetails.desiredCapacity,
           newAsgDetails.maxSize,
           newAsgDetails.minSize,
-          assignSlots(newAsgDetails, instanceInfo),
+          assignSlots(newAsgDetails, instanceInfo)
         )
       )
     )
@@ -307,8 +307,8 @@ trait Grouping extends StrictLogging {
     val addedInstances = newInstances.filterNot(i => oldSlotMap.contains(i.instanceId))
     val unusedSlots = (0 until newAsgDetails.desiredCapacity).toSet -- oldSlotMap.values
     val newSlotMap = oldSlotMap ++ addedInstances.zip(unusedSlots).map {
-      case (i, slot) => i.instanceId -> slot
-    }
+        case (i, slot) => i.instanceId -> slot
+      }
 
     // update slots for the new instances and fail if the instances.size > desiredCapacity
     newInstances
@@ -361,7 +361,7 @@ trait Grouping extends StrictLogging {
             newAsgDetails.desiredCapacity,
             newAsgDetails.maxSize,
             newAsgDetails.minSize,
-            mergeSlots(oldAsgDetails, newAsgDetails, instanceInfo),
+            mergeSlots(oldAsgDetails, newAsgDetails, instanceInfo)
           )
         )
       )
