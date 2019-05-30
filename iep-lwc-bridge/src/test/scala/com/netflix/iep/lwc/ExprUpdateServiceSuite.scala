@@ -65,6 +65,11 @@ class ExprUpdateServiceSuite extends FunSuite with BeforeAndAfter {
         |      "id": "123",
         |      "expression": "name,cpu,:eq,:sum",
         |      "frequency": 60000
+        |    },
+        |    {
+        |      "id": "123",
+        |      "expression": "name,cpu,:eq,:sum",
+        |      "frequency": 5000
         |    }
         |  ]
         |}

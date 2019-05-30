@@ -118,9 +118,15 @@ class ExprUpdateService @Inject()(
   }
 
   private def update(data: ByteString): Future[NotUsed] = {
+    import scala.collection.JavaConverters._
     Future {
       try {
-        val exprs = Json.decode[Subscriptions](data.toArray).getExpressions
+        val exprs = Json
+          .decode[Subscriptions](data.toArray)
+          .getExpressions
+          .asScala
+          .filter(_.getFrequency == 60000) // Limit to primary publish step size
+          .asJava
         evaluator.sync(exprs)
         lastUpdateTime.set(registry.clock().wallTime())
       } catch {
