@@ -121,7 +121,8 @@ class ExprUpdateService @Inject()(
     import scala.collection.JavaConverters._
     Future {
       try {
-        val exprs = Json.decode[Subscriptions](data.toArray)
+        val exprs = Json
+          .decode[Subscriptions](data.toArray)
           .getExpressions
           .asScala
           .filter(_.getFrequency == 60000) // Limit to primary publish step size
