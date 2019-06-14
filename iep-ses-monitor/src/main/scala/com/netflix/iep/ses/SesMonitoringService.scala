@@ -82,10 +82,12 @@ class SesMonitoringService @Inject()(
     val notificationQueueName = config.getString("iep.ses.monitor.notification-queue-name")
     logger.debug(s"Getting queue URL for SQS queue $notificationQueueName")
 
+    val getQueueUrlFutureTimeout =
+      config.getDuration("iep.ses.monitor.sqs-get-queue-uri-future-timeout")
     val queueUri = getSqsQueueUri(
       sqsAsync
         .getQueueUrl(GetQueueUrlRequest.builder().queueName(notificationQueueName).build())
-        .get(6, TimeUnit.SECONDS),
+        .get(getQueueUrlFutureTimeout.toMillis, TimeUnit.MILLISECONDS),
       config.getDuration("iep.ses.monitor.sqs-unknown-host-retry-delay")
     )
 
