@@ -17,6 +17,7 @@ package com.netflix.iep.ses
 
 import com.google.inject.AbstractModule
 import com.google.inject.Provides
+import com.google.inject.Singleton
 import com.google.inject.multibindings.Multibinder
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.service.Service
@@ -28,6 +29,7 @@ class AppModule extends AbstractModule {
     serviceBinder.addBinding().to(classOf[SesMonitoringService])
   }
 
+  @Singleton
   @Provides
   def provideAwsSqsAsyncClient(factory: AwsClientFactory): SqsAsyncClient = {
     factory.newInstance(classOf[SqsAsyncClient])
