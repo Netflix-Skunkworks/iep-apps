@@ -755,16 +755,16 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
 
   test("sqs queue uri is returned on success") {
     val responseBuilder = GetQueueUrlResponse.builder()
-    val queueUri = "queueUri"
-    responseBuilder.queueUrl(queueUri)
-    val counter = metricRegistry.counter(metricRegistry.createId("ses.monitor.getQueueUriFailure"))
+    val queueUrl = "queueUrl"
+    responseBuilder.queueUrl(queueUrl)
+    val counter = metricRegistry.counter(metricRegistry.createId("ses.monitor.getQueueUrlFailure"))
     counter.count() shouldEqual 0
 
     val response = responseBuilder.build()
-    val uriString = sesMonitoringService.getSqsQueueUri(response, JTDuration.ofMillis(0))
+    val uriString = sesMonitoringService.getSqsQueueUrl(response, JTDuration.ofMillis(0))
 
     counter.count() shouldEqual 0
-    uriString shouldEqual queueUri
+    uriString shouldEqual queueUrl
   }
 
   test(
@@ -772,32 +772,32 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     "since there are occasional dns blips"
   ) {
     var attempts = 0
-    val queueUri = "queueUri"
+    val queueUrl = "queueUrl"
 
-    def getUriSpy: GetQueueUrlResponse = {
+    def getUrlSpy: GetQueueUrlResponse = {
       attempts += 1
 
       if (attempts < 3) {
         throw SdkClientException.create("", new UnknownHostException("test"))
       }
 
-      GetQueueUrlResponse.builder().queueUrl(queueUri).build()
+      GetQueueUrlResponse.builder().queueUrl(queueUrl).build()
     }
 
     val counter = metricRegistry.counter(
       metricRegistry
-        .createId("ses.monitor.getQueueUriFailure")
+        .createId("ses.monitor.getQueueUrlFailure")
         .withTag("exception", "SdkClientException")
         .withTag("cause", "UnknownHostException")
     )
 
     counter.count() shouldEqual 0
 
-    val uriString = sesMonitoringService.getSqsQueueUri(getUriSpy, JTDuration.ofMillis(10))
+    val uriString = sesMonitoringService.getSqsQueueUrl(getUrlSpy, JTDuration.ofMillis(10))
 
     counter.count() shouldEqual 2
     attempts shouldEqual 3
-    uriString shouldEqual queueUri
+    uriString shouldEqual queueUrl
   }
 
   test(
@@ -806,14 +806,14 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
   ) {
     var attempts = 0
 
-    def getUriSpy: GetQueueUrlResponse = {
+    def getUrlSpy: GetQueueUrlResponse = {
       attempts += 1
       throw SdkClientException.create("", new NullPointerException("test"))
     }
 
     val counter = metricRegistry.counter(
       metricRegistry
-        .createId("ses.monitor.getQueueUriFailure")
+        .createId("ses.monitor.getQueueUrlFailure")
         .withTag("exception", "SdkClientException")
         .withTag("cause", "NullPointerException")
     )
@@ -821,7 +821,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     counter.count() shouldEqual 0
 
     intercept[SdkClientException] {
-      sesMonitoringService.getSqsQueueUri(getUriSpy, JTDuration.ofMillis(10))
+      sesMonitoringService.getSqsQueueUrl(getUrlSpy, JTDuration.ofMillis(10))
     }
 
     counter.count() shouldEqual 1
@@ -834,21 +834,21 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
   ) {
     var attempts = 0
 
-    def getUriSpy: GetQueueUrlResponse = {
+    def getUrlSpy: GetQueueUrlResponse = {
       attempts += 1
       throw new NullPointerException("test")
     }
 
     val counter = metricRegistry.counter(
       metricRegistry
-        .createId("ses.monitor.getQueueUriFailure")
+        .createId("ses.monitor.getQueueUrlFailure")
         .withTag("exception", "NullPointerException")
     )
 
     counter.count() shouldEqual 0
 
     intercept[NullPointerException] {
-      sesMonitoringService.getSqsQueueUri(getUriSpy, JTDuration.ofMillis(10))
+      sesMonitoringService.getSqsQueueUrl(getUrlSpy, JTDuration.ofMillis(10))
     }
 
     counter.count() shouldEqual 1

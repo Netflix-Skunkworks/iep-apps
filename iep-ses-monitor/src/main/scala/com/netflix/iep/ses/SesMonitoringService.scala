@@ -61,7 +61,7 @@ class SesMonitoringService @Inject()(
   private val deletedMessageCount =
     registry.counter("ses.monitor.ackedMessages", "action", "delete")
 
-  private val queueUrlFailureId = registry.createId("ses.monitor.getQueueUriFailure")
+  private val queueUrlFailureId = registry.createId("ses.monitor.getQueueUrlFailure")
   private val deserializationFailureId = registry.createId("ses.monitor.deserializationFailure")
   private val notificationLoggingFailureId =
     registry.createId("ses.monitor.notificationLoggingFailure")
@@ -83,19 +83,19 @@ class SesMonitoringService @Inject()(
     logger.debug(s"Getting queue URL for SQS queue $notificationQueueName")
 
     val getQueueUrlFutureTimeout =
-      config.getDuration("iep.ses.monitor.sqs-get-queue-uri-future-timeout")
-    val queueUri = getSqsQueueUri(
+      config.getDuration("iep.ses.monitor.sqs-get-queue-url-future-timeout")
+    val queueUrl = getSqsQueueUrl(
       sqsAsync
         .getQueueUrl(GetQueueUrlRequest.builder().queueName(notificationQueueName).build())
         .get(getQueueUrlFutureTimeout.toMillis, TimeUnit.MILLISECONDS),
       config.getDuration("iep.ses.monitor.sqs-unknown-host-retry-delay")
     )
 
-    logger.info(s"Connecting to SQS queue $notificationQueueName at $queueUri")
+    logger.info(s"Connecting to SQS queue $notificationQueueName at $queueUrl")
 
-    killSwitch = SqsSource(queueUri)
+    killSwitch = SqsSource(queueUrl)
       .via(createMessageProcessingFlow())
-      .via(SqsAckFlow.grouped(queueUri, SqsAckGroupedSettings.Defaults))
+      .via(SqsAckFlow.grouped(queueUrl, SqsAckGroupedSettings.Defaults))
       .watchTermination() { (_, f) =>
         f.onComplete {
           case Success(_) | Failure(_: AbruptTerminationException) =>
@@ -114,15 +114,15 @@ class SesMonitoringService @Inject()(
   }
 
   @tailrec
-  private[ses] final def getSqsQueueUri(
-    getQueueUri: => GetQueueUrlResponse,
+  private[ses] final def getSqsQueueUrl(
+    getQueueUrl: => GetQueueUrlResponse,
     retryDelay: Duration
   ): String = {
     import java.net.UnknownHostException
 
     import scala.util.Try
 
-    Try(getQueueUri) match {
+    Try(getQueueUrl) match {
       case Success(response) =>
         response.queueUrl
 
@@ -136,7 +136,7 @@ class SesMonitoringService @Inject()(
             )
             incrementQueueUrlFailure(e)
             Thread.sleep(retryDelay.toMillis)
-            getSqsQueueUri(getQueueUri, retryDelay)
+            getSqsQueueUrl(getQueueUrl, retryDelay)
           case _ => {
             logger.error("Exception getting SQS queue URI.", e)
             incrementQueueUrlFailure(e)
