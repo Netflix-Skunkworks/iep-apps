@@ -24,10 +24,6 @@ import akka.stream.Materializer
 import akka.stream.alpakka.sqs.MessageAction
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
-import com.amazonaws.SdkClientException
-import com.amazonaws.services.sqs.AbstractAmazonSQSAsync
-import com.amazonaws.services.sqs.model.GetQueueUrlResult
-import com.amazonaws.services.sqs.model.Message
 import com.netflix.atlas.json.Json
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.Functions
@@ -37,6 +33,10 @@ import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.FunSuite
 import org.scalatest.Matchers
+import software.amazon.awssdk.core.exception.SdkClientException
+import software.amazon.awssdk.services.sqs.SqsAsyncClient
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlResponse
+import software.amazon.awssdk.services.sqs.model.Message
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -46,7 +46,11 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
   private implicit val system: ActorSystem = ActorSystem()
   private implicit val mat: Materializer = ActorMaterializer()
 
-  private object DummyAmazonSQSAsync extends AbstractAmazonSQSAsync
+  private object DummyAmazonSQSAsync extends SqsAsyncClient {
+    override def serviceName(): String = getClass.getSimpleName
+
+    override def close(): Unit = {}
+  }
 
   private var sesMonitoringService: SesMonitoringService = _
   private var metricRegistry: Registry = _
@@ -750,13 +754,14 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
   }
 
   test("sqs queue uri is returned on success") {
-    val result = new GetQueueUrlResult()
+    val responseBuilder = GetQueueUrlResponse.builder()
     val queueUri = "queueUri"
-    result.setQueueUrl(queueUri)
+    responseBuilder.queueUrl(queueUri)
     val counter = metricRegistry.counter(metricRegistry.createId("ses.monitor.getQueueUriFailure"))
     counter.count() shouldEqual 0
 
-    val uriString = sesMonitoringService.getSqsQueueUri(result, JTDuration.ofMillis(0))
+    val response = responseBuilder.build()
+    val uriString = sesMonitoringService.getSqsQueueUri(response, JTDuration.ofMillis(0))
 
     counter.count() shouldEqual 0
     uriString shouldEqual queueUri
@@ -769,16 +774,14 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
     var attempts = 0
     val queueUri = "queueUri"
 
-    def getUriSpy: GetQueueUrlResult = {
+    def getUriSpy: GetQueueUrlResponse = {
       attempts += 1
 
       if (attempts < 3) {
-        throw new SdkClientException(new UnknownHostException("test"))
+        throw SdkClientException.create("", new UnknownHostException("test"))
       }
 
-      val result = new GetQueueUrlResult()
-      result.setQueueUrl(queueUri)
-      result
+      GetQueueUrlResponse.builder().queueUrl(queueUri).build()
     }
 
     val counter = metricRegistry.counter(
@@ -803,9 +806,9 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
   ) {
     var attempts = 0
 
-    def getUriSpy: GetQueueUrlResult = {
+    def getUriSpy: GetQueueUrlResponse = {
       attempts += 1
-      throw new SdkClientException(new NullPointerException("test"))
+      throw SdkClientException.create("", new NullPointerException("test"))
     }
 
     val counter = metricRegistry.counter(
@@ -831,7 +834,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
   ) {
     var attempts = 0
 
-    def getUriSpy: GetQueueUrlResult = {
+    def getUriSpy: GetQueueUrlResponse = {
       attempts += 1
       throw new NullPointerException("test")
     }
@@ -853,9 +856,11 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
   }
 
   private def createNotificationMessage(messageBody: String): Message = {
-    new Message()
-      .withMessageId("abc-123")
-      .withReceiptHandle("abc-123-handle")
-      .withBody(messageBody)
+    Message
+      .builder()
+      .messageId("abc-123")
+      .receiptHandle("abc-123-handle")
+      .body(messageBody)
+      .build()
   }
 }
