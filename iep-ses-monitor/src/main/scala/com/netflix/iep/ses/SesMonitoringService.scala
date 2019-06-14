@@ -16,6 +16,7 @@
 package com.netflix.iep.ses
 
 import java.time.Duration
+import java.util.concurrent.TimeUnit
 
 import akka.NotUsed
 import akka.actor.ActorSystem
@@ -30,9 +31,6 @@ import akka.stream.alpakka.sqs.scaladsl.SqsSource
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.Sink
-import com.amazonaws.services.sqs.AmazonSQSAsync
-import com.amazonaws.services.sqs.model.GetQueueUrlResult
-import com.amazonaws.services.sqs.model.Message
 import com.netflix.atlas.json.Json
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.BasicTag
@@ -41,6 +39,10 @@ import com.netflix.spectator.api.patterns.CardinalityLimiters
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
+import software.amazon.awssdk.services.sqs.SqsAsyncClient
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlRequest
+import software.amazon.awssdk.services.sqs.model.GetQueueUrlResponse
+import software.amazon.awssdk.services.sqs.model.Message
 
 import scala.annotation.tailrec
 import scala.util.Failure
@@ -49,7 +51,7 @@ import scala.util.Success
 class SesMonitoringService @Inject()(
   config: Config,
   registry: Registry,
-  implicit val sqsAsync: AmazonSQSAsync,
+  implicit val sqsAsync: SqsAsyncClient,
   implicit val system: ActorSystem,
   sesNotificationLogger: NotificationLogger
 ) extends AbstractService
@@ -59,7 +61,7 @@ class SesMonitoringService @Inject()(
   private val deletedMessageCount =
     registry.counter("ses.monitor.ackedMessages", "action", "delete")
 
-  private val queueUrlFailureId = registry.createId("ses.monitor.getQueueUriFailure")
+  private val queueUrlFailureId = registry.createId("ses.monitor.getQueueUrlFailure")
   private val deserializationFailureId = registry.createId("ses.monitor.deserializationFailure")
   private val notificationLoggingFailureId =
     registry.createId("ses.monitor.notificationLoggingFailure")
@@ -80,16 +82,20 @@ class SesMonitoringService @Inject()(
     val notificationQueueName = config.getString("iep.ses.monitor.notification-queue-name")
     logger.debug(s"Getting queue URL for SQS queue $notificationQueueName")
 
-    val queueUri = getSqsQueueUri(
-      sqsAsync.getQueueUrl(notificationQueueName),
+    val getQueueUrlFutureTimeout =
+      config.getDuration("iep.ses.monitor.sqs-get-queue-url-future-timeout")
+    val queueUrl = getSqsQueueUrl(
+      sqsAsync
+        .getQueueUrl(GetQueueUrlRequest.builder().queueName(notificationQueueName).build())
+        .get(getQueueUrlFutureTimeout.toMillis, TimeUnit.MILLISECONDS),
       config.getDuration("iep.ses.monitor.sqs-unknown-host-retry-delay")
     )
 
-    logger.info(s"Connecting to SQS queue $notificationQueueName at $queueUri")
+    logger.info(s"Connecting to SQS queue $notificationQueueName at $queueUrl")
 
-    killSwitch = SqsSource(queueUri)
+    killSwitch = SqsSource(queueUrl)
       .via(createMessageProcessingFlow())
-      .via(SqsAckFlow.grouped(queueUri, SqsAckGroupedSettings.Defaults))
+      .via(SqsAckFlow.grouped(queueUrl, SqsAckGroupedSettings.Defaults))
       .watchTermination() { (_, f) =>
         f.onComplete {
           case Success(_) | Failure(_: AbruptTerminationException) =>
@@ -108,17 +114,17 @@ class SesMonitoringService @Inject()(
   }
 
   @tailrec
-  private[ses] final def getSqsQueueUri(
-    getQueueUri: => GetQueueUrlResult,
+  private[ses] final def getSqsQueueUrl(
+    getQueueUrl: => GetQueueUrlResponse,
     retryDelay: Duration
   ): String = {
     import java.net.UnknownHostException
 
     import scala.util.Try
 
-    Try(getQueueUri) match {
-      case Success(result) =>
-        result.getQueueUrl
+    Try(getQueueUrl) match {
+      case Success(response) =>
+        response.queueUrl
 
       case Failure(e) =>
         e.getCause match {
@@ -130,7 +136,7 @@ class SesMonitoringService @Inject()(
             )
             incrementQueueUrlFailure(e)
             Thread.sleep(retryDelay.toMillis)
-            getSqsQueueUri(getQueueUri, retryDelay)
+            getSqsQueueUrl(getQueueUrl, retryDelay)
           case _ => {
             logger.error("Exception getting SQS queue URI.", e)
             incrementQueueUrlFailure(e)
@@ -165,7 +171,7 @@ class SesMonitoringService @Inject()(
     val (notificationAsMap, deserializationSucceeded) = try {
       // decoding to Map since we only record a few fields
       // ... may want to create a model object at some point
-      val json = Json.decode[Map[String, Any]](message.getBody)
+      val json = Json.decode[Map[String, Any]](message.body)
       val messageObject =
         Json.decode[Map[String, Any]](json.getOrElse("Message", "{}").asInstanceOf[String])
       incrementCounter(messageObject)
@@ -175,7 +181,7 @@ class SesMonitoringService @Inject()(
         registry
           .counter(deserializationFailureId.withTag("reason", e.getClass.getSimpleName))
           .increment()
-        logger.error(s"Error deserializing JSON notification: ${message.getBody}", e)
+        logger.error(s"Error deserializing JSON notification: ${message.body}", e)
         (Map.empty[String, Any], false)
     }
 
@@ -285,7 +291,7 @@ class SesMonitoringService @Inject()(
   }
 
   private def logNotification(message: Message): Message = {
-    logger.debug(message.getBody)
+    logger.debug(message.body)
     message
   }
 

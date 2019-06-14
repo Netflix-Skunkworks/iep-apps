@@ -15,15 +15,14 @@
  */
 package com.netflix.iep.ses
 
-import com.amazonaws.PredefinedClientConfigurations
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
-import com.amazonaws.services.sqs.AmazonSQSAsync
-import com.amazonaws.services.sqs.AmazonSQSAsyncClient
 import com.google.inject.AbstractModule
 import com.google.inject.Provides
 import com.google.inject.multibindings.Multibinder
 import com.netflix.iep.NetflixEnvironment
 import com.netflix.iep.service.Service
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.sqs.SqsAsyncClient
 
 class AppModule extends AbstractModule {
   override def configure(): Unit = {
@@ -32,13 +31,11 @@ class AppModule extends AbstractModule {
   }
 
   @Provides
-  def provideAwsSqsAsyncClient(): AmazonSQSAsync = {
-    // TODO add to AwsClientFactory?
-    AmazonSQSAsyncClient
-      .asyncBuilder()
-      .withRegion(NetflixEnvironment.region())
-      .withCredentials(new DefaultAWSCredentialsProviderChain)
-      .withClientConfiguration(PredefinedClientConfigurations.defaultConfig().withGzip(true))
+  def provideAwsSqsAsyncClient(): SqsAsyncClient = {
+    SqsAsyncClient
+      .builder()
+      .region(Region.of(NetflixEnvironment.region()))
+      .credentialsProvider(DefaultCredentialsProvider.create())
       .build()
   }
 
