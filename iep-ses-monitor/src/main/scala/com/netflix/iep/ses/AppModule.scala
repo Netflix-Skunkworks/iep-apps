@@ -18,10 +18,8 @@ package com.netflix.iep.ses
 import com.google.inject.AbstractModule
 import com.google.inject.Provides
 import com.google.inject.multibindings.Multibinder
-import com.netflix.iep.NetflixEnvironment
+import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.service.Service
-import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider
-import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.sqs.SqsAsyncClient
 
 class AppModule extends AbstractModule {
@@ -31,12 +29,8 @@ class AppModule extends AbstractModule {
   }
 
   @Provides
-  def provideAwsSqsAsyncClient(): SqsAsyncClient = {
-    SqsAsyncClient
-      .builder()
-      .region(Region.of(NetflixEnvironment.region()))
-      .credentialsProvider(DefaultCredentialsProvider.create())
-      .build()
+  def provideAwsSqsAsyncClient(factory: AwsClientFactory): SqsAsyncClient = {
+    factory.newInstance(classOf[SqsAsyncClient])
   }
 
   @Provides
