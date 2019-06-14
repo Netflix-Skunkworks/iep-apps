@@ -52,6 +52,7 @@ object Dependencies {
   val iepModuleArchaius2 = "com.netflix.iep" % "iep-module-archaius2" % iep
   val iepModuleAtlas     = "com.netflix.iep" % "iep-module-atlas" % iep
   val iepModuleAws       = "com.netflix.iep" % "iep-module-aws" % iep
+  val iepModuleAws2      = "com.netflix.iep" % "iep-module-aws2" % iep
   val iepModuleAwsMetrics= "com.netflix.iep" % "iep-module-awsmetrics" % iep
   val iepModuleEureka    = "com.netflix.iep" % "iep-module-eureka" % iep
   val iepModuleJmx       = "com.netflix.iep" % "iep-module-jmxport" % iep

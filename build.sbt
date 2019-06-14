@@ -218,7 +218,7 @@ lazy val `iep-ses-monitor` = project
     Dependencies.alpakkaSqs,
     Dependencies.iepGuice,
     Dependencies.iepModuleAtlas,
-    Dependencies.iepModuleAws,
+    Dependencies.iepModuleAws2,
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,
