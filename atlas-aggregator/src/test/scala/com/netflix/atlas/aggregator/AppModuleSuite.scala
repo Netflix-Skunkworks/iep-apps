@@ -17,7 +17,6 @@ package com.netflix.atlas.aggregator
 
 import javax.inject.Singleton
 import com.google.inject.AbstractModule
-import com.google.inject.ConfigurationException
 import com.google.inject.Guice
 import com.google.inject.Provider
 import com.netflix.spectator.api.Clock

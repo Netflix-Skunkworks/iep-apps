@@ -56,7 +56,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
   private var metricRegistry: Registry = _
 
   override def beforeEach(): Unit = {
-    setup(new DefaultRegistry(), _ => Unit)
+    setup(new DefaultRegistry(), _ => ())
   }
 
   private def setup(testRegistry: Registry, notificationLoggerSpy: NotificationLogger): Unit = {

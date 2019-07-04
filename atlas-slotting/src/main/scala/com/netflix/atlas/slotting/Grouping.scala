@@ -301,7 +301,7 @@ trait Grouping extends StrictLogging {
 
     // get the old slot map and remove instances that are no longer present
     val idSet = newInstances.map(_.instanceId).toSet
-    val oldSlotMap = mkSlotMap(oldAsgDetails).filterKeys(idSet.contains)
+    val oldSlotMap = mkSlotMap(oldAsgDetails).filterKeys(idSet.contains).toMap
 
     // create a new slot map, merging added instances into empty slots
     val addedInstances = newInstances.filterNot(i => oldSlotMap.contains(i.instanceId))

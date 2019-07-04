@@ -2,17 +2,20 @@ language: scala
 matrix:
   include:
   - jdk: openjdk8
+    scala: 2.12.8
+    env: BINTRAY_PUBLISH=true
+  - jdk: openjdk8
+    scala: 2.13.0
     env: BINTRAY_PUBLISH=true
   - jdk: openjdk11
+    scala: 2.13.0
     env: BINTRAY_PUBLISH=false
-scala:
-- 2.12.8
 git:
   depth: 10
 script:
 - ./scripts/buildViaTravis.sh
 sudo: required
-dist: trusty
+dist: xenial
 cache:
   directories:
   - $HOME/.sbt
