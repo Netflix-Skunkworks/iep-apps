@@ -22,6 +22,7 @@ import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.ForwardingDimension
 import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
 import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo
+import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.BeforeAndAfter
@@ -31,7 +32,11 @@ import scala.concurrent.duration._
 
 class ExpressionDetailsDaoSuite extends FunSuite with BeforeAndAfter with StrictLogging {
 
-  val dao = new ExpressionDetailsDaoImpl(ConfigFactory.load(), makeDynamoDBClient())
+  val dao = new ExpressionDetailsDaoImpl(
+    ConfigFactory.load(),
+    makeDynamoDBClient(),
+    new NoopRegistry()
+  )
 
   def makeDynamoDBClient(): AmazonDynamoDB = {
     AmazonDynamoDBClientBuilder

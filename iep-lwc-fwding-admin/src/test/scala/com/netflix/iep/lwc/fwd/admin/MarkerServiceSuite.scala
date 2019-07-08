@@ -34,7 +34,6 @@ import scala.concurrent.duration.Duration
 
 class MarkerServiceSuite extends FunSuite {
 
-  import ExpressionDetails._
   import MarkerServiceImpl._
 
   private val config = ConfigFactory.load()
@@ -107,7 +106,7 @@ class MarkerServiceSuite extends FunSuite {
 
   test("Lookup scaling policy") {
     val ec2Policy1 = ScalingPolicy("ec2Policy1", ScalingPolicy.Ec2, "metric1", Nil)
-    val data = Map(EddaEndpoint("123", "us-east-1", "test") -> List(ec2Policy1))
+    val data = Map(EddaEndpoint("123", "us-east-1", "local") -> List(ec2Policy1))
     system.actorOf(
       Props[ScalingPoliciesTestImpl](
         new ScalingPoliciesTestImpl(
@@ -200,147 +199,6 @@ class MarkerServiceSuite extends FunSuite {
       .runWith(Sink.head)
     val actual = Await.result(future, Duration.Inf)
     val expected = ScalingPolicyStatus(true, None)
-    assert(actual === expected)
-  }
-
-  test("Make ExpressionDetails from a Report[data=yes,sp=yes]") {
-    val metricInfo = FwdMetricInfo("", "", "", Map.empty[String, String])
-    val report = Report(
-      1551820461000L,
-      ExpressionId("c1", ForwardingExpression("", "", None, "")),
-      Some(metricInfo),
-      None
-    )
-    val scalingPolicy = ScalingPolicy("", ScalingPolicy.Ec2, "", Nil)
-    val scalingPolicyStatus = ScalingPolicyStatus(false, Some(scalingPolicy))
-    val expected =
-      ExpressionDetails(
-        report.id,
-        report.timestamp,
-        List(metricInfo),
-        report.error,
-        Map.empty[String, Long],
-        List(scalingPolicy)
-      )
-    val actual = toExprDetails(report, scalingPolicyStatus, None)
-
-    assert(actual === expected)
-  }
-
-  test("Make ExpressionDetails from a Report[sp=unknown]") {
-    val metricInfo = FwdMetricInfo("", "", "", Map.empty[String, String])
-    val report = Report(
-      1551820461000L,
-      ExpressionId("c1", ForwardingExpression("", "", None, "")),
-      Some(metricInfo),
-      None
-    )
-    val scalingPolicyStatus = ScalingPolicyStatus(true, None)
-    val expected =
-      ExpressionDetails(
-        report.id,
-        report.timestamp,
-        List(metricInfo),
-        report.error,
-        Map.empty[String, Long],
-        Nil
-      )
-    val actual = toExprDetails(report, scalingPolicyStatus, None)
-
-    assert(actual === expected)
-  }
-
-  test("Make ExpressionDetails from a Report[data=no,sp=no]") {
-    val report = Report(
-      1551820461000L,
-      ExpressionId("c1", ForwardingExpression("", "", None, "")),
-      None,
-      None
-    )
-    val scalingPolicyStatus = ScalingPolicyStatus(false, None)
-    val expected =
-      ExpressionDetails(
-        report.id,
-        report.timestamp,
-        Nil,
-        report.error,
-        Map(
-          NoDataFoundEvent          -> 1551820461000L,
-          NoScalingPolicyFoundEvent -> 1551820461000L
-        ),
-        Nil
-      )
-    val actual = toExprDetails(report, scalingPolicyStatus, None)
-
-    assert(actual === expected)
-  }
-
-  test("Make ExpressionDetails from Report[data=no,sp=no,prevReport[data=yes,sp=yes]]") {
-    val report = Report(
-      1551820461000L,
-      ExpressionId("c1", ForwardingExpression("", "", None, "")),
-      None,
-      None
-    )
-    val forwardedMetrics = List(FwdMetricInfo("", "", "", Map.empty[String, String]))
-    val scalingPolicies = List(ScalingPolicy("", ScalingPolicy.Ec2, "", Nil))
-    val prevExprDetails = ExpressionDetails(
-      report.id,
-      1551820341000L,
-      forwardedMetrics,
-      report.error,
-      Map.empty[String, Long],
-      scalingPolicies
-    )
-    val scalingPolicyStatus = ScalingPolicyStatus(false, None)
-    val expected =
-      ExpressionDetails(
-        report.id,
-        report.timestamp,
-        forwardedMetrics,
-        report.error,
-        Map(
-          NoDataFoundEvent          -> 1551820461000L,
-          NoScalingPolicyFoundEvent -> 1551820461000L
-        ),
-        scalingPolicies
-      )
-    val actual = toExprDetails(report, scalingPolicyStatus, Some(prevExprDetails))
-    assert(actual === expected)
-  }
-
-  test("Make ExpressionDetails from a Report[data=no,sp=no,prevReport[data=no,sp=no]]") {
-    val report = Report(
-      1551820461000L,
-      ExpressionId("c1", ForwardingExpression("", "", None, "")),
-      None,
-      None
-    )
-    val prevExprDetails = ExpressionDetails(
-      report.id,
-      1551820341000L,
-      Nil,
-      report.error,
-      Map(
-        NoDataFoundEvent          -> 1551820341000L,
-        NoScalingPolicyFoundEvent -> 1551820341000L
-      ),
-      Nil
-    )
-    val scalingPolicyStatus = ScalingPolicyStatus(false, None)
-    val expected =
-      ExpressionDetails(
-        report.id,
-        report.timestamp,
-        Nil,
-        report.error,
-        Map(
-          NoDataFoundEvent          -> 1551820341000L,
-          NoScalingPolicyFoundEvent -> 1551820341000L
-        ),
-        Nil
-      )
-    val actual = toExprDetails(report, scalingPolicyStatus, Some(prevExprDetails))
     assert(actual === expected)
   }
 

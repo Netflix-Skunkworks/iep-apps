@@ -29,6 +29,7 @@ import com.netflix.atlas.akka.StreamOps
 import com.netflix.atlas.akka.StreamOps.SourceQueue
 import com.netflix.iep.aws.AwsClientFactory
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
+import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo
 import com.netflix.iep.lwc.fwd.cw.Report
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Registry
@@ -62,6 +63,9 @@ class MarkerServiceImpl @Inject()(
 
   import MarkerServiceImpl._
 
+  private val fwdMetricInfoPurgeLimitMillis =
+    config.getDuration("iep.lwc.fwding-admin.fwd-metric-info-purge-limit").toMillis
+
   private implicit val mat = ActorMaterializer()
   private implicit val ec = scala.concurrent.ExecutionContext.global
   private var killSwitch: KillSwitch = _
@@ -74,6 +78,7 @@ class MarkerServiceImpl @Inject()(
 
     val (q, k) = StreamOps
       .blockingQueue[Report](registry, "fwdingAdminCwReports", sizeLimit)
+      .throttle(10, 1.second)
       .flatMapConcat { r =>
         Source
           .single(r)
@@ -87,7 +92,7 @@ class MarkerServiceImpl @Inject()(
             .via(lookupScalingPolicy(scalingPolicies))
             .map(s => (r, s, e))
       }
-      .map { case (r, s, e) => toExprDetails(r, s, e) }
+      .map { case (r, s, e) => toExprDetails(r, s, e, fwdMetricInfoPurgeLimitMillis) }
       .via(saveExprDetails(expressionDetailsDao))
       .viaMat(KillSwitches.single)(Keep.both)
       .toMat(Sink.ignore)(Keep.left)
@@ -139,7 +144,7 @@ object MarkerServiceImpl extends StrictLogging {
       val result = Try(expressionDetailsDao.read(id))
       result match {
         case Failure(e) =>
-          logger.error(s"Error reading from DynamoDB", e)
+          logger.error(s"Error reading from DynamoDB: $id", e)
         case _ =>
       }
       result
@@ -154,11 +159,36 @@ object MarkerServiceImpl extends StrictLogging {
   def toExprDetails(
     report: Report,
     scalingPolicyStatus: ScalingPolicyStatus,
-    prevExprDetails: Option[ExpressionDetails]
+    prevExprDetails: Option[ExpressionDetails],
+    purgeLimitMillis: Long,
+    now: Long = System.currentTimeMillis()
   ): ExpressionDetails = {
+
+    val events = {
+      toNoDataFoundEvent(report, prevExprDetails) ++
+      toNoScalingPolicyFoundEvent(report, scalingPolicyStatus, prevExprDetails)
+    }
+
+    val metrics = toForwardedMetrics(report, prevExprDetails, purgeLimitMillis, now)
+    val policies = toScalingPolicies(scalingPolicyStatus.scalingPolicy, prevExprDetails, metrics)
+
+    ExpressionDetails(
+      report.id,
+      report.timestamp,
+      metrics,
+      report.error,
+      events,
+      policies
+    )
+  }
+
+  def toNoDataFoundEvent(
+    report: Report,
+    prevExprDetails: Option[ExpressionDetails]
+  ): Map[String, Long] = {
     import ExpressionDetails._
 
-    val noDataFoundEvent = report.metric
+    report.metric
       .map(_ => Map.empty[String, Long])
       .getOrElse(
         Map(
@@ -167,37 +197,59 @@ object MarkerServiceImpl extends StrictLogging {
             .getOrElse(report.timestamp)
         )
       )
-
-    val noScalingPolicyFoundEvent =
-      if (scalingPolicyStatus.unknown || scalingPolicyStatus.scalingPolicy.isDefined) {
-        Map.empty[String, Long]
-      } else {
-        Map(
-          NoScalingPolicyFoundEvent -> prevExprDetails
-            .flatMap(_.events.get(NoScalingPolicyFoundEvent))
-            .getOrElse(report.timestamp)
-        )
-      }
-
-    ExpressionDetails(
-      report.id,
-      report.timestamp,
-      addOrMake(report.metric, prevExprDetails, _.forwardedMetrics),
-      report.error,
-      noDataFoundEvent ++ noScalingPolicyFoundEvent,
-      addOrMake(scalingPolicyStatus.scalingPolicy, prevExprDetails, _.scalingPolicies)
-    )
   }
 
-  def addOrMake[T](
-    item: Option[T],
-    prev: Option[ExpressionDetails],
-    getList: ExpressionDetails => List[T]
-  ): List[T] = {
-    val prevItems = prev.fold(List.empty[T])(getList)
-    item.foldLeft(prevItems) { (items, i) =>
-      (i :: items).distinct
+  def toNoScalingPolicyFoundEvent(
+    report: Report,
+    scalingPolicyStatus: ScalingPolicyStatus,
+    prevExprDetails: Option[ExpressionDetails]
+  ): Map[String, Long] = {
+    import ExpressionDetails._
+
+    if (scalingPolicyStatus.unknown || scalingPolicyStatus.scalingPolicy.isDefined) {
+      Map.empty[String, Long]
+    } else {
+      Map(
+        NoScalingPolicyFoundEvent -> prevExprDetails
+          .flatMap(_.events.get(NoScalingPolicyFoundEvent))
+          .getOrElse(report.timestamp)
+      )
     }
+  }
+
+  def toForwardedMetrics(
+    report: Report,
+    prev: Option[ExpressionDetails],
+    purgeLimitMillis: Long,
+    now: Long
+  ): List[FwdMetricInfo] = {
+
+    val metricInfo = report.metricWithTimestamp()
+
+    val prevMetrics = prev.fold(List.empty[FwdMetricInfo])(_.forwardedMetrics).filterNot { p =>
+      val purge = p.timestamp.map(t => now - t > purgeLimitMillis).getOrElse(true)
+      val update = metricInfo.exists(_.equalsIgnoreTimestamp(p))
+
+      purge || update
+    }
+
+    metricInfo.toList ++ prevMetrics
+  }
+
+  def toScalingPolicies(
+    scalingPolicy: Option[ScalingPolicy],
+    prev: Option[ExpressionDetails],
+    forwardedMetrics: List[FwdMetricInfo]
+  ): List[ScalingPolicy] = {
+    val prevItems = prev.fold(List.empty[ScalingPolicy])(_.scalingPolicies)
+
+    scalingPolicy
+      .foldLeft(prevItems) { (items, i) =>
+        (i :: items).distinct
+      }
+      .filter { p =>
+        forwardedMetrics.exists(p.matchMetric(_))
+      }
   }
 
   def saveExprDetails(
@@ -208,7 +260,7 @@ object MarkerServiceImpl extends StrictLogging {
       val result = Try(expressionDetailsDao.save(ed))
       result match {
         case Failure(e) =>
-          logger.error(s"Error saving to DynamoDB", e)
+          logger.error(s"Error saving to DynamoDB: ${ed.expressionId}", e)
         case _ =>
       }
       result

@@ -22,7 +22,9 @@ import com.amazonaws.services.dynamodbv2.document.PrimaryKey
 import com.amazonaws.services.dynamodbv2.document.spec.ScanSpec
 import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.netflix.atlas.json.Json
+import com.netflix.iep.lwc.fwd.admin.Timer._
 import com.netflix.iep.lwc.fwd.cw._
+import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
@@ -38,11 +40,13 @@ trait ExpressionDetailsDao {
 
 class ExpressionDetailsDaoImpl @Inject()(
   config: Config,
-  dynamoDBClient: AmazonDynamoDB
+  dynamoDBClient: AmazonDynamoDB,
+  registry: Registry
 ) extends ExpressionDetailsDao
     with StrictLogging {
-  import scala.collection.JavaConverters._
   import ExpressionDetails._
+
+  import scala.collection.JavaConverters._
 
   private val ageLimitMillis = config.getDuration("iep.lwc.fwding-admin.age-limit").toMillis
 
@@ -63,11 +67,17 @@ class ExpressionDetailsDaoImpl @Inject()(
 
     item = item.withString(ScalingPoliciesAttr, Json.encode(exprDetails.scalingPolicies))
 
-    table.putItem(item)
+    record(table.putItem(item), "fwdingAdminSaveTimer", registry)
+
   }
 
   override def read(id: ExpressionId): Option[ExpressionDetails] = {
-    val item = table.getItem(new PrimaryKey(ExpressionIdAttr, Json.encode(id)))
+    val item = record(
+      table.getItem(new PrimaryKey(ExpressionIdAttr, Json.encode(id))),
+      "fwdingAdminReadTimer",
+      registry
+    )
+
     Option(item).map { i =>
       new ExpressionDetails(
         id,
