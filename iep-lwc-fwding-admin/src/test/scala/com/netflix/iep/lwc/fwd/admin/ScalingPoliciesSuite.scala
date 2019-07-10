@@ -21,6 +21,7 @@ import akka.pattern.ask
 import akka.stream.scaladsl.Flow
 import akka.testkit.DefaultTimeout
 import akka.testkit.ImplicitSender
+import akka.testkit.TestActorRef
 import akka.testkit.TestKit
 import com.netflix.iep.lwc.fwd.admin.ScalingPolicies.GetCache
 import com.netflix.iep.lwc.fwd.admin.ScalingPolicies.GetScalingPolicy
@@ -42,7 +43,7 @@ class ScalingPoliciesSuite
 
   test("Get cached Scaling policy") {
     val ec2Policy1 = ScalingPolicy("ec2Policy1", ScalingPolicy.Ec2, "metric1", Nil)
-    val data = Map(EddaEndpoint("123", "us-east-1", "test") -> List(ec2Policy1))
+    val data = Map(EddaEndpoint("123", "us-east-1", "local") -> List(ec2Policy1))
 
     val scalingPolicies = system.actorOf(
       Props[ScalingPoliciesTestImpl](
@@ -64,7 +65,7 @@ class ScalingPoliciesSuite
 
   test("Lookup Scaling policy") {
     val ec2Policy1 = ScalingPolicy("ec2Policy1", ScalingPolicy.Ec2, "metric1", Nil)
-    val data = Map(EddaEndpoint("123", "us-east-1", "test") -> List(ec2Policy1))
+    val data = Map(EddaEndpoint("123", "us-east-1", "local") -> List(ec2Policy1))
     val scalingPolicies = system.actorOf(
       Props[ScalingPoliciesTestImpl](
         new ScalingPoliciesTestImpl(
@@ -114,7 +115,7 @@ class ScalingPoliciesSuite
     val ec2Policy1 = ScalingPolicy("ec2Policy1", ScalingPolicy.Ec2, "metric1", Nil)
     val ec2Policy2 = ScalingPolicy("ec2Policy2", ScalingPolicy.Ec2, "metric2", Nil)
 
-    val eddaEndpoint = EddaEndpoint("123", "us-east-1", "test")
+    val eddaEndpoint = EddaEndpoint("123", "us-east-1", "local")
     val cache = Map(eddaEndpoint -> List(ec2Policy1))
     val data = Map(eddaEndpoint  -> List(ec2Policy1, ec2Policy2))
 
@@ -139,7 +140,7 @@ class ScalingPoliciesSuite
 
   test("Dao failure during cache refresh") {
     val ec2Policy1 = ScalingPolicy("ec2Policy1", ScalingPolicy.Ec2, "metric1", Nil)
-    val cache = Map(EddaEndpoint("123", "us-east-1", "test") -> List(ec2Policy1))
+    val cache = Map(EddaEndpoint("123", "us-east-1", "local") -> List(ec2Policy1))
 
     val scalingPolicies = system.actorOf(
       Props[ScalingPoliciesTestImpl](
@@ -163,4 +164,37 @@ class ScalingPoliciesSuite
     assert(actual === cache)
   }
 
+}
+
+class ScalingPoliciesMethodsSuite extends TestKit(ActorSystem()) with FunSuiteLike {
+
+  private val config = ConfigFactory.load()
+
+  test("Get env mapping for the given account") {
+    val scalingPolicies = TestActorRef(
+      new ScalingPoliciesTestImpl(
+        config,
+        new ScalingPoliciesDaoTestImpl(Map.empty[EddaEndpoint, List[ScalingPolicy]]),
+        Map.empty[EddaEndpoint, List[ScalingPolicy]]
+      )
+    )
+
+    val expected = "local"
+    val actual = scalingPolicies.underlyingActor.getEnv("123")
+    assert(actual === expected)
+  }
+
+  test("Get default env when a account is not mapped") {
+    val scalingPolicies = TestActorRef(
+      new ScalingPoliciesTestImpl(
+        config,
+        new ScalingPoliciesDaoTestImpl(Map.empty[EddaEndpoint, List[ScalingPolicy]]),
+        Map.empty[EddaEndpoint, List[ScalingPolicy]]
+      )
+    )
+
+    val expected = "test"
+    val actual = scalingPolicies.underlyingActor.getEnv("456")
+    assert(actual === expected)
+  }
 }

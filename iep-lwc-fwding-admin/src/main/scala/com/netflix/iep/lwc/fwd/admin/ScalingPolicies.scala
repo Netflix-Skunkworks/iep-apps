@@ -38,6 +38,8 @@ class ScalingPolicies(config: Config, dao: ScalingPoliciesDao)
   private implicit val ec = scala.concurrent.ExecutionContext.global
 
   protected var scalingPolicies = Map.empty[EddaEndpoint, List[ScalingPolicy]]
+  private val accountEnvMapping =
+    config.getObject("iep.lwc.fwding-admin.accountEnvMapping").toConfig
 
   private val cacheRefreshInterval =
     config.getDuration("iep.lwc.fwding-admin.edda-cache-refresh-interval")
@@ -69,8 +71,25 @@ class ScalingPolicies(config: Config, dao: ScalingPoliciesDao)
   }
 
   def getScalingPolicy(metricInfo: FwdMetricInfo): Future[Option[ScalingPolicy]] = {
-    getScalingPolicies(EddaEndpoint(metricInfo.account, metricInfo.region, env()))
-      .map(_.find(_.matchMetric(metricInfo)))
+    getScalingPolicies(
+      EddaEndpoint(
+        metricInfo.account,
+        metricInfo.region,
+        getEnv(metricInfo.account)
+      )
+    ).map(_.find(_.matchMetric(metricInfo)))
+  }
+
+  def getEnv(account: String): String = {
+    getEnvMapping(account).getOrElse(env())
+  }
+
+  def getEnvMapping(account: String): Option[String] = {
+    if (accountEnvMapping.hasPath(account)) {
+      Some(accountEnvMapping.getString(account))
+    } else {
+      None
+    }
   }
 
   def getScalingPolicies(

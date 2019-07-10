@@ -20,11 +20,23 @@ case class Report(
   id: ExpressionId,
   metric: Option[FwdMetricInfo],
   error: Option[Throwable]
-)
+) {
+
+  def metricWithTimestamp(): Option[FwdMetricInfo] = {
+    metric.map(_.copy(timestamp = Some(timestamp)))
+  }
+}
 
 case class FwdMetricInfo(
   region: String,
   account: String,
   name: String,
-  dimensions: Map[String, String]
-)
+  dimensions: Map[String, String],
+  timestamp: Option[Long] = None
+) {
+
+  def equalsIgnoreTimestamp(that: FwdMetricInfo): Boolean = {
+    this.copy(timestamp = None) == that.copy(timestamp = None)
+  }
+
+}
