@@ -284,7 +284,8 @@ object DruidDatabaseActor {
   }
 
   def toDimensionSpec(key: String, query: Query): DimensionSpec = {
-    val matches = Query.cnfList(query)
+    val matches = Query
+      .cnfList(query)
       .map(toInClause)
       .collect {
         case q: KeyQuery if q.k == key => q
