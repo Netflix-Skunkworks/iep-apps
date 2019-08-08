@@ -284,10 +284,39 @@ object DruidDatabaseActor {
   }
 
   def toDimensionSpec(key: String, query: Query): DimensionSpec = {
-    val matches = Query.cnfList(query).collect {
-      case q: KeyQuery if q.k == key => q
-    }
+    val matches = Query.cnfList(query)
+      .map(toInClause)
+      .collect {
+        case q: KeyQuery if q.k == key => q
+      }
     toDimensionSpec(DefaultDimensionSpec(key, key), matches)
+  }
+
+  private def getKey(query: Query): Option[String] = {
+    query match {
+      case q: Query.Equal             => Some(q.k)
+      case q: Query.In                => Some(q.k)
+      case Query.Not(Query.HasKey(k)) => Some(k)
+      case _                          => None
+    }
+  }
+
+  private def getValue(query: Query): List[String] = {
+    query match {
+      case q: Query.Equal             => List(q.v)
+      case q: Query.In                => q.vs
+      case Query.Not(Query.HasKey(k)) => List("")
+      case _                          => Nil
+    }
+  }
+
+  def toInClause(query: Query): Query = {
+    val qs = Query.dnfList(query)
+    val keys = qs.map(getKey).distinct
+    keys match {
+      case List(Some(k)) => Query.In(k, qs.flatMap(getValue).distinct)
+      case _             => query
+    }
   }
 
   private def toDimensionSpec(delegate: DimensionSpec, queries: List[Query]): DimensionSpec = {
