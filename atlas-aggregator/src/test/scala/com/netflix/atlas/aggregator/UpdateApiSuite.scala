@@ -69,6 +69,30 @@ class UpdateApiSuite extends FunSuite {
     val id = registry.createId("cpu", "app", "www", "zone", "1e")
     assert(registry.counter(id).actualCount() === 42.0)
   }
+
+  test("payload with invalid characters") {
+    val clock = new ManualClock()
+    val registry = new AtlasRegistry(clock, UpdateApiSuite.config)
+    val parser = factory.createParser("""
+        |[
+        |  6,
+        |  "name",
+        |  "cpu user",
+        |  "app",
+        |  "www",
+        |  "zone",
+        |  "1e",
+        |  3,
+        |  0, 1, 2, 3, 4, 5,
+        |  0,
+        |  42.0
+        |]
+      """.stripMargin)
+    UpdateApi.processPayload(parser, registry)
+    clock.setWallTime(62000)
+    val id = registry.createId("cpu_user", "app", "www", "zone", "1e")
+    assert(registry.counter(id).actualCount() === 42.0)
+  }
 }
 
 object UpdateApiSuite {
