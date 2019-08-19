@@ -15,8 +15,9 @@
  */
 package com.netflix.atlas.aggregator
 
-import javax.inject.Inject
+import java.time.Duration
 
+import javax.inject.Inject
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.model.HttpResponse
@@ -27,12 +28,14 @@ import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.core.JsonToken
+import com.github.benmanes.caffeine.cache.Caffeine
 import com.netflix.atlas.akka.CustomDirectives._
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.core.util.SmallHashMap
 import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.atlas.AtlasRegistry
+import com.netflix.spectator.impl.AsciiSet
 import com.typesafe.scalalogging.StrictLogging
 
 class UpdateApi @Inject()(
@@ -65,6 +68,25 @@ object UpdateApi extends StrictLogging {
 
   private val ADD = 0
   private val MAX = 10
+
+  private val allowedCharacters = AsciiSet.fromPattern("-._A-Za-z0-9^~")
+
+  private val stringCache = Caffeine
+    .newBuilder()
+    .maximumSize(2000000)
+    .expireAfterAccess(Duration.ofMinutes(10))
+    .build[String, String]()
+
+  private def replaceInvalidCharacters(s: String): String = {
+    var value = stringCache.getIfPresent(s)
+    if (value == null) {
+      // To avoid blocking for loading cache, we do an explicit get/put. The replacement may
+      // occur multiple times for the same string, but that is not a problem here.
+      value = allowedCharacters.replaceNonMembers(s, '_')
+      stringCache.put(s, value)
+    }
+    value
+  }
 
   def processPayload(parser: JsonParser, registry: AtlasRegistry): Unit = {
     requireNextToken(parser, JsonToken.START_ARRAY)
@@ -99,7 +121,7 @@ object UpdateApi extends StrictLogging {
     val strings = new Array[String](n)
     var i = 0
     while (i < n) {
-      strings(i) = nextString(parser)
+      strings(i) = replaceInvalidCharacters(nextString(parser))
       i += 1
     }
     strings
