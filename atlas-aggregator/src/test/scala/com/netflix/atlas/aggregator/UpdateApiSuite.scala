@@ -15,6 +15,8 @@
  */
 package com.netflix.atlas.aggregator
 
+import java.time.Duration
+
 import com.fasterxml.jackson.core.JsonFactory
 import com.netflix.spectator.api.ManualClock
 import com.netflix.spectator.atlas.AtlasConfig
@@ -72,5 +74,7 @@ class UpdateApiSuite extends FunSuite {
 object UpdateApiSuite {
   private val config = new AtlasConfig {
     override def get(k: String): String = null
+
+    override def lwcStep(): Duration = Duration.ofMinutes(1)
   }
 }
