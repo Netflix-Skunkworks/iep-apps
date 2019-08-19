@@ -4,18 +4,18 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val akka       = "2.5.23"
-    val akkaHttpV  = "10.1.8"
+    val akka       = "2.5.24"
+    val akkaHttpV  = "10.1.9"
     val atlas      = "1.6.2"
-    val aws        = "1.11.579"
-    val iep        = "2.0.5"
+    val aws        = "1.11.611"
+    val iep        = "2.1.2"
     val guice      = "4.1.0"
-    val jackson    = "2.9.8"
-    val log4j      = "2.12.0"
-    val scala      = "2.12.8"
+    val jackson    = "2.9.9"
+    val log4j      = "2.12.1"
+    val scala      = "2.12.9"
     val servo      = "0.12.28"
-    val slf4j      = "1.7.26"
-    val spectator  = "0.92.0"
+    val slf4j      = "1.7.28"
+    val spectator  = "0.94.0"
 
     val crossScala = Seq(scala, "2.13.0")
   }
@@ -28,7 +28,7 @@ object Dependencies {
   val akkaHttpTestkit    = "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV
   val akkaSlf4j          = "com.typesafe.akka" %% "akka-slf4j" % akka
   val akkaTestkit        = "com.typesafe.akka" %% "akka-testkit" % akka
-  val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % "1.1.0"
+  val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % "1.1.1"
   val atlasEval          = "com.netflix.atlas_v1" %% "atlas-eval" % atlas
   val atlasJson          = "com.netflix.atlas_v1" %% "atlas-json" % atlas
   val atlasModuleAkka    = "com.netflix.atlas_v1" %% "atlas-module-akka" % atlas
@@ -42,9 +42,9 @@ object Dependencies {
   val awsS3              = "com.amazonaws" % "aws-java-sdk-s3" % aws
   val awsSQS             = "com.amazonaws" % "aws-java-sdk-sqs" % aws
   val awsSTS             = "com.amazonaws" % "aws-java-sdk-sts" % aws
-  val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "2.4.0"
+  val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "2.8.0"
   val equalsVerifier     = "nl.jqno.equalsverifier" % "equalsverifier" % "2.2.1"
-  val frigga             = "com.netflix.frigga" % "frigga" % "0.19.1"
+  val frigga             = "com.netflix.frigga" % "frigga" % "0.19.2"
   val guiceCore          = "com.google.inject" % "guice" % guice
   val guiceMulti         = "com.google.inject.extensions" % "guice-multibindings" % guice
   val iepGuice           = "com.netflix.iep" % "iep-guice" % iep
