@@ -44,7 +44,7 @@ object Dependencies {
   val awsSTS             = "com.amazonaws" % "aws-java-sdk-sts" % aws
   val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "2.4.0"
   val equalsVerifier     = "nl.jqno.equalsverifier" % "equalsverifier" % "2.2.1"
-  val frigga             = "com.netflix.frigga" % "frigga" % "0.19.1"
+  val frigga             = "com.netflix.frigga" % "frigga" % "0.19.2"
   val guiceCore          = "com.google.inject" % "guice" % guice
   val guiceMulti         = "com.google.inject.extensions" % "guice-multibindings" % guice
   val iepGuice           = "com.netflix.iep" % "iep-guice" % iep
