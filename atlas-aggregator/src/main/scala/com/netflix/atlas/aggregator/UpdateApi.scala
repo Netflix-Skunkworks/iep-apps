@@ -33,7 +33,9 @@ import com.netflix.atlas.akka.CustomDirectives._
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.core.util.SmallHashMap
 import com.netflix.atlas.eval.stream.Evaluator
+import com.netflix.iep.NetflixEnvironment
 import com.netflix.spectator.api.Id
+import com.netflix.spectator.api.Tag
 import com.netflix.spectator.atlas.AtlasRegistry
 import com.netflix.spectator.impl.AsciiSet
 import com.typesafe.scalalogging.StrictLogging
@@ -69,6 +71,8 @@ object UpdateApi extends StrictLogging {
   private val ADD = 0
   private val MAX = 10
 
+  private val aggrTag = Tag.of("atlas.aggr", NetflixEnvironment.instanceId())
+
   private val allowedCharacters = AsciiSet.fromPattern("-._A-Za-z0-9^~")
 
   private val stringCache = Caffeine
@@ -103,8 +107,9 @@ object UpdateApi extends StrictLogging {
       val id = createId(registry, tags)
       op match {
         case ADD =>
+          // Add the aggr tag to avoid values getting deduped on the backend
           logger.debug(s"received updated, ADD $id $value")
-          registry.counter(id).add(value)
+          registry.counter(id.withTag(aggrTag)).add(value)
         case MAX =>
           logger.debug(s"received updated, MAX $id $value")
           registry.maxGauge(id).set(value)

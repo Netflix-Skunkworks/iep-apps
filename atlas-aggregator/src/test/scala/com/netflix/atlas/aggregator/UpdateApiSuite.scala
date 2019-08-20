@@ -19,6 +19,7 @@ import java.time.Duration
 
 import com.fasterxml.jackson.core.JsonFactory
 import com.netflix.spectator.api.ManualClock
+import com.netflix.spectator.api.Tag
 import com.netflix.spectator.atlas.AtlasConfig
 import com.netflix.spectator.atlas.AtlasRegistry
 import org.scalatest.FunSuite
@@ -26,6 +27,8 @@ import org.scalatest.FunSuite
 class UpdateApiSuite extends FunSuite {
 
   private val factory = new JsonFactory()
+
+  private val aggrTag = Tag.of("atlas.aggr", "i-123")
 
   test("simple payload") {
     val clock = new ManualClock()
@@ -43,7 +46,8 @@ class UpdateApiSuite extends FunSuite {
       """.stripMargin)
     UpdateApi.processPayload(parser, registry)
     clock.setWallTime(62000)
-    assert(registry.counter(registry.createId("cpu")).actualCount() === 42.0)
+    val id = registry.createId("cpu").withTag(aggrTag)
+    assert(registry.counter(id).actualCount() === 42.0)
   }
 
   test("payload with additional tags") {
@@ -67,7 +71,7 @@ class UpdateApiSuite extends FunSuite {
     UpdateApi.processPayload(parser, registry)
     clock.setWallTime(62000)
     val id = registry.createId("cpu", "app", "www", "zone", "1e")
-    assert(registry.counter(id).actualCount() === 42.0)
+    assert(registry.counter(id.withTag(aggrTag)).actualCount() === 42.0)
   }
 
   test("payload with invalid characters") {
@@ -91,7 +95,7 @@ class UpdateApiSuite extends FunSuite {
     UpdateApi.processPayload(parser, registry)
     clock.setWallTime(62000)
     val id = registry.createId("cpu_user", "app", "www", "zone", "1e")
-    assert(registry.counter(id).actualCount() === 42.0)
+    assert(registry.counter(id.withTag(aggrTag)).actualCount() === 42.0)
   }
 }
 
