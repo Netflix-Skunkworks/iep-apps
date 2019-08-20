@@ -57,12 +57,6 @@ object AppModule {
       if (config.hasPath(prop)) config.getString(prop) else null
     }
 
-    override def commonTags(): java.util.Map[String, String] = {
-      val tags = new java.util.HashMap[String, String]()
-      tags.put("atlas.aggr", config.getString("netflix.iep.env.instance-id"))
-      tags
-    }
-
     override def debugRegistry(): Registry = registry
   }
 
