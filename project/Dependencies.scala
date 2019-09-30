@@ -4,20 +4,20 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val akka       = "2.5.24"
-    val akkaHttpV  = "10.1.9"
-    val atlas      = "1.6.2"
-    val aws        = "1.11.611"
-    val iep        = "2.1.2"
+    val akka       = "2.5.25"
+    val akkaHttpV  = "10.1.10"
+    val atlas      = "1.7.0-rc.1"
+    val aws        = "1.11.629"
+    val iep        = "2.1.3"
     val guice      = "4.1.0"
-    val jackson    = "2.9.9"
+    val jackson    = "2.9.10"
     val log4j      = "2.12.1"
-    val scala      = "2.12.9"
+    val scala      = "2.13.1"
     val servo      = "0.12.28"
     val slf4j      = "1.7.28"
-    val spectator  = "0.94.0"
+    val spectator  = "0.96.0"
 
-    val crossScala = Seq(scala, "2.13.0")
+    val crossScala = Seq(scala, "2.12.10")
   }
 
   import Versions._
@@ -66,7 +66,7 @@ object Dependencies {
   val jacksonSmile2      = "com.fasterxml.jackson.dataformat" % "jackson-dataformat-smile" % jackson
   val jodaConvert        = "org.joda" % "joda-convert" % "1.8.1"
   val jol                = "org.openjdk.jol" % "jol-core" % "0.5"
-  val jsonSchema         = "com.github.java-json-tools" % "json-schema-validator" % "2.2.10"
+  val jsonSchema         = "com.github.java-json-tools" % "json-schema-validator" % "2.2.11"
   val jsr305             = "com.google.code.findbugs" % "jsr305" % "3.0.2"
   val log4jApi           = "org.apache.logging.log4j" % "log4j-api" % log4j
   val log4jCore          = "org.apache.logging.log4j" % "log4j-core" % log4j
