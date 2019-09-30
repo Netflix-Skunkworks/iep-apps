@@ -2,7 +2,7 @@ language: scala
 matrix:
   include:
   - jdk: openjdk8
-    scala: 2.12.8
+    scala: 2.12.10
     env: BINTRAY_PUBLISH=true
   - jdk: openjdk8
     scala: 2.13.0
