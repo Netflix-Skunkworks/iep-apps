@@ -362,7 +362,7 @@ object DruidDatabaseActor {
     val arrays = scala.collection.mutable.AnyRefMap.empty[Map[String, String], Array[Double]]
     val length = context.bufferSize
     data.foreach { d =>
-      val tags = d.event - "value"
+      val tags = d.tags
       val array = arrays.getOrElseUpdate(tags, ArrayHelper.fill(length, Double.NaN))
       val t = Instant.parse(d.timestamp).toEpochMilli
       val i = ((t - context.start) / context.step).toInt

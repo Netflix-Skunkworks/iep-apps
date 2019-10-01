@@ -193,6 +193,7 @@ class DruidClientSuite extends FunSuite with BeforeAndAfterAll {
 
   test("groupBy filter out null dimensions") {
     val datapoints = executeGroupByRequest
-    assert(datapoints.size === 5)
+    assert(datapoints.count(_.tags.isEmpty) === 1)
+    assert(datapoints.count(_.tags.nonEmpty) === 5)
   }
 }
