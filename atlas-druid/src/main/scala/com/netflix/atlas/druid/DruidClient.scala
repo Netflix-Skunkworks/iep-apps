@@ -236,6 +236,7 @@ object DruidClient {
     intervals: List[String],
     aggregations: List[Aggregation],
     filter: Option[DruidFilter] = None,
+    having: Option[HavingSpec] = None,
     granularity: Granularity = Granularity.millis(60000)
   ) {
     val queryType: String = "groupBy"
@@ -272,6 +273,14 @@ object DruidClient {
     def sum(fieldName: String): Aggregation = Aggregation("doubleSum", fieldName)
     def min(fieldName: String): Aggregation = Aggregation("doubleMin", fieldName)
     def max(fieldName: String): Aggregation = Aggregation("doubleMax", fieldName)
+  }
+
+  /**
+    * For now it is limited to simple greater than filters to exclude 0 values.
+    * https://druid.apache.org/docs/latest/querying/having.html
+    */
+  case class HavingSpec(aggregation: String, value: Double) {
+    val `type`: String = "greaterThan"
   }
 
   case class Granularity(duration: Long) {
