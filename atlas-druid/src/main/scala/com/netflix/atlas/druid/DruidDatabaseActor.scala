@@ -52,6 +52,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
+  import ExplainApi._
   import com.netflix.atlas.webapi.GraphApi._
   import com.netflix.atlas.webapi.TagsApi._
 
@@ -75,6 +76,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
     case ListKeysRequest(tq)   => listKeys(sender(), tq)
     case ListValuesRequest(tq) => listValues(sendValues(sender()), tq)
     case req: DataRequest      => fetchData(sender(), req)
+    case req: ExplainRequest   => explain(sender(), req.dataRequest)
   }
 
   private def refreshMetadata(ref: ActorRef): Unit = {
@@ -205,6 +207,28 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
   private def tagsQueryInterval: String = {
     val now = Instant.now()
     s"${now.minus(tagsInterval)}/$now"
+  }
+
+  private def explain(ref: ActorRef, request: DataRequest): Unit = {
+    val context = request.context
+    val explanation = request.exprs
+      .flatMap { expr =>
+        val offset = expr.offset.toMillis
+        val fetchContext =
+          if (offset == 0L) context
+          else {
+            context.copy(context.start - offset, context.end - offset)
+          }
+        val exprStr = expr.toString()
+        toDruidQueries(metadata, fetchContext, expr)
+          .map {
+            case (tags, q) => Map("data-expr" -> exprStr, "tags" -> tags, "druid-query" -> q)
+          }
+      }
+      .sortWith { (m1, m2) =>
+        m1("data-expr").asInstanceOf[String] < m2("data-expr").asInstanceOf[String]
+      }
+    ref ! explanation
   }
 
   private def fetchData(ref: ActorRef, request: DataRequest): Unit = {
