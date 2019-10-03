@@ -288,4 +288,10 @@ class DruidDatabaseActorSuite extends FunSuite {
     assert(queries.map(_._1("name")).toSet === Set("m1", "m2", "m3"))
     assert(queries.map(_._1("nf.datasource")).toSet === Set("ds_1", "ds_2"))
   }
+
+  test("toDruidQueries: or with one missing dimension") {
+    val expr = DataExpr.Sum(Query.Or(Query.Equal("a", "1"), Query.Equal("d", "2")))
+    val queries = toDruidQueries(metadata, context, expr)
+    assert(queries.forall(_._1.contains("a")))
+  }
 }
