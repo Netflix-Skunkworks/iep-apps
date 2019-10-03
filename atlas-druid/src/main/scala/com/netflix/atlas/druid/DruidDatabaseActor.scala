@@ -391,17 +391,20 @@ object DruidDatabaseActor {
         m -> ds.datasource.dimensions
       }
     }
-
-    val commonTags = exactTags(query)
-
     val intervals = List(toInterval(context))
+
     metrics.flatMap {
       case (m, ds) =>
         val name = m("name")
         val datasource = m("nf.datasource")
+
+        // Common tags should be extracted for the simplified query rather than the raw
+        // query. The simplified query may have additional exact matches due to simplified
+        // OR clauses that need to be maintained for correct processing in the eval step.
+        val simpleQuery = simplify(query, ds)
+        val commonTags = exactTags(simpleQuery)
         val tags = commonTags ++ m
 
-        val simpleQuery = simplify(query, ds)
         if (simpleQuery == Query.False) {
           None
         } else {
