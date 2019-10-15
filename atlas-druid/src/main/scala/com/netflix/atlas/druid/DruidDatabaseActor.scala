@@ -273,11 +273,20 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
         }
     }
 
+    // Filtering should have already been done at this point, just focus on the aggregation
+    // behavior when evaluating the results. The query is simplified to exact matches that
+    // are extracted to generate the labels. At this stage it is effectively true for matches.
+    val evalExpr = expr
+      .rewrite {
+        case _: Query => simplifyExact(expr.query)
+      }
+      .asInstanceOf[DataExpr]
+
     Source(druidQueries)
       .flatMapMerge(Int.MaxValue, v => v)
       .fold(List.empty[TimeSeries])(_ ::: _)
       .map { ts =>
-        expr.eval(context, ts).data
+        evalExpr.eval(context, ts).data
       }
   }
 
@@ -460,38 +469,12 @@ object DruidDatabaseActor {
     }
   }
 
-  /**
-    * Extract keys that can have a range of values such as :has, :re, etc. For these keys
-    * we need the dimension to be included in the group by so enough information is retained
-    * to perform the local evaluation step with the result.
-    */
-  def rangeKeys(query: Query): Set[String] = {
-    query match {
-      case Query.And(q1, q2) => rangeKeys(q1) ++ rangeKeys(q2)
-      case Query.Or(q1, q2)  => rangeKeysOr(q1) ++ rangeKeysOr(q2)
-      case Query.Equal(_, _) => Set.empty
-      case q: Query.KeyQuery => Set(q.k)
-      case _                 => Set.empty
-    }
-  }
-
-  /** All keys should be extracted from an OR subtree in the expression. */
-  private def rangeKeysOr(query: Query): Set[String] = {
-    query match {
-      case Query.And(q1, q2) => rangeKeysOr(q1) ++ rangeKeysOr(q2)
-      case Query.Or(q1, q2)  => rangeKeysOr(q1) ++ rangeKeysOr(q2)
-      case q: Query.KeyQuery => Set(q.k)
-      case _                 => Set.empty
-    }
-  }
-
   def getDimensions(expr: DataExpr): List[DimensionSpec] = {
     getDimensions(expr.query, expr.finalGrouping)
   }
 
   def getDimensions(query: Query, groupByKeys: List[String]): List[DimensionSpec] = {
-    val keys = rangeKeys(query) ++ groupByKeys
-    keys.filterNot(isSpecial).map(k => toDimensionSpec(k, query)).toList
+    groupByKeys.filterNot(isSpecial).map(k => toDimensionSpec(k, query)).toList
   }
 
   /**
@@ -507,6 +490,20 @@ object DruidDatabaseActor {
       case q: KeyQuery if ds.contains(q.k) => q
       case _: KeyQuery                     => Query.False
       case q: Query                        => q
+    }
+    Query.simplify(simpleQuery)
+  }
+
+  /**
+    * Simplify the query by keeping only clauses that have exact matches.
+    */
+  private def simplifyExact(query: Query): Query = {
+    val simpleQuery = query match {
+      case Query.And(q1, q2) => Query.And(simplifyExact(q1), simplifyExact(q2))
+      case Query.Or(q1, q2)  => Query.Or(simplifyExact(q1), simplifyExact(q2))
+      case Query.Not(q)      => Query.Not(simplifyExact(q))
+      case q: Query.Equal    => q
+      case _: Query          => Query.True
     }
     Query.simplify(simpleQuery)
   }

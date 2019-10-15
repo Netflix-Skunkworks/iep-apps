@@ -106,48 +106,6 @@ class DruidDatabaseActorSuite extends FunSuite {
     assert(exactTags(query) === expected)
   }
 
-  test("rangeKeys: ignore equal clauses") {
-    val expected = Set.empty[String]
-    val query = Query.And(Query.Equal("a", "1"), Query.Equal("b", "2"))
-    assert(rangeKeys(query) === expected)
-  }
-
-  test("rangeKeys: extract regex key") {
-    val expected = Set("a")
-    val query = Query.And(Query.Regex("a", "1"), Query.Equal("b", "2"))
-    assert(rangeKeys(query) === expected)
-  }
-
-  test("rangeKeys: extract gt key") {
-    val expected = Set("a")
-    val query = Query.And(Query.GreaterThan("a", "1"), Query.Equal("b", "2"))
-    assert(rangeKeys(query) === expected)
-  }
-
-  test("rangeKeys: extract in key") {
-    val expected = Set("a")
-    val query = Query.And(Query.In("a", List("1", "2")), Query.Equal("b", "2"))
-    assert(rangeKeys(query) === expected)
-  }
-
-  test("rangeKeys: extract has key") {
-    val expected = Set("a")
-    val query = Query.And(Query.HasKey("a"), Query.Equal("b", "2"))
-    assert(rangeKeys(query) === expected)
-  }
-
-  test("rangeKeys: extract keys in OR subtree") {
-    val expected = Set("b", "c")
-    val query = Query.And(
-      Query.Equal("a", "1"),
-      Query.Or(
-        Query.Equal("b", "2"),
-        Query.HasKey("c")
-      )
-    )
-    assert(rangeKeys(query) === expected)
-  }
-
   test("toAggregation: sum") {
     val expr = DataExpr.Sum(Query.Equal("a", "1"))
     val aggr = toAggregation("test", expr)
@@ -201,13 +159,18 @@ class DruidDatabaseActorSuite extends FunSuite {
   }
 
   test("getDimensions: simple sum") {
-    val expr = DataExpr.Sum(Query.Equal("a", "1"))
-    val expected = List.empty[DimensionSpec]
+    val expr = DataExpr.GroupBy(DataExpr.Sum(Query.Equal("a", "1")), List("a"))
+    val expected = List(
+      ListFilteredDimensionSpec(
+        DefaultDimensionSpec("a", "a"),
+        List("1")
+      )
+    )
     assert(getDimensions(expr) === expected)
   }
 
   test("getDimensions: regex sum") {
-    val expr = DataExpr.Sum(Query.Regex("a", "1"))
+    val expr = DataExpr.GroupBy(DataExpr.Sum(Query.Regex("a", "1")), List("a"))
     val expected = List(
       RegexFilteredDimensionSpec(
         DefaultDimensionSpec("a", "a"),
@@ -218,19 +181,20 @@ class DruidDatabaseActorSuite extends FunSuite {
   }
 
   test("getDimensions: has sum") {
-    val expr = DataExpr.Sum(Query.HasKey("a"))
+    val expr = DataExpr.GroupBy(DataExpr.Sum(Query.HasKey("a")), List("a"))
     val expected = List(DefaultDimensionSpec("a", "a"))
     assert(getDimensions(expr) === expected)
   }
 
   test("getDimensions: greater-than sum") {
-    val expr = DataExpr.Sum(Query.GreaterThan("a", "1"))
+    val expr = DataExpr.GroupBy(DataExpr.Sum(Query.GreaterThan("a", "1")), List("a"))
     val expected = List(DefaultDimensionSpec("a", "a"))
     assert(getDimensions(expr) === expected)
   }
 
   test("getDimensions: regex sum ignore special") {
-    val expr = DataExpr.Sum(Query.Regex("nf.datasource", "1"))
+    val expr =
+      DataExpr.GroupBy(DataExpr.Sum(Query.Regex("nf.datasource", "1")), List("nf.datasource"))
     val expected = List.empty[DimensionSpec]
     assert(getDimensions(expr) === expected)
   }
