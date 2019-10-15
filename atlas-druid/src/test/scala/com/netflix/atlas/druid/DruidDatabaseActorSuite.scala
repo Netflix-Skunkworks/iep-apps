@@ -22,6 +22,8 @@ import com.netflix.atlas.core.model.ConsolidationFunction
 import com.netflix.atlas.core.model.DataExpr
 import com.netflix.atlas.core.model.EvalContext
 import com.netflix.atlas.core.model.Query
+import com.netflix.atlas.core.model.QueryVocabulary
+import com.netflix.atlas.core.stacklang.Interpreter
 import com.netflix.atlas.druid.DruidClient._
 import org.scalatest.FunSuite
 
@@ -257,5 +259,39 @@ class DruidDatabaseActorSuite extends FunSuite {
     val expr = DataExpr.Sum(Query.Or(Query.Equal("a", "1"), Query.Equal("d", "2")))
     val queries = toDruidQueries(metadata, context, expr)
     assert(queries.forall(_._1.contains("a")))
+  }
+
+  private def evalQuery(str: String): Query = {
+    Interpreter(QueryVocabulary.allWords).execute(str).stack match {
+      case (q: Query) :: Nil => q
+    }
+  }
+
+  test("simplifyExact: conjunctive clause") {
+    val q = evalQuery("a,1,:eq,b,2,:eq,:and,c,3,:eq,:and")
+    assert(simplifyExact(q) === q)
+  }
+
+  test("simplifyExact: not eq clause") {
+    val q = evalQuery("a,1,:eq,b,2,:eq,:and,c,3,:eq,:not,:and")
+    val expected = evalQuery("a,1,:eq,b,2,:eq,:and")
+    assert(simplifyExact(q) === expected)
+  }
+
+  test("simplifyExact: not re clause") {
+    val q = evalQuery("a,1,:eq,b,2,:eq,:and,c,3,:re,:not,:and")
+    val expected = evalQuery("a,1,:eq,b,2,:eq,:and")
+    assert(simplifyExact(q) === expected)
+  }
+
+  test("simplifyExact: or clause") {
+    val q = evalQuery("a,1,:eq,a,2,:eq,:or")
+    assert(simplifyExact(q) === Query.True)
+  }
+
+  test("simplifyExact: or query as part of conjunctive clause") {
+    val q = evalQuery("a,1,:eq,b,2,:eq,c,2,:eq,:or,:and")
+    val expected = evalQuery("a,1,:eq")
+    assert(simplifyExact(q) === expected)
   }
 }

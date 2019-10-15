@@ -497,11 +497,9 @@ object DruidDatabaseActor {
   /**
     * Simplify the query by keeping only clauses that have exact matches.
     */
-  private def simplifyExact(query: Query): Query = {
+  private[druid] def simplifyExact(query: Query): Query = {
     val simpleQuery = query match {
       case Query.And(q1, q2) => Query.And(simplifyExact(q1), simplifyExact(q2))
-      case Query.Or(q1, q2)  => Query.Or(simplifyExact(q1), simplifyExact(q2))
-      case Query.Not(q)      => Query.Not(simplifyExact(q))
       case q: Query.Equal    => q
       case _: Query          => Query.True
     }
