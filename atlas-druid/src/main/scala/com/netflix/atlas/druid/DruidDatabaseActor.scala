@@ -258,7 +258,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
 
     val druidQueries = toDruidQueries(metadata, fetchContext, expr).map {
       case (tags, groupByQuery) =>
-        client.groupBy(groupByQuery).map { result =>
+        client.data(groupByQuery).map { result =>
           val candidates = toTimeSeries(tags, fetchContext, result)
           // See behavior on multi-value dimensions:
           // http://druid.io/docs/latest/querying/groupbyquery.html
@@ -417,7 +417,7 @@ object DruidDatabaseActor {
     metadata: Metadata,
     context: EvalContext,
     expr: DataExpr
-  ): List[(Map[String, String], GroupByQuery)] = {
+  ): List[(Map[String, String], DataQuery)] = {
     val query = expr.query
     val metrics = metadata.datasources.flatMap { ds =>
       ds.metrics.filter(query.couldMatch).map { m =>
@@ -456,7 +456,9 @@ object DruidDatabaseActor {
             having = Some(havingSpec),
             granularity = Granularity.millis(context.step)
           )
-          Some(tags -> groupByQuery)
+          val druidQuery =
+            if (groupByQuery.dimensions.isEmpty) groupByQuery.toTimeseriesQuery else groupByQuery
+          Some(tags -> druidQuery)
         }
     }
   }
