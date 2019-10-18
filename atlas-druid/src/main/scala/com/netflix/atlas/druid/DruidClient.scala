@@ -126,6 +126,20 @@ class DruidClient(
       .via(loggingClient)
       .map(data => Json.decode[List[GroupByDatapoint]](data.toArray))
   }
+
+  def timeseries(query: TimeseriesQuery): Source[List[TimeseriesDatapoint], NotUsed] = {
+    Source
+      .single(mkRequest(query))
+      .via(loggingClient)
+      .map(data => Json.decode[List[TimeseriesDatapoint]](data.toArray))
+  }
+
+  def data(query: DataQuery): Source[List[GroupByDatapoint], NotUsed] = {
+    query match {
+      case q: GroupByQuery    => groupBy(q)
+      case q: TimeseriesQuery => timeseries(q).map(_.map(_.toGroupByDatapoint))
+    }
+  }
 }
 
 object DruidClient {
@@ -229,6 +243,8 @@ object DruidClient {
 
   case class DimensionValue(dimension: String, value: String, count: Int)
 
+  sealed trait DataQuery
+
   // http://druid.io/docs/latest/querying/groupbyquery.html
   case class GroupByQuery(
     dataSource: String,
@@ -238,8 +254,25 @@ object DruidClient {
     filter: Option[DruidFilter] = None,
     having: Option[HavingSpec] = None,
     granularity: Granularity = Granularity.millis(60000)
-  ) {
+  ) extends DataQuery {
     val queryType: String = "groupBy"
+
+    def toTimeseriesQuery: TimeseriesQuery = {
+      require(dimensions.isEmpty)
+      TimeseriesQuery(dataSource, intervals, aggregations, filter, having, granularity)
+    }
+  }
+
+  // http://druid.io/docs/latest/querying/timeseries.html
+  case class TimeseriesQuery(
+    dataSource: String,
+    intervals: List[String],
+    aggregations: List[Aggregation],
+    filter: Option[DruidFilter] = None,
+    having: Option[HavingSpec] = None,
+    granularity: Granularity = Granularity.millis(60000)
+  ) extends DataQuery {
+    val queryType: String = "timeseries"
   }
 
   sealed trait DimensionSpec
@@ -304,6 +337,10 @@ object DruidClient {
       * do a client side filtering to remove entries with null values.
       */
     def tags: Map[String, String] = (event - "value").filterNot(t => isNullOrEmpty(t._2))
+  }
+
+  case class TimeseriesDatapoint(timestamp: String, result: Map[String, String]) {
+    def toGroupByDatapoint: GroupByDatapoint = GroupByDatapoint(timestamp, result)
   }
 
   case class Event(tags: Map[String, String], value: Double)
