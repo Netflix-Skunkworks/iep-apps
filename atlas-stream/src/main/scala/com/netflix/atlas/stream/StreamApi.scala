@@ -17,22 +17,28 @@ package com.netflix.atlas.stream
 
 import java.time.Duration
 
-import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers.Connection
+import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.stream.ThrottleMode
+import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.netflix.atlas.akka.CustomDirectives._
 import com.netflix.atlas.akka.DiagnosticMessage
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.eval.stream.Evaluator
+import com.netflix.atlas.eval.stream.Evaluator.DataSource
+import com.netflix.atlas.eval.stream.Evaluator.DataSources
+import com.netflix.atlas.eval.stream.Evaluator.MessageEnvelope
 import com.netflix.atlas.json.Json
 
+import scala.concurrent.duration._
+import scala.jdk.CollectionConverters._
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
@@ -48,24 +54,26 @@ class StreamApi(evaluator: Evaluator) extends WebApi {
     endpointPath("stream", RemainingPath) { path =>
       get {
         extractUri { uri =>
-          import scala.concurrent.duration._
-
           val q = uri.rawQueryString.getOrElse("")
           val atlasUri = s"$path?$q"
-
-          val heartbeatSrc = Source
-            .repeat(heartbeat)
-            .throttle(1, 5.seconds, 1, ThrottleMode.Shaping)
-
-          val src = Source
-            .fromPublisher(evaluator.createPublisher(atlasUri))
-            .map { obj =>
-              prefix ++ ByteString(obj.toJson) ++ suffix
+          val dataSources = DataSources.of(new DataSource("_", atlasUri))
+          processStream(dataSources)
+        }
+      }
+    } ~
+    endpointPath("stream") {
+      post {
+        parseEntity(json[List[DataSource]]) { dsList =>
+          val dsListWithDefaultStep = dsList.map { ds =>
+            if (ds.getStep == null) {
+              //this will extract step from uri or else take default value
+              new DataSource(ds.getId, ds.getUri)
+            } else {
+              ds
             }
-            .merge(heartbeatSrc)
-          val entity = HttpEntity(MediaTypes.`text/event-stream`, src)
-          val headers = List(Connection("close"))
-          complete(HttpResponse(StatusCodes.OK, headers = headers, entity = entity))
+          }
+          val dataSources = new DataSources(dsListWithDefaultStep.toSet.asJava)
+          processStream(dataSources)
         }
       }
     } ~
@@ -85,5 +93,25 @@ class StreamApi(evaluator: Evaluator) extends WebApi {
         }
       }
     }
+  }
+
+  private def processStream(dataSources: DataSources): Route = {
+    val heartbeatSrc = Source
+      .repeat(heartbeat)
+      .throttle(1, 5.seconds, 1, ThrottleMode.Shaping)
+
+    //repeat and throttle to keep the source alive, actual rate of stream is decided by step
+    val src = Source
+      .repeat(dataSources)
+      .throttle(1, 5.seconds, 1, ThrottleMode.Shaping)
+      .via(Flow.fromProcessor(evaluator.createStreamsProcessor))
+      .map { messageEnvelope =>
+        prefix ++ ByteString(Json.encode[MessageEnvelope](messageEnvelope)) ++ suffix
+      }
+      .merge(heartbeatSrc)
+
+    val entity = HttpEntity(MediaTypes.`text/event-stream`, src)
+    val headers = List(Connection("close"))
+    complete(HttpResponse(StatusCodes.OK, headers = headers, entity = entity))
   }
 }
