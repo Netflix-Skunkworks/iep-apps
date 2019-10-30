@@ -17,6 +17,7 @@ package com.netflix.atlas.stream
 
 import java.time.Duration
 
+import akka.NotUsed
 import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
@@ -62,10 +63,8 @@ class StreamApi(evaluator: Evaluator) extends WebApi {
             .map { obj =>
               prefix ++ ByteString(obj.toJson) ++ suffix
             }
-            .merge(getHeartBeatSource)
-          val entity = HttpEntity(MediaTypes.`text/event-stream`, src)
-          val headers = List(Connection("close"))
-          complete(HttpResponse(StatusCodes.OK, headers = headers, entity = entity))
+            .merge(getHeartbeatSource)
+          complete(createSSEResponse(src))
         }
       }
     } ~
@@ -90,10 +89,8 @@ class StreamApi(evaluator: Evaluator) extends WebApi {
             .map { messageEnvelope =>
               prefix ++ ByteString(Json.encode[MessageEnvelope](messageEnvelope)) ++ suffix
             }
-            .merge(getHeartBeatSource)
-          val entity = HttpEntity(MediaTypes.`text/event-stream`, src)
-          val headers = List(Connection("close"))
-          complete(HttpResponse(StatusCodes.OK, headers = headers, entity = entity))
+            .merge(getHeartbeatSource)
+          complete(createSSEResponse(src))
         }
       }
     } ~
@@ -115,7 +112,13 @@ class StreamApi(evaluator: Evaluator) extends WebApi {
     }
   }
 
-  private def getHeartBeatSource = {
+  private def createSSEResponse(src: Source[ByteString, NotUsed]): HttpResponse = {
+    val entity = HttpEntity(MediaTypes.`text/event-stream`, src)
+    val headers = List(Connection("close"))
+    HttpResponse(StatusCodes.OK, headers = headers, entity = entity)
+  }
+
+  private def getHeartbeatSource = {
     Source
       .repeat(heartbeat)
       .throttle(1, 5.seconds, 1, ThrottleMode.Shaping)
