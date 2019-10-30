@@ -17,7 +17,6 @@ package com.netflix.atlas.stream
 
 import java.time.Duration
 
-import akka.NotUsed
 import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
@@ -57,14 +56,8 @@ class StreamApi(evaluator: Evaluator) extends WebApi {
         extractUri { uri =>
           val q = uri.rawQueryString.getOrElse("")
           val atlasUri = s"$path?$q"
-
-          val src = Source
-            .fromPublisher(evaluator.createPublisher(atlasUri))
-            .map { obj =>
-              prefix ++ ByteString(obj.toJson) ++ suffix
-            }
-            .merge(getHeartbeatSource)
-          complete(createSSEResponse(src))
+          val dataSources = DataSources.of(new DataSource("_", atlasUri))
+          processStream(dataSources)
         }
       }
     } ~
@@ -80,17 +73,7 @@ class StreamApi(evaluator: Evaluator) extends WebApi {
             }
           }
           val dataSources = new DataSources(dsListWithDefaultStep.toSet.asJava)
-
-          //repeat and throttle to keep the source alive, actual rate of stream is decided by step
-          val src = Source
-            .repeat(dataSources)
-            .throttle(1, 15.seconds, 1, ThrottleMode.Shaping)
-            .via(Flow.fromProcessor(evaluator.createStreamsProcessor))
-            .map { messageEnvelope =>
-              prefix ++ ByteString(Json.encode[MessageEnvelope](messageEnvelope)) ++ suffix
-            }
-            .merge(getHeartbeatSource)
-          complete(createSSEResponse(src))
+          processStream(dataSources)
         }
       }
     } ~
@@ -112,15 +95,23 @@ class StreamApi(evaluator: Evaluator) extends WebApi {
     }
   }
 
-  private def createSSEResponse(src: Source[ByteString, NotUsed]): HttpResponse = {
-    val entity = HttpEntity(MediaTypes.`text/event-stream`, src)
-    val headers = List(Connection("close"))
-    HttpResponse(StatusCodes.OK, headers = headers, entity = entity)
-  }
-
-  private def getHeartbeatSource = {
-    Source
+  private def processStream(dataSources: DataSources): Route = {
+    val heartbeatSrc = Source
       .repeat(heartbeat)
       .throttle(1, 5.seconds, 1, ThrottleMode.Shaping)
+
+    //repeat and throttle to keep the source alive, actual rate of stream is decided by step
+    val src = Source
+      .repeat(dataSources)
+      .throttle(1, 5.seconds, 1, ThrottleMode.Shaping)
+      .via(Flow.fromProcessor(evaluator.createStreamsProcessor))
+      .map { messageEnvelope =>
+        prefix ++ ByteString(Json.encode[MessageEnvelope](messageEnvelope)) ++ suffix
+      }
+      .merge(heartbeatSrc)
+
+    val entity = HttpEntity(MediaTypes.`text/event-stream`, src)
+    val headers = List(Connection("close"))
+    complete(HttpResponse(StatusCodes.OK, headers = headers, entity = entity))
   }
 }
