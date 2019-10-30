@@ -4,18 +4,18 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val akka       = "2.5.25"
+    val akka       = "2.5.26"
     val akkaHttpV  = "10.1.10"
-    val atlas      = "1.7.0-rc.1"
-    val aws        = "1.11.629"
-    val iep        = "2.1.3"
+    val atlas      = "1.7.0-rc.2"
+    val aws        = "1.11.656"
+    val iep        = "2.1.5"
     val guice      = "4.1.0"
-    val jackson    = "2.9.10"
+    val jackson    = "2.10.0"
     val log4j      = "2.12.1"
     val scala      = "2.13.1"
     val servo      = "0.12.28"
     val slf4j      = "1.7.28"
-    val spectator  = "0.96.0"
+    val spectator  = "0.98.0"
 
     val crossScala = Seq(scala, "2.12.10")
   }
@@ -88,7 +88,7 @@ object Dependencies {
   val spectatorLog4j     = "com.netflix.spectator" % "spectator-ext-log4j2" % spectator
   val spectatorM2        = "com.netflix.spectator" % "spectator-reg-metrics2" % spectator
   val spectatorSandbox   = "com.netflix.spectator" % "spectator-ext-sandbox" % spectator
-  val typesafeConfig     = "com.typesafe" % "config" % "1.3.4"
+  val typesafeConfig     = "com.typesafe" % "config" % "1.4.0"
 }
 
 // format: on
