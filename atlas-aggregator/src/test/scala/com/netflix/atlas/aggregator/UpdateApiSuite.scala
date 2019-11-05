@@ -97,6 +97,31 @@ class UpdateApiSuite extends FunSuite {
     val id = registry.createId("cpu_user", "app", "www", "zone", "1e")
     assert(registry.counter(id.withTag(aggrTag)).actualCount() === 42.0)
   }
+
+  test("percentile node rollup") {
+    val clock = new ManualClock()
+    val registry = new AtlasRegistry(clock, UpdateApiSuite.config)
+    val parser = factory.createParser("""
+        |[
+        |  7,
+        |  "name",
+        |  "latency",
+        |  "percentile",
+        |  "T0000",
+        |  "nf.node",
+        |  "i-12345",
+        |  "nf.task",
+        |  4,
+        |  0, 1, 2, 3, 4, 5, 6, 5,
+        |  0,
+        |  42.0
+        |]
+      """.stripMargin)
+    UpdateApi.processPayload(parser, registry)
+    clock.setWallTime(62000)
+    val id = registry.createId("latency").withTag(aggrTag).withTag("percentile", "T0000")
+    assert(registry.counter(id).actualCount() === 42.0)
+  }
 }
 
 object UpdateApiSuite {

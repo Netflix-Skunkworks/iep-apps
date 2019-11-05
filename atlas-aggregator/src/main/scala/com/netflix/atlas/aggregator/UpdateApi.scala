@@ -104,7 +104,7 @@ object UpdateApi extends StrictLogging {
       // TODO: validate num tags and lengths
       val op = nextInt(parser)
       val value = nextDouble(parser)
-      val id = createId(registry, tags)
+      val id = createId(registry, rollup(tags))
       op match {
         case ADD =>
           // Add the aggr tag to avoid values getting deduped on the backend
@@ -142,6 +142,17 @@ object UpdateApi extends StrictLogging {
       i += 1
     }
     tags.result
+  }
+
+  /**
+    * Handle any automatic rollups on the id. For now it just removes the node dimension for
+    * ids with percentiles.
+    */
+  private def rollup(tags: TagMap): TagMap = {
+    if (tags.contains("percentile"))
+      (tags - "nf.node" - "nf.task").asInstanceOf[TagMap]
+    else
+      tags
   }
 
   private def createId(registry: AtlasRegistry, tags: TagMap): Id = {
