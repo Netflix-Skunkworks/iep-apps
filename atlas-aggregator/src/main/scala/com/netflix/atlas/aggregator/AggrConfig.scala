@@ -15,15 +15,16 @@
  */
 package com.netflix.atlas.aggregator
 
-import com.google.inject.AbstractModule
-import com.google.inject.multibindings.Multibinder
-import com.netflix.iep.service.Service
-import com.netflix.spectator.api.Clock
+import com.netflix.spectator.api.Registry
+import com.netflix.spectator.atlas.AtlasConfig
+import com.typesafe.config.Config
 
-class AppModule extends AbstractModule {
-  override def configure(): Unit = {
-    bind(classOf[Clock]).toInstance(Clock.SYSTEM)
-    val serviceBinder = Multibinder.newSetBinder(binder(), classOf[Service])
-    serviceBinder.addBinding().to(classOf[AtlasAggregatorService])
+class AggrConfig(config: Config, registry: Registry) extends AtlasConfig {
+
+  override def get(k: String): String = {
+    val prop = s"netflix.atlas.aggr.registry.$k"
+    if (config.hasPath(prop)) config.getString(prop) else null
   }
+
+  override def debugRegistry(): Registry = registry
 }

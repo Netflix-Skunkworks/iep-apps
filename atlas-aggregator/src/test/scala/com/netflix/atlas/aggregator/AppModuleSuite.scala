@@ -34,7 +34,7 @@ class AppModuleSuite extends FunSuite {
 
   private val config = ConfigFactory.load()
 
-  test("app and aggr registry") {
+  test("aggr service") {
     val injector = Guice.createInjector(
       new AppModule,
       new AbstractModule {
@@ -45,16 +45,15 @@ class AppModuleSuite extends FunSuite {
       }
     )
 
-    val app = injector.getInstance(classOf[Registry])
-    val aggr = injector.getInstance(classOf[AtlasRegistry])
-    assert(app != aggr)
+    val aggr = injector.getInstance(classOf[AtlasAggregatorService])
+    assert(aggr != null)
   }
 
   test("aggr config should use prefix") {
     val config = ConfigFactory.parseString("""
         |netflix.atlas.aggr.registry.atlas.uri = "test"
       """.stripMargin)
-    val aggr = new AppModule.AggrConfig(config, new NoopRegistry)
+    val aggr = new AggrConfig(config, new NoopRegistry)
     assert(aggr.uri() === "test")
   }
 
@@ -62,7 +61,7 @@ class AppModuleSuite extends FunSuite {
     val config = ConfigFactory.parseString("""
         |netflix.atlas.aggr.registry.atlas.uri = "test"
       """.stripMargin)
-    val aggr = new AppModule.AggrConfig(config, new NoopRegistry)
+    val aggr = new AggrConfig(config, new NoopRegistry)
     assert(aggr.batchSize() === 10000)
   }
 }

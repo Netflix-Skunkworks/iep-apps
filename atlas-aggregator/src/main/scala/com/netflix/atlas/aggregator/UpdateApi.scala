@@ -36,23 +36,22 @@ import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.iep.NetflixEnvironment
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.Tag
-import com.netflix.spectator.atlas.AtlasRegistry
 import com.netflix.spectator.impl.AsciiSet
 import com.typesafe.scalalogging.StrictLogging
 
 class UpdateApi @Inject()(
   evaluator: Evaluator,
-  aggrRegistry: AtlasRegistry
+  aggrService: AtlasAggregatorService
 ) extends WebApi {
 
-  require(aggrRegistry != null, "no binding for aggregate registry")
+  require(aggrService != null, "no binding for aggregate registry")
 
   import UpdateApi._
 
   def routes: Route = {
     endpointPath("api" / "v4" / "update") {
       post {
-        parseEntity(customJson(p => processPayload(p, aggrRegistry))) { payload =>
+        parseEntity(customJson(p => processPayload(p, aggrService))) { payload =>
           val src = Source.single(ByteString("{}"))
           val entity = HttpEntity(MediaTypes.`application/json`, src)
           complete(HttpResponse(StatusCodes.OK, entity = entity))
@@ -92,7 +91,7 @@ object UpdateApi extends StrictLogging {
     value
   }
 
-  def processPayload(parser: JsonParser, registry: AtlasRegistry): Unit = {
+  def processPayload(parser: JsonParser, service: AtlasAggregatorService): Unit = {
     requireNextToken(parser, JsonToken.START_ARRAY)
     val numStrings = nextInt(parser)
     val strings = loadStringTable(numStrings, parser)
@@ -104,15 +103,15 @@ object UpdateApi extends StrictLogging {
       // TODO: validate num tags and lengths
       val op = nextInt(parser)
       val value = nextDouble(parser)
-      val id = createId(registry, rollup(tags))
+      val id = createId(rollup(tags))
       op match {
         case ADD =>
           // Add the aggr tag to avoid values getting deduped on the backend
           logger.debug(s"received updated, ADD $id $value")
-          registry.counter(id.withTag(aggrTag)).add(value)
+          service.add(id.withTag(aggrTag), value)
         case MAX =>
           logger.debug(s"received updated, MAX $id $value")
-          registry.maxGauge(id).set(value)
+          service.max(id, value)
         case unk =>
           throw new IllegalArgumentException(
             s"unknown operation $unk, expected add ($ADD) or max ($MAX)"
@@ -155,9 +154,9 @@ object UpdateApi extends StrictLogging {
       tags
   }
 
-  private def createId(registry: AtlasRegistry, tags: TagMap): Id = {
+  private def createId(tags: TagMap): Id = {
     val name = tags("name")
     val otherTags = (tags - "name").asInstanceOf[TagMap]
-    registry.createId(name, otherTags.asJavaMap)
+    Id.create(name).withTags(otherTags.asJavaMap)
   }
 }
