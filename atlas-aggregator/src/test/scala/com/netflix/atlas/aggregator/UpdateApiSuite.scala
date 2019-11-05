@@ -15,13 +15,13 @@
  */
 package com.netflix.atlas.aggregator
 
-import java.time.Duration
-
 import com.fasterxml.jackson.core.JsonFactory
+import com.netflix.spectator.api.Clock
+import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.ManualClock
+import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Tag
-import com.netflix.spectator.atlas.AtlasConfig
-import com.netflix.spectator.atlas.AtlasRegistry
+import com.typesafe.config.ConfigFactory
 import org.scalatest.FunSuite
 
 class UpdateApiSuite extends FunSuite {
@@ -30,9 +30,13 @@ class UpdateApiSuite extends FunSuite {
 
   private val aggrTag = Tag.of("atlas.aggr", "i-123")
 
+  private def createAggrService(clock: Clock): AtlasAggregatorService = {
+    new AtlasAggregatorService(ConfigFactory.load(), clock, new NoopRegistry)
+  }
+
   test("simple payload") {
     val clock = new ManualClock()
-    val registry = new AtlasRegistry(clock, UpdateApiSuite.config)
+    val service = createAggrService(clock)
     val parser = factory.createParser("""
         |[
         |  2,
@@ -44,15 +48,15 @@ class UpdateApiSuite extends FunSuite {
         |  42.0
         |]
       """.stripMargin)
-    UpdateApi.processPayload(parser, registry)
+    UpdateApi.processPayload(parser, service)
     clock.setWallTime(62000)
-    val id = registry.createId("cpu").withTag(aggrTag)
-    assert(registry.counter(id).actualCount() === 42.0)
+    val id = Id.create("cpu").withTag(aggrTag)
+    assert(service.lookup(id).counter(id).actualCount() === 42.0)
   }
 
   test("payload with additional tags") {
     val clock = new ManualClock()
-    val registry = new AtlasRegistry(clock, UpdateApiSuite.config)
+    val service = createAggrService(clock)
     val parser = factory.createParser("""
         |[
         |  6,
@@ -68,15 +72,18 @@ class UpdateApiSuite extends FunSuite {
         |  42.0
         |]
       """.stripMargin)
-    UpdateApi.processPayload(parser, registry)
+    UpdateApi.processPayload(parser, service)
     clock.setWallTime(62000)
-    val id = registry.createId("cpu", "app", "www", "zone", "1e")
-    assert(registry.counter(id.withTag(aggrTag)).actualCount() === 42.0)
+    val id = Id
+      .create("cpu")
+      .withTags("app", "www", "zone", "1e")
+      .withTag(aggrTag)
+    assert(service.lookup(id).counter(id).actualCount() === 42.0)
   }
 
   test("payload with invalid characters") {
     val clock = new ManualClock()
-    val registry = new AtlasRegistry(clock, UpdateApiSuite.config)
+    val service = createAggrService(clock)
     val parser = factory.createParser("""
         |[
         |  6,
@@ -92,15 +99,18 @@ class UpdateApiSuite extends FunSuite {
         |  42.0
         |]
       """.stripMargin)
-    UpdateApi.processPayload(parser, registry)
+    UpdateApi.processPayload(parser, service)
     clock.setWallTime(62000)
-    val id = registry.createId("cpu_user", "app", "www", "zone", "1e")
-    assert(registry.counter(id.withTag(aggrTag)).actualCount() === 42.0)
+    val id = Id
+      .create("cpu_user")
+      .withTags("app", "www", "zone", "1e")
+      .withTag(aggrTag)
+    assert(service.lookup(id).counter(id).actualCount() === 42.0)
   }
 
   test("percentile node rollup") {
     val clock = new ManualClock()
-    val registry = new AtlasRegistry(clock, UpdateApiSuite.config)
+    val service = createAggrService(clock)
     val parser = factory.createParser("""
         |[
         |  7,
@@ -117,17 +127,12 @@ class UpdateApiSuite extends FunSuite {
         |  42.0
         |]
       """.stripMargin)
-    UpdateApi.processPayload(parser, registry)
+    UpdateApi.processPayload(parser, service)
     clock.setWallTime(62000)
-    val id = registry.createId("latency").withTag(aggrTag).withTag("percentile", "T0000")
-    assert(registry.counter(id).actualCount() === 42.0)
-  }
-}
-
-object UpdateApiSuite {
-  private val config = new AtlasConfig {
-    override def get(k: String): String = null
-
-    override def lwcStep(): Duration = Duration.ofMinutes(1)
+    val id = Id
+      .create("latency")
+      .withTag(aggrTag)
+      .withTag("percentile", "T0000")
+    assert(service.lookup(id).counter(id).actualCount() === 42.0)
   }
 }
