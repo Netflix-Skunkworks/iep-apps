@@ -15,6 +15,7 @@
  */
 package com.netflix.atlas.aggregator
 
+import com.netflix.spectator.api.Clock
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.atlas.AtlasConfig
 import com.typesafe.config.Config
@@ -27,4 +28,13 @@ class AggrConfig(config: Config, registry: Registry) extends AtlasConfig {
   }
 
   override def debugRegistry(): Registry = registry
+
+  override def initialPollingDelay(clock: Clock, stepSize: Long): Long = {
+    val now = clock.wallTime()
+    val stepBoundary = now / stepSize * stepSize
+
+    // Buffer by 10% of the step interval
+    val firstTime = stepBoundary + stepSize / 10
+    if (firstTime > now) firstTime - now else firstTime + stepSize - now
+  }
 }
