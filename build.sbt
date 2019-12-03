@@ -222,6 +222,7 @@ lazy val `iep-ses-monitor` = project
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,
+    Dependencies.spectatorAws2,
 
     Dependencies.akkaHttpTestkit % "test",
     Dependencies.akkaTestkit % "test",
