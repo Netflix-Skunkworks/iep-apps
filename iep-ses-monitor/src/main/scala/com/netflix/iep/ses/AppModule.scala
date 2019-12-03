@@ -32,6 +32,10 @@ class AppModule extends AbstractModule {
   @Singleton
   @Provides
   def provideAwsSqsAsyncClient(factory: AwsClientFactory): SqsAsyncClient = {
+    System.setProperty(
+      "software.amazon.awssdk.http.async.service.impl",
+      "software.amazon.awssdk.http.nio.netty.NettySdkAsyncHttpService"
+    )
     factory.newInstance(classOf[SqsAsyncClient])
   }
 
