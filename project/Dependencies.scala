@@ -5,17 +5,17 @@ import sbt._
 object Dependencies {
   object Versions {
     val akka       = "2.5.26"
-    val akkaHttpV  = "10.1.10"
-    val atlas      = "1.7.0-rc.2"
-    val aws        = "1.11.656"
-    val iep        = "2.1.5"
+    val akkaHttpV  = "10.1.11"
+    val atlas      = "1.7.0-rc.3"
+    val aws        = "1.11.681"
+    val iep        = "2.1.7"
     val guice      = "4.1.0"
-    val jackson    = "2.10.0"
+    val jackson    = "2.10.1"
     val log4j      = "2.12.1"
     val scala      = "2.13.1"
     val servo      = "0.12.28"
-    val slf4j      = "1.7.28"
-    val spectator  = "0.99.1"
+    val slf4j      = "1.7.29"
+    val spectator  = "0.99.2"
 
     val crossScala = Seq(scala, "2.12.10")
   }
@@ -28,7 +28,7 @@ object Dependencies {
   val akkaHttpTestkit    = "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV
   val akkaSlf4j          = "com.typesafe.akka" %% "akka-slf4j" % akka
   val akkaTestkit        = "com.typesafe.akka" %% "akka-testkit" % akka
-  val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % "1.1.1"
+  val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % "1.1.2"
   val atlasEval          = "com.netflix.atlas_v1" %% "atlas-eval" % atlas
   val atlasJson          = "com.netflix.atlas_v1" %% "atlas-json" % atlas
   val atlasModuleAkka    = "com.netflix.atlas_v1" %% "atlas-module-akka" % atlas
@@ -44,7 +44,7 @@ object Dependencies {
   val awsSTS             = "com.amazonaws" % "aws-java-sdk-sts" % aws
   val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "2.8.0"
   val equalsVerifier     = "nl.jqno.equalsverifier" % "equalsverifier" % "2.2.1"
-  val frigga             = "com.netflix.frigga" % "frigga" % "0.19.2"
+  val frigga             = "com.netflix.frigga" % "frigga" % "0.20.0"
   val guiceCore          = "com.google.inject" % "guice" % guice
   val guiceMulti         = "com.google.inject.extensions" % "guice-multibindings" % guice
   val iepGuice           = "com.netflix.iep" % "iep-guice" % iep
