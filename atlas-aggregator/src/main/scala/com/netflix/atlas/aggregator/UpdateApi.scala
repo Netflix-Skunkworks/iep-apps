@@ -15,25 +15,28 @@
  */
 package com.netflix.atlas.aggregator
 
-import java.time.Duration
-
 import javax.inject.Inject
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
+import akka.http.scaladsl.model.StatusCode
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
-import akka.stream.scaladsl.Source
-import akka.util.ByteString
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.core.JsonToken
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.netflix.atlas.akka.CustomDirectives._
 import com.netflix.atlas.akka.WebApi
+import com.netflix.atlas.core.model.TagKey
 import com.netflix.atlas.core.util.SmallHashMap
+import com.netflix.atlas.core.validation.CompositeTagRule
+import com.netflix.atlas.core.validation.Rule
+import com.netflix.atlas.core.validation.TagRule
+import com.netflix.atlas.core.validation.ValidationResult
 import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.iep.NetflixEnvironment
+import com.netflix.iep.config.ConfigManager
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.Tag
 import com.netflix.spectator.impl.AsciiSet
@@ -51,10 +54,8 @@ class UpdateApi @Inject()(
   def routes: Route = {
     endpointPath("api" / "v4" / "update") {
       post {
-        parseEntity(customJson(p => processPayload(p, aggrService))) { payload =>
-          val src = Source.single(ByteString("{}"))
-          val entity = HttpEntity(MediaTypes.`application/json`, src)
-          complete(HttpResponse(StatusCodes.OK, entity = entity))
+        parseEntity(customJson(p => processPayload(p, aggrService))) { response =>
+          complete(response)
         }
       }
     }
@@ -72,52 +73,95 @@ object UpdateApi extends StrictLogging {
 
   private val aggrTag = Tag.of("atlas.aggr", NetflixEnvironment.instanceId())
 
-  private val allowedCharacters = AsciiSet.fromPattern("-._A-Za-z0-9^~")
+  private val config = ConfigManager.get().getConfig("atlas.aggregator")
+
+  private val maxUserTags = config.getInt("validation.max-user-tags")
+
+  private val validator = {
+    val rs = Rule.load(config.getConfigList("validation.rules"))
+    require(rs.nonEmpty, "validation rule set is empty")
+    rs.foreach { r =>
+      require(r.isInstanceOf[TagRule], s"only TagRule instances are permitted: $r")
+    }
+    CompositeTagRule(rs.map(_.asInstanceOf[TagRule]))
+  }
+
+  private val allowedCharacters = AsciiSet.fromPattern(config.getString("allowed-characters"))
 
   private val stringCache = Caffeine
     .newBuilder()
-    .maximumSize(2000000)
-    .expireAfterAccess(Duration.ofMinutes(10))
+    .maximumSize(config.getInt("cache.strings.max-size"))
+    .expireAfterAccess(config.getDuration("cache.strings.expires-after"))
     .build[String, String]()
 
-  private def replaceInvalidCharacters(s: String): String = {
-    var value = stringCache.getIfPresent(s)
-    if (value == null) {
-      // To avoid blocking for loading cache, we do an explicit get/put. The replacement may
-      // occur multiple times for the same string, but that is not a problem here.
-      value = allowedCharacters.replaceNonMembers(s, '_')
-      stringCache.put(s, value)
-    }
-    value
-  }
+  private val idCache = Caffeine
+    .newBuilder()
+    .maximumSize(config.getInt("cache.ids.max-size"))
+    .expireAfterAccess(config.getDuration("cache.ids.expires-after"))
+    .build[TagMap, Id]()
 
-  def processPayload(parser: JsonParser, service: AtlasAggregatorService): Unit = {
+  def processPayload(parser: JsonParser, service: AtlasAggregatorService): HttpResponse = {
+    val validationResults = List.newBuilder[ValidationResult]
+    var numDatapoints = 0
+
     requireNextToken(parser, JsonToken.START_ARRAY)
     val numStrings = nextInt(parser)
     val strings = loadStringTable(numStrings, parser)
 
     var t = parser.nextToken()
     while (t != null && t != JsonToken.END_ARRAY) {
+      numDatapoints += 1
       val numTags = parser.getIntValue
-      val tags = loadTags(numTags, strings, parser)
-      // TODO: validate num tags and lengths
+      val result = loadTags(numTags, strings, parser)
       val op = nextInt(parser)
       val value = nextDouble(parser)
-      val id = createId(rollup(tags))
-      op match {
-        case ADD =>
-          // Add the aggr tag to avoid values getting deduped on the backend
-          logger.debug(s"received updated, ADD $id $value")
-          service.add(id.withTag(aggrTag), value)
-        case MAX =>
-          logger.debug(s"received updated, MAX $id $value")
-          service.max(id, value)
-        case unk =>
-          throw new IllegalArgumentException(
-            s"unknown operation $unk, expected add ($ADD) or max ($MAX)"
-          )
+      result match {
+        case Left(vr) =>
+          validationResults += vr
+        case Right(id) =>
+          op match {
+            case ADD =>
+              // Add the aggr tag to avoid values getting deduped on the backend
+              logger.debug(s"received updated, ADD $id $value")
+              service.add(id.withTag(aggrTag), value)
+            case MAX =>
+              logger.debug(s"received updated, MAX $id $value")
+              service.max(id, value)
+            case unk =>
+              throw new IllegalArgumentException(
+                s"unknown operation $unk, expected add ($ADD) or max ($MAX)"
+              )
+          }
       }
       t = parser.nextToken()
+    }
+    createResponse(numDatapoints, validationResults.result())
+  }
+
+  private val okResponse = {
+    val entity = HttpEntity(MediaTypes.`application/json`, "{}")
+    HttpResponse(StatusCodes.OK, entity = entity)
+  }
+
+  private def createErrorResponse(status: StatusCode, msg: FailureMessage): HttpResponse = {
+    val entity = HttpEntity(MediaTypes.`application/json`, msg.toJson)
+    HttpResponse(status, entity = entity)
+  }
+
+  private def createResponse(numDatapoints: Int, failures: List[ValidationResult]): HttpResponse = {
+    if (failures.isEmpty) {
+      okResponse
+    } else {
+      val numFailures = failures.size
+      if (numDatapoints > numFailures) {
+        // Partial failure
+        val msg = FailureMessage.partial(failures, numFailures)
+        createErrorResponse(StatusCodes.Accepted, msg)
+      } else {
+        // All datapoints dropped
+        val msg = FailureMessage.error(failures, numFailures)
+        createErrorResponse(StatusCodes.BadRequest, msg)
+      }
     }
   }
 
@@ -131,16 +175,71 @@ object UpdateApi extends StrictLogging {
     strings
   }
 
-  private def loadTags(n: Int, strings: Array[String], parser: JsonParser): TagMap = {
+  private def replaceInvalidCharacters(s: String): String = {
+    var value = stringCache.getIfPresent(s)
+    if (value == null) {
+      // To avoid blocking for loading cache, we do an explicit get/put. The replacement may
+      // occur multiple times for the same string, but that is not a problem here.
+      value = allowedCharacters.replaceNonMembers(s, '_')
+      stringCache.put(s, value)
+    }
+    value
+  }
+
+  private def loadTags(
+    n: Int,
+    strings: Array[String],
+    parser: JsonParser
+  ): Either[ValidationResult, Id] = {
+    var result: ValidationResult = ValidationResult.Pass
+    var numUserTags = 0
     val tags = new SmallHashMap.Builder[String, String](n * 2)
     var i = 0
     while (i < n) {
       val k = strings(nextInt(parser))
       val v = strings(nextInt(parser))
-      tags.add(k, v)
+      if (result == ValidationResult.Pass) {
+        // Avoid doing unnecessary work if it has already failed validation. We still need
+        // to process the entry as subsequent entries may be fine.
+        tags.add(k, v)
+        if (!TagKey.isRestricted(k)) {
+          numUserTags += 1
+        }
+        result = validator.validate(k, v)
+      }
       i += 1
     }
-    tags.result
+
+    if (result == ValidationResult.Pass) {
+      // Validation of individual key/value pairs passed, now check rules for the
+      // overall tag set
+      if (numUserTags > maxUserTags) {
+        Left(
+          ValidationResult
+            .Fail("MaxUserTagsRule", s"too many user tags: $numUserTags > $maxUserTags")
+        )
+      } else {
+        val ts = tags.result
+        if (ts.contains("name"))
+          Right(convertToId(rollup(ts)))
+        else
+          Left(ValidationResult.Fail("HasKeyRule", s"missing 'name': ${ts.keys}"))
+      }
+    } else {
+      // Tag rule check failed
+      Left(result)
+    }
+  }
+
+  private def convertToId(tags: TagMap): Id = {
+    var value = idCache.getIfPresent(tags)
+    if (value == null) {
+      // To avoid blocking for loading cache, we do an explicit get/put. The replacement may
+      // occur multiple times for the same id, but that is not a problem here.
+      value = createId(tags)
+      idCache.put(tags, value)
+    }
+    value
   }
 
   /**
