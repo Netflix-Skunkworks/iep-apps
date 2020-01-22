@@ -10,7 +10,6 @@ object Dependencies {
     val aws        = "1.11.702"
     val iep        = "2.1.8"
     val guice      = "4.1.0"
-    val jackson    = "2.10.1"
     val log4j      = "2.13.0"
     val scala      = "2.13.1"
     val servo      = "0.12.28"
@@ -39,11 +38,8 @@ object Dependencies {
   val awsCore            = "com.amazonaws" % "aws-java-sdk-core" % aws
   val awsDynamoDB        = "com.amazonaws" % "aws-java-sdk-dynamodb" % aws
   val awsEC2             = "com.amazonaws" % "aws-java-sdk-ec2" % aws
-  val awsS3              = "com.amazonaws" % "aws-java-sdk-s3" % aws
   val awsSQS             = "com.amazonaws" % "aws-java-sdk-sqs" % aws
   val awsSTS             = "com.amazonaws" % "aws-java-sdk-sts" % aws
-  val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "2.8.0"
-  val equalsVerifier     = "nl.jqno.equalsverifier" % "equalsverifier" % "2.2.1"
   val frigga             = "com.netflix.frigga" % "frigga" % "0.20.0"
   val guiceCore          = "com.google.inject" % "guice" % guice
   val guiceMulti         = "com.google.inject.extensions" % "guice-multibindings" % guice
@@ -58,14 +54,6 @@ object Dependencies {
   val iepModuleJmx       = "com.netflix.iep" % "iep-module-jmxport" % iep
   val iepNflxEnv         = "com.netflix.iep" % "iep-nflxenv" % iep
   val iepService         = "com.netflix.iep" % "iep-service" % iep
-  val jacksonAnno2       = "com.fasterxml.jackson.core" % "jackson-annotations" % jackson
-  val jacksonCore2       = "com.fasterxml.jackson.core" % "jackson-core" % jackson
-  val jacksonJoda2       = "com.fasterxml.jackson.datatype" % "jackson-datatype-joda" % jackson
-  val jacksonMapper2     = "com.fasterxml.jackson.core" % "jackson-databind" % jackson
-  val jacksonScala2      = "com.fasterxml.jackson.module" %% "jackson-module-scala" % jackson
-  val jacksonSmile2      = "com.fasterxml.jackson.dataformat" % "jackson-dataformat-smile" % jackson
-  val jodaConvert        = "org.joda" % "joda-convert" % "1.8.1"
-  val jol                = "org.openjdk.jol" % "jol-core" % "0.5"
   val jsonSchema         = "com.github.java-json-tools" % "json-schema-validator" % "2.2.11"
   val jsr305             = "com.google.code.findbugs" % "jsr305" % "3.0.2"
   val log4jApi           = "org.apache.logging.log4j" % "log4j-api" % log4j
@@ -75,7 +63,6 @@ object Dependencies {
   val log4jSlf4j         = "org.apache.logging.log4j" % "log4j-slf4j-impl" % log4j
   val scalaCompiler      = "org.scala-lang" % "scala-compiler" % scala
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
-  val scalaLibraryAll    = "org.scala-lang" % "scala-library-all" % scala
   val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
   val scalaReflect       = "org.scala-lang" % "scala-reflect" % scala
   val scalatest          = "org.scalatest" %% "scalatest" % "3.0.8"
