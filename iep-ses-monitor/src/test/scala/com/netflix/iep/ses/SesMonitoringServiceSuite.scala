@@ -79,7 +79,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
         .single(createNotificationMessage("{}"))
         .via(messageProcessingFlow)
         .runWith(Sink.head),
-      2.seconds
+      10.seconds
     )
 
     processed.getClass shouldEqual classOf[MessageAction.Delete]
