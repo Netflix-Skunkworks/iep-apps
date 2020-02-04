@@ -214,7 +214,7 @@ lazy val `iep-ses-monitor` = project
   .configure(BuildSettings.profile)
   .settings(libraryDependencies ++= Seq(
     Dependencies.atlasModuleAkka,
-    Dependencies.awsSQS,
+    Dependencies.aws2SQS,
     Dependencies.alpakkaSqs,
     Dependencies.iepGuice,
     Dependencies.iepModuleAtlas,
