@@ -73,7 +73,8 @@ lazy val `atlas-stream` = project
   .configure(BuildSettings.profile)
   .settings(libraryDependencies ++= Seq(
     Dependencies.atlasModuleAkka,
-    Dependencies.atlasModuleEval,
+//    Dependencies.atlasModuleEval,
+    "com.netflix.atlas_v1" %% "atlas-module-eval" % "1.7.0-SNAPSHOT",
     Dependencies.iepGuice,
     Dependencies.log4jApi,
     Dependencies.log4jCore,

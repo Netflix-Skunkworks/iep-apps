@@ -15,15 +15,21 @@
  */
 package com.netflix.atlas.stream
 
+import java.nio.charset.StandardCharsets
 import java.time.Duration
 
+import akka.NotUsed
 import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers.Connection
+import akka.http.scaladsl.model.ws.BinaryMessage
+import akka.http.scaladsl.model.ws.Message
+import akka.http.scaladsl.model.ws.TextMessage
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.server.directives.RouteDirectives.complete
 import akka.stream.ThrottleMode
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Source
@@ -43,7 +49,7 @@ import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
 
-class StreamApi(evaluator: Evaluator) extends WebApi {
+class StreamApi(evaluator: Evaluator, evalService: EvalService) extends WebApi {
 
   private val prefix = ByteString("data: ")
   private val suffix = ByteString("\r\n\r\n")
@@ -51,6 +57,11 @@ class StreamApi(evaluator: Evaluator) extends WebApi {
   private val heartbeat = ByteString(s"""data: {"type":"heartbeat"}\r\n\r\n""")
 
   def routes: Route = {
+    endpointPath("streamws") {
+      extractUpgradeToWebSocket { upgrade =>
+        complete(upgrade.handleMessages(createHandler()))
+      }
+    } ~
     endpointPath("stream", RemainingPath) { path =>
       get {
         extractUri { uri =>
@@ -93,6 +104,20 @@ class StreamApi(evaluator: Evaluator) extends WebApi {
         }
       }
     }
+  }
+
+  private def createHandler(): Flow[Message, Message, Any] = {
+    Flow[Message]
+      .flatMapConcat {
+        case msg: TextMessage =>
+          msg.textStream.fold("")(_ + _)
+        case msg: BinaryMessage =>
+          msg.dataStream.fold(ByteString.empty)(_ ++ _).map(_.decodeString(StandardCharsets.UTF_8))
+      }
+      .via(EvalFlow.createEvalFlow(evalService, evaluator))
+      .map(envelope => {
+        TextMessage(Json.encode(envelope))
+      })
   }
 
   private def processStream(dataSources: DataSources): Route = {
