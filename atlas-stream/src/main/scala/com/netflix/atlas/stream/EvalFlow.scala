@@ -31,20 +31,11 @@ import akka.stream.stage.InHandler
 import akka.stream.stage.OutHandler
 import com.netflix.atlas.akka.DiagnosticMessage
 import com.netflix.atlas.akka.StreamOps
-import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.eval.stream.Evaluator.DataSource
-import com.netflix.atlas.eval.stream.Evaluator.DataSources
 import com.netflix.atlas.eval.stream.Evaluator.MessageEnvelope
 import com.netflix.atlas.json.Json
 import com.typesafe.scalalogging.StrictLogging
 import org.reactivestreams.Publisher
-
-import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
-import scala.jdk.CollectionConverters._
-import scala.util.Failure
-import scala.util.Success
-import scala.util.Try
 
 /**
   * This is the flow does the async evaluation of DataSource's:
@@ -53,7 +44,7 @@ import scala.util.Try
   */
 private[stream] class EvalFlow(
   evalService: EvalService,
-  evaluator: Evaluator
+  validateFunc: DataSource => Unit
 ) extends GraphStage[FlowShape[String, Source[MessageEnvelope, NotUsed]]]
     with StrictLogging {
 
@@ -77,6 +68,7 @@ private[stream] class EvalFlow(
         // Need to pull at beginning because pull is triggered by onPush only
         pull(in)
       }
+
       override def onPull(): Unit = {
         if (isAvailable(out)) {
           push(out, sourceWithHeartbeat)
@@ -90,23 +82,18 @@ private[stream] class EvalFlow(
           .throttle(1, 5.seconds, 1, ThrottleMode.Shaping)
         Source
           .fromPublisher(pub)
-          .merge(heartbeatSrc, true) // Eager complete: heartbeat never completes
+          .merge(heartbeatSrc, eagerComplete = true) // Eager complete: heartbeat never completes
       }
 
       override def onPush(): Unit = {
-        val parser = DataSourcesParser(grab(in), evaluator.validate)
+        val dataSourceInput = new DataSourceInput(grab(in), validateFunc)
 
-        if (parser.isValid) {
-          evalService.updateDataSources(streamId, parser.dataSources)
+        if (dataSourceInput.isValid) {
+          evalService.updateDataSources(streamId, dataSourceInput.dataSources)
         } else {
           // All or None, ignore all if any validation issue
           queue.offer(
-            new MessageEnvelope(
-              "_",
-              DiagnosticMessage.error(
-                s"Invalid input: ${parser.errors.mkString("{", ", ", "}")}"
-              )
-            )
+            new MessageEnvelope("_", DiagnosticMessage.error(Json.encode(dataSourceInput.errors)))
           )
         }
         pull(in)
@@ -116,6 +103,7 @@ private[stream] class EvalFlow(
         super.completeStage()
         evalService.unregister(streamId)
       }
+
       override def onUpstreamFailure(ex: Throwable): Unit = {
         super.failStage(ex)
         evalService.unregister(streamId)
@@ -129,77 +117,14 @@ private[stream] class EvalFlow(
       setHandlers(in, out, this)
     }
   }
-
-  // Parse and validation
-  private case class DataSourcesParser(input: String, validateFunc: DataSource => Unit) {
-
-    private val errorCollector = mutable.Map[String, ListBuffer[String]]()
-    private var dataSourceList: List[DataSource] = List.empty[DataSource]
-    var dataSources: DataSources = null
-
-    // Class statements are executed in order, this should be after init of fields
-    parseAndValidate()
-
-    def isValid: Boolean = errorCollector.isEmpty
-
-    // Validation errors as a map, key is the DataSource id, id "_" means it's a general error
-    def errors: Map[String, String] = {
-      errorCollector.map {
-        case (k, v) => (k, v.mkString("[", ", ", "]"))
-      }.toMap
-    }
-
-    private def parseAndValidate(): Unit = {
-      // Parse json
-      try {
-        dataSourceList = Json.decode[List[DataSource]](input)
-      } catch {
-        case e: Exception => {
-          logger.warn(s"failed to parse input: ${e.getMessage}")
-          addError("_", e.getMessage)
-        }
-      }
-
-      // Validate each DataSource
-      val visitedIds = mutable.Set[String]()
-      dataSourceList.foreach(ds => {
-        val id = ds.getId
-
-        // Validate id
-        if (id == null || id.isEmpty) {
-          addError("_", "id cannot be empty")
-        } else {
-          if (visitedIds.contains(id)) {
-            addError(id, "id cannot be duplicated")
-          } else {
-            visitedIds.add(id)
-          }
-        }
-
-        // Validate uri
-        Try(validateFunc(ds)) match {
-          case Success(_) =>
-          case Failure(e) => addError(id, s"invalid uri: ${e.getMessage}")
-        }
-      })
-
-      if (isValid) {
-        dataSources = new DataSources(dataSourceList.toSet.asJava)
-      }
-    }
-
-    private def addError(dsId: String, value: String): Unit = {
-      errorCollector.getOrElseUpdate(dsId, new ListBuffer[String]()) += value
-    }
-  }
 }
 
 object EvalFlow {
 
   def createEvalFlow(
     evalService: EvalService,
-    evaluator: Evaluator
+    validateFunc: DataSource => Unit
   ): Flow[String, MessageEnvelope, NotUsed] = {
-    Flow[String].via(new EvalFlow(evalService, evaluator)).flatMapConcat(src => src)
+    Flow[String].via(new EvalFlow(evalService, validateFunc)).flatMapConcat(src => src)
   }
 }

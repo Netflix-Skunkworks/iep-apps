@@ -18,7 +18,6 @@ package com.netflix.atlas.stream
 import java.nio.charset.StandardCharsets
 import java.time.Duration
 
-import akka.NotUsed
 import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
@@ -35,6 +34,7 @@ import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.netflix.atlas.akka.CustomDirectives._
+import com.netflix.atlas.akka.CustomDirectives.endpointPath
 import com.netflix.atlas.akka.DiagnosticMessage
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.eval.stream.Evaluator
@@ -57,7 +57,7 @@ class StreamApi(evaluator: Evaluator, evalService: EvalService) extends WebApi {
   private val heartbeat = ByteString(s"""data: {"type":"heartbeat"}\r\n\r\n""")
 
   def routes: Route = {
-    endpointPath("streamws") {
+    endpointPath("stream") {
       extractUpgradeToWebSocket { upgrade =>
         complete(upgrade.handleMessages(createHandler()))
       }
@@ -103,6 +103,26 @@ class StreamApi(evaluator: Evaluator, evalService: EvalService) extends WebApi {
           complete(HttpResponse(StatusCodes.OK, Nil, entity))
         }
       }
+    } ~
+    endpointPath("api" / "v2" / "validate") {
+      post {
+        parseEntity(json[List[DataSource]]) { dataSourceList =>
+          val dataSourceInput = new DataSourceInput(dataSourceList, evaluator.validate(_))
+          val entity =
+            if (dataSourceInput.isValid) {
+              HttpEntity(
+                MediaTypes.`application/json`,
+                Json.encode(DiagnosticMessage.info("Validation Passed"))
+              )
+            } else {
+              HttpEntity(
+                MediaTypes.`application/json`,
+                Json.encode(DiagnosticMessage.error(Json.encode(dataSourceInput.errors)))
+              )
+            }
+          complete(HttpResponse(StatusCodes.OK, Nil, entity))
+        }
+      }
     }
   }
 
@@ -114,7 +134,7 @@ class StreamApi(evaluator: Evaluator, evalService: EvalService) extends WebApi {
         case msg: BinaryMessage =>
           msg.dataStream.fold(ByteString.empty)(_ ++ _).map(_.decodeString(StandardCharsets.UTF_8))
       }
-      .via(EvalFlow.createEvalFlow(evalService, evaluator))
+      .via(EvalFlow.createEvalFlow(evalService, evaluator.validate))
       .map(envelope => {
         TextMessage(Json.encode(envelope))
       })
@@ -129,7 +149,7 @@ class StreamApi(evaluator: Evaluator, evalService: EvalService) extends WebApi {
     val src = Source
       .repeat(dataSources)
       .throttle(1, 5.seconds, 1, ThrottleMode.Shaping)
-      .via(Flow.fromProcessor(evaluator.createStreamsProcessor))
+      .via(Flow.fromProcessor(() => evaluator.createStreamsProcessor))
       .map { messageEnvelope =>
         prefix ++ ByteString(Json.encode[MessageEnvelope](messageEnvelope)) ++ suffix
       }

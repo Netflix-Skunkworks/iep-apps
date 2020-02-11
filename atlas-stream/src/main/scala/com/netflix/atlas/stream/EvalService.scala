@@ -15,28 +15,22 @@
  */
 package com.netflix.atlas.stream
 
-import java.util
 import java.util.concurrent.ConcurrentHashMap
 
-import akka.Done
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.AbruptTerminationException
 import akka.stream.ActorMaterializer
-import akka.stream.KillSwitch
-import akka.stream.KillSwitches
 import akka.stream.ThrottleMode
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
 import com.netflix.atlas.akka.StreamOps
-import com.netflix.atlas.eval.stream.EvaluationFlows
 import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.eval.stream.Evaluator.DataSource
 import com.netflix.atlas.eval.stream.Evaluator.DataSources
 import com.netflix.atlas.eval.stream.Evaluator.MessageEnvelope
-import com.netflix.atlas.eval.stream.SourceRef
 import com.netflix.atlas.stream.EvalService.QueueHandler
 import com.netflix.atlas.stream.EvalService.StreamInfo
 import com.netflix.iep.service.AbstractService
@@ -45,7 +39,6 @@ import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
 import org.reactivestreams.Publisher
 
-import scala.concurrent.Promise
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
 import scala.util.Failure
@@ -70,13 +63,13 @@ class EvalService @Inject()(
 
     val dssSource: Source[DataSources, NotUsed] = Source
       .repeat(NotUsed)
-      .throttle(1, 1.seconds, 1, ThrottleMode.Shaping)
+      .throttle(1, 5.seconds, 1, ThrottleMode.Shaping)
       .map(_ => getCurrentDataSources)
       .mapMaterializedValue(_ => NotUsed)
 
     dssSource
       .via(Flow.fromProcessor(() => evaluator.createStreamsProcessor()))
-      .runForeach(distributeMessage(_))
+      .runForeach(distributeMessage)
       .onComplete {
         case Success(_) | Failure(_: AbruptTerminationException) =>
           // AbruptTerminationException will be triggered if the associated ActorSystem
@@ -104,7 +97,7 @@ class EvalService @Inject()(
       val index = envelope.getId.indexOf("|")
       if (index > 0) {
         val streamId = envelope.getId.substring(0, index)
-        val info = registrations.get(streamId)
+        val info = getStreamInfo(streamId)
         if (info != null) {
           info.handler.offer(
             // Remove prefix
@@ -117,9 +110,7 @@ class EvalService @Inject()(
         logger.debug(s"discarding message without streamId: $envelope")
       }
     } catch {
-      case t: Throwable => {
-        logger.debug(s"error distributing message: $envelope", t)
-      }
+      case t: Exception => logger.debug(s"error distributing message: $envelope", t)
     }
   }
 
@@ -148,20 +139,16 @@ class EvalService @Inject()(
         streamInfo.handler.complete()
       }
     } catch {
-      case t: Throwable => {
-        logger.error(s"Error unregistering stream $streamId", t)
-      }
+      case t: Exception => logger.error(s"Error unregistering stream $streamId", t)
     }
-
   }
 
   def updateDataSources(streamId: String, dataSources: DataSources): Unit = {
-    val streamInfo = registrations.get(streamId)
+    val streamInfo = getStreamInfo(streamId)
     if (streamInfo == null) {
       throw new IllegalStateException(s"stream with id '$streamId' has not been registered")
     }
 
-    dataSources.getSources.asScala.map(f = ds => new DataSource(ds.getId, ds.getStep, ds.getUri))
     streamInfo.dataSources = Some(
       new DataSources(
         dataSources.getSources.asScala
@@ -175,10 +162,16 @@ class EvalService @Inject()(
     )
   }
 
+  protected def getStreamInfo(streamId: String): StreamInfo = {
+    registrations.get(streamId)
+  }
+
   private def getCurrentDataSources: DataSources = {
-    val dsSet = new util.HashSet[DataSource]
-    registrations.values.asScala
-      .foreach(streamInfo => streamInfo.dataSources.map(dss => dsSet.addAll(dss.getSources)))
+    val dsSet = registrations.values.asScala
+      .flatMap(_.dataSources)
+      .flatMap(_.getSources.asScala)
+      .toSet
+      .asJava
     new DataSources(dsSet)
   }
 
