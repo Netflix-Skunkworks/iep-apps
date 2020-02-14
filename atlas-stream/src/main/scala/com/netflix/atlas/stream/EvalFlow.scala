@@ -87,9 +87,10 @@ private[stream] class EvalFlow(
 
       override def onPush(): Unit = {
         DataSourceValidator.validate(grab(in), validateFunc) match {
-          case Left(dss) => evalService.updateDataSources(streamId, dss)
-          case Right(errors) =>
+          case Left(errors) =>
             queue.offer(new MessageEnvelope("_", DiagnosticMessage.error(Json.encode(errors))))
+          case Right(dss) =>
+            evalService.updateDataSources(streamId, dss)
         }
         pull(in)
       }

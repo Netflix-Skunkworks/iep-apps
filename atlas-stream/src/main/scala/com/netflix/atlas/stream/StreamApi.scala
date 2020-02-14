@@ -106,15 +106,15 @@ class StreamApi(evaluator: Evaluator, evalService: EvalService) extends WebApi {
       post {
         parseEntity(json[List[DataSource]]) { dataSourceList =>
           val entity = DataSourceValidator.validate(dataSourceList, evaluator.validate(_)) match {
-            case Left(_) =>
-              HttpEntity(
-                MediaTypes.`application/json`,
-                Json.encode(DiagnosticMessage.info("Validation Passed"))
-              )
-            case Right(errors) =>
+            case Left(errors) =>
               HttpEntity(
                 MediaTypes.`application/json`,
                 Json.encode(DiagnosticMessage.error(Json.encode(errors)))
+              )
+            case Right(_) =>
+              HttpEntity(
+                MediaTypes.`application/json`,
+                Json.encode(DiagnosticMessage.info("Validation Passed"))
               )
           }
           complete(HttpResponse(StatusCodes.OK, Nil, entity))

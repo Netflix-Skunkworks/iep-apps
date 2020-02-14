@@ -31,7 +31,7 @@ object DataSourceValidator {
   def validate(
     input: String,
     validateFunc: DataSource => Unit
-  ): Either[DataSources, List[IdAndError]] = {
+  ): Either[List[IdAndError], DataSources] = {
     val errorMap = mutable.Map[String, mutable.Set[String]]()
     var dataSourceList: List[DataSource] = List.empty[DataSource]
     try {
@@ -46,7 +46,7 @@ object DataSourceValidator {
   def validate(
     dataSourceList: List[DataSource],
     validateFunc: DataSource => Unit
-  ): Either[DataSources, List[IdAndError]] = {
+  ): Either[List[IdAndError], DataSources] = {
     validate(dataSourceList, validateFunc, mutable.Map.empty)
   }
 
@@ -54,7 +54,7 @@ object DataSourceValidator {
     dataSourceList: List[DataSource],
     validateFunc: DataSource => Unit,
     errorMap: mutable.Map[String, mutable.Set[String]]
-  ): Either[DataSources, List[IdAndError]] = {
+  ): Either[List[IdAndError], DataSources] = {
     // Validate each DataSource
     val visitedIds = mutable.Set[String]()
     dataSourceList.foreach(ds => {
@@ -78,15 +78,15 @@ object DataSourceValidator {
       }
     })
 
-    if (errorMap.isEmpty) {
-      Left(new DataSources(dataSourceList.toSet.asJava))
-    } else {
-      Right(
+    if (!errorMap.isEmpty) {
+      Left(
         errorMap
           .map { case (id, errorList) => IdAndError(id, errorList.mkString("; ")) }
           .toList
           .sortBy(_.id)
       )
+    } else {
+      Right(new DataSources(dataSourceList.toSet.asJava))
     }
   }
 
