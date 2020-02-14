@@ -22,13 +22,17 @@ import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers.Connection
+import akka.http.scaladsl.model.ws.Message
+import akka.http.scaladsl.model.ws.TextMessage
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.server.directives.RouteDirectives.complete
 import akka.stream.ThrottleMode
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.netflix.atlas.akka.CustomDirectives._
+import com.netflix.atlas.akka.CustomDirectives.endpointPath
 import com.netflix.atlas.akka.DiagnosticMessage
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.eval.stream.Evaluator
@@ -43,7 +47,7 @@ import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
 
-class StreamApi(evaluator: Evaluator) extends WebApi {
+class StreamApi(evaluator: Evaluator, evalService: EvalService) extends WebApi {
 
   private val prefix = ByteString("data: ")
   private val suffix = ByteString("\r\n\r\n")
@@ -51,6 +55,11 @@ class StreamApi(evaluator: Evaluator) extends WebApi {
   private val heartbeat = ByteString(s"""data: {"type":"heartbeat"}\r\n\r\n""")
 
   def routes: Route = {
+    endpointPath("stream") {
+      extractUpgradeToWebSocket { upgrade =>
+        complete(upgrade.handleMessages(createHandler()))
+      }
+    } ~
     endpointPath("stream", RemainingPath) { path =>
       get {
         extractUri { uri =>
@@ -92,7 +101,39 @@ class StreamApi(evaluator: Evaluator) extends WebApi {
           complete(HttpResponse(StatusCodes.OK, Nil, entity))
         }
       }
+    } ~
+    endpointPath("api" / "v2" / "validate") {
+      post {
+        parseEntity(json[List[DataSource]]) { dataSourceList =>
+          val entity = DataSourceValidator.validate(dataSourceList, evaluator.validate(_)) match {
+            case Left(errors) =>
+              HttpEntity(
+                MediaTypes.`application/json`,
+                Json.encode(DiagnosticMessage.error(Json.encode(errors)))
+              )
+            case Right(_) =>
+              HttpEntity(
+                MediaTypes.`application/json`,
+                Json.encode(DiagnosticMessage.info("Validation Passed"))
+              )
+          }
+          complete(HttpResponse(StatusCodes.OK, Nil, entity))
+        }
+      }
     }
+  }
+
+  private def createHandler(): Flow[Message, Message, Any] = {
+    Flow[Message]
+      .flatMapConcat {
+        // Only support text input
+        case msg: TextMessage => msg.textStream.fold("")(_ + _)
+        case _                => throw new RuntimeException("Only text input is supported")
+      }
+      .via(EvalFlow.createEvalFlow(evalService, evaluator.validate))
+      .map(envelope => {
+        TextMessage(Json.encode(envelope))
+      })
   }
 
   private def processStream(dataSources: DataSources): Route = {
@@ -104,7 +145,7 @@ class StreamApi(evaluator: Evaluator) extends WebApi {
     val src = Source
       .repeat(dataSources)
       .throttle(1, 5.seconds, 1, ThrottleMode.Shaping)
-      .via(Flow.fromProcessor(evaluator.createStreamsProcessor))
+      .via(Flow.fromProcessor(() => evaluator.createStreamsProcessor))
       .map { messageEnvelope =>
         prefix ++ ByteString(Json.encode[MessageEnvelope](messageEnvelope)) ++ suffix
       }
