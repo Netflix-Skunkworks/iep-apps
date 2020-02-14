@@ -86,15 +86,10 @@ private[stream] class EvalFlow(
       }
 
       override def onPush(): Unit = {
-        val dataSourceInput = new DataSourceInput(grab(in), validateFunc)
-
-        if (dataSourceInput.isValid) {
-          evalService.updateDataSources(streamId, dataSourceInput.dataSources)
-        } else {
-          // All or None, ignore all if any validation issue
-          queue.offer(
-            new MessageEnvelope("_", DiagnosticMessage.error(Json.encode(dataSourceInput.errors)))
-          )
+        DataSourceValidator.validate(grab(in), validateFunc) match {
+          case Left(dss) => evalService.updateDataSources(streamId, dss)
+          case Right(errors) =>
+            queue.offer(new MessageEnvelope("_", DiagnosticMessage.error(Json.encode(errors))))
         }
         pull(in)
       }

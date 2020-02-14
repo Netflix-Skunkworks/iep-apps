@@ -15,7 +15,6 @@
  */
 package com.netflix.atlas.stream
 
-import java.nio.charset.StandardCharsets
 import java.time.Duration
 
 import akka.http.scaladsl.model.HttpEntity
@@ -23,7 +22,6 @@ import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers.Connection
-import akka.http.scaladsl.model.ws.BinaryMessage
 import akka.http.scaladsl.model.ws.Message
 import akka.http.scaladsl.model.ws.TextMessage
 import akka.http.scaladsl.server.Directives._
@@ -107,19 +105,18 @@ class StreamApi(evaluator: Evaluator, evalService: EvalService) extends WebApi {
     endpointPath("api" / "v2" / "validate") {
       post {
         parseEntity(json[List[DataSource]]) { dataSourceList =>
-          val dataSourceInput = new DataSourceInput(dataSourceList, evaluator.validate(_))
-          val entity =
-            if (dataSourceInput.isValid) {
+          val entity = DataSourceValidator.validate(dataSourceList, evaluator.validate(_)) match {
+            case Left(_) =>
               HttpEntity(
                 MediaTypes.`application/json`,
                 Json.encode(DiagnosticMessage.info("Validation Passed"))
               )
-            } else {
+            case Right(errors) =>
               HttpEntity(
                 MediaTypes.`application/json`,
-                Json.encode(DiagnosticMessage.error(Json.encode(dataSourceInput.errors)))
+                Json.encode(DiagnosticMessage.error(Json.encode(errors)))
               )
-            }
+          }
           complete(HttpResponse(StatusCodes.OK, Nil, entity))
         }
       }
@@ -129,10 +126,9 @@ class StreamApi(evaluator: Evaluator, evalService: EvalService) extends WebApi {
   private def createHandler(): Flow[Message, Message, Any] = {
     Flow[Message]
       .flatMapConcat {
-        case msg: TextMessage =>
-          msg.textStream.fold("")(_ + _)
-        case msg: BinaryMessage =>
-          msg.dataStream.fold(ByteString.empty)(_ ++ _).map(_.decodeString(StandardCharsets.UTF_8))
+        // Only support text input
+        case msg: TextMessage => msg.textStream.fold("")(_ + _)
+        case _                => throw new RuntimeException("Only text input is supported")
       }
       .via(EvalFlow.createEvalFlow(evalService, evaluator.validate))
       .map(envelope => {

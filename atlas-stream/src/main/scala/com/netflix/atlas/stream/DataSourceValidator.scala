@@ -18,8 +18,6 @@ package com.netflix.atlas.stream
 import com.netflix.atlas.eval.stream.Evaluator.DataSource
 import com.netflix.atlas.eval.stream.Evaluator.DataSources
 import com.netflix.atlas.json.Json
-import com.netflix.atlas.stream.DataSourceInput.IdAndError
-import com.typesafe.scalalogging.StrictLogging
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
@@ -28,83 +26,76 @@ import scala.util.Success
 import scala.util.Try
 
 // Parse and validation DataSource's
-class DataSourceInput private (validateFunc: DataSource => Unit) extends StrictLogging {
+object DataSourceValidator {
 
-  private val errorMap = mutable.Map[String, mutable.Set[String]]()
-  private var dataSourceList: List[DataSource] = List.empty[DataSource]
-
-  def this(input: String, validateFunc: DataSource => Unit) {
-    this(validateFunc)
-    parse(input)
-    validate()
-  }
-
-  def this(dataSourceList: List[DataSource], validateFunc: DataSource => Unit) {
-    this(validateFunc)
-    this.dataSourceList = dataSourceList
-    validate()
-  }
-
-  def isValid: Boolean = errorMap.isEmpty
-
-  def dataSources: DataSources = {
-    if (isValid) {
-      new DataSources(dataSourceList.toSet.asJava)
-    } else {
-      null
-    }
-  }
-
-  // Validation errors as a map, key is the DataSource id, id "_" means it's a general error
-  def errors: List[IdAndError] = {
-    errorMap
-      .map {
-        case (id, errorList) => IdAndError(id, errorList.mkString("; "))
-      }
-      .toList
-      .sortBy(_.id)
-  }
-
-  private def parse(input: String): Unit = {
-    // Parse json
+  def validate(
+    input: String,
+    validateFunc: DataSource => Unit
+  ): Either[DataSources, List[IdAndError]] = {
+    val errorMap = mutable.Map[String, mutable.Set[String]]()
+    var dataSourceList: List[DataSource] = List.empty[DataSource]
     try {
       dataSourceList = Json.decode[List[DataSource]](input)
     } catch {
       case e: Exception =>
-        addError("_", s"failed to parse input as List[DataSource]: ${e.getMessage}")
+        addError("_", s"failed to parse input: ${e.getMessage}", errorMap)
     }
+    validate(dataSourceList, validateFunc, errorMap)
   }
 
-  private def validate(): Unit = {
+  def validate(
+    dataSourceList: List[DataSource],
+    validateFunc: DataSource => Unit
+  ): Either[DataSources, List[IdAndError]] = {
+    validate(dataSourceList, validateFunc, mutable.Map.empty)
+  }
+
+  private def validate(
+    dataSourceList: List[DataSource],
+    validateFunc: DataSource => Unit,
+    errorMap: mutable.Map[String, mutable.Set[String]]
+  ): Either[DataSources, List[IdAndError]] = {
     // Validate each DataSource
     val visitedIds = mutable.Set[String]()
     dataSourceList.foreach(ds => {
       val id = ds.getId
-
       // Validate id
       if (id == null) {
-        addError(id, "id cannot be null")
+        addError(id, "id cannot be null", errorMap)
       } else if (id.isEmpty) {
-        addError(id, "id cannot be empty")
+        addError(id, "id cannot be empty", errorMap)
       } else {
         if (visitedIds.contains(id)) {
-          addError(id, "id cannot be duplicated")
+          addError(id, "id cannot be duplicated", errorMap)
         } else {
           visitedIds.add(id)
         }
       }
-
       // Validate uri
       Try(validateFunc(ds)) match {
         case Success(_) =>
-        case Failure(e) => addError(id, s"invalid uri: ${e.getMessage}")
+        case Failure(e) => addError(id, s"invalid uri: ${e.getMessage}", errorMap)
       }
     })
+
+    if (errorMap.isEmpty) {
+      Left(new DataSources(dataSourceList.toSet.asJava))
+    } else {
+      Right(
+        errorMap
+          .map { case (id, errorList) => IdAndError(id, errorList.mkString("; ")) }
+          .toList
+          .sortBy(_.id)
+      )
+    }
   }
 
-  private def addError(id: String, value: String): Unit = {
-    // Normalize id for null and empty
-    val idNormalized =
+  private def addError(
+    id: String,
+    value: String,
+    errorMap: mutable.Map[String, mutable.Set[String]]
+  ): Unit = {
+    val normalizedId =
       if (id == null) {
         "<null_id>"
       } else if (id.isEmpty) {
@@ -112,10 +103,8 @@ class DataSourceInput private (validateFunc: DataSource => Unit) extends StrictL
       } else {
         id
       }
-    errorMap.getOrElseUpdate(idNormalized, mutable.Set[String]()) += value
+    errorMap.getOrElseUpdate(normalizedId, mutable.Set[String]()) += value
   }
-}
 
-object DataSourceInput {
   case class IdAndError(id: String, error: String)
 }

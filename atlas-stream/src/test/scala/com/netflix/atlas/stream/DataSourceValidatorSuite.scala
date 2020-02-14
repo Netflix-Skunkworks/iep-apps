@@ -18,7 +18,7 @@ package com.netflix.atlas.stream
 import com.netflix.atlas.eval.stream.Evaluator.DataSource
 import org.scalatest.funsuite.AnyFunSuite
 
-class DataSourcesInputSuite extends AnyFunSuite {
+class DataSourceValidatorSuite extends AnyFunSuite {
 
   private val validateNoop: DataSource => Unit = _ => ()
   private val validateException: DataSource => Unit = _ => { throw new Exception("validate error") }
@@ -26,18 +26,22 @@ class DataSourcesInputSuite extends AnyFunSuite {
   test("DataSourceInput - string - valid") {
     val stringValid =
       """[{"id":"abc", "step": 10, "uri":"http://local-dev/api/v1/graph?q=name,jvm.gc.pause,:eq,:sum&step=10s"}]"""
-    val dsInput = new DataSourceInput(stringValid, validateNoop)
-    assert(dsInput.isValid)
-    assert(dsInput.errors.size === 0)
-    assert(dsInput.dataSources.getSources.size() == 1)
+    DataSourceValidator.validate(stringValid, validateNoop) match {
+      case Left(dss) => {
+        assert(dss.getSources.size() === 1)
+      }
+      case Right(_) => fail("validation should have passed")
+    }
   }
 
   test("DataSourceInput - string - valid empty") {
     val stringValid = "[]"
-    val dsInput = new DataSourceInput(stringValid, validateNoop)
-    assert(dsInput.isValid)
-    assert(dsInput.errors.size === 0)
-    assert(dsInput.dataSources.getSources.size() == 0)
+    DataSourceValidator.validate(stringValid, validateNoop) match {
+      case Left(dss) => {
+        assert(dss.getSources.size() === 0)
+      }
+      case Right(_) => fail("validation should have passed")
+    }
   }
 
   test("DataSourceInput - string - multiple errors, sorted by id") {
@@ -46,42 +50,53 @@ class DataSourcesInputSuite extends AnyFunSuite {
         |[{"id":"2", "step": 10, "uri":"http://local-dev/api/v1/graph?q=name,jvm.gc.pause,:eq,:sum&step=10s"},
         |{"id":"1", "step": 10, "uri":"http://local-dev/api/v1/graph?q=name,jvm.gc.pause,:eq,:sum&step=10s"}]
         |""".stripMargin
-    val dsInput = new DataSourceInput(stringValid, validateException)
-    assert(!dsInput.isValid)
-    assert(dsInput.errors.size === 2)
-    assert(dsInput.errors.head.error.contains("validate error"))
-    assert(dsInput.errors.head.id === "1")
-    assert(dsInput.errors.last.error.contains("validate error"))
-    assert(dsInput.errors.last.id === "2")
-
+    DataSourceValidator.validate(stringValid, validateException) match {
+      case Left(_) => fail("validation should have failed")
+      case Right(errors) => {
+        assert(errors.size === 2)
+        assert(errors.head.error.contains("validate error"))
+        assert(errors.head.id === "1")
+        assert(errors.last.error.contains("validate error"))
+        assert(errors.last.id === "2")
+      }
+    }
   }
 
   test("DataSourceInput - string - invalid json") {
-    val stringInvalidJson = "["
-    val dsInput = new DataSourceInput(stringInvalidJson, validateNoop)
-    assert(!dsInput.isValid)
-    assert(dsInput.errors.size === 1)
-    assert(dsInput.errors.head.error.startsWith("failed to parse input as List[DataSource]: "))
+    val stringInvalidJson = "[aa"
+    DataSourceValidator.validate(stringInvalidJson, validateNoop) match {
+      case Left(_) => fail("validation should have failed")
+      case Right(errors) => {
+        assert(errors.size === 1)
+        assert(errors.head.error.startsWith("failed to parse input: "))
+      }
+    }
   }
 
   test("DataSourceInput - string - empty id") {
     val stringEmptyId =
       """[{"id":"", "step": 10, "uri":"http://local-dev/api/v1/graph?q=name,jvm.gc.pause,:eq,:sum&step=10s"}]"""
-    val dsInput = new DataSourceInput(stringEmptyId, validateNoop)
-    assert(!dsInput.isValid)
-    assert(dsInput.errors.size === 1)
-    assert(dsInput.errors.head.error.startsWith("id cannot be empty"))
-    assert(dsInput.errors.head.id === "<empty_id>")
+    DataSourceValidator.validate(stringEmptyId, validateNoop) match {
+      case Left(_) => { fail("validation should have failed") }
+      case Right(errors) => {
+        assert(errors.size === 1)
+        assert(errors.head.error.startsWith("id cannot be empty"))
+        assert(errors.head.id === "<empty_id>")
+      }
+    }
   }
 
   test("DataSourceInput - string - null id") {
     val stringNullId =
       """[{"id":null, "step": 10, "uri":"http://local-dev/api/v1/graph?q=name,jvm.gc.pause,:eq,:sum&step=10s"}]"""
-    val dsInput = new DataSourceInput(stringNullId, validateNoop)
-    assert(!dsInput.isValid)
-    assert(dsInput.errors.size === 1)
-    assert(dsInput.errors.head.error.startsWith("id cannot be null"))
-    assert(dsInput.errors.head.id === "<null_id>")
+    DataSourceValidator.validate(stringNullId, validateNoop) match {
+      case Left(_) => { fail("validation should have failed") }
+      case Right(errors) => {
+        assert(errors.size === 1)
+        assert(errors.head.error.startsWith("id cannot be null"))
+        assert(errors.head.id === "<null_id>")
+      }
+    }
   }
 
   test("DataSourceInput - string - dup id") {
@@ -90,20 +105,26 @@ class DataSourcesInputSuite extends AnyFunSuite {
         |[{"id":"111", "step": 10, "uri":"http://local-dev/api/v1/graph?q=name,jvm.gc.pause,:eq,:sum&step=10s"}
         |,{"id":"111", "step": 10, "uri":"http://local-dev/api/v1/graph?q=name,jvm.gc.pause,:eq,:sum&step=10s"}]
         |""".stripMargin
-    val dsInput = new DataSourceInput(stringDupId, validateNoop)
-    assert(!dsInput.isValid)
-    assert(dsInput.errors.size === 1)
-    assert(dsInput.errors.head.error === "id cannot be duplicated")
-    assert(dsInput.errors.head.id === "111")
+    DataSourceValidator.validate(stringDupId, validateNoop) match {
+      case Left(_) => { fail("validation should have failed") }
+      case Right(errors) => {
+        assert(errors.size === 1)
+        assert(errors.head.error === "id cannot be duplicated")
+        assert(errors.head.id === "111")
+      }
+    }
   }
 
   test("DataSourceInput - parsed - valid") {
     val dsList = List(
       new DataSource("111", "http://local-dev/api/v1/graph?q=name,jvm.gc.pause,:eq,:sum&step=10s")
     )
-    val dsInput = new DataSourceInput(dsList, validateNoop)
-    assert(dsInput.isValid)
-    assert(dsInput.dataSources.getSources.size() === 1)
+    DataSourceValidator.validate(dsList, validateNoop) match {
+      case Left(dss) => {
+        assert(dss.getSources.size() === 1)
+      }
+      case Right(_) => { fail("validation should have passed") }
+    }
   }
 
   test("DataSourceInput - parsed - dup id") {
@@ -117,10 +138,13 @@ class DataSourcesInputSuite extends AnyFunSuite {
         "http://local-dev/api/v1/graph?q=name,jvm.gc.pause222,:eq,:sum&step=10s"
       )
     )
-    val dsInput = new DataSourceInput(dsList, validateNoop)
-    assert(!dsInput.isValid)
-    assert(dsInput.errors.head.error === "id cannot be duplicated")
-    assert(dsInput.errors.head.id === "111")
+    DataSourceValidator.validate(dsList, validateNoop) match {
+      case Left(_) => fail("validation should have passed")
+      case Right(errors) => {
+        assert(errors.head.error === "id cannot be duplicated")
+        assert(errors.head.id === "111")
+      }
+    }
   }
 
 }
