@@ -85,6 +85,14 @@ class EvalService @Inject()(
     cleanup()
   }
 
+  /**
+    * For now, not doing synchronization with `register`, considering below scenarios:
+    * 1. registered but not completed here, then cleared from Map
+    *    - EvalFlow gets an valid queue handle and setup successfully
+    *    - later updateDataSources will fail because streamInfo is null, and flow will fail
+    * 2. registered, completed here, and then cleared from Map
+    *   - whole EvalFlow complete due to completion of queue handle
+    */
   private def cleanup(): Unit = {
     registrations.values().forEach(streamInfo => streamInfo.handler.complete())
     registrations.clear()
