@@ -59,6 +59,7 @@ private[stream] class EvalFlow(
       private val streamId = UUID.randomUUID().toString
       private var queue: StreamOps.SourceQueue[MessageEnvelope] = _
       private var pub: Publisher[MessageEnvelope] = _
+      private var messageSourcePushed = false
 
       override def preStart(): Unit = {
         evalService.unregister(streamId)
@@ -69,9 +70,15 @@ private[stream] class EvalFlow(
         pull(in)
       }
 
+      // Source of MessageEnvelope should be pushed out only once. And if downstream pulls again,
+      // that means the pushed Source has completed (could be caused by EvalService restart) and
+      // the flow should be ended by calling completeStage.
       override def onPull(): Unit = {
-        if (isAvailable(out)) {
+        if (!messageSourcePushed) {
           push(out, sourceWithHeartbeat)
+          messageSourcePushed = true
+        } else {
+          completeStage()
         }
       }
 
