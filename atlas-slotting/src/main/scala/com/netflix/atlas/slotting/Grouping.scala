@@ -26,7 +26,7 @@ import com.netflix.spectator.api.Counter
 import com.netflix.spectator.ipc.ServerGroup
 import com.typesafe.scalalogging.StrictLogging
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 case class AsgDetails(
   name: String,
@@ -301,7 +301,7 @@ trait Grouping extends StrictLogging {
 
     // get the old slot map and remove instances that are no longer present
     val idSet = newInstances.map(_.instanceId).toSet
-    val oldSlotMap = mkSlotMap(oldAsgDetails).filterKeys(idSet.contains).toMap
+    val oldSlotMap = mkSlotMap(oldAsgDetails).filter(t => idSet.contains(t._1))
 
     // create a new slot map, merging added instances into empty slots
     val addedInstances = newInstances.filterNot(i => oldSlotMap.contains(i.instanceId))

@@ -26,12 +26,12 @@ import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.ManualClock
 import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfterAll
-import org.scalatest.FunSuiteLike
+import org.scalatest.funsuite.AnyFunSuiteLike
 
 class PropertiesLoaderSuite
     extends TestKit(ActorSystem())
     with ImplicitSender
-    with FunSuiteLike
+    with AnyFunSuiteLike
     with BeforeAndAfterAll {
 
   val config = ConfigFactory.parseString("""

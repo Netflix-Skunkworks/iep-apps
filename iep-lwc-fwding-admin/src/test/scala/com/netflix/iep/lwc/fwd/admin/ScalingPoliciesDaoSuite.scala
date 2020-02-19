@@ -23,7 +23,7 @@ import akka.stream.scaladsl.Source
 import com.netflix.atlas.akka.AccessLogger
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import scala.concurrent.Await
 import scala.concurrent.Future
@@ -32,7 +32,7 @@ import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
 
-class ScalingPoliciesDaoSuite extends FunSuite {
+class ScalingPoliciesDaoSuite extends AnyFunSuite {
   val config = ConfigFactory.load()
   private implicit val system = ActorSystem()
   private implicit val mat = ActorMaterializer()
@@ -212,7 +212,7 @@ class ScalingPoliciesDaoSuite extends FunSuite {
   ): Future[List[ScalingPolicy]] = {
     Source
       .single(EddaEndpoint("123", "us-east-1", "test"))
-      .via(dao.getScalingPolicies())
+      .via(dao.getScalingPolicies)
       .runWith(Sink.head)
   }
 }

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 package com.netflix.iep.lwc.fwd.admin
+
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -38,7 +39,7 @@ import scala.util.Failure
 import scala.util.Success
 
 trait ScalingPoliciesDao {
-  def getScalingPolicies(): Flow[EddaEndpoint, List[ScalingPolicy], NotUsed]
+  def getScalingPolicies: Flow[EddaEndpoint, List[ScalingPolicy], NotUsed]
 }
 
 class ScalingPoliciesDaoImpl @Inject()(
@@ -56,7 +57,7 @@ class ScalingPoliciesDaoImpl @Inject()(
 
   protected val client = Http().superPool[AccessLogger]()
 
-  override def getScalingPolicies(): Flow[EddaEndpoint, List[ScalingPolicy], NotUsed] = {
+  override def getScalingPolicies: Flow[EddaEndpoint, List[ScalingPolicy], NotUsed] = {
 
     Flow[EddaEndpoint]
       .filter { eddaEndpoint =>
@@ -116,7 +117,7 @@ class ScalingPoliciesDaoImpl @Inject()(
 
       a.map { alarm =>
         ScalingPolicy(
-          policy.getPolicyId(),
+          policy.getPolicyId,
           ScalingPolicy.Ec2,
           alarm.metricName,
           alarm.dimensions
@@ -132,12 +133,12 @@ class ScalingPoliciesDaoImpl @Inject()(
   ): List[ScalingPolicy] = {
 
     titusPolicies.flatMap { policy =>
-      if (policy.isTargetPolicy()) {
-        val spec = policy.getCustomMetricSpec()
+      if (policy.isTargetPolicy) {
+        val spec = policy.getCustomMetricSpec
 
         Some(
           ScalingPolicy(
-            policy.getPolicyId(),
+            policy.getPolicyId,
             ScalingPolicy.Titus,
             spec.metricName,
             spec.dimensions
@@ -150,7 +151,7 @@ class ScalingPoliciesDaoImpl @Inject()(
 
         a.map { alarm =>
           ScalingPolicy(
-            policy.getPolicyId(),
+            policy.getPolicyId,
             ScalingPolicy.Titus,
             alarm.metricName,
             alarm.dimensions
@@ -222,18 +223,18 @@ object ScalingPolicy {
 case class EddaEndpoint(account: String, region: String, env: String)
 
 case class Ec2ScalingPolicy(policyName: String, alarms: List[CwAlarm]) {
-  def getPolicyId(): String = policyName
+  def getPolicyId: String = policyName
 }
 case class CwAlarm(alarmName: String, metricName: String, dimensions: List[MetricDimension])
 
 case class TitusScalingPolicy(jobId: String, id: Id, scalingPolicy: ScalingPolicyDetails) {
-  def getPolicyId(): String = id.id
+  def getPolicyId: String = id.id
 
-  def isTargetPolicy(): Boolean = {
+  def isTargetPolicy: Boolean = {
     scalingPolicy.targetPolicyDescriptor.isDefined
   }
 
-  def getCustomMetricSpec(): CustomMetricSpec = {
+  def getCustomMetricSpec: CustomMetricSpec = {
     scalingPolicy.targetPolicyDescriptor
       .map(_.customizedMetricSpecification)
       .getOrElse(throw new RuntimeException("targetPolicyDescriptor not found"))

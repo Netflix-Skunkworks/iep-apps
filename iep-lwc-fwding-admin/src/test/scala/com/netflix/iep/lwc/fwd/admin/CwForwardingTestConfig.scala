@@ -37,7 +37,7 @@ trait CwForwardingTestConfig {
     region: Option[String] = Some("$(nf.region)"),
     checksToSkip: List[String] = List.empty[String]
   ): ClusterConfig = {
-    new ClusterConfig(
+    ClusterConfig(
       email,
       List(
         ForwardingExpression(

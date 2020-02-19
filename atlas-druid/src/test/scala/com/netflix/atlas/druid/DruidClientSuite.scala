@@ -35,7 +35,7 @@ import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.json.Json
 import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfterAll
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
@@ -43,7 +43,7 @@ import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
 
-class DruidClientSuite extends FunSuite with BeforeAndAfterAll {
+class DruidClientSuite extends AnyFunSuite with BeforeAndAfterAll {
 
   import DruidClient._
 

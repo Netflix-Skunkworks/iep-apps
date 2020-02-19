@@ -25,9 +25,9 @@ import com.netflix.atlas.core.model.Query
 import com.netflix.atlas.core.model.QueryVocabulary
 import com.netflix.atlas.core.stacklang.Interpreter
 import com.netflix.atlas.druid.DruidClient._
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
-class DruidDatabaseActorSuite extends FunSuite {
+class DruidDatabaseActorSuite extends AnyFunSuite {
 
   import DruidDatabaseActor._
 
@@ -264,6 +264,7 @@ class DruidDatabaseActorSuite extends FunSuite {
   private def evalQuery(str: String): Query = {
     Interpreter(QueryVocabulary.allWords).execute(str).stack match {
       case (q: Query) :: Nil => q
+      case _                 => throw new IllegalArgumentException("invalid expression")
     }
   }
 

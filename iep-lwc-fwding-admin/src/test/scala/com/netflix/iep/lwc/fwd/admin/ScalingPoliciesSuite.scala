@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 package com.netflix.iep.lwc.fwd.admin
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.actor.Props
 import akka.pattern.AskTimeoutException
@@ -28,14 +29,14 @@ import com.netflix.iep.lwc.fwd.admin.ScalingPolicies.GetScalingPolicy
 import com.netflix.iep.lwc.fwd.admin.ScalingPolicies.RefreshCache
 import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo
 import com.typesafe.config.ConfigFactory
-import org.scalatest.FunSuiteLike
+import org.scalatest.funsuite.AnyFunSuiteLike
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 class ScalingPoliciesSuite
     extends TestKit(ActorSystem())
-    with FunSuiteLike
+    with AnyFunSuiteLike
     with DefaultTimeout
     with ImplicitSender {
 
@@ -94,10 +95,12 @@ class ScalingPoliciesSuite
       Props[ScalingPoliciesTestImpl](
         new ScalingPoliciesTestImpl(
           config,
-          () => {
-            Flow[EddaEndpoint]
-              .filter(_ => false)
-              .map(_ => List.empty[ScalingPolicy])
+          new ScalingPoliciesDao {
+            override def getScalingPolicies: Flow[EddaEndpoint, List[ScalingPolicy], NotUsed] = {
+              Flow[EddaEndpoint]
+                .filter(_ => false)
+                .map(_ => List.empty[ScalingPolicy])
+            }
           }
         )
       )
@@ -146,10 +149,12 @@ class ScalingPoliciesSuite
       Props[ScalingPoliciesTestImpl](
         new ScalingPoliciesTestImpl(
           config,
-          () => {
-            Flow[EddaEndpoint]
-              .filter(_ => false)
-              .map(_ => List.empty[ScalingPolicy])
+          new ScalingPoliciesDao {
+            override def getScalingPolicies: Flow[EddaEndpoint, List[ScalingPolicy], NotUsed] = {
+              Flow[EddaEndpoint]
+                .filter(_ => false)
+                .map(_ => List.empty[ScalingPolicy])
+            }
           },
           cache
         )
@@ -166,7 +171,7 @@ class ScalingPoliciesSuite
 
 }
 
-class ScalingPoliciesMethodsSuite extends TestKit(ActorSystem()) with FunSuiteLike {
+class ScalingPoliciesMethodsSuite extends TestKit(ActorSystem()) with AnyFunSuiteLike {
 
   private val config = ConfigFactory.load()
 

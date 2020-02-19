@@ -40,18 +40,18 @@ import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.json.Json
 import com.netflix.iep.lwc.fwd.cw._
 import com.netflix.spectator.api.NoopRegistry
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import scala.concurrent.Await
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 import scala.util.Success
 
-class ForwardingServiceSuite extends FunSuite {
+class ForwardingServiceSuite extends AnyFunSuite {
 
   import ForwardingService._
 
-  import scala.collection.JavaConverters._
+  import scala.jdk.CollectionConverters._
 
   private implicit val system = ActorSystem(getClass.getSimpleName)
   private implicit val mat = ActorMaterializer()

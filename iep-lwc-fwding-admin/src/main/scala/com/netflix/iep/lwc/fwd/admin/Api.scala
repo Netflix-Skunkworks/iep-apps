@@ -46,7 +46,7 @@ class Api(
   private implicit val configUnmarshaller =
     byteArrayUnmarshaller.map(Json.decode[JsonNode](_))
 
-  implicit val blockingDispatcher = system.dispatchers.lookup("blocking-dispatcher")
+  private implicit val blockingDispatcher = system.dispatchers.lookup("blocking-dispatcher")
 
   def routes: Route = {
 
@@ -68,7 +68,7 @@ class Api(
           complete {
             Json
               .decode[List[Report]](json)
-              .map { report =>
+              .foreach { report =>
                 val enqueued = markerService.queue.offer(report)
                 if (!enqueued) {
                   logger.warn(s"Unable to queue report $report")

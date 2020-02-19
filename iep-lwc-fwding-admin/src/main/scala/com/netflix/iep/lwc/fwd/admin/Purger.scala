@@ -124,7 +124,7 @@ object PurgerImpl extends StrictLogging {
     }
 
     Flow[ExpressionId]
-      .map(read(_))
+      .map(read)
       .withAttributes(ActorAttributes.dispatcher(BlockingDispatcher))
       .collect { case Success(Some(ed)) => ed }
   }

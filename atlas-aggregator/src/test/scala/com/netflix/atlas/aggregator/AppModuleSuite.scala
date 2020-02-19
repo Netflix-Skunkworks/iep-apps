@@ -26,9 +26,9 @@ import com.netflix.spectator.atlas.AtlasConfig
 import com.netflix.spectator.atlas.AtlasRegistry
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
-class AppModuleSuite extends FunSuite {
+class AppModuleSuite extends AnyFunSuite {
 
   import AppModuleSuite._
 

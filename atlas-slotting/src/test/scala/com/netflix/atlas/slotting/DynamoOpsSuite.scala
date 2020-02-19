@@ -19,9 +19,9 @@ import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.time.Duration
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
-class DynamoOpsSuite extends FunSuite with DynamoOps {
+class DynamoOpsSuite extends AnyFunSuite with DynamoOps {
 
   def mkByteBuffer(s: String): ByteBuffer = {
     ByteBuffer.wrap(s.getBytes(StandardCharsets.UTF_8))

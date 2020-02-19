@@ -51,7 +51,7 @@ class ScalingPolicies(config: Config, dao: ScalingPoliciesDao)
     case AddScalingPolicies(policies) => scalingPolicies = scalingPolicies ++ policies
     case RefreshCache                 => respond(refreshCache)
     case GetCache                     => sender() ! scalingPolicies
-    case message                      => throw new RuntimeException(s"Unknown message ${message}")
+    case message                      => throw new RuntimeException(s"Unknown message $message")
   }
 
   def startPeriodicTimer(): Unit = {
@@ -101,7 +101,7 @@ class ScalingPolicies(config: Config, dao: ScalingPoliciesDao)
       .getOrElse {
         Source
           .single(eddaEndpoint)
-          .via(dao.getScalingPolicies())
+          .via(dao.getScalingPolicies)
           .runWith(Sink.headOption)
           .map { policies =>
             policies
@@ -120,7 +120,7 @@ class ScalingPolicies(config: Config, dao: ScalingPoliciesDao)
       .flatMapConcat { eddaEndpoint =>
         Source
           .single(eddaEndpoint)
-          .via(dao.getScalingPolicies())
+          .via(dao.getScalingPolicies)
           .map((eddaEndpoint, _))
       }
       .runWith(Sink.seq)

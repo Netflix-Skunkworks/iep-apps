@@ -22,7 +22,7 @@ case class ClusterConfig(
 ) {
 
   def shouldSkip(name: String): Boolean = {
-    checksToSkip.exists(_ == name)
+    checksToSkip.contains(name)
   }
 }
 

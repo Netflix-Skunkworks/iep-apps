@@ -28,14 +28,14 @@ import com.netflix.iep.lwc.fwd.cw.ClusterConfig
 import com.netflix.iep.lwc.fwd.cw.ConfigBinVersion
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.concurrent.duration.Duration
 import scala.util.Success
 
-class PurgerSuite extends FunSuite {
+class PurgerSuite extends AnyFunSuite {
 
   import PurgerImpl._
   import ExpressionDetails._

@@ -31,32 +31,32 @@ import com.netflix.iep.lwc.fwd.cw.Report
 import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
-import org.scalatest.FunSuite
 import ExpressionDetails._
 import akka.Done
+import org.scalatest.funsuite.AnyFunSuite
 
 import scala.concurrent.Future
 
 class ApiSuite
-    extends FunSuite
+    extends AnyFunSuite
     with ScalatestRouteTest
     with CwForwardingTestConfig
     with StrictLogging {
 
-  val config = ConfigFactory.load()
+  private val config = ConfigFactory.load()
 
-  val validations = new CwExprValidations(
+  private val validations = new CwExprValidations(
     new ExprInterpreter(config),
     new Evaluator(config, new NoopRegistry(), system)
   )
 
-  val markerService = new MarkerServiceTest()
+  private val markerService = new MarkerServiceTest()
 
-  val purger = new Purger {
+  private val purger = new Purger {
     override def purge(expressions: List[ExpressionId]): Future[Done] = Future(Done)
   }
 
-  val routes = RequestHandler.standardOptions(
+  private val routes = RequestHandler.standardOptions(
     new Api(
       new NoopRegistry,
       new SchemaValidation,

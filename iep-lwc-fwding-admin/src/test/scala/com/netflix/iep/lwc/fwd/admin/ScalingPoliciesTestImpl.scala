@@ -33,7 +33,7 @@ class ScalingPoliciesDaoTestImpl(
 ) extends ScalingPoliciesDao {
   protected implicit val ec = scala.concurrent.ExecutionContext.global
 
-  override def getScalingPolicies(): Flow[EddaEndpoint, List[ScalingPolicy], NotUsed] = {
+  override def getScalingPolicies: Flow[EddaEndpoint, List[ScalingPolicy], NotUsed] = {
     Flow[EddaEndpoint]
       .map(policies(_))
   }

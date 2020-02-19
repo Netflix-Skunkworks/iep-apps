@@ -18,9 +18,9 @@ package com.netflix.atlas.druid
 import com.netflix.atlas.core.model.Query
 import com.netflix.atlas.core.model.QueryVocabulary
 import com.netflix.atlas.core.stacklang.Interpreter
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
-class DruidFilterSuite extends FunSuite {
+class DruidFilterSuite extends AnyFunSuite {
 
   private val interpreter = new Interpreter(QueryVocabulary.allWords)
 

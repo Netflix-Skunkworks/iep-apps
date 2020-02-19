@@ -26,12 +26,12 @@ import com.netflix.spectator.api.ManualClock
 import com.netflix.spectator.api.patterns.PolledMeter
 import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfter
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-class ExprUpdateServiceSuite extends FunSuite with BeforeAndAfter {
+class ExprUpdateServiceSuite extends AnyFunSuite with BeforeAndAfter {
 
   private implicit val system = ActorSystem()
   private implicit val materializer = ActorMaterializer()

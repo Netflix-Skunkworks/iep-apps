@@ -26,11 +26,11 @@ import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.BeforeAndAfter
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import scala.concurrent.duration._
 
-class ExpressionDetailsDaoSuite extends FunSuite with BeforeAndAfter with StrictLogging {
+class ExpressionDetailsDaoSuite extends AnyFunSuite with BeforeAndAfter with StrictLogging {
 
   val dao = new ExpressionDetailsDaoImpl(
     ConfigFactory.load(),
@@ -59,7 +59,7 @@ class ExpressionDetailsDaoSuite extends FunSuite with BeforeAndAfter with Strict
   }
 
   after {
-    dao.scan().foreach(dao.delete(_))
+    dao.scan().foreach(dao.delete)
   }
 
   localTest("Save ExpressionDetails") {
@@ -134,7 +134,7 @@ class ExpressionDetailsDaoSuite extends FunSuite with BeforeAndAfter with Strict
       )
     )
 
-    exprDetailsList.foreach(dao.save(_))
+    exprDetailsList.foreach(dao.save)
     val actual = dao.queryPurgeEligible(timestampThen, List(NoDataFoundEvent))
 
     assert(actual === List(id.copy(key = "config3")))
@@ -149,7 +149,7 @@ class ExpressionDetailsDaoSuite extends FunSuite with BeforeAndAfter with Strict
   }
 }
 
-class ExpressionDetailsSuite extends FunSuite with StrictLogging {
+class ExpressionDetailsSuite extends AnyFunSuite with StrictLogging {
   test("Purge eligible expression") {
     val reportTs = 1551820461000L
     val timestampThen = reportTs + 11.minutes.toMillis
@@ -184,9 +184,7 @@ class ExpressionDetailsSuite extends FunSuite with StrictLogging {
       Nil
     )
 
-    val actual = ed.isPurgeEligible(timestampThen, 10.minutes.toMillis)
-
-    assert(actual == false)
+    assert(!ed.isPurgeEligible(timestampThen, 10.minutes.toMillis))
   }
 
   test("Not eligible for purge") {
@@ -202,8 +200,6 @@ class ExpressionDetailsSuite extends FunSuite with StrictLogging {
       Nil
     )
 
-    val actual = ed.isPurgeEligible(timestampThen, 10.minutes.toMillis)
-
-    assert(actual == false)
+    assert(!ed.isPurgeEligible(timestampThen, 10.minutes.toMillis))
   }
 }

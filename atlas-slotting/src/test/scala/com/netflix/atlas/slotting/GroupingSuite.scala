@@ -21,12 +21,12 @@ import com.amazonaws.services.autoscaling.model.AutoScalingGroup
 import com.amazonaws.services.autoscaling.model.{Instance => AsgInstance}
 import com.amazonaws.services.ec2.model.{Instance => Ec2Instance}
 import com.netflix.atlas.json.Json
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.io.Source
 
-class GroupingSuite extends FunSuite with Grouping {
+class GroupingSuite extends AnyFunSuite with Grouping {
 
   test("get app") {
     val res = List(

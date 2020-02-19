@@ -35,7 +35,7 @@ class CwExprValidations @Inject()(
   evaluator: Evaluator
 ) extends StrictLogging {
 
-  val validations = List(
+  private val validations = List(
     Validation("SingleExpression", true, singleExpression),
     Validation("ValidStreamingExpr", true, validStreamingExpr),
     Validation("AsgGrouping", false, asgGrouping),
@@ -45,11 +45,11 @@ class CwExprValidations @Inject()(
     Validation("DefaultGrouping", false, defaultGrouping)
   )
 
-  val defaultDimensions = List(ForwardingDimension("AutoScalingGroupName", "$(nf.asg)"))
+  private val defaultDimensions = List(ForwardingDimension("AutoScalingGroupName", "$(nf.asg)"))
 
-  val varPattern = "\\$\\(([\\w\\-\\.]+)\\)".r
+  private val varPattern = "\\$\\(([\\w\\-\\.]+)\\)".r
 
-  val defaultGroupingKeys = List(
+  private[admin] val defaultGroupingKeys = List(
     "nf.account",
     "nf.asg"
   )
@@ -72,7 +72,7 @@ class CwExprValidations @Inject()(
 
   def validateChecksToSkip(config: ClusterConfig): Unit = {
     config.checksToSkip.foreach { name =>
-      if (isRequiredValidation(name) != false) {
+      if (isRequiredValidation(name)) {
         throw new IllegalArgumentException(s"$name cannot be optional")
       }
     }
@@ -149,8 +149,7 @@ class CwExprValidations @Inject()(
           val valid = {
             expr.dimensions.exists(_.value.contains(varName)) ||
             expr.account == varName ||
-            expr.metricName.contains(varName) ||
-            expr.region.map(_ == varName).getOrElse(false)
+            expr.metricName.contains(varName) || expr.region.contains(varName)
           }
 
           if (!valid) {

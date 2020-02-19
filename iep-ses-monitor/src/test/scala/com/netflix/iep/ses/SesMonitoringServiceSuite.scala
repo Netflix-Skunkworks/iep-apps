@@ -31,8 +31,8 @@ import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfterEach
-import org.scalatest.FunSuite
-import org.scalatest.Matchers
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers
 import software.amazon.awssdk.core.exception.SdkClientException
 import software.amazon.awssdk.services.sqs.SqsAsyncClient
 import software.amazon.awssdk.services.sqs.model.GetQueueUrlResponse
@@ -41,7 +41,7 @@ import software.amazon.awssdk.services.sqs.model.Message
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAfterEach {
+class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAndAfterEach {
 
   private implicit val system: ActorSystem = ActorSystem()
   private implicit val mat: Materializer = ActorMaterializer()
@@ -620,7 +620,7 @@ class SesMonitoringServiceSuite extends FunSuite with Matchers with BeforeAndAft
 
     setup(new NoopRegistry(), message => {
       loggerCalled = true
-      msg = s"logger should not have been called with invalid JSON: ${message}"
+      msg = s"logger should not have been called with invalid JSON: $message"
     })
 
     val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()

@@ -339,7 +339,7 @@ object DruidDatabaseActor {
     query match {
       case q: Query.Equal             => List(q.v)
       case q: Query.In                => q.vs
-      case Query.Not(Query.HasKey(k)) => List("")
+      case Query.Not(Query.HasKey(_)) => List("")
       case _                          => Nil
     }
   }
@@ -353,6 +353,7 @@ object DruidDatabaseActor {
     }
   }
 
+  @scala.annotation.tailrec
   private def toDimensionSpec(delegate: DimensionSpec, queries: List[Query]): DimensionSpec = {
     queries match {
       case Query.Equal(_, v) :: qs =>
@@ -368,6 +369,7 @@ object DruidDatabaseActor {
     }
   }
 
+  @scala.annotation.tailrec
   def toAggregation(name: String, expr: DataExpr): Aggregation = {
     expr match {
       case _: DataExpr.All              => throw new UnsupportedOperationException(":all")
@@ -476,7 +478,7 @@ object DruidDatabaseActor {
   }
 
   def getDimensions(query: Query, groupByKeys: List[String]): List[DimensionSpec] = {
-    groupByKeys.filterNot(isSpecial).map(k => toDimensionSpec(k, query)).toList
+    groupByKeys.filterNot(isSpecial).map(k => toDimensionSpec(k, query))
   }
 
   /**

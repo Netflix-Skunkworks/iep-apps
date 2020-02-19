@@ -20,12 +20,12 @@ import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
-class CwForwardingConfigSuite extends FunSuite with CwForwardingTestConfig with StrictLogging {
+class CwForwardingConfigSuite extends AnyFunSuite with CwForwardingTestConfig with StrictLogging {
 
-  val config = ConfigFactory.load()
-  val system = ActorSystem()
+  private val config = ConfigFactory.load()
+  private val system = ActorSystem()
 
   val validations = new CwExprValidations(
     new ExprInterpreter(config),
@@ -39,7 +39,7 @@ class CwForwardingConfigSuite extends FunSuite with CwForwardingTestConfig with 
 
   test("Do checks that are not flagged to skip") {
     val config = makeConfig(checksToSkip = List("DefaultDimension"))
-    assert(config.shouldSkip("SingleExpression") == false)
+    assert(!config.shouldSkip("SingleExpression"))
   }
 
 }

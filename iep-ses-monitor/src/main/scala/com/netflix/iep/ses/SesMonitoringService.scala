@@ -131,17 +131,16 @@ class SesMonitoringService @Inject()(
           case _: UnknownHostException =>
             logger.warn(
               "Unknown host getting SQS queue URI. This should clear on it's own. " +
-              s"Retrying after delay of ${retryDelay}.",
+              s"Retrying after delay of $retryDelay.",
               e
             )
             incrementQueueUrlFailure(e)
             Thread.sleep(retryDelay.toMillis)
             getSqsQueueUrl(getQueueUrl, retryDelay)
-          case _ => {
+          case _ =>
             logger.error("Exception getting SQS queue URI.", e)
             incrementQueueUrlFailure(e)
             throw e
-          }
         }
     }
   }
@@ -199,7 +198,7 @@ class SesMonitoringService @Inject()(
         registry
           .counter(notificationLoggingFailureId.withTag("reason", e.getClass.getSimpleName))
           .increment()
-        logger.error(s"Error logging notification JSON string: ${notificationAsMap}", e)
+        logger.error(s"Error logging notification JSON string: $notificationAsMap", e)
     }
 
     // Delete regardless of exception since it probably would throw again given the types of

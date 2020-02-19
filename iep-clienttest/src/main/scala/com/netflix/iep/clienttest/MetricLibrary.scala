@@ -112,6 +112,6 @@ class SpectatorMetricLibrary @Inject()(registry: Registry) extends MetricLibrary
     PolledMeter
       .using(registry)
       .withId(toId(name, tags))
-      .monitorValue(this, (obj: MetricLibrary) => f)
+      .monitorValue(this, (_: MetricLibrary) => f)
   }
 }
