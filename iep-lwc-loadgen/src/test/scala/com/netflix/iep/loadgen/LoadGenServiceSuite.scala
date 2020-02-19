@@ -17,9 +17,9 @@ package com.netflix.iep.loadgen
 
 import java.time.Duration
 
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
-class LoadGenServiceSuite extends FunSuite {
+class LoadGenServiceSuite extends AnyFunSuite {
   test("extract step from uri") {
     val actual = LoadGenService.extractStep("/graph?q=name,foo,:eq&step=60s")
     assert(actual === Some(Duration.ofSeconds(60)))

@@ -60,7 +60,7 @@ class PropertiesLoader(config: Config, propContext: PropertiesContext, dynamoSer
   }
 
   private def process(items: Items): PropList = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     items.asScala
       .filter(_.containsKey("data"))
       .map(_.get("data").getS)

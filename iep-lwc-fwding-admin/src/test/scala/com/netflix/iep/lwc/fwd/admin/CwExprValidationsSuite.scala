@@ -22,18 +22,18 @@ import com.netflix.atlas.json.Json
 import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 class CwExprValidationsSuite
-    extends FunSuite
+    extends AnyFunSuite
     with TestAssertions
     with CwForwardingTestConfig
     with StrictLogging {
 
-  val config = ConfigFactory.load()
-  val system = ActorSystem()
+  private val config = ConfigFactory.load()
+  private val system = ActorSystem()
 
-  val validations = new CwExprValidations(
+  private val validations = new CwExprValidations(
     new ExprInterpreter(config),
     new Evaluator(config, new NoopRegistry(), system)
   )

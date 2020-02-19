@@ -24,7 +24,7 @@ import com.amazonaws.services.dynamodbv2.model.ScanResult
 
 class MockDynamoDB extends InvocationHandler {
 
-  var scanResult: ScanResult = null
+  var scanResult: ScanResult = _
 
   override def invoke(proxy: Any, method: Method, args: Array[AnyRef]): AnyRef = {
     method.getName match {

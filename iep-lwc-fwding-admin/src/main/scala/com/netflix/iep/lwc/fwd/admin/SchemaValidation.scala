@@ -22,13 +22,11 @@ import com.netflix.atlas.json.Json
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.io.Source
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class SchemaValidation extends StrictLogging {
 
-  val schema = getJsonSchema()
-
-  def getJsonSchema(): JsonSchema = {
+  val schema: JsonSchema = {
     val reader = Source.fromResource("cw-fwding-cfg-schema.json").reader()
     try {
       JsonSchemaFactory

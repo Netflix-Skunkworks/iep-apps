@@ -118,7 +118,7 @@ class ExprUpdateService @Inject()(
   }
 
   private def update(data: ByteString): Future[NotUsed] = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     Future {
       try {
         val exprs = Json

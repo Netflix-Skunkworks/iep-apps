@@ -30,9 +30,9 @@ import com.netflix.spectator.api.ManualClock
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Tag
 import com.typesafe.config.ConfigFactory
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
-class UpdateApiSuite extends FunSuite {
+class UpdateApiSuite extends AnyFunSuite {
 
   private val factory = new JsonFactory()
 

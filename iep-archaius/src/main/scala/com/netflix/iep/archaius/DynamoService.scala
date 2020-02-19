@@ -16,7 +16,6 @@
 package com.netflix.iep.archaius
 
 import java.util.concurrent.Executors
-import java.util.concurrent.ThreadFactory
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -45,10 +44,8 @@ class DynamoService @Inject()(client: AmazonDynamoDB, config: Config) extends Ab
   private val nextId = new AtomicLong()
   private val pool = Executors.newFixedThreadPool(
     Runtime.getRuntime.availableProcessors(),
-    new ThreadFactory {
-      override def newThread(r: Runnable): Thread = {
-        new Thread(r, s"dynamo-db-${nextId.getAndIncrement()}")
-      }
+    (r: Runnable) => {
+      new Thread(r, s"dynamo-db-${nextId.getAndIncrement()}")
     }
   )
   private val ec = ExecutionContext.fromExecutorService(pool)

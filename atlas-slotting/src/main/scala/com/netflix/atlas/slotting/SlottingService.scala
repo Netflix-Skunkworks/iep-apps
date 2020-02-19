@@ -36,7 +36,7 @@ import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
 import javax.inject.Singleton
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.immutable.SortedMap
 
 @Singleton

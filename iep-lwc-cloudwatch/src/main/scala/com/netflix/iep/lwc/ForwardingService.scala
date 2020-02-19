@@ -232,7 +232,7 @@ object ForwardingService extends StrictLogging {
   ): Flow[Map[String, ClusterConfig], Evaluator.DataSources, NotUsed] = {
     Flow[Map[String, ClusterConfig]]
       .map { configs =>
-        import scala.collection.JavaConverters._
+        import scala.jdk.CollectionConverters._
         val exprs = configs.flatMap {
           case (key, config) =>
             config.expressions
@@ -275,7 +275,7 @@ object ForwardingService extends StrictLogging {
     expression: ForwardingExpression,
     msg: TimeSeriesMessage
   ): Option[AccountDatum] = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     val name = Strings.substitute(expression.metricName, msg.tags)
     val accountId = Strings.substitute(expression.account, msg.tags)
 
@@ -343,7 +343,7 @@ object ForwardingService extends StrictLogging {
     doPut: PutFunction
   ): Flow[ForwardingMsgEnvelope, ForwardingMsgEnvelope, NotUsed] = {
 
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     Flow[ForwardingMsgEnvelope]
       .groupBy(
         Int.MaxValue,
@@ -388,7 +388,7 @@ object ForwardingService extends StrictLogging {
       .groupedWithin(100, 30.seconds)
       .map { msgs =>
         val request =
-          HttpRequest(HttpMethods.POST, adminUri, entity = Json.encode(msgs.map(toReport(_))))
+          HttpRequest(HttpMethods.POST, adminUri, entity = Json.encode(msgs.map(toReport)))
         request -> AccessLogger.newClientLogger("admin", request)
       }
       .via(client)
@@ -406,7 +406,7 @@ object ForwardingService extends StrictLogging {
   }
 
   def toReport(msg: ForwardingMsgEnvelope): Report = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
 
     Report(
       System.currentTimeMillis(),

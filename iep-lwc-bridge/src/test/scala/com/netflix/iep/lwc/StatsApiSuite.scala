@@ -27,11 +27,11 @@ import com.netflix.atlas.json.Json
 import com.netflix.spectator.atlas.impl.Subscription
 import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfter
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
-class StatsApiSuite extends FunSuite with ScalatestRouteTest with BeforeAndAfter {
+class StatsApiSuite extends AnyFunSuite with ScalatestRouteTest with BeforeAndAfter {
 
-  import scala.collection.JavaConverters._
+  import scala.jdk.CollectionConverters._
   import scala.concurrent.duration._
 
   private implicit val routeTestTimeout = RouteTestTimeout(5.second)

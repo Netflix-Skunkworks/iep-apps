@@ -22,16 +22,16 @@ import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
 import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo
 import com.netflix.iep.lwc.fwd.cw.Report
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import scala.concurrent.duration._
 
-class MarkerServiceExprDetailsSuite extends FunSuite {
+class MarkerServiceExprDetailsSuite extends AnyFunSuite {
 
   import ExpressionDetails._
   import MarkerServiceImpl._
 
-  private val fwdMetricInfoPurgeLimitMillis = (5.days).toMillis
+  private val fwdMetricInfoPurgeLimitMillis = 5.days.toMillis
 
   private val now = Instant.ofEpochSecond(1551820461L)
 

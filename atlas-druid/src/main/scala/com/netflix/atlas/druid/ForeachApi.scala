@@ -46,8 +46,6 @@ class ForeachApi(config: Config, implicit val actorRefFactory: ActorRefFactory) 
 
   private val dbRef = actorRefFactory.actorSelection("/user/db")
 
-  private implicit val ec = actorRefFactory.dispatcher
-
   private def evalGraph(expr: String): List[StyleExpr] = {
     interpreter.execute(expr).stack.map {
       case ModelExtractors.PresentationType(e) => e
@@ -57,13 +55,14 @@ class ForeachApi(config: Config, implicit val actorRefFactory: ActorRefFactory) 
   private def evalQuery(expr: String): Query = {
     interpreter.execute(expr).stack match {
       case (q: Query) :: Nil => q
+      case _                 => throw new IllegalArgumentException(s"invalid query: $expr")
     }
   }
 
   override def routes: Route = {
     endpointPath("api" / "v1" / "foreach") {
       get {
-        parameters("q".as[String], "in".as[String], "k".as[String].*) { (q, in, ks) =>
+        parameters(("q".as[String], "in".as[String], "k".as[String].*)) { (q, in, ks) =>
           val exprs = evalGraph(q)
           val inQuery = evalQuery(in)
           val source = rewrite(RewriteEntry(exprs, inQuery, ks.toList, Map.empty))

@@ -29,9 +29,9 @@ import com.netflix.atlas.akka.RequestHandler
 import com.netflix.atlas.json.Json
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.ManualClock
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
-class PropertiesApiSuite extends FunSuite with ScalatestRouteTest {
+class PropertiesApiSuite extends AnyFunSuite with ScalatestRouteTest {
   import scala.concurrent.duration._
   implicit val routeTestTimeout = RouteTestTimeout(5.second)
 

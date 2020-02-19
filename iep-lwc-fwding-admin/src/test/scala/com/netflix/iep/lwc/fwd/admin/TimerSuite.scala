@@ -17,9 +17,9 @@ package com.netflix.iep.lwc.fwd.admin
 
 import com.netflix.iep.lwc.fwd.admin.Timer._
 import com.netflix.spectator.api.ManualClock
-import org.scalatest.FunSuiteLike
+import org.scalatest.funsuite.AnyFunSuiteLike
 
-class TimerSuite extends FunSuiteLike {
+class TimerSuite extends AnyFunSuiteLike {
   test("Measure time for calls that succeed") {
     val clock = new ManualClock()
     clock.setMonotonicTime(1)

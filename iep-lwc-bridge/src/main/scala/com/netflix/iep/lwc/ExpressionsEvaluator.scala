@@ -46,7 +46,7 @@ class ExpressionsEvaluator @Inject()(config: Config) extends StrictLogging {
   import ExpressionsEvaluator._
 
   private val subIdsToLog = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     config.getStringList("netflix.iep.lwc.bridge.logging.subscriptions").asScala.toSet
   }
 
@@ -64,7 +64,7 @@ class ExpressionsEvaluator @Inject()(config: Config) extends StrictLogging {
     * the list will come from the `/expressions` endpoint of the LWC API service.
     */
   def sync(subs: SubscriptionList): Unit = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     val index = QueryIndex.create(subs.asScala.map(toEntry).toList)
 
     // The top level fallback entries are removed to greatly reduce the cost. These entries
@@ -135,7 +135,7 @@ class ExpressionsEvaluator @Inject()(config: Config) extends StrictLogging {
   }
 
   private def toPair(d: Datapoint): TagsValuePair = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     // Use custom java map wrapper from SmallHashMap if possible for improved
     // performance during the eval.
     val jmap = d.tags match {

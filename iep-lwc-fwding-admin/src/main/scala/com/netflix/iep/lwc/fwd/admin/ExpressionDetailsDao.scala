@@ -46,7 +46,7 @@ class ExpressionDetailsDaoImpl @Inject()(
     with StrictLogging {
   import ExpressionDetails._
 
-  import scala.collection.JavaConverters._
+  import scala.jdk.CollectionConverters._
 
   private val ageLimitMillis = config.getDuration("iep.lwc.fwding-admin.age-limit").toMillis
 
@@ -61,7 +61,7 @@ class ExpressionDetailsDaoImpl @Inject()(
 
     item = item.withString(ForwardedMetrics, Json.encode(exprDetails.forwardedMetrics))
 
-    exprDetails.error.map { e =>
+    exprDetails.error.foreach { e =>
       item = item.withString(Error, Json.encode(e))
     }
 
@@ -112,7 +112,7 @@ class ExpressionDetailsDaoImpl @Inject()(
   }
 
   override def queryPurgeEligible(now: Long, events: List[String]): List[ExpressionId] = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
 
     require(events.nonEmpty, s"Event markers required. Use $PurgeMarkerEvents")
     require(events.forall(PurgeMarkerEvents.contains), s"Invalid $events. Use: $PurgeMarkerEvents")
@@ -120,7 +120,7 @@ class ExpressionDetailsDaoImpl @Inject()(
     val spec = new ScanSpec()
       .withProjectionExpression(ExpressionIdAttr)
       .withFilterExpression(events.map(e => s"$Events.$e < :ageThreshold").mkString(" OR "))
-      .withValueMap(new ValueMap().withNumber(":ageThreshold", (now - ageLimitMillis)))
+      .withValueMap(new ValueMap().withNumber(":ageThreshold", now - ageLimitMillis))
 
     val result = table.scan(spec)
 

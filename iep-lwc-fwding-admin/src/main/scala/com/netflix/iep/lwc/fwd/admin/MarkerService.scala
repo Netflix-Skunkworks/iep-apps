@@ -227,7 +227,7 @@ object MarkerServiceImpl extends StrictLogging {
     val metricInfo = report.metricWithTimestamp()
 
     val prevMetrics = prev.fold(List.empty[FwdMetricInfo])(_.forwardedMetrics).filterNot { p =>
-      val purge = p.timestamp.map(t => now - t > purgeLimitMillis).getOrElse(true)
+      val purge = p.timestamp.forall(t => now - t > purgeLimitMillis)
       val update = metricInfo.exists(_.equalsIgnoreTimestamp(p))
 
       purge || update
@@ -248,7 +248,7 @@ object MarkerServiceImpl extends StrictLogging {
         (i :: items).distinct
       }
       .filter { p =>
-        forwardedMetrics.exists(p.matchMetric(_))
+        forwardedMetrics.exists(p.matchMetric)
       }
   }
 
@@ -267,7 +267,7 @@ object MarkerServiceImpl extends StrictLogging {
     }
 
     Flow[ExpressionDetails]
-      .map(save(_))
+      .map(save)
       .withAttributes(ActorAttributes.dispatcher(BlockingDispatcher))
       .collect { case Success(result) => result }
       .map(_ => NotUsed)

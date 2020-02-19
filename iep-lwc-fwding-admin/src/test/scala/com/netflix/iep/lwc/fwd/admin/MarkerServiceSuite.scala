@@ -27,12 +27,12 @@ import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
 import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo
 import com.netflix.iep.lwc.fwd.cw.Report
 import com.typesafe.config.ConfigFactory
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-class MarkerServiceSuite extends FunSuite {
+class MarkerServiceSuite extends AnyFunSuite {
 
   import MarkerServiceImpl._
 
@@ -174,10 +174,12 @@ class MarkerServiceSuite extends FunSuite {
       Props[ScalingPoliciesTestImpl](
         new ScalingPoliciesTestImpl(
           config,
-          () => {
-            Flow[EddaEndpoint]
-              .filter(_ => false)
-              .map(_ => List.empty[ScalingPolicy])
+          new ScalingPoliciesDao {
+            override def getScalingPolicies: Flow[EddaEndpoint, List[ScalingPolicy], NotUsed] = {
+              Flow[EddaEndpoint]
+                .filter(_ => false)
+                .map(_ => List.empty[ScalingPolicy])
+            }
           },
           data
         )

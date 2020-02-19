@@ -18,11 +18,11 @@ package com.netflix.iep.lwc
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.spectator.atlas.impl.Subscription
 import com.typesafe.config.ConfigFactory
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
-class ExpressionsEvaluatorSuite extends FunSuite {
+class ExpressionsEvaluatorSuite extends AnyFunSuite {
 
-  import scala.collection.JavaConverters._
+  import scala.jdk.CollectionConverters._
 
   private val config = ConfigFactory.load()
 

@@ -78,7 +78,7 @@ object DataSourceValidator {
       }
     })
 
-    if (!errorMap.isEmpty) {
+    if (errorMap.nonEmpty) {
       Left(
         errorMap
           .map { case (id, errorList) => IdAndError(id, errorList.mkString("; ")) }

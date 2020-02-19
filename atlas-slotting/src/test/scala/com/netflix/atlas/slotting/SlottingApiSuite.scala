@@ -25,7 +25,7 @@ import akka.http.scaladsl.testkit.RouteTestTimeout
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import com.netflix.atlas.akka.RequestHandler
 import com.netflix.atlas.json.Json
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import scala.collection.immutable.SortedMap
 import scala.concurrent.duration._
@@ -33,7 +33,7 @@ import scala.io.Source
 
 case class Message(message: String)
 
-class SlottingApiSuite extends FunSuite with ScalatestRouteTest {
+class SlottingApiSuite extends AnyFunSuite with ScalatestRouteTest {
   implicit val routeTestTimeout: RouteTestTimeout = RouteTestTimeout(5.second)
 
   val slottingCache = new SlottingCache()
