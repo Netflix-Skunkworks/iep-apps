@@ -26,7 +26,8 @@ import javax.inject.Singleton
 
 @Singleton
 class AtlasAggregatorService @Inject()(config: Config, clock: Clock, registry: Registry)
-    extends AbstractService {
+    extends AbstractService
+    with Aggregator {
 
   private val n = math.max(1, Runtime.getRuntime.availableProcessors() / 2)
   private val aggrCfg = new AggrConfig(config, registry)
@@ -48,11 +49,11 @@ class AtlasAggregatorService @Inject()(config: Config, clock: Clock, registry: R
     registries(i)
   }
 
-  def add(id: Id, value: Double): Unit = {
+  override def add(id: Id, value: Double): Unit = {
     lookup(id).counter(id).add(value)
   }
 
-  def max(id: Id, value: Double): Unit = {
+  override def max(id: Id, value: Double): Unit = {
     lookup(id).maxGauge(id).set(value)
   }
 }
