@@ -9,7 +9,7 @@ object Dependencies {
     val atlas      = "1.7.0-rc.4"
     val aws        = "1.11.723"
     val aws2       = "2.10.66"
-    val iep        = "2.1.9"
+    val iep        = "2.2.1"
     val guice      = "4.1.0"
     val log4j      = "2.13.0"
     val scala      = "2.13.1"
