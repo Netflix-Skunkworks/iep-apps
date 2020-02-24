@@ -206,6 +206,7 @@ object ForwardingService extends StrictLogging {
     val invalid = registry.counter(baseId.withTag("id", "invalid"))
     val updates = registry.counter(baseId.withTag("id", "update"))
     val deletes = registry.counter(baseId.withTag("id", "delete"))
+    val done = registry.counter(baseId.withTag("id", "done"))
 
     Flow[ByteString]
       .via(Framing.delimiter(ByteString("\n"), MaxFrameLength, allowTruncation = true))
@@ -219,6 +220,7 @@ object ForwardingService extends StrictLogging {
           case m if m.isHeartbeat => heartbeats.increment()
           case m if m.isInvalid   => invalid.increment()
           case m if m.isUpdate    => (if (m.response.isDelete) deletes else updates).increment()
+          case m if m.isDone      => done.increment()
           case _                  =>
         }
 
