@@ -207,6 +207,7 @@ object ForwardingService extends StrictLogging {
     val updates = registry.counter(baseId.withTag("id", "update"))
     val deletes = registry.counter(baseId.withTag("id", "delete"))
     val done = registry.counter(baseId.withTag("id", "done"))
+    val repoVersion = registry.gauge("forwarding.repoVersion")
 
     Flow[ByteString]
       .via(Framing.delimiter(ByteString("\n"), MaxFrameLength, allowTruncation = true))
@@ -217,11 +218,13 @@ object ForwardingService extends StrictLogging {
         logger.debug(s"message [${msg.str}]")
 
         msg match {
-          case m if m.isHeartbeat => heartbeats.increment()
-          case m if m.isInvalid   => invalid.increment()
-          case m if m.isUpdate    => (if (m.response.isDelete) deletes else updates).increment()
-          case m if m.isDone      => done.increment()
-          case _                  =>
+          case m if m.isHeartbeat =>
+            heartbeats.increment()
+            repoVersion.set(m.repoVersion)
+          case m if m.isInvalid => invalid.increment()
+          case m if m.isUpdate  => (if (m.response.isDelete) deletes else updates).increment()
+          case m if m.isDone    => done.increment()
+          case _                =>
         }
 
         msg.isUpdate
@@ -457,6 +460,11 @@ object ForwardingService extends StrictLogging {
 
     def response: ConfigBinResponse = {
       Json.decode[ConfigBinResponse](data.data)
+    }
+
+    def repoVersion: Long = {
+      val version = data.data.get("clientRepoVersion")
+      if (version == null) -1L else version.asLong(-1L)
     }
   }
 
