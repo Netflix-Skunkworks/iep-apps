@@ -133,6 +133,34 @@ class ForwardingServiceSuite extends AnyFunSuite {
     assert(!msg.isUpdate)
     assert(!msg.isDone)
     assert(msg.isHeartbeat)
+
+    assert(msg.repoVersion === 1L)
+  }
+
+  test("parse heartbeat with no repo version") {
+    val sample =
+      s"""data: {"type":"heartbeat","key":"heartbeat","data":{"serverInstance":"i-12345","clientId":"1a7fb69e-005c-4ebc-bf05-aba3386c682f","latestVersion":1}}"""
+    val msg = Message(sample)
+
+    assert(!msg.isInvalid)
+    assert(!msg.isUpdate)
+    assert(!msg.isDone)
+    assert(msg.isHeartbeat)
+
+    assert(msg.repoVersion === -1L)
+  }
+
+  test("parse heartbeat with bad repo version type") {
+    val sample =
+      s"""data: {"type":"heartbeat","key":"heartbeat","data":{"clientRepoVersion":"bad","serverInstance":"i-12345","clientId":"1a7fb69e-005c-4ebc-bf05-aba3386c682f","latestVersion":1}}"""
+    val msg = Message(sample)
+
+    assert(!msg.isInvalid)
+    assert(!msg.isUpdate)
+    assert(!msg.isDone)
+    assert(msg.isHeartbeat)
+
+    assert(msg.repoVersion === -1L)
   }
 
   test("parse done") {
