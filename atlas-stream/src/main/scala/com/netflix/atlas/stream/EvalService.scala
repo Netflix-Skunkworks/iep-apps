@@ -54,6 +54,7 @@ class EvalService @Inject()(
   private implicit val ec = scala.concurrent.ExecutionContext.global
   private implicit val mat = ActorMaterializer()
   private val registrations = new ConcurrentHashMap[String, StreamInfo]
+  private val numDataSourceDistSum = registry.distributionSummary("evalService.numDataSource")
 
   override def startImpl(): Unit = {
     logger.debug("Starting service")
@@ -180,6 +181,7 @@ class EvalService @Inject()(
       .flatMap(_.getSources.asScala)
       .toSet
       .asJava
+    numDataSourceDistSum.record(dsSet.size())
     new DataSources(dsSet)
   }
 
