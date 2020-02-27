@@ -26,6 +26,7 @@ import akka.stream.ActorMaterializer
 import akka.stream.KillSwitch
 import akka.stream.KillSwitches
 import akka.stream.ThrottleMode
+import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
@@ -66,10 +67,13 @@ class LoadGenWsService @Inject()(
   private var killSwitch: KillSwitch = _
 
   private val atlasStreamWsUri = config.getString("iep.lwc.loadgen.atlasStreamWsUri")
+  private val numUris = config.getInt("iep.lwc.loadgen.numUris")
 
   override def startImpl(): Unit = {
-    killSwitch = Source(dataSources)
-      .flatMapMerge(Int.MaxValue, evalSourceWs)
+    killSwitch = Source
+      .repeat(dataSources)
+      .throttle(1, 3.minute, 1, ThrottleMode.Shaping)
+      .via(evalSourceWsFlow)
       .watchTermination() { (_, f) =>
         f.onComplete {
           case Success(_) | Failure(_: AbruptTerminationException) =>
@@ -91,11 +95,8 @@ class LoadGenWsService @Inject()(
     if (killSwitch != null) killSwitch.shutdown()
   }
 
-  private def evalSourceWs(ds: Evaluator.DataSources): Source[String, NotUsed] = {
-    Source
-      .repeat(ds)
-      .throttle(1, 1.minute, 1, ThrottleMode.Shaping)
-      //      .via(Flow.fromProcessor(() => evaluator.createStreamsProcessor()))
+  private def evalSourceWsFlow: Flow[Evaluator.DataSources, String, NotUsed] = {
+    Flow[Evaluator.DataSources]
       .map(dss => {
         TextMessage(Json.encode(dss.getSources))
       })
@@ -117,10 +118,10 @@ class LoadGenWsService @Inject()(
       .mapMaterializedValue(_ => NotUsed)
   }
 
-  private def dataSources: List[Evaluator.DataSources] = {
+  private def dataSources: Evaluator.DataSources = {
     import scala.collection.JavaConverters._
     val defaultStep = config.getDuration("iep.lwc.loadgen.step")
-    config
+    val uris = config
       .getStringList("iep.lwc.loadgen.uris")
       .asScala
       .zipWithIndex
@@ -130,18 +131,17 @@ class LoadGenWsService @Inject()(
           val id = Strings.zeroPad(i, 6)
           new Evaluator.DataSource(id, step, uri)
       }
-      .grouped(1000)
-      .map { grp =>
-        new Evaluator.DataSources(grp.toSet.asJava)
-      }
-      .toList
+      .take(numUris)
+    new Evaluator.DataSources(uris.toSet.asJava)
   }
 
   private def updateStats(envelope: String): Unit = {
     try {
       val dataNode = Json.decode[JsonNode](envelope)
       val msgId = dataNode.get("id").asText()
-
+      if (envelope.contains("\"type\":\"error\"")) {
+        logger.info(s"got error message: $envelope")
+      }
       val id = limiter(msgId)
 
       dataNode.get("message") match {
