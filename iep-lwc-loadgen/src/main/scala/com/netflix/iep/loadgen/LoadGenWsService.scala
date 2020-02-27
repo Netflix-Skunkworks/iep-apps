@@ -37,8 +37,6 @@ import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.json.Json
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Registry
-import com.netflix.spectator.api.histogram.PercentileDistributionSummary
-import com.netflix.spectator.api.patterns.CardinalityLimiters
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
@@ -62,17 +60,16 @@ class LoadGenWsService @Inject()(
   private implicit val ec = scala.concurrent.ExecutionContext.global
   private implicit val mat = ActorMaterializer()
 
-  private val limiter = CardinalityLimiters.mostFrequent(20)
-
   private var killSwitch: KillSwitch = _
 
   private val atlasStreamWsUri = config.getString("iep.lwc.loadgen.atlasStreamWsUri")
   private val numUris = config.getInt("iep.lwc.loadgen.numUris")
+  private val numMsgsCounter = registry.counter("loadgen.numMessages")
 
   override def startImpl(): Unit = {
     killSwitch = Source
       .repeat(dataSources)
-      .throttle(1, 3.minute, 1, ThrottleMode.Shaping)
+      .throttle(1, 1.minute, 1, ThrottleMode.Shaping)
       .via(evalSourceWsFlow)
       .watchTermination() { (_, f) =>
         f.onComplete {
@@ -108,6 +105,7 @@ class LoadGenWsService @Inject()(
           msg.textStream.fold("")(_ + _).map(ByteString(_))
         case _: BinaryMessage =>
           // Should not happen, count times of occurrences in case it happenbs
+          logger.warn("received BinaryMessage")
           Source.single(
             ByteString(
               """{"id":"_","message":{"type":"_BinaryMessage_","message":"heartbeat"}}"""
@@ -137,41 +135,26 @@ class LoadGenWsService @Inject()(
 
   private def updateStats(envelope: String): Unit = {
     try {
+      numMsgsCounter.increment()
       val dataNode = Json.decode[JsonNode](envelope)
-      val msgId = dataNode.get("id").asText()
       if (envelope.contains("\"type\":\"error\"")) {
-        logger.info(s"got error message: $envelope")
+        logger.error(s"got error message: $envelope")
       }
-      val id = limiter(msgId)
 
       dataNode.get("message") match {
-        case node: JsonNode if (node.has("data")) => record(id, "timeseries")
-        case node: JsonNode if (node.has("type")) => record(id, node.get("type").asText)
-        case _                                    => record(id, "unknown")
+        case node: JsonNode if (node.has("data")) => record("timeseries")
+        case node: JsonNode if (node.has("type")) => record(node.get("type").asText)
+        case _                                    => record("unknown")
       }
     } catch {
-      case e: Exception => e.printStackTrace()
+      case e: Exception => logger.error("error processing message: " + envelope, e)
     }
   }
 
-  private def record(id: String, msgType: String, value: Double = Double.NaN): Unit = {
+  private def record(msgType: String): Unit = {
     val resultMessages = registry
       .createId("loadgen.resultMessages")
-      .withTags("id", id, "msgType", msgType)
+      .withTags("msgType", msgType)
     registry.counter(resultMessages).increment()
-    if (!value.isNaN) {
-      // Fractional amounts between 0 and 1 are more common for our use-cases than numbers
-      // large enough to overflow the long when multiplied by 1M. Since the distribution summary
-      // is primarily as a sanity check of the values when comparing one version to the next
-      // this step avoids mapping a larger range of relevant values to 0 when converting to
-      // a long.
-      val longValue = (value * 1e6).toLong
-      PercentileDistributionSummary
-        .builder(registry)
-        .withName("loadgen.valueDistribution")
-        .withTags(resultMessages.tags())
-        .build()
-        .record(longValue)
-    }
   }
 }
