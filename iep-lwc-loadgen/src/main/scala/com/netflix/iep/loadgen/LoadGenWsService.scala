@@ -137,9 +137,11 @@ class LoadGenWsService @Inject()(
   private def updateStats(envelope: String): Unit = {
     try {
       numMsgsCounter.increment()
+
       if (shouldLogResult) {
         logger.info(s"datapoint: $envelope")
       }
+
       val dataNode = Json.decode[JsonNode](envelope)
       if (envelope.contains("\"type\":\"error\"")) {
         logger.error(s"got error message: $envelope")
