@@ -65,7 +65,7 @@ class LoadGenWsService @Inject()(
   private val atlasStreamWsUri = config.getString("iep.lwc.loadgen.atlasStreamWsUri")
   private val numUris = config.getInt("iep.lwc.loadgen.numUris")
   private val numMsgsCounter = registry.counter("loadgen.numMessages")
-  private val shouldLogResult = "true" == config.getInt("iep.lwc.loadgen.shouldLogResult")
+  private val shouldLogResult = config.getBoolean("iep.lwc.loadgen.shouldLogResult")
 
   override def startImpl(): Unit = {
     killSwitch = Source
