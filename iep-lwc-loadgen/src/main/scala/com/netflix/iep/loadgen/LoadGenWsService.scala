@@ -65,6 +65,7 @@ class LoadGenWsService @Inject()(
   private val atlasStreamWsUri = config.getString("iep.lwc.loadgen.atlasStreamWsUri")
   private val numUris = config.getInt("iep.lwc.loadgen.numUris")
   private val numMsgsCounter = registry.counter("loadgen.numMessages")
+  private val shouldLogResult = "true" == config.getInt("iep.lwc.loadgen.shouldLogResult")
 
   override def startImpl(): Unit = {
     killSwitch = Source
@@ -136,6 +137,9 @@ class LoadGenWsService @Inject()(
   private def updateStats(envelope: String): Unit = {
     try {
       numMsgsCounter.increment()
+      if (shouldLogResult) {
+        logger.info(s"datapoint: $envelope")
+      }
       val dataNode = Json.decode[JsonNode](envelope)
       if (envelope.contains("\"type\":\"error\"")) {
         logger.error(s"got error message: $envelope")
