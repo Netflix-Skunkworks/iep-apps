@@ -63,7 +63,8 @@ class LoadGenWsService @Inject()(
   private var killSwitch: KillSwitch = _
 
   private val atlasStreamWsUri = config.getString("iep.lwc.loadgen.atlasStreamWsUri")
-  private val numUris = config.getInt("iep.lwc.loadgen.numUris")
+  private val uriStart = config.getInt("iep.lwc.loadgen.uri.start")
+  private val uriEnd = config.getInt("iep.lwc.loadgen.uri.end")
   private val numMsgsCounter = registry.counter("loadgen.numMessages")
   private val shouldLogResult = config.getBoolean("iep.lwc.loadgen.shouldLogResult")
 
@@ -130,7 +131,8 @@ class LoadGenWsService @Inject()(
           val id = Strings.zeroPad(i, 6)
           new Evaluator.DataSource(id, step, uri)
       }
-      .take(numUris)
+      .slice(uriStart, uriEnd)
+
     new Evaluator.DataSources(uris.toSet.asJava)
   }
 
