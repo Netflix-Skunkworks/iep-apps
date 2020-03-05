@@ -24,6 +24,7 @@ import com.netflix.atlas.eval.stream.Evaluator.DataSource
 import com.netflix.atlas.eval.stream.Evaluator.DataSources
 import com.netflix.atlas.eval.stream.Evaluator.MessageEnvelope
 import com.netflix.spectator.api.NoopRegistry
+import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite
 
 import scala.concurrent.Await
@@ -32,7 +33,7 @@ import scala.concurrent.duration.Duration
 class EvalFlowSuite extends AnyFunSuite {
   private implicit val system = ActorSystem(getClass.getSimpleName)
   private implicit val mat = ActorMaterializer()
-
+  private val config = ConfigFactory.load
   private val registry = new NoopRegistry()
   private val validateNoop: DataSource => Unit = _ => ()
   private val dataSourceStr =
@@ -40,7 +41,7 @@ class EvalFlowSuite extends AnyFunSuite {
 
   test("register and get message") {
 
-    val evalService = new EvalService(registry, null, system) {
+    val evalService = new EvalService(config, registry, null, system) {
       override def updateDataSources(streamId: String, dataSources: DataSources): Unit = {
         val handler = getStreamInfo(streamId).handler
         handler.offer(new MessageEnvelope("mockId", DiagnosticMessage.info("mockMsg")))

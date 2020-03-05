@@ -35,6 +35,7 @@ import com.netflix.atlas.stream.EvalService.QueueHandler
 import com.netflix.atlas.stream.EvalService.StreamInfo
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Registry
+import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
 import org.reactivestreams.Publisher
@@ -45,6 +46,7 @@ import scala.util.Failure
 import scala.util.Success
 
 class EvalService @Inject()(
+  config: Config,
   val registry: Registry,
   val evaluator: Evaluator,
   implicit val system: ActorSystem
@@ -55,6 +57,7 @@ class EvalService @Inject()(
   private implicit val mat = ActorMaterializer()
   private val registrations = new ConcurrentHashMap[String, StreamInfo]
   private val numDataSourceDistSum = registry.distributionSummary("evalService.numDataSource")
+  private val queueSize = config.getInt("atlas.stream.eval-service.queue-size")
 
   override def startImpl(): Unit = {
     logger.debug("Starting service")
@@ -127,13 +130,13 @@ class EvalService @Inject()(
     streamId: String
   ): (StreamOps.SourceQueue[MessageEnvelope], Publisher[MessageEnvelope]) = {
     val (queue, pub) = StreamOps
-      .blockingQueue[MessageEnvelope](registry, "EvalService", 10)
+      .blockingQueue[MessageEnvelope](registry, "EvalService", queueSize)
       .toMat(Sink.asPublisher[MessageEnvelope](true))(Keep.both)
       .run()
     val handler = new QueueHandler[MessageEnvelope](streamId, queue)
     val prevValue = registrations.putIfAbsent(streamId, new StreamInfo(handler))
     if (prevValue == null) {
-      logger.debug(s"stream $streamId registered")
+      logger.info(s"stream registered: $streamId")
     } else {
       throw new IllegalArgumentException(s"stream with id '$streamId' already registered")
     }
@@ -155,7 +158,7 @@ class EvalService @Inject()(
   def updateDataSources(streamId: String, dataSources: DataSources): Unit = {
     val streamInfo = getStreamInfo(streamId)
     if (streamInfo == null) {
-      throw new IllegalStateException(s"stream with id '$streamId' has not been registered")
+      throw new IllegalStateException(s"stream has not been registered: $streamId")
     }
 
     streamInfo.dataSources = Some(
