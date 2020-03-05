@@ -57,7 +57,7 @@ class EvalService @Inject()(
   private implicit val mat = ActorMaterializer()
   private val registrations = new ConcurrentHashMap[String, StreamInfo]
   private val numDataSourceDistSum = registry.distributionSummary("evalService.numDataSource")
-  private val queueSize = config.getInt("atlas.stream.evalService.queueSize")
+  private val queueSize = config.getInt("atlas.stream.eval-service.queue-size")
 
   override def startImpl(): Unit = {
     logger.debug("Starting service")
