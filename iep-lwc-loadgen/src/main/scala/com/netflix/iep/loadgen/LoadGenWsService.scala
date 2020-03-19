@@ -28,6 +28,7 @@ import akka.stream.KillSwitches
 import akka.stream.ThrottleMode
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Keep
+import akka.stream.scaladsl.RestartFlow
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
@@ -72,16 +73,19 @@ class LoadGenWsService @Inject()(
     killSwitch = Source
       .repeat(dataSources)
       .throttle(1, 1.minute, 1, ThrottleMode.Shaping)
-      .via(evalSourceWsFlow)
+      .via(evalSourceWsFlowWithAutoRestart)
       .watchTermination() { (_, f) =>
         f.onComplete {
-          case Success(_) | Failure(_: AbruptTerminationException) =>
+          case Success(_) =>
             // AbruptTerminationException will be triggered if the associated ActorSystem
             // is shutdown before the stream.
-            logger.info(s"shutting down LoadGenWsService")
+            logger.info(s"Flow completed, NOT attempting to restart")
+          case Failure(ate: AbruptTerminationException) =>
+            streamFailures.increment()
+            logger.error(s"Flow failed with fatal error, NOT attempting to restart", ate)
           case Failure(t) =>
             streamFailures.increment()
-            logger.error(s"LoadGenWsService failed, attempting to restart", t)
+            logger.error(s"Flow failed, attempting to restart", t)
             startImpl()
         }
       }
@@ -92,6 +96,13 @@ class LoadGenWsService @Inject()(
 
   override def stopImpl(): Unit = {
     if (killSwitch != null) killSwitch.shutdown()
+  }
+
+  private def evalSourceWsFlowWithAutoRestart: Flow[Evaluator.DataSources, String, NotUsed] = {
+    RestartFlow.withBackoff(1.second, 2.second, 0.0) { () =>
+      logger.warn("restarting evalSourceWsFlow")
+      evalSourceWsFlow
+    }
   }
 
   private def evalSourceWsFlow: Flow[Evaluator.DataSources, String, NotUsed] = {
