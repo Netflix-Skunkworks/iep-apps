@@ -22,7 +22,6 @@ import akka.actor.ActorSystem
 import akka.stream.AbruptTerminationException
 import akka.stream.ActorMaterializer
 import akka.stream.ThrottleMode
-import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
@@ -72,7 +71,7 @@ class EvalService @Inject()(
       .mapMaterializedValue(_ => NotUsed)
 
     dssSource
-      .via(Flow.fromProcessor(() => evaluator.createStreamsProcessor()))
+      .via(evaluator.createStreamsFlow)
       .runForeach(distributeMessage)
       .onComplete {
         case Success(_) | Failure(_: AbruptTerminationException) =>
