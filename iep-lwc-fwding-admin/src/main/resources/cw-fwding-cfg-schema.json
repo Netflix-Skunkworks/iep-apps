@@ -22,7 +22,7 @@
             "metricName": {
               "description": "Name of the metric that will be created in CloudWatch",
               "type": "string",
-              "pattern": "^(?:(?:[\\w\\-\\.]+)|(?:\\$\\([\\w\\-\\.]+\\)))+$"
+              "pattern": "^(?:(?:[\\w\\-\\.\\s]+)|(?:\\$\\([\\w\\-\\.]+\\)))+$"
             },
             "atlasUri": {
               "description": "Atlas query",
