@@ -103,6 +103,7 @@ class SchemaValidationSuite extends AnyFunSuite with TestAssertions with CwForwa
   test("Valid metric names") {
     Seq(
       "cons",
+      "cons cons",
       "$(var)",
       "cons$(var)",
       "$(var)cons",
@@ -117,7 +118,8 @@ class SchemaValidationSuite extends AnyFunSuite with TestAssertions with CwForwa
       "",
       "nodejs,cpuUsage",
       "${var}",
-      "$(nf:asg)"
+      "$(nf:asg)",
+      "$(nf: asg)"
     ).foreach { n =>
       assertFailure(
         validate(makeConfigString()(metricName = n)),
