@@ -40,6 +40,7 @@ import com.netflix.atlas.eval.stream.Evaluator.DataSource
 import com.netflix.atlas.eval.stream.Evaluator.DataSources
 import com.netflix.atlas.eval.stream.Evaluator.MessageEnvelope
 import com.netflix.atlas.json.Json
+import com.typesafe.config.Config
 
 import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
@@ -47,12 +48,19 @@ import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
 
-class StreamApi(evaluator: Evaluator, evalService: EvalService) extends WebApi {
+class StreamApi(
+  config: Config,
+  evalService: EvalService,
+  evaluator: Evaluator
+) extends WebApi {
 
   private val prefix = ByteString("data: ")
   private val suffix = ByteString("\r\n\r\n")
 
   private val heartbeat = ByteString(s"""data: {"type":"heartbeat"}\r\n\r\n""")
+
+  private val maxDataSourcesPerSession = config.getInt("atlas.stream.max-datasources-per-session")
+  private val validator = DataSourceValidator(maxDataSourcesPerSession, evaluator.validate)
 
   def routes: Route = {
     endpointPath("stream") {
@@ -105,7 +113,7 @@ class StreamApi(evaluator: Evaluator, evalService: EvalService) extends WebApi {
     endpointPath("api" / "v2" / "validate") {
       post {
         parseEntity(json[List[DataSource]]) { dataSourceList =>
-          val entity = DataSourceValidator.validate(dataSourceList, evaluator.validate(_)) match {
+          val entity = validator.validate(dataSourceList) match {
             case Left(errors) =>
               HttpEntity(
                 MediaTypes.`application/json`,
@@ -130,7 +138,7 @@ class StreamApi(evaluator: Evaluator, evalService: EvalService) extends WebApi {
         case msg: TextMessage => msg.textStream.fold("")(_ + _)
         case _                => throw new RuntimeException("Only text input is supported")
       }
-      .via(EvalFlow.createEvalFlow(evalService, evaluator.validate))
+      .via(EvalFlow.createEvalFlow(evalService, validator))
       .map(envelope => {
         TextMessage(Json.encode(envelope))
       })

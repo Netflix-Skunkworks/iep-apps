@@ -45,7 +45,7 @@ import scala.util.Failure
 import scala.util.Success
 
 class EvalService @Inject()(
-  config: Config,
+  val config: Config,
   val registry: Registry,
   val evaluator: Evaluator,
   implicit val system: ActorSystem
@@ -57,7 +57,6 @@ class EvalService @Inject()(
   private val registrations = new ConcurrentHashMap[String, StreamInfo]
   private val numDataSourceDistSum = registry.distributionSummary("evalService.numDataSource")
   private val queueSize = config.getInt("atlas.stream.eval-service.queue-size")
-
   override def startImpl(): Unit = {
     logger.debug("Starting service")
 
@@ -203,7 +202,7 @@ object EvalService {
     }
 
     def complete(): Unit = {
-      logger.debug(s"queue complete for $id")
+      logger.info(s"queue complete for: $id")
       queue.complete()
     }
 

@@ -26,12 +26,9 @@ import scala.util.Success
 import scala.util.Try
 
 // Parse and validation DataSource's
-object DataSourceValidator {
+case class DataSourceValidator(maxDataSourcesPerSession: Int, validateFunc: DataSource => Unit) {
 
-  def validate(
-    input: String,
-    validateFunc: DataSource => Unit
-  ): Either[List[IdAndError], DataSources] = {
+  def validate(input: String): Either[List[IdAndError], DataSources] = {
     val errorMap = mutable.Map[String, mutable.Set[String]]()
     var dataSourceList: List[DataSource] = List.empty[DataSource]
     try {
@@ -40,43 +37,45 @@ object DataSourceValidator {
       case e: Exception =>
         addError("_", s"failed to parse input: ${e.getMessage}", errorMap)
     }
-    validate(dataSourceList, validateFunc, errorMap)
+    validate(dataSourceList, errorMap)
   }
 
-  def validate(
-    dataSourceList: List[DataSource],
-    validateFunc: DataSource => Unit
-  ): Either[List[IdAndError], DataSources] = {
-    validate(dataSourceList, validateFunc, mutable.Map.empty)
+  def validate(dataSourceList: List[DataSource]): Either[List[IdAndError], DataSources] = {
+    validate(dataSourceList, mutable.Map.empty)
   }
 
   private def validate(
     dataSourceList: List[DataSource],
-    validateFunc: DataSource => Unit,
     errorMap: mutable.Map[String, mutable.Set[String]]
   ): Either[List[IdAndError], DataSources] = {
-    // Validate each DataSource
-    val visitedIds = mutable.Set[String]()
-    dataSourceList.foreach(ds => {
-      val id = ds.getId
-      // Validate id
-      if (id == null) {
-        addError(id, "id cannot be null", errorMap)
-      } else if (id.isEmpty) {
-        addError(id, "id cannot be empty", errorMap)
-      } else {
-        if (visitedIds.contains(id)) {
-          addError(id, "id cannot be duplicated", errorMap)
+
+    // Validate size limit first
+    if (dataSourceList.size > maxDataSourcesPerSession) {
+      addError("_", s"number of DataSources cannot exceed $maxDataSourcesPerSession", errorMap)
+    } else {
+      // Validate each DataSource
+      val visitedIds = mutable.Set[String]()
+      dataSourceList.foreach(ds => {
+        val id = ds.getId
+        // Validate id
+        if (id == null) {
+          addError(id, "id cannot be null", errorMap)
+        } else if (id.isEmpty) {
+          addError(id, "id cannot be empty", errorMap)
         } else {
-          visitedIds.add(id)
+          if (visitedIds.contains(id)) {
+            addError(id, "id cannot be duplicated", errorMap)
+          } else {
+            visitedIds.add(id)
+          }
         }
-      }
-      // Validate uri
-      Try(validateFunc(ds)) match {
-        case Success(_) =>
-        case Failure(e) => addError(id, s"invalid uri: ${e.getMessage}", errorMap)
-      }
-    })
+        // Validate uri
+        Try(validateFunc(ds)) match {
+          case Success(_) =>
+          case Failure(e) => addError(id, s"invalid uri: ${e.getMessage}", errorMap)
+        }
+      })
+    }
 
     if (errorMap.nonEmpty) {
       Left(
