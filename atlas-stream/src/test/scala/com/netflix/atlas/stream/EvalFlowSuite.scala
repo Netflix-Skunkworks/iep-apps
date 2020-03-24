@@ -36,6 +36,7 @@ class EvalFlowSuite extends AnyFunSuite {
   private val config = ConfigFactory.load
   private val registry = new NoopRegistry()
   private val validateNoop: DataSource => Unit = _ => ()
+
   private val dataSourceStr =
     """[{"id":"abc", "step": 10, "uri":"http://local-dev/api/v1/graph?q=name,a,:eq"}]"""
 
@@ -49,7 +50,7 @@ class EvalFlowSuite extends AnyFunSuite {
       }
     }
 
-    val evalFlow = EvalFlow.createEvalFlow(evalService, validateNoop)
+    val evalFlow = EvalFlow.createEvalFlow(evalService, DataSourceValidator(10, validateNoop))
 
     Source.single(dataSourceStr).via(evalFlow)
     val future = Source

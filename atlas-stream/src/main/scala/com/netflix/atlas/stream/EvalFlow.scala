@@ -31,7 +31,6 @@ import akka.stream.stage.InHandler
 import akka.stream.stage.OutHandler
 import com.netflix.atlas.akka.DiagnosticMessage
 import com.netflix.atlas.akka.StreamOps
-import com.netflix.atlas.eval.stream.Evaluator.DataSource
 import com.netflix.atlas.eval.stream.Evaluator.MessageEnvelope
 import com.netflix.atlas.json.Json
 import com.typesafe.scalalogging.StrictLogging
@@ -44,7 +43,7 @@ import org.reactivestreams.Publisher
   */
 private[stream] class EvalFlow(
   evalService: EvalService,
-  validateFunc: DataSource => Unit
+  validator: DataSourceValidator
 ) extends GraphStage[FlowShape[String, Source[MessageEnvelope, NotUsed]]]
     with StrictLogging {
 
@@ -93,7 +92,7 @@ private[stream] class EvalFlow(
       }
 
       override def onPush(): Unit = {
-        DataSourceValidator.validate(grab(in), validateFunc) match {
+        validator.validate(grab(in)) match {
           case Left(errors) =>
             queue.offer(new MessageEnvelope("_", DiagnosticMessage.error(Json.encode(errors))))
           case Right(dss) =>
@@ -126,8 +125,8 @@ object EvalFlow {
 
   def createEvalFlow(
     evalService: EvalService,
-    validateFunc: DataSource => Unit
+    validator: DataSourceValidator
   ): Flow[String, MessageEnvelope, NotUsed] = {
-    Flow[String].via(new EvalFlow(evalService, validateFunc)).flatMapConcat(src => src)
+    Flow[String].via(new EvalFlow(evalService, validator)).flatMapConcat(src => src)
   }
 }

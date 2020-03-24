@@ -15,10 +15,15 @@
  */
 package com.netflix.atlas.stream
 
+import akka.actor.ActorSystem
+import akka.stream.ActorMaterializer
 import com.netflix.atlas.eval.stream.Evaluator.DataSource
 import org.scalatest.funsuite.AnyFunSuite
 
 class DataSourceValidatorSuite extends AnyFunSuite {
+
+  private implicit val system = ActorSystem(getClass.getSimpleName)
+  private implicit val mat = ActorMaterializer()
 
   private val validateNoop: DataSource => Unit = _ => ()
   private val validateException: DataSource => Unit = _ => { throw new Exception("validate error") }
@@ -26,7 +31,8 @@ class DataSourceValidatorSuite extends AnyFunSuite {
   test("DataSourceInput - string - valid") {
     val stringValid =
       """[{"id":"abc", "step": 10, "uri":"http://local-dev/api/v1/graph?q=name,jvm.gc.pause,:eq,:sum&step=10s"}]"""
-    DataSourceValidator.validate(stringValid, validateNoop) match {
+    val validator = DataSourceValidator(10, validateNoop)
+    validator.validate(stringValid) match {
       case Right(dss) => assert(dss.getSources.size() === 1)
       case Left(_)    => fail("validation should have passed")
     }
@@ -34,7 +40,8 @@ class DataSourceValidatorSuite extends AnyFunSuite {
 
   test("DataSourceInput - string - valid empty") {
     val stringValid = "[]"
-    DataSourceValidator.validate(stringValid, validateNoop) match {
+    val validator = DataSourceValidator(10, validateNoop)
+    validator.validate(stringValid) match {
       case Right(dss) => assert(dss.getSources.size() === 0)
       case Left(_)    => fail("validation should have passed")
     }
@@ -46,7 +53,8 @@ class DataSourceValidatorSuite extends AnyFunSuite {
         |[{"id":"2", "step": 10, "uri":"http://local-dev/api/v1/graph?q=name,jvm.gc.pause,:eq,:sum&step=10s"},
         |{"id":"1", "step": 10, "uri":"http://local-dev/api/v1/graph?q=name,jvm.gc.pause,:eq,:sum&step=10s"}]
         |""".stripMargin
-    DataSourceValidator.validate(stringValid, validateException) match {
+    val validator = DataSourceValidator(10, validateException)
+    validator.validate(stringValid) match {
       case Right(_) =>
         fail("validation should have failed")
       case Left(errors) =>
@@ -60,7 +68,8 @@ class DataSourceValidatorSuite extends AnyFunSuite {
 
   test("DataSourceInput - string - invalid json") {
     val stringInvalidJson = "[aa"
-    DataSourceValidator.validate(stringInvalidJson, validateNoop) match {
+    val validator = DataSourceValidator(10, validateNoop)
+    validator.validate(stringInvalidJson) match {
       case Right(_) =>
         fail("validation should have failed")
       case Left(errors) =>
@@ -72,7 +81,8 @@ class DataSourceValidatorSuite extends AnyFunSuite {
   test("DataSourceInput - string - empty id") {
     val stringEmptyId =
       """[{"id":"", "step": 10, "uri":"http://local-dev/api/v1/graph?q=name,jvm.gc.pause,:eq,:sum&step=10s"}]"""
-    DataSourceValidator.validate(stringEmptyId, validateNoop) match {
+    val validator = DataSourceValidator(10, validateNoop)
+    validator.validate(stringEmptyId) match {
       case Right(_) =>
         fail("validation should have failed")
       case Left(errors) =>
@@ -85,7 +95,8 @@ class DataSourceValidatorSuite extends AnyFunSuite {
   test("DataSourceInput - string - null id") {
     val stringNullId =
       """[{"id":null, "step": 10, "uri":"http://local-dev/api/v1/graph?q=name,jvm.gc.pause,:eq,:sum&step=10s"}]"""
-    DataSourceValidator.validate(stringNullId, validateNoop) match {
+    val validator = DataSourceValidator(10, validateNoop)
+    validator.validate(stringNullId) match {
       case Right(_) =>
         fail("validation should have failed")
       case Left(errors) =>
@@ -101,7 +112,8 @@ class DataSourceValidatorSuite extends AnyFunSuite {
         |[{"id":"111", "step": 10, "uri":"http://local-dev/api/v1/graph?q=name,jvm.gc.pause,:eq,:sum&step=10s"}
         |,{"id":"111", "step": 10, "uri":"http://local-dev/api/v1/graph?q=name,jvm.gc.pause,:eq,:sum&step=10s"}]
         |""".stripMargin
-    DataSourceValidator.validate(stringDupId, validateNoop) match {
+    val validator = DataSourceValidator(10, validateNoop)
+    validator.validate(stringDupId) match {
       case Right(_) =>
         fail("validation should have failed")
       case Left(errors) =>
@@ -115,7 +127,8 @@ class DataSourceValidatorSuite extends AnyFunSuite {
     val dsList = List(
       new DataSource("111", "http://local-dev/api/v1/graph?q=name,jvm.gc.pause,:eq,:sum&step=10s")
     )
-    DataSourceValidator.validate(dsList, validateNoop) match {
+    val validator = DataSourceValidator(10, validateNoop)
+    validator.validate(dsList) match {
       case Right(dss) => assert(dss.getSources.size() === 1)
       case Left(_)    => fail("validation should have passed")
     }
@@ -132,12 +145,34 @@ class DataSourceValidatorSuite extends AnyFunSuite {
         "http://local-dev/api/v1/graph?q=name,jvm.gc.pause222,:eq,:sum&step=10s"
       )
     )
-    DataSourceValidator.validate(dsList, validateNoop) match {
+    val validator = DataSourceValidator(10, validateNoop)
+    validator.validate(dsList) match {
       case Right(_) =>
         fail("validation should have passed")
       case Left(errors) =>
         assert(errors.head.error === "id cannot be duplicated")
         assert(errors.head.id === "111")
+    }
+  }
+
+  test("DataSourceInput - exceed max DataSources") {
+    val dsList = List(
+      new DataSource(
+        "111",
+        "http://local-dev/api/v1/graph?q=name,jvm.gc.pause111,:eq,:sum&step=10s"
+      ),
+      new DataSource(
+        "222",
+        "http://local-dev/api/v1/graph?q=name,jvm.gc.pause222,:eq,:sum&step=10s"
+      )
+    )
+    val validator = DataSourceValidator(1, validateNoop)
+    validator.validate(dsList) match {
+      case Right(_) =>
+        fail("validation should have passed")
+      case Left(errors) =>
+        assert(errors.head.error === "number of DataSources cannot exceed 1")
+        assert(errors.head.id === "_")
     }
   }
 
