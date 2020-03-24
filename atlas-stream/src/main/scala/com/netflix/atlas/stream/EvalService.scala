@@ -16,6 +16,7 @@
 package com.netflix.atlas.stream
 
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 import akka.NotUsed
 import akka.actor.ActorSystem
@@ -54,9 +55,17 @@ class EvalService @Inject()(
 
   private implicit val ec = scala.concurrent.ExecutionContext.global
   private implicit val mat = ActorMaterializer()
+
   private val registrations = new ConcurrentHashMap[String, StreamInfo]
+  private val numDataSources = new AtomicInteger(0)
+
   private val numDataSourceDistSum = registry.distributionSummary("evalService.numDataSource")
   private val queueSize = config.getInt("atlas.stream.eval-service.queue-size")
+
+  def getNumDataSources: Int = {
+    numDataSources.get()
+  }
+
   override def startImpl(): Unit = {
     logger.debug("Starting service")
 
@@ -182,6 +191,7 @@ class EvalService @Inject()(
       .flatMap(_.getSources.asScala)
       .toSet
       .asJava
+    numDataSources.set(dsSet.size())
     numDataSourceDistSum.record(dsSet.size())
     new DataSources(dsSet)
   }

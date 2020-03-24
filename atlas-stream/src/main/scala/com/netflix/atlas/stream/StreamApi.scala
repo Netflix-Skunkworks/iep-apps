@@ -60,12 +60,17 @@ class StreamApi(
   private val heartbeat = ByteString(s"""data: {"type":"heartbeat"}\r\n\r\n""")
 
   private val maxDataSourcesPerSession = config.getInt("atlas.stream.max-datasources-per-session")
+  private val maxDataSourcesTotal = config.getInt("atlas.stream.max-datasources-total")
   private val validator = DataSourceValidator(maxDataSourcesPerSession, evaluator.validate)
 
   def routes: Route = {
     endpointPath("stream") {
       extractUpgradeToWebSocket { upgrade =>
-        complete(upgrade.handleMessages(createHandler()))
+        if (evalService.getNumDataSources > maxDataSourcesTotal) {
+          complete(HttpResponse(StatusCodes.ServiceUnavailable, Nil))
+        } else {
+          complete(upgrade.handleMessages(createHandler()))
+        }
       }
     } ~
     endpointPath("stream", RemainingPath) { path =>
