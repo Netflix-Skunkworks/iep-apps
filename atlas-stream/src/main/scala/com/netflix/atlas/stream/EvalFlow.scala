@@ -65,6 +65,9 @@ private[stream] class EvalFlow(
         val (_queue, _pub) = evalService.register(streamId)
         queue = _queue
         pub = _pub
+        queue.offer(
+          new MessageEnvelope("_", DiagnosticMessage.info(s"Connected with streamId: $streamId"))
+        )
         // Need to pull at beginning because pull is triggered by onPush only
         pull(in)
       }
@@ -96,6 +99,7 @@ private[stream] class EvalFlow(
           case Left(errors) =>
             queue.offer(new MessageEnvelope("_", DiagnosticMessage.error(Json.encode(errors))))
           case Right(dss) =>
+            queue.offer(new MessageEnvelope("_", DiagnosticMessage.info("Validation Passed")))
             evalService.updateDataSources(streamId, dss)
         }
         pull(in)
