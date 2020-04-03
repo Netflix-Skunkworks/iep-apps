@@ -15,7 +15,7 @@ object Dependencies {
     val scala      = "2.13.1"
     val servo      = "0.12.28"
     val slf4j      = "1.7.30"
-    val spectator  = "0.103.0"
+    val spectator  = "0.104.0"
 
     val crossScala = Seq(scala)
   }
@@ -42,7 +42,7 @@ object Dependencies {
   val awsSQS             = "com.amazonaws" % "aws-java-sdk-sqs" % aws
   val awsSTS             = "com.amazonaws" % "aws-java-sdk-sts" % aws
   val aws2SQS            = "software.amazon.awssdk" % "sqs" % aws2
-  val frigga             = "com.netflix.frigga" % "frigga" % "0.20.0"
+  val frigga             = "com.netflix.frigga" % "frigga" % "0.24.0"
   val guiceCore          = "com.google.inject" % "guice" % guice
   val guiceMulti         = "com.google.inject.extensions" % "guice-multibindings" % guice
   val iepGuice           = "com.netflix.iep" % "iep-guice" % iep
