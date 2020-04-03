@@ -67,7 +67,12 @@ class StreamApi(
     endpointPath("stream") {
       extractUpgradeToWebSocket { upgrade =>
         if (evalService.getNumDataSources > maxDataSourcesTotal) {
-          complete(HttpResponse(StatusCodes.ServiceUnavailable, Nil))
+          complete(
+            DiagnosticMessage.error(
+              StatusCodes.ServiceUnavailable,
+              "Instance capacity limit reached, please retry later"
+            )
+          )
         } else {
           complete(upgrade.handleMessages(createHandler()))
         }
