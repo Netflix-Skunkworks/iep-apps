@@ -22,6 +22,8 @@ import com.typesafe.config.Config
 
 class AggrConfig(config: Config, registry: Registry) extends AtlasConfig {
 
+  private val maxMeters = super.maxNumberOfMeters()
+
   override def get(k: String): String = {
     val prop = s"netflix.atlas.aggr.registry.$k"
     if (config.hasPath(prop)) config.getString(prop) else null
@@ -37,4 +39,10 @@ class AggrConfig(config: Config, registry: Registry) extends AtlasConfig {
     val firstTime = stepBoundary + stepSize / 10
     if (firstTime > now) firstTime - now else firstTime + stepSize - now
   }
+
+  /**
+    * Value is cached because it is called in a hot-path if there are a lot of new meters
+    * for the aggregator.
+    */
+  override def maxNumberOfMeters(): Int = maxMeters
 }
