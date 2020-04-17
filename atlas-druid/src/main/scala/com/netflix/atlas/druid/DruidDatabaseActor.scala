@@ -171,14 +171,17 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
           ds.datasource.dimensions.contains(k) && ds.metrics.exists(query.couldMatch)
         }
         // Server side dimensions filtering doesn't work for search queries, use default spec
-        // and filter locally after the results are returned
+        // and filter locally after the results are returned.
+        //
+        // The limit for number of returned values cannot be applied to the query sent to Druid
+        // because it could truncate the results for multi-value dimensions.
         val druidQueries = datasources.map { ds =>
           val searchQuery = SearchQuery(
             dataSource = ds.name,
             searchDimensions = List(DefaultDimensionSpec(k, k)),
             intervals = List(tagsQueryInterval),
             filter = DruidFilter.forQuery(query),
-            limit = tq.limit
+            limit = Int.MaxValue
           )
           client.search(searchQuery)
         }
