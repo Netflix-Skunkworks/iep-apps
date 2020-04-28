@@ -47,6 +47,17 @@ lazy val `atlas-druid` = project
     Dependencies.log4jSlf4j
   ))
 
+lazy val `atlas-persistence` = project
+  .configure(BuildSettings.profile)
+  .settings(libraryDependencies ++= Seq(
+      Dependencies.atlasModuleAkka,
+      Dependencies.atlasModuleWebApi,
+      Dependencies.iepGuice,
+      Dependencies.log4jApi,
+      Dependencies.log4jCore,
+      Dependencies.log4jSlf4j
+  ))
+
 lazy val `atlas-slotting` = project
   .configure(BuildSettings.profile)
   .settings(libraryDependencies ++= Seq(
