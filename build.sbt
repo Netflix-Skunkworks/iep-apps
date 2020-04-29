@@ -4,6 +4,7 @@ lazy val root = project.in(file("."))
   .aggregate(
     `atlas-aggregator`,
     `atlas-druid`,
+    `atlas-persistence`,
     `atlas-slotting`,
     `atlas-stream`,
     `iep-archaius`,
