@@ -1,0 +1,22 @@
+{
+  "namespace": "com.netflix.atlas.persistence",
+  "type": "record",
+  "name": "AvroDatapoint",
+  "fields": [
+    {
+      "name": "tags",
+      "type": {
+        "type": "map",
+        "values": "string"
+      }
+    },
+    {
+      "name": "timestamp",
+      "type": "long"
+    },
+    {
+      "name": "value",
+      "type": "double"
+    }
+  ]
+}

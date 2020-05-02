@@ -53,6 +53,7 @@ lazy val `atlas-persistence` = project
   .settings(libraryDependencies ++= Seq(
       Dependencies.atlasModuleAkka,
       Dependencies.atlasModuleWebApi,
+      Dependencies.avro,
       Dependencies.iepGuice,
       Dependencies.log4jApi,
       Dependencies.log4jCore,
