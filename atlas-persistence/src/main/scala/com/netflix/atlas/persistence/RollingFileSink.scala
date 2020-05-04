@@ -17,6 +17,7 @@ package com.netflix.atlas.persistence
 
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -34,70 +35,47 @@ import com.typesafe.scalalogging.StrictLogging
 // TODO handle IO failures
 class RollingFileSink(
   val sinkDir: String,
-  val maxRecords: Long
+  val maxRecords: Long,
+  val maxDurationMs: Long
 ) extends GraphStage[SinkShape[Datapoint]]
     with StrictLogging {
 
   private val in = Inlet[Datapoint]("RollingFileSink.in")
   override val shape = SinkShape(in)
-  require(maxRecords > 0)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
 
     new GraphStageLogic(shape) with InHandler {
 
-      private val hourDirFormatter = DateTimeFormatter.ofPattern("'hour'-yyyyMMdd'T'HH")
-
-      private var currentWriter: RollingFileWriter = _
-      // "-1" to make sure HourlyRollOver triggered at the beginning
-      private var currentHourStart: Long = -1
+      private var hourlyWriter: RollingFileWriter = _
 
       override def preStart(): Unit = {
+        logger.info(s"creating sink directory: $sinkDir")
         Files.createDirectories(Paths.get(sinkDir))
+
+        hourlyWriter = new HourlyRollingFileWriter(sinkDir, hourDir => {
+          new AvroRollingFileWriter(hourDir, maxRecords, maxDurationMs)
+        })
+        hourlyWriter.initialize
         pull(in)
       }
 
       override def onPush(): Unit = {
-        checkHourlyRollOver()
-        currentWriter.write(grab(in))
+        hourlyWriter.write(grab(in))
         pull(in)
       }
 
       override def onUpstreamFinish(): Unit = {
         super.completeStage()
-        //TODO close all active Hourly writers
+        hourlyWriter.close()
       }
 
       override def onUpstreamFailure(ex: Throwable): Unit = {
         super.failStage(ex)
-        //TODO close all active Hourly writers
+        hourlyWriter.close()
       }
 
       setHandler(in, this)
-
-      //TODO long idle will cause hourly rollover delay, and hour gap > 1, heartbeat to avoid
-      private def checkHourlyRollOver() = {
-        val hourStart = getHourStart(System.currentTimeMillis)
-        if (hourStart > currentHourStart) {
-          if (currentWriter != null) {
-            currentWriter.close()
-          }
-          currentWriter = newHourlyFileWriter(hourStart)
-          currentHourStart = hourStart
-        }
-      }
-
-      private def newHourlyFileWriter(hourStart: Long): RollingFileWriter = {
-        val dateTime =
-          LocalDateTime.ofInstant(Instant.ofEpochMilli(hourStart), ZoneId.systemDefault())
-        val hourDir = dateTime.format(hourDirFormatter)
-        new RollingFileWriter(s"$sinkDir/$hourDir", maxRecords)
-      }
-
-      private def getHourStart(timestamp: Long): Long = {
-        timestamp / 3600_000 * 3600_000
-      }
-
     }
   }
 }

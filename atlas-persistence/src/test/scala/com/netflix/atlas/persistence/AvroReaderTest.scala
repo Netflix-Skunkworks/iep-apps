@@ -9,7 +9,7 @@ import org.apache.avro.specific.SpecificDatumReader
 
 object AvroReaderTest {
   def main(args: Array[String]): Unit = {
-    val dir = "./data"
+    val dir = "./out"
     Files.walk(Paths.get(dir))
       .filter(path => Files.isRegularFile(path))
       .forEach(p => readFile(p.toFile))
