@@ -33,7 +33,7 @@ class PersistenceApi(localFileService: LocalFilePersistService) extends WebApi {
           datapoints match {
             case Nil => complete(DiagnosticMessage.error(StatusCodes.OK, "empty payload"))
             case _ => {
-              datapoints.foreach(dp => { localFileService.save(dp) })
+              datapoints.foreach(localFileService.persist)
               complete(HttpResponse(StatusCodes.OK))
             }
           }
