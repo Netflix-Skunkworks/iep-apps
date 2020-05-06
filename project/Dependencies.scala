@@ -6,14 +6,14 @@ object Dependencies {
   object Versions {
     val akka       = "2.5.31"
     val akkaHttpV  = "10.1.11"
-    val atlas      = "1.7.0-rc.7"
-    val aws        = "1.11.752"
-    val aws2       = "2.11.7"
-    val iep        = "2.2.2"
+    val atlas      = "1.7.0-rc.8"
+    val aws        = "1.11.764"
+    val aws2       = "2.13.6"
+    val iep        = "2.5.0"
     val guice      = "4.1.0"
-    val log4j      = "2.13.1"
-    val scala      = "2.13.1"
-    val servo      = "0.12.28"
+    val log4j      = "2.13.2"
+    val scala      = "2.13.2"
+    val servo      = "0.13.0"
     val slf4j      = "1.7.30"
     val spectator  = "0.107.0"
     val avroV      = "1.9.2"
@@ -29,7 +29,7 @@ object Dependencies {
   val akkaHttpTestkit    = "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV
   val akkaSlf4j          = "com.typesafe.akka" %% "akka-slf4j" % akka
   val akkaTestkit        = "com.typesafe.akka" %% "akka-testkit" % akka
-  val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % "1.1.2"
+  val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % "2.0.0"
   val atlasEval          = "com.netflix.atlas_v1" %% "atlas-eval" % atlas
   val atlasJson          = "com.netflix.atlas_v1" %% "atlas-json" % atlas
   val atlasModuleAkka    = "com.netflix.atlas_v1" %% "atlas-module-akka" % atlas
