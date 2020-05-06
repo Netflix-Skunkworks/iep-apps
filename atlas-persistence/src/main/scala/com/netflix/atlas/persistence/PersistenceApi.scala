@@ -31,7 +31,7 @@ class PersistenceApi(localFileService: LocalFilePersistService) extends WebApi {
       post {
         parseEntity(customJson(p => PublishApi.decodeList(p))) { datapoints =>
           datapoints match {
-            case Nil => complete(DiagnosticMessage.error(StatusCodes.OK, "empty payload"))
+            case Nil => complete(DiagnosticMessage.error(StatusCodes.BadRequest, "empty payload"))
             case _ => {
               datapoints.foreach(localFileService.persist)
               complete(HttpResponse(StatusCodes.OK))

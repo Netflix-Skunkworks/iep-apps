@@ -80,57 +80,12 @@ class LocalFilePersistService @Inject()(
   override def stopImpl(): Unit = {
     logger.info("Stopping service")
     if (killSwitch != null) killSwitch.shutdown()
+    // TODO 'sleep' is a best effort to wait for file flush downstream
+    //      need a better way, maybe system shutdown hook
     Thread.sleep(1000)
   }
 
   def persist(dp: Datapoint): Unit = {
     queue.offer(dp)
-  }
-}
-
-class RollingFileSink(
-  val sinkDir: String,
-  val maxRecords: Long,
-  val maxDurationMs: Long
-) extends GraphStage[SinkShape[Datapoint]]
-    with StrictLogging {
-
-  private val in = Inlet[Datapoint]("RollingFileSink.in")
-  override val shape = SinkShape(in)
-
-  override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
-
-    new GraphStageLogic(shape) with InHandler {
-
-      private var hourlyWriter: RollingFileWriter = _
-
-      override def preStart(): Unit = {
-        logger.info(s"creating sink directory: $sinkDir")
-        Files.createDirectories(Paths.get(sinkDir))
-
-        hourlyWriter = new HourlyRollingFileWriter(sinkDir, hourDir => {
-          new AvroRollingFileWriter(hourDir, maxRecords, maxDurationMs)
-        })
-        hourlyWriter.initialize
-        pull(in)
-      }
-
-      override def onPush(): Unit = {
-        hourlyWriter.write(grab(in))
-        pull(in)
-      }
-
-      override def onUpstreamFinish(): Unit = {
-        super.completeStage()
-        hourlyWriter.close()
-      }
-
-      override def onUpstreamFailure(ex: Throwable): Unit = {
-        super.failStage(ex)
-        hourlyWriter.close()
-      }
-
-      setHandler(in, this)
-    }
   }
 }

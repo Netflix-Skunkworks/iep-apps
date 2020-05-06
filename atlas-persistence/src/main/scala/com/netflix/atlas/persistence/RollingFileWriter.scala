@@ -29,9 +29,8 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.avro.file.DataFileWriter
 import org.apache.avro.specific.SpecificDatumWriter
 
-//TODO handl IO failures
 trait RollingFileWriter extends StrictLogging {
-  def initialize: Unit
+  def initialize(): Unit
 
   def write(dp: Datapoint): Unit = {
     if (shouldRollOver) {
@@ -44,13 +43,17 @@ trait RollingFileWriter extends StrictLogging {
   def close(): Unit = rollOver // Assuming rollOver closes current file
 
   protected[this] def writeImpl(dp: Datapoint): Unit
-  protected[this] def rollOver: Unit
-  protected[this] def newWriter: Unit
+  protected[this] def rollOver(): Unit
+  protected[this] def newWriter(): Unit
   protected[this] def shouldRollOver: Boolean
 }
 
-class AvroRollingFileWriter(val dataDir: String, val maxRecords: Long, val maxDurationMs: Long)
-    extends RollingFileWriter {
+//TODO handl IO failures
+class AvroRollingFileWriter(
+  val filePathPrefix: String,
+  val maxRecords: Long,
+  val maxDurationMs: Long
+) extends RollingFileWriter {
 
   // These "curr*" fields track status of the current file writer
   private var currFile: String = _
@@ -61,11 +64,10 @@ class AvroRollingFileWriter(val dataDir: String, val maxRecords: Long, val maxDu
   private var nextFileSeqId: Long = 0
 
   override def initialize(): Unit = {
-    Files.createDirectories(Paths.get(dataDir))
     newWriter()
   }
 
-  override protected def newWriter() = {
+  override protected def newWriter(): Unit = {
     val newFile = getNextTmpFilePath
     logger.info(s"New avro file: $newFile")
     val dataFileWriter = new DataFileWriter[AvroDatapoint](
@@ -100,23 +102,23 @@ class AvroRollingFileWriter(val dataDir: String, val maxRecords: Long, val maxDu
     if (currNumRecords == 0) {
       logger.info(s"deleting file with 0 record: ${currFile}")
       Files.delete(Paths.get(currFile))
-      return
+    } else {
+      // Rename file, removing .tmp
+      val src = Paths.get(currFile)
+      val dest = Paths.get(currFile.substring(0, currFile.length - ".tmp".length))
+      logger.info(s"Rolling over file from $src to $dest")
+      Files.move(src, dest, StandardCopyOption.ATOMIC_MOVE)
     }
-    // Rename file, removing .tmp
-    val src = Paths.get(currFile)
-    val dest = Paths.get(currFile.substring(0, currFile.length - ".tmp".length))
-    logger.info(s"Rolling over file from $src to $dest")
-    Files.move(src, dest, StandardCopyOption.ATOMIC_MOVE)
   }
 
   private def getNextTmpFilePath: String = {
-    s"$dataDir/avro.$nextFileSeqId.tmp"
+    s"$filePathPrefix-$nextFileSeqId.tmp"
   }
 
   private def toAvro(dp: Datapoint): AvroDatapoint = {
     import scala.jdk.CollectionConverters._
     AvroDatapoint.newBuilder
-      .setTags(dp.tags.asJava.asInstanceOf[java.util.Map[CharSequence, CharSequence]])
+      .setTags(dp.tags.asJava)
       .setTimestamp(dp.timestamp)
       .setValue(dp.value)
       .build
@@ -124,7 +126,7 @@ class AvroRollingFileWriter(val dataDir: String, val maxRecords: Long, val maxDu
 }
 
 /**
-  * Hourly writer does hourly directory rolling, and delicate actual writing to underlying
+  * Hourly writer does hourly directory rolling, and delegates actual writing to underlying
   * RollingFileWriter.
   *
   * Note: In order to avoid time gap, the exact same timestamp has to be used for updateHourStartEnd
@@ -145,14 +147,14 @@ class HourlyRollingFileWriter(
   private var currHourStart: Long = _
   private var currHourEnd: Long = _
 
-  override def initialize: Unit = {
+  override def initialize(): Unit = {
     Files.createDirectories(Paths.get(dataDir))
     updateHourStartEnd(System.currentTimeMillis())
     newWriter
   }
 
-  override protected def newWriter: Unit = {
-    val writer = writerFactory(getHourDir(currHourStart))
+  override protected def newWriter(): Unit = {
+    val writer = writerFactory(getFilePrefixForHour(currHourStart))
     writer.initialize
     currWriter = writer
   }
@@ -162,7 +164,7 @@ class HourlyRollingFileWriter(
     currWriter.write(dp)
   }
 
-  override protected def shouldRollOver: Boolean = {
+  override protected def shouldRollOver(): Boolean = {
     // Pull clock only once in this method
     val ts = System.currentTimeMillis
     val ready = ts >= currHourEnd
@@ -179,14 +181,13 @@ class HourlyRollingFileWriter(
 
   override protected def rollOver: Unit = {
     currWriter.close()
-    // No need to rename hour dir
   }
 
   private def getHourStart(timestamp: Long): Long = {
     timestamp / msOfOneHour * msOfOneHour
   }
 
-  private def getHourDir(hourStart: Long): String = {
+  private def getFilePrefixForHour(hourStart: Long): String = {
     val dateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(hourStart), ZoneId.systemDefault())
     s"$dataDir/${dateTime.format(hourlyDirFormatter)}"
   }

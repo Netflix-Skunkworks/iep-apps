@@ -2,8 +2,7 @@
 Receive Atlas data points and save them to S3.
 
 #### Java code generation from avro schema
-1. Download avro tools jar
-2. Run cmd in the directory of atlas-persistence (not root project):
-    ```
-    java -jar /path/to/avro-tools-1.9.2.jar compile schema ./datapoint.avsc.json src/main/java
-    ```
+- Avro code generation is a dependent step of sbt compile, so it will be executed by:
+```sbt compile``` 
+- You can also only run code generation with: ```sbt avroGenerate```
+- The generated Java Source Code can be found at: ```atlas-persistence/target/scala-*/src_managed```
