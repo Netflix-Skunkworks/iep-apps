@@ -16,12 +16,13 @@ object Dependencies {
     val servo      = "0.13.0"
     val slf4j      = "1.7.30"
     val spectator  = "0.107.0"
+    val avroV      = "1.9.2"
 
     val crossScala = Seq(scala)
   }
 
   import Versions._
-
+  val avro               = "org.apache.avro" % "avro" % avroV
   val akkaActor          = "com.typesafe.akka" %% "akka-actor" % akka
   val akkaHttpCaching    = "com.typesafe.akka" %% "akka-http-caching" % akkaHttpV
   val akkaHttpCore       = "com.typesafe.akka" %% "akka-http-core" % akkaHttpV

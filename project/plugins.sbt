@@ -9,3 +9,7 @@ addSbtPlugin("org.scalameta"             % "sbt-scalafmt"         % "2.3.1")
 // Convenient helpers, not required
 addSbtPlugin("com.timushev.sbt"          % "sbt-updates"          % "0.5.0")
 
+// Avro Java source code generation from schema
+addSbtPlugin("com.cavorite" % "sbt-avro" % "2.0.0").settings
+// avro-compiler version should match actual avro version
+libraryDependencies += "org.apache.avro" % "avro-compiler" % "1.9.2"

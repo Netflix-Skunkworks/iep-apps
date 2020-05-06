@@ -15,28 +15,27 @@
  */
 package com.netflix.atlas.persistence
 
-import akka.actor.ActorRefFactory
+import akka.http.scaladsl.model.HttpResponse
+import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.server.RouteResult
 import com.netflix.atlas.akka.CustomDirectives._
+import com.netflix.atlas.akka.DiagnosticMessage
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.webapi.PublishApi
 
-import scala.concurrent.Promise
-
-class PersistenceApi(implicit val actorRefFactory: ActorRefFactory) extends WebApi {
-
-  private val persistenceRef = actorRefFactory.actorSelection("/user/persistence")
+class PersistenceApi(localFileService: LocalFilePersistService) extends WebApi {
 
   override def routes: Route = {
     endpointPathPrefix("api" / "v1" / "persistence") {
       post {
-        extractRequestContext { ctx =>
-          parseEntity(customJson(p => PublishApi.decodeList(p))) { datapoints =>
-            val promise = Promise[RouteResult]()
-            persistenceRef ! PublishApi.PublishRequest(datapoints, Nil, promise, ctx)
-            _ => promise.future
+        parseEntity(customJson(p => PublishApi.decodeList(p))) { datapoints =>
+          datapoints match {
+            case Nil => complete(DiagnosticMessage.error(StatusCodes.BadRequest, "empty payload"))
+            case _ => {
+              datapoints.foreach(localFileService.persist)
+              complete(HttpResponse(StatusCodes.OK))
+            }
           }
         }
       }

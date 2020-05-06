@@ -50,9 +50,13 @@ lazy val `atlas-druid` = project
 
 lazy val `atlas-persistence` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Seq(
+  .settings(
+    avroStringType := "String",
+    avroFieldVisibility := "private",
+    libraryDependencies ++= Seq(
       Dependencies.atlasModuleAkka,
       Dependencies.atlasModuleWebApi,
+      Dependencies.avro,
       Dependencies.iepGuice,
       Dependencies.log4jApi,
       Dependencies.log4jCore,
