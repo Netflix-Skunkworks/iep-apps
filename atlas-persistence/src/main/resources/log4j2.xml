@@ -11,6 +11,7 @@
     <Loggers>
         <Logger name="com.netflix.iep" level="info"/>
         <Logger name="com.netflix.spectator" level="info"/>
+        <Logger name="com.netflix.atlas.persistence" level="debug"/>
         <Root level="info">
             <AppenderRef ref="STDOUT"/>
         </Root>

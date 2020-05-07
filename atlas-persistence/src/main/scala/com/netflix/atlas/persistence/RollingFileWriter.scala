@@ -26,7 +26,8 @@ import org.apache.avro.file.DataFileWriter
 import org.apache.avro.specific.SpecificDatumWriter
 
 trait RollingFileWriter extends StrictLogging {
-  def initialize(): Unit
+
+  def initialize(): Unit = newWriter
 
   def write(dp: Datapoint): Unit = {
     if (shouldRollOver) {
@@ -36,12 +37,13 @@ trait RollingFileWriter extends StrictLogging {
     writeImpl(dp)
   }
 
-  def close(): Unit = rollOver // Assuming rollOver closes current file
+  // Assuming rollOver closes current file
+  def close(): Unit = rollOver
 
-  protected[this] def writeImpl(dp: Datapoint): Unit
-  protected[this] def rollOver(): Unit
   protected[this] def newWriter(): Unit
+  protected[this] def writeImpl(dp: Datapoint): Unit
   protected[this] def shouldRollOver: Boolean
+  protected[this] def rollOver(): Unit
 }
 
 //TODO handl IO failures
@@ -59,10 +61,6 @@ class AvroRollingFileWriter(
 
   private var nextFileSeqId: Long = 0
 
-  override def initialize(): Unit = {
-    newWriter()
-  }
-
   override protected def newWriter(): Unit = {
     val newFile = getNextTmpFilePath
     logger.info(s"New avro file: $newFile")
@@ -72,7 +70,7 @@ class AvroRollingFileWriter(
     // Possible to use API that takes OutputStream to track file size if needed
     dataFileWriter.create(AvroDatapoint.getClassSchema, new File(newFile))
 
-    // Reset tracking fields
+    // Update tracking fields
     currFile = newFile
     currWriter = dataFileWriter
     currCreatedAtMs = System.currentTimeMillis()
@@ -87,8 +85,7 @@ class AvroRollingFileWriter(
   }
 
   override protected def shouldRollOver: Boolean = {
-    currNumRecords >= maxRecords ||
-    System.currentTimeMillis() - currCreatedAtMs >= maxDurationMs
+    currNumRecords >= maxRecords || System.currentTimeMillis() - currCreatedAtMs >= maxDurationMs
   }
 
   override protected def rollOver: Unit = {

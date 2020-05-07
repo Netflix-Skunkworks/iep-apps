@@ -18,7 +18,6 @@ package com.netflix.atlas.persistence
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
-import java.util.concurrent.TimeUnit
 
 import akka.NotUsed
 import akka.actor.ActorSystem
@@ -32,7 +31,6 @@ import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
 
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.Future
 import scala.concurrent.duration._
 
 class S3CopyService @Inject()(

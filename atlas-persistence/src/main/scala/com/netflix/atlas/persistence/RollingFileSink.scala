@@ -25,13 +25,15 @@ import akka.stream.stage.GraphStage
 import akka.stream.stage.GraphStageLogic
 import akka.stream.stage.InHandler
 import com.netflix.atlas.core.model.Datapoint
+import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
 
 class RollingFileSink(
   val sinkDir: String,
   val maxRecords: Long,
   val maxDurationMs: Long,
-  val maxLateDuration: Long
+  val maxLateDuration: Long,
+  val registry: Registry
 ) extends GraphStage[SinkShape[Datapoint]]
     with StrictLogging {
 
@@ -50,7 +52,7 @@ class RollingFileSink(
         logger.info(s"creating sink directory: $sinkDir")
         Files.createDirectories(Paths.get(sinkDir))
 
-        hourlyWriter = new HourlyRollingWriter(sinkDir, maxLateDuration, writerFactory)
+        hourlyWriter = new HourlyRollingWriter(sinkDir, maxLateDuration, writerFactory, registry)
         hourlyWriter.initialize
         pull(in)
       }
