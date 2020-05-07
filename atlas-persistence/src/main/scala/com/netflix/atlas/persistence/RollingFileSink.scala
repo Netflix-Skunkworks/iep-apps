@@ -30,7 +30,8 @@ import com.typesafe.scalalogging.StrictLogging
 class RollingFileSink(
   val sinkDir: String,
   val maxRecords: Long,
-  val maxDurationMs: Long
+  val maxDurationMs: Long,
+  val maxLateDuration: Long
 ) extends GraphStage[SinkShape[Datapoint]]
     with StrictLogging {
 
@@ -41,15 +42,15 @@ class RollingFileSink(
 
     new GraphStageLogic(shape) with InHandler {
 
-      private var hourlyWriter: RollingFileWriter = _
+      private var hourlyWriter: HourlyRollingWriter = _
+      private val writerFactory: String => RollingFileWriter =
+        filePathPrefix => new AvroRollingFileWriter(filePathPrefix, maxRecords, maxDurationMs)
 
       override def preStart(): Unit = {
         logger.info(s"creating sink directory: $sinkDir")
         Files.createDirectories(Paths.get(sinkDir))
 
-        hourlyWriter = new HourlyRollingFileWriter(sinkDir, filePathPrefix => {
-          new AvroRollingFileWriter(filePathPrefix, maxRecords, maxDurationMs)
-        })
+        hourlyWriter = new HourlyRollingWriter(sinkDir, maxLateDuration, writerFactory)
         hourlyWriter.initialize
         pull(in)
       }

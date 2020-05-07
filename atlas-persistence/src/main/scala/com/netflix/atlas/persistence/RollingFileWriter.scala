@@ -19,10 +19,6 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
-import java.time.Instant
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 import com.netflix.atlas.core.model.Datapoint
 import com.typesafe.scalalogging.StrictLogging
@@ -112,7 +108,7 @@ class AvroRollingFileWriter(
   }
 
   private def getNextTmpFilePath: String = {
-    s"$filePathPrefix-$nextFileSeqId.tmp"
+    s"$filePathPrefix-$nextFileSeqId.avro.tmp"
   }
 
   private def toAvro(dp: Datapoint): AvroDatapoint = {
@@ -122,73 +118,5 @@ class AvroRollingFileWriter(
       .setTimestamp(dp.timestamp)
       .setValue(dp.value)
       .build
-  }
-}
-
-/**
-  * Hourly writer does hourly directory rolling, and delegates actual writing to underlying
-  * RollingFileWriter.
-  *
-  * Note: In order to avoid time gap, the exact same timestamp has to be used for updateHourStartEnd
-  * and newWriter, especially during initialization, so here class fields(currHourStart) is used to
-  * pass around timestamp rather than getting system time at different places.
-  *
-  */
-// TODO late events with hour bucketing
-class HourlyRollingFileWriter(
-  dataDir: String,
-  writerFactory: String => RollingFileWriter
-) extends RollingFileWriter {
-
-  private val hourlyDirFormatter = DateTimeFormatter.ofPattern("yyyyMMdd'T'HH")
-  private val msOfOneHour = 3600000
-
-  private var currWriter: RollingFileWriter = _
-  private var currHourStart: Long = _
-  private var currHourEnd: Long = _
-
-  override def initialize(): Unit = {
-    Files.createDirectories(Paths.get(dataDir))
-    updateHourStartEnd(System.currentTimeMillis())
-    newWriter
-  }
-
-  override protected def newWriter(): Unit = {
-    val writer = writerFactory(getFilePrefixForHour(currHourStart))
-    writer.initialize
-    currWriter = writer
-  }
-
-  //Range check should be done outside of this class
-  override protected def writeImpl(dp: Datapoint): Unit = {
-    currWriter.write(dp)
-  }
-
-  override protected def shouldRollOver(): Boolean = {
-    // Pull clock only once in this method
-    val ts = System.currentTimeMillis
-    val ready = ts >= currHourEnd
-    if (ready) {
-      updateHourStartEnd(ts)
-    }
-    ready
-  }
-
-  private def updateHourStartEnd(ts: Long) = {
-    currHourStart = getHourStart(ts)
-    currHourEnd = currHourStart + msOfOneHour
-  }
-
-  override protected def rollOver: Unit = {
-    currWriter.close()
-  }
-
-  private def getHourStart(timestamp: Long): Long = {
-    timestamp / msOfOneHour * msOfOneHour
-  }
-
-  private def getFilePrefixForHour(hourStart: Long): String = {
-    val dateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(hourStart), ZoneId.systemDefault())
-    s"$dataDir/${dateTime.format(hourlyDirFormatter)}"
   }
 }

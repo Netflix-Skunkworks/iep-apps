@@ -54,6 +54,8 @@ class LocalFilePersistService @Inject()(
   private val maxRecords = config.getLong("atlas.persistence.local-file.max-records")
   private val maxDurationMs =
     config.getDuration("atlas.persistence.local-file.max-duration").toMillis
+  private val maxLateDurationMs =
+    config.getDuration("atlas.persistence.local-file.max-late-duration").toMillis
 
   require(queueSize > 0)
   require(maxRecords > 0)
@@ -71,7 +73,7 @@ class LocalFilePersistService @Inject()(
     val (q, k) = StreamOps
       .blockingQueue[Datapoint](registry, "LocalFilePersistService", queueSize)
       .viaMat(KillSwitches.single)(Keep.both)
-      .toMat(new RollingFileSink(sinkDir, maxRecords, maxDurationMs))(Keep.left)
+      .toMat(new RollingFileSink(sinkDir, maxRecords, maxDurationMs, maxLateDurationMs))(Keep.left)
       .run
     killSwitch = k
     queue = q
