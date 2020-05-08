@@ -15,22 +15,15 @@
  */
 package com.netflix.atlas.persistence
 
-import java.nio.file.Files
-import java.nio.file.Paths
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import akka.stream.Attributes
-import akka.stream.Inlet
 import akka.stream.KillSwitch
 import akka.stream.KillSwitches
-import akka.stream.SinkShape
 import akka.stream.scaladsl.Keep
-import akka.stream.stage.GraphStage
-import akka.stream.stage.GraphStageLogic
-import akka.stream.stage.InHandler
 import com.netflix.atlas.akka.StreamOps
 import com.netflix.atlas.akka.StreamOps.SourceQueue
 import com.netflix.atlas.core.model.Datapoint
@@ -50,18 +43,21 @@ class LocalFilePersistService @Inject()(
   implicit val mat = ActorMaterializer()
 
   private val queueSize = config.getInt("atlas.persistence.queue-size")
-  private val baseDir = config.getString("atlas.persistence.local-file.base-dir")
-  private val maxRecords = config.getLong("atlas.persistence.local-file.max-records")
-  private val maxDurationMs =
-    config.getDuration("atlas.persistence.local-file.max-duration").toMillis
+
+  private val fileConfig = config.getConfig("atlas.persistence.local-file")
+  private val baseDir = fileConfig.getString("base-dir")
+  private val maxRecords = fileConfig.getLong("max-records")
+  private val maxDurationMs = fileConfig.getDuration("max-duration").toMillis
+  private val maxLateDurationMs = fileConfig.getDuration("max-late-duration").toMillis
 
   require(queueSize > 0)
   require(maxRecords > 0)
   require(maxDurationMs > 0)
 
-  private val sinkDirFormatter = DateTimeFormatter.ofPattern("'sink'-yyyyMMdd'T'HHmmss")
+  private val sinkDirFormatter = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss")
   // Sink dir should be unique to avoid conflict when server restarts
-  private val sinkDir = s"$baseDir/${LocalDateTime.now.format(sinkDirFormatter)}"
+  private val sinkDir =
+    s"$baseDir/sink-${LocalDateTime.now(ZoneId.of("UTC")).format(sinkDirFormatter)}"
 
   private var killSwitch: KillSwitch = _
   private var queue: SourceQueue[Datapoint] = _
@@ -71,7 +67,9 @@ class LocalFilePersistService @Inject()(
     val (q, k) = StreamOps
       .blockingQueue[Datapoint](registry, "LocalFilePersistService", queueSize)
       .viaMat(KillSwitches.single)(Keep.both)
-      .toMat(new RollingFileSink(sinkDir, maxRecords, maxDurationMs))(Keep.left)
+      .toMat(new RollingFileSink(sinkDir, maxRecords, maxDurationMs, maxLateDurationMs, registry))(
+        Keep.left
+      )
       .run
     killSwitch = k
     queue = q
