@@ -16,6 +16,7 @@
 package com.netflix.atlas.persistence
 
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 import akka.actor.ActorSystem
@@ -53,9 +54,10 @@ class LocalFilePersistService @Inject()(
   require(maxRecords > 0)
   require(maxDurationMs > 0)
 
-  private val sinkDirFormatter = DateTimeFormatter.ofPattern("'sink'-yyyyMMdd'T'HHmmss")
+  private val sinkDirFormatter = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss")
   // Sink dir should be unique to avoid conflict when server restarts
-  private val sinkDir = s"$baseDir/${LocalDateTime.now.format(sinkDirFormatter)}"
+  private val sinkDir =
+    s"$baseDir/sink-${LocalDateTime.now(ZoneId.of("UTC")).format(sinkDirFormatter)}"
 
   private var killSwitch: KillSwitch = _
   private var queue: SourceQueue[Datapoint] = _

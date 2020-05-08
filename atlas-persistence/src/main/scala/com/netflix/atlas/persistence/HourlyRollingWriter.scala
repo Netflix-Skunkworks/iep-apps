@@ -17,7 +17,7 @@ package com.netflix.atlas.persistence
 
 import java.time.Instant
 import java.time.LocalDateTime
-import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
 import com.netflix.atlas.core.model.Datapoint
@@ -38,8 +38,8 @@ class HourlyRollingWriter(
   private val hourlyDirFormatter = DateTimeFormatter.ofPattern("yyyyMMdd'T'HH")
   private val msOfOneHour = 3600000
 
-  private val lateEventCounter = registry.counter("lateEvents")
-  private val futureEventCounter = registry.counter("futureEvents")
+  private val lateEventCounter = registry.counter("persistence.lateEvents")
+  private val futureEventCounter = registry.counter("persistence.futureEvents")
 
   private var currWriterInfo: WriterInfo = _
   private var prevWriterInfo: WriterInfo = _
@@ -115,7 +115,7 @@ class HourlyRollingWriter(
   }
 
   private def getFilePathPrefix(hourStart: Long): String = {
-    val dateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(hourStart), ZoneId.systemDefault())
+    val dateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(hourStart), ZoneOffset.UTC)
     s"$dataDir/${dateTime.format(hourlyDirFormatter)}"
   }
 
