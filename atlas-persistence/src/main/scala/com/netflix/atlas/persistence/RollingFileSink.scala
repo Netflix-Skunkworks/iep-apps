@@ -29,7 +29,7 @@ import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
 
 class RollingFileSink(
-  val sinkDir: String,
+  val dataDir: String,
   val maxRecords: Long,
   val maxDurationMs: Long,
   val maxLateDuration: Long,
@@ -49,10 +49,10 @@ class RollingFileSink(
         filePathPrefix => new AvroRollingFileWriter(filePathPrefix, maxRecords, maxDurationMs)
 
       override def preStart(): Unit = {
-        logger.info(s"creating sink directory: $sinkDir")
-        Files.createDirectories(Paths.get(sinkDir))
+        logger.info(s"creating sink directory: $dataDir")
+        Files.createDirectories(Paths.get(dataDir))
 
-        hourlyWriter = new HourlyRollingWriter(sinkDir, maxLateDuration, writerFactory, registry)
+        hourlyWriter = new HourlyRollingWriter(dataDir, maxLateDuration, writerFactory, registry)
         hourlyWriter.initialize
         pull(in)
       }

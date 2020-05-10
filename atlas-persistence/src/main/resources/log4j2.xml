@@ -12,6 +12,7 @@
         <Logger name="com.netflix.iep" level="info"/>
         <Logger name="com.netflix.spectator" level="info"/>
         <Logger name="com.netflix.atlas.persistence" level="debug"/>
+        <Logger name="software.amazon.awssdk" level="info"/>
         <Root level="info">
             <AppenderRef ref="STDOUT"/>
         </Root>

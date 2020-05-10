@@ -45,7 +45,7 @@ class LocalFilePersistService @Inject()(
   private val queueSize = config.getInt("atlas.persistence.queue-size")
 
   private val fileConfig = config.getConfig("atlas.persistence.local-file")
-  private val baseDir = fileConfig.getString("base-dir")
+  private val dataDir = fileConfig.getString("data-dir")
   private val maxRecords = fileConfig.getLong("max-records")
   private val maxDurationMs = fileConfig.getDuration("max-duration").toMillis
   private val maxLateDurationMs = fileConfig.getDuration("max-late-duration").toMillis
@@ -53,11 +53,6 @@ class LocalFilePersistService @Inject()(
   require(queueSize > 0)
   require(maxRecords > 0)
   require(maxDurationMs > 0)
-
-  private val sinkDirFormatter = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss")
-  // Sink dir should be unique to avoid conflict when server restarts
-  private val sinkDir =
-    s"$baseDir/sink-${LocalDateTime.now(ZoneId.of("UTC")).format(sinkDirFormatter)}"
 
   private var killSwitch: KillSwitch = _
   private var queue: SourceQueue[Datapoint] = _
@@ -67,7 +62,7 @@ class LocalFilePersistService @Inject()(
     val (q, k) = StreamOps
       .blockingQueue[Datapoint](registry, "LocalFilePersistService", queueSize)
       .viaMat(KillSwitches.single)(Keep.both)
-      .toMat(new RollingFileSink(sinkDir, maxRecords, maxDurationMs, maxLateDurationMs, registry))(
+      .toMat(new RollingFileSink(dataDir, maxRecords, maxDurationMs, maxLateDurationMs, registry))(
         Keep.left
       )
       .run

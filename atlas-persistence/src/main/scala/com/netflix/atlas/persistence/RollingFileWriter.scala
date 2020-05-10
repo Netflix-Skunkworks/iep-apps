@@ -25,6 +25,8 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.avro.file.DataFileWriter
 import org.apache.avro.specific.SpecificDatumWriter
 
+import scala.util.Random
+
 trait RollingFileWriter extends StrictLogging {
 
   def initialize(): Unit = newWriter
@@ -104,8 +106,18 @@ class AvroRollingFileWriter(
     }
   }
 
+  // The random string suffix is to avoid file name conflict when server restarts
+  // Example file name: 2020051003.i-localhost.1.XkvU3A.tmp
   private def getNextTmpFilePath: String = {
-    s"$filePathPrefix-$nextFileSeqId.avro.tmp"
+    s"$filePathPrefix.$getInstanceId.$nextFileSeqId.$getRandomStr.tmp"
+  }
+
+  private def getInstanceId: String = {
+    sys.env.getOrElse("NETFLIX_INSTANCE_ID", "i-localhost")
+  }
+
+  private def getRandomStr: String = {
+    Random.alphanumeric.take(6).mkString
   }
 
   private def toAvro(dp: Datapoint): AvroDatapoint = {
