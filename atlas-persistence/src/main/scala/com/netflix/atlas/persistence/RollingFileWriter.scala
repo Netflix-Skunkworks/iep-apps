@@ -16,9 +16,7 @@
 package com.netflix.atlas.persistence
 
 import java.io.File
-import java.nio.file.Files
 import java.nio.file.Paths
-import java.nio.file.StandardCopyOption
 
 import com.netflix.atlas.core.model.Datapoint
 import com.typesafe.scalalogging.StrictLogging
@@ -63,6 +61,8 @@ class AvroRollingFileWriter(
 
   private var nextFileSeqId: Long = 0
 
+  private val tmpFileSuffix = ".tmp"
+
   override protected def newWriter(): Unit = {
     val newFile = getNextTmpFilePath
     logger.info(s"New avro file: $newFile")
@@ -93,23 +93,25 @@ class AvroRollingFileWriter(
   override protected def rollOver: Unit = {
     currWriter.close()
 
-    //Just delete the file if no records written
     if (currNumRecords == 0) {
-      logger.info(s"deleting file with 0 record: ${currFile}")
-      Files.delete(Paths.get(currFile))
+      // Simply delete the file if no records written
+      logger.debug(s"deleting file with 0 record: ${currFile}")
+      FileUtil.delete(Paths.get(currFile), logger)
     } else {
-      // Rename file, removing .tmp
-      val src = Paths.get(currFile)
-      val dest = Paths.get(currFile.substring(0, currFile.length - ".tmp".length))
-      logger.info(s"Rolling over file from $src to $dest")
-      Files.move(src, dest, StandardCopyOption.ATOMIC_MOVE)
+      // Rename file, removing tmp file suffix
+      logger.debug(s"rolling over file $currFile")
+      FileUtil.move(
+        Paths.get(currFile),
+        Paths.get(currFile.substring(0, currFile.length - tmpFileSuffix.length)),
+        logger
+      )
     }
   }
 
-  // The random string suffix is to avoid file name conflict when server restarts
   // Example file name: 2020051003.i-localhost.1.XkvU3A.tmp
+  // The random string suffix is to avoid file name conflict when server restarts
   private def getNextTmpFilePath: String = {
-    s"$filePathPrefix.$getInstanceId.$nextFileSeqId.$getRandomStr.tmp"
+    s"$filePathPrefix.$getInstanceId.$nextFileSeqId.$getRandomStr$tmpFileSuffix"
   }
 
   private def getInstanceId: String = {

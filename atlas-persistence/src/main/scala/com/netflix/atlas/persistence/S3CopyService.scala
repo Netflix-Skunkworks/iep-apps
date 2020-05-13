@@ -15,8 +15,6 @@
  */
 package com.netflix.atlas.persistence
 
-import java.io.File
-
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.KillSwitch
@@ -43,11 +41,11 @@ class S3CopyService @Inject()(
 
   private var killSwitch: KillSwitch = _
 
+  // TODO handle stream error
   override def startImpl(): Unit = {
     logger.info("Starting service")
     killSwitch = Source
-      .fromGraph(new FileWatchSource(baseDir)) //TODO wrap with RestartSource
-      .filter(shouldCopy)
+      .fromGraph(new FileWatchSource(baseDir))
       .viaMat(KillSwitches.single)(Keep.right)
       .toMat(new S3CopySink)(Keep.left)
       .run()
@@ -58,8 +56,4 @@ class S3CopyService @Inject()(
     if (killSwitch != null) killSwitch.shutdown()
   }
 
-  // TODO handle .tmp after long idle?
-  private def shouldCopy(f: File): Boolean = {
-    !f.getName.endsWith(".tmp")
-  }
 }
