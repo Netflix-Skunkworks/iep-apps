@@ -443,6 +443,15 @@ object DruidDatabaseActor {
         val commonTags = exactTags(simpleQuery)
         val tags = commonTags ++ m
 
+        // Add has key checks for all keys within the group by. This allows druid to remove
+        // some of the results earlier on in the historical nodes.
+        val finalQuery = expr.finalGrouping
+          .filterNot(isSpecial)
+          .map(k => Query.HasKey(k))
+          .foldLeft(simpleQuery) { (q1, q2) =>
+            q1.and(q2)
+          }
+
         if (simpleQuery == Query.False) {
           None
         } else {
@@ -457,7 +466,7 @@ object DruidDatabaseActor {
             dimensions = dimensions,
             intervals = intervals,
             aggregations = List(toAggregation(name, expr)),
-            filter = DruidFilter.forQuery(simpleQuery),
+            filter = DruidFilter.forQuery(finalQuery),
             having = Some(havingSpec),
             granularity = Granularity.millis(context.step)
           )
