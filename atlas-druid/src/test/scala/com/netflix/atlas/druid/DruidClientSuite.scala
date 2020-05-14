@@ -182,18 +182,19 @@ class DruidClientSuite extends AnyFunSuite with BeforeAndAfterAll {
 
   private def executeGroupByRequest: List[GroupByDatapoint] = {
     import com.netflix.atlas.core.util.Streams._
-    val file = "groupByResponse.json"
+    val file = "groupByResponseArray.json"
     val payload = scope(resource(file))(byteArray)
     val response = HttpResponse(StatusCodes.OK, entity = payload)
     val client = newClient(Success(response))
-    val query = GroupByQuery("test", Nil, Nil, Nil)
+    val query =
+      GroupByQuery("test", List(DefaultDimensionSpec("percentile", "percentile")), Nil, Nil)
     val future = client.groupBy(query).runWith(Sink.head)
     Await.result(future, Duration.Inf)
   }
 
   test("groupBy filter out null dimensions") {
     val datapoints = executeGroupByRequest
-    assert(datapoints.count(_.tags.isEmpty) === 1)
+    assert(datapoints.count(_.tags.isEmpty) === 2)
     assert(datapoints.count(_.tags.nonEmpty) === 5)
   }
 }
