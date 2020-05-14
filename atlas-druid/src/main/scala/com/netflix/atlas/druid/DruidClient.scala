@@ -18,6 +18,7 @@ package com.netflix.atlas.druid
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.time.Duration
+import java.time.Instant
 
 import akka.NotUsed
 import akka.actor.ActorSystem
@@ -31,7 +32,10 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
+import com.fasterxml.jackson.core.JsonToken
 import com.netflix.atlas.akka.AccessLogger
+import com.netflix.atlas.akka.ByteStringInputStream
+import com.netflix.atlas.core.util.Streams
 import com.netflix.atlas.json.Json
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
@@ -121,25 +125,58 @@ class DruidClient(
   }
 
   def groupBy(query: GroupByQuery): Source[List[GroupByDatapoint], NotUsed] = {
+    val dimensions = query.dimensions.map(_.outputName)
     Source
       .single(mkRequest(query))
       .via(loggingClient)
-      .map(data => Json.decode[List[GroupByDatapoint]](data.toArray))
+      .map(data => parseResult(dimensions, data))
   }
 
-  def timeseries(query: TimeseriesQuery): Source[List[TimeseriesDatapoint], NotUsed] = {
+  def timeseries(query: TimeseriesQuery): Source[List[GroupByDatapoint], NotUsed] = {
     Source
       .single(mkRequest(query))
       .via(loggingClient)
       .map(data => Json.decode[List[TimeseriesDatapoint]](data.toArray))
+      .map(_.map(_.toGroupByDatapoint))
   }
 
   def data(query: DataQuery): Source[List[GroupByDatapoint], NotUsed] = {
     query match {
       case q: GroupByQuery    => groupBy(q)
-      case q: TimeseriesQuery => timeseries(q).map(_.map(_.toGroupByDatapoint))
+      case q: TimeseriesQuery => timeseries(q)
     }
   }
+
+  private def parseResult(dimensions: List[String], data: ByteString): List[GroupByDatapoint] = {
+    Streams.scope(Json.newJsonParser(new ByteStringInputStream(data))) { parser =>
+      import com.netflix.atlas.json.JsonParserHelper._
+      val builder = List.newBuilder[GroupByDatapoint]
+      foreachItem(parser) {
+        require(parser.currentToken() == JsonToken.START_ARRAY)
+        val timestamp = nextLong(parser)
+
+        // Check that all values in the event are non-null. Druid treats empty strings and
+        // null values as being the same. Some older threads suggest server side filtering
+        // for null values may not be reliable. This could be fixed now, but as it is a fairly
+        // rare occurrence in our use-cases and unlikely to have a big performance benefit, we
+        // do a client side filtering to remove entries with null values.
+        val tags = dimensions
+          .map { d =>
+            d -> parser.nextTextValue()
+          }
+          .filterNot(t => isNullOrEmpty(t._2))
+          .toMap
+
+        val value = nextDouble(parser)
+        parser.nextToken() // skip end array token
+
+        builder += GroupByDatapoint(timestamp, tags, value)
+      }
+      builder.result()
+    }
+  }
+
+  private def isNullOrEmpty(v: String): Boolean = v == null || v.isEmpty
 }
 
 object DruidClient {
@@ -257,6 +294,10 @@ object DruidClient {
   ) extends DataQuery {
     val queryType: String = "groupBy"
 
+    // https://druid.apache.org/docs/latest/querying/groupbyquery.html#array-based-result-rows
+    // https://github.com/apache/druid/issues/8118
+    val context: Map[String, Boolean] = Map("resultAsArray" -> true)
+
     def toTimeseriesQuery: TimeseriesQuery = {
       require(dimensions.isEmpty)
       TimeseriesQuery(dataSource, intervals, aggregations, filter, having, granularity)
@@ -275,7 +316,9 @@ object DruidClient {
     val queryType: String = "timeseries"
   }
 
-  sealed trait DimensionSpec
+  sealed trait DimensionSpec {
+    def outputName: String
+  }
 
   case class DefaultDimensionSpec(dimension: String, outputName: String) extends DimensionSpec {
     val `type`: String = "default"
@@ -288,6 +331,8 @@ object DruidClient {
     isWhitelist: Boolean = true
   ) extends DimensionSpec {
     val `type`: String = "listFiltered"
+
+    override def outputName: String = delegate.outputName
   }
 
   case class RegexFilteredDimensionSpec(
@@ -295,6 +340,8 @@ object DruidClient {
     pattern: String
   ) extends DimensionSpec {
     val `type`: String = "regexFiltered"
+
+    override def outputName: String = delegate.outputName
   }
 
   case class Aggregation(`type`: String, fieldName: String) {
@@ -325,23 +372,15 @@ object DruidClient {
     def fromDuration(dur: Duration): Granularity = Granularity(dur.toMillis)
   }
 
-  case class GroupByDatapoint(timestamp: String, event: Map[String, String]) {
+  case class GroupByDatapoint(timestamp: Long, tags: Map[String, String], value: Double)
 
-    private def isNullOrEmpty(v: String): Boolean = v == null || v.isEmpty
+  case class TimeseriesDatapoint(timestamp: String, result: TimeseriesResult) {
 
-    /**
-      * Checks that all values in the event are non-null. Druid treats empty strings and
-      * null values as being the same. Some older threads suggest server side filtering
-      * for null values may not be reliable. This could be fixed now, but as it is a fairly
-      * rare occurrence in our use-cases and unlikely to have a big performance benefit, we
-      * do a client side filtering to remove entries with null values.
-      */
-    def tags: Map[String, String] = (event - "value").filterNot(t => isNullOrEmpty(t._2))
+    def toGroupByDatapoint: GroupByDatapoint = {
+      val t = Instant.parse(timestamp).toEpochMilli
+      GroupByDatapoint(t, Map.empty, result.value)
+    }
   }
 
-  case class TimeseriesDatapoint(timestamp: String, result: Map[String, String]) {
-    def toGroupByDatapoint: GroupByDatapoint = GroupByDatapoint(timestamp, result)
-  }
-
-  case class Event(tags: Map[String, String], value: Double)
+  case class TimeseriesResult(value: Double)
 }

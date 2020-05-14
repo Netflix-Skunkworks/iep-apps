@@ -402,13 +402,13 @@ object DruidDatabaseActor {
     data.foreach { d =>
       val tags = d.tags
       val array = arrays.getOrElseUpdate(tags, ArrayHelper.fill(length, Double.NaN))
-      val t = Instant.parse(d.timestamp).toEpochMilli
+      val t = d.timestamp
       val i = ((t - context.start) / context.step).toInt
       if (i >= 0 && i < length) {
         // Assume all values are counters that are in a rate per step. To make it consistent
         // with Atlas conventions, the value should be reported as a rate per second. This
         // may need to be revisited in the future if other types are supported.
-        array(i) = d.event.getOrElse("value", "NaN").toDouble / stepSeconds
+        array(i) = d.value / stepSeconds
       }
     }
     arrays.toList.map {
