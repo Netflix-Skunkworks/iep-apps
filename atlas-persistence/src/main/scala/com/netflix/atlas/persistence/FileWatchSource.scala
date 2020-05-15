@@ -49,9 +49,9 @@ class FileWatchSource(directory: String) extends GraphStage[SourceShape[File]] w
 
       override def preStart(): Unit = {
         logger.debug("starting WatchService")
-        checkExistingFiles
         watchService = FileSystems.getDefault.newWatchService
         Paths.get(directory).register(watchService, StandardWatchEventKinds.ENTRY_CREATE)
+        checkExistingFiles
       }
 
       override def postStop(): Unit = {

@@ -35,7 +35,6 @@ class HourlyRollingWriter(
   registry: Registry
 ) extends StrictLogging {
 
-  private val hourFmt = DateTimeFormatter.ofPattern("yyyyMMddHH")
   private val msOfOneHour = 3600000
 
   private val lateEventsCounter = registry.counter("persistence.lateEvents")
@@ -116,7 +115,7 @@ class HourlyRollingWriter(
 
   private def getFilePathPrefixForHour(hourStart: Long): String = {
     val dateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(hourStart), ZoneOffset.UTC)
-    s"$dataDir/${dateTime.format(hourFmt)}"
+    s"$dataDir/${dateTime.format(HourlyRollingWriter.HourFormatter)}"
   }
 
   case class WriterInfo(
@@ -133,4 +132,9 @@ class HourlyRollingWriter(
       ts >= startTime && ts < endTime
     }
   }
+}
+
+object HourlyRollingWriter {
+  val HourFormatter = DateTimeFormatter.ofPattern("yyyyMMddHH")
+  val HourStringLen: Int = 10
 }

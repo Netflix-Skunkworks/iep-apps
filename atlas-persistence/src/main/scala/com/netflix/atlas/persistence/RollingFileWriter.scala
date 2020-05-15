@@ -61,8 +61,6 @@ class AvroRollingFileWriter(
 
   private var nextFileSeqId: Long = 0
 
-  private val tmpFileSuffix = ".tmp"
-
   override protected def newWriter(): Unit = {
     val newFile = getNextTmpFilePath
     logger.info(s"New avro file: $newFile")
@@ -102,7 +100,7 @@ class AvroRollingFileWriter(
       logger.debug(s"rolling over file $currFile")
       FileUtil.move(
         Paths.get(currFile),
-        Paths.get(currFile.substring(0, currFile.length - tmpFileSuffix.length)),
+        Paths.get(currFile.substring(0, currFile.length - RollingFileWriter.TmpFileSuffix.length)),
         logger
       )
     }
@@ -111,7 +109,7 @@ class AvroRollingFileWriter(
   // Example file name: 2020051003.i-localhost.1.XkvU3A.tmp
   // The random string suffix is to avoid file name conflict when server restarts
   private def getNextTmpFilePath: String = {
-    s"$filePathPrefix.$getInstanceId.$nextFileSeqId.$getRandomStr$tmpFileSuffix"
+    s"$filePathPrefix.$getInstanceId.$nextFileSeqId.$getRandomStr${RollingFileWriter.TmpFileSuffix}"
   }
 
   private def getInstanceId: String = {
@@ -130,4 +128,8 @@ class AvroRollingFileWriter(
       .setValue(dp.value)
       .build
   }
+}
+
+object RollingFileWriter {
+  val TmpFileSuffix = ".tmp"
 }

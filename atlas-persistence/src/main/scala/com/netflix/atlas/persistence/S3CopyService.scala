@@ -40,14 +40,17 @@ class S3CopyService @Inject()(
   private implicit val mat = ActorMaterializer()
 
   private var killSwitch: KillSwitch = _
+  private val s3Config = config.getConfig("atlas.persistence.s3")
+  private val bucket = s3Config.getString("bucket")
+  private val region = s3Config.getString("region")
+  private val prefix = s3Config.getString("prefix")
 
-  // TODO handle stream error
   override def startImpl(): Unit = {
     logger.info("Starting service")
     killSwitch = Source
       .fromGraph(new FileWatchSource(baseDir))
       .viaMat(KillSwitches.single)(Keep.right)
-      .toMat(new S3CopySink)(Keep.left)
+      .toMat(new S3CopySink(bucket, region, prefix, registry, system))(Keep.left)
       .run()
   }
 

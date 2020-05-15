@@ -57,6 +57,7 @@ class RollingFileSink(
         pull(in)
       }
 
+      // TODO timer to trigger rollover in case of long idle
       override def onPush(): Unit = {
         hourlyWriter.write(grab(in))
         pull(in)
