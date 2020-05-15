@@ -16,14 +16,14 @@
 package com.netflix.atlas.persistence
 
 import java.io.File
-import java.nio.file.Files
 import java.nio.file.Paths
-import java.nio.file.StandardCopyOption
 
 import com.netflix.atlas.core.model.Datapoint
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.avro.file.DataFileWriter
 import org.apache.avro.specific.SpecificDatumWriter
+
+import scala.util.Random
 
 trait RollingFileWriter extends StrictLogging {
 
@@ -91,21 +91,33 @@ class AvroRollingFileWriter(
   override protected def rollOver: Unit = {
     currWriter.close()
 
-    //Just delete the file if no records written
     if (currNumRecords == 0) {
-      logger.info(s"deleting file with 0 record: ${currFile}")
-      Files.delete(Paths.get(currFile))
+      // Simply delete the file if no records written
+      logger.debug(s"deleting file with 0 record: ${currFile}")
+      FileUtil.delete(Paths.get(currFile), logger)
     } else {
-      // Rename file, removing .tmp
-      val src = Paths.get(currFile)
-      val dest = Paths.get(currFile.substring(0, currFile.length - ".tmp".length))
-      logger.info(s"Rolling over file from $src to $dest")
-      Files.move(src, dest, StandardCopyOption.ATOMIC_MOVE)
+      // Rename file, removing tmp file suffix
+      logger.debug(s"rolling over file $currFile")
+      FileUtil.move(
+        Paths.get(currFile),
+        Paths.get(currFile.substring(0, currFile.length - RollingFileWriter.TmpFileSuffix.length)),
+        logger
+      )
     }
   }
 
+  // Example file name: 2020051003.i-localhost.1.XkvU3A.tmp
+  // The random string suffix is to avoid file name conflict when server restarts
   private def getNextTmpFilePath: String = {
-    s"$filePathPrefix-$nextFileSeqId.avro.tmp"
+    s"$filePathPrefix.$getInstanceId.$nextFileSeqId.$getRandomStr${RollingFileWriter.TmpFileSuffix}"
+  }
+
+  private def getInstanceId: String = {
+    sys.env.getOrElse("NETFLIX_INSTANCE_ID", "i-localhost")
+  }
+
+  private def getRandomStr: String = {
+    Random.alphanumeric.take(6).mkString
   }
 
   private def toAvro(dp: Datapoint): AvroDatapoint = {
@@ -116,4 +128,8 @@ class AvroRollingFileWriter(
       .setValue(dp.value)
       .build
   }
+}
+
+object RollingFileWriter {
+  val TmpFileSuffix = ".tmp"
 }
