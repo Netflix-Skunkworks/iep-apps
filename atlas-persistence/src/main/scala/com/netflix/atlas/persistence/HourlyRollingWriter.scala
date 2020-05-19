@@ -37,8 +37,9 @@ class HourlyRollingWriter(
 
   private val msOfOneHour = 3600000
 
-  private val lateEventsCounter = registry.counter("persistence.lateEvents")
-  private val futureEventsCounter = registry.counter("persistence.futureEvents")
+  private val baseId = registry.createId("persistence.outOfOrderEvents")
+  private val lateEventsCounter = registry.counter(baseId.withTag("id", "late"))
+  private val futureEventsCounter = registry.counter(baseId.withTag("id", "future"))
 
   private var currWriterInfo: WriterInfo = _
   private var prevWriterInfo: WriterInfo = _
