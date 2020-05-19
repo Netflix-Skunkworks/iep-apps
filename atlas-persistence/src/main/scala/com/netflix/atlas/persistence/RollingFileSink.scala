@@ -46,7 +46,8 @@ class RollingFileSink(
 
       private var hourlyWriter: HourlyRollingWriter = _
       private val writerFactory: String => RollingFileWriter =
-        filePathPrefix => new AvroRollingFileWriter(filePathPrefix, maxRecords, maxDurationMs)
+        filePathPrefix =>
+          new AvroRollingFileWriter(filePathPrefix, maxRecords, maxDurationMs, registry)
 
       override def preStart(): Unit = {
         logger.info(s"creating sink directory: $dataDir")

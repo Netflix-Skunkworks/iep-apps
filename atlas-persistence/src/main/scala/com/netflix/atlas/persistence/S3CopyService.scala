@@ -15,11 +15,15 @@
  */
 package com.netflix.atlas.persistence
 
+import java.io.File
+
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.KillSwitch
 import akka.stream.KillSwitches
 import akka.stream.scaladsl.Keep
+import akka.stream.scaladsl.RestartSource
 import akka.stream.scaladsl.Source
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Registry
@@ -47,9 +51,9 @@ class S3CopyService @Inject()(
 
   override def startImpl(): Unit = {
     logger.info("Starting service")
-    killSwitch = Source
-      .fromGraph(new FileWatchSource(baseDir))
+    killSwitch = getFileWatchSource
       .viaMat(KillSwitches.single)(Keep.right)
+      // S3CopySink handles flow restart for each file so no need to use RestartSink here
       .toMat(new S3CopySink(bucket, region, prefix, registry, system))(Keep.left)
       .run()
   }
@@ -59,4 +63,16 @@ class S3CopyService @Inject()(
     if (killSwitch != null) killSwitch.shutdown()
   }
 
+  private def getFileWatchSource: Source[File, NotUsed] = {
+    import scala.concurrent.duration._
+    RestartSource.withBackoff(
+      minBackoff = 1.second,
+      maxBackoff = 5.seconds,
+      randomFactor = 0,
+      maxRestarts = -1
+    ) { () =>
+      Source
+        .fromGraph(new FileWatchSource(baseDir))
+    }
+  }
 }

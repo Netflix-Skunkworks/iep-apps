@@ -19,6 +19,7 @@ import java.io.File
 import java.nio.file.Paths
 
 import com.netflix.atlas.core.model.Datapoint
+import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.avro.file.DataFileWriter
 import org.apache.avro.specific.SpecificDatumWriter
@@ -46,11 +47,11 @@ trait RollingFileWriter extends StrictLogging {
   protected[this] def rollOver(): Unit
 }
 
-//TODO handl IO failures
 class AvroRollingFileWriter(
   val filePathPrefix: String,
   val maxRecords: Long,
-  val maxDurationMs: Long
+  val maxDurationMs: Long,
+  val registry: Registry
 ) extends RollingFileWriter {
 
   // These "curr*" fields track status of the current file writer
@@ -60,6 +61,8 @@ class AvroRollingFileWriter(
   private var currNumRecords: Long = 0
 
   private var nextFileSeqId: Long = 0
+
+  private val avroWriteErrors = registry.counter("persistence.avroWriteErrors")
 
   override protected def newWriter(): Unit = {
     val newFile = getNextTmpFilePath
@@ -80,7 +83,14 @@ class AvroRollingFileWriter(
   }
 
   override protected def writeImpl(dp: Datapoint): Unit = {
-    currWriter.append(toAvro(dp))
+    try {
+      currWriter.append(toAvro(dp))
+    } catch {
+      case e: Exception => {
+        avroWriteErrors.increment()
+        logger.debug(s"error writing to avro file, file=$currFile datapoint=$dp", e)
+      }
+    }
     currNumRecords += 1
   }
 

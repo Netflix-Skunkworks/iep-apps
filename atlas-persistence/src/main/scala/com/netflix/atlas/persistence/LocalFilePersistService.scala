@@ -15,15 +15,14 @@
  */
 package com.netflix.atlas.persistence
 
-import java.time.LocalDateTime
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.KillSwitch
 import akka.stream.KillSwitches
 import akka.stream.scaladsl.Keep
+import akka.stream.scaladsl.RestartSink
+import akka.stream.scaladsl.Sink
 import com.netflix.atlas.akka.StreamOps
 import com.netflix.atlas.akka.StreamOps.SourceQueue
 import com.netflix.atlas.core.model.Datapoint
@@ -62,12 +61,24 @@ class LocalFilePersistService @Inject()(
     val (q, k) = StreamOps
       .blockingQueue[Datapoint](registry, "LocalFilePersistService", queueSize)
       .viaMat(KillSwitches.single)(Keep.both)
-      .toMat(new RollingFileSink(dataDir, maxRecords, maxDurationMs, maxLateDurationMs, registry))(
-        Keep.left
-      )
+      .toMat(getRollingFileSink)(Keep.left)
       .run
     killSwitch = k
     queue = q
+  }
+
+  private def getRollingFileSink(): Sink[Datapoint, NotUsed] = {
+    import scala.concurrent.duration._
+    RestartSink.withBackoff(
+      minBackoff = 1.second,
+      maxBackoff = 3.seconds,
+      randomFactor = 0,
+      maxRestarts = -1
+    ) { () =>
+      Sink.fromGraph(
+        new RollingFileSink(dataDir, maxRecords, maxDurationMs, maxLateDurationMs, registry)
+      )
+    }
   }
 
   override def stopImpl(): Unit = {

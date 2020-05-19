@@ -111,10 +111,10 @@ class S3CopySink(
 
         val killSwitch = RestartSource
           .onFailuresWithBackoff(
-            minBackoff = 1.second,
-            maxBackoff = 5.seconds,
+            minBackoff = 100.millis,
+            maxBackoff = 1.seconds,
             randomFactor = 0,
-            maxRestarts = Int.MaxValue
+            maxRestarts = -1
           ) { () =>
             Source.fromFuture(copyToS3Async(file).asScala)
           }
