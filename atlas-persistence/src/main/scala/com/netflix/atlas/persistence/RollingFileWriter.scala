@@ -62,7 +62,7 @@ class AvroRollingFileWriter(
 
   private var nextFileSeqId: Long = 0
 
-  private val avroWriteError = registry.counter("persistence.avroWriteError")
+  private val avroWriteErrors = registry.counter("persistence.avroWriteErrors")
 
   override protected def newWriter(): Unit = {
     val newFile = getNextTmpFilePath
@@ -87,7 +87,7 @@ class AvroRollingFileWriter(
       currWriter.append(toAvro(dp))
     } catch {
       case e: Exception => {
-        avroWriteError.increment()
+        avroWriteErrors.increment()
         logger.debug(s"error writing to avro file, file=$currFile datapoint=$dp", e)
       }
     }
