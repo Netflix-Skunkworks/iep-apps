@@ -22,10 +22,11 @@ import java.nio.file.Paths
 import org.apache.avro.file.DataFileReader
 import org.apache.avro.specific.SpecificDatumReader
 
-object AvroReaderTest {
+// Read metadata for all avro files in given directory
+object AvroTest {
 
   def main(args: Array[String]): Unit = {
-    val dir = "./out"
+    val dir = args(0)
     Files
       .walk(Paths.get(dir))
       .filter(path => Files.isRegularFile(path))
@@ -33,19 +34,17 @@ object AvroReaderTest {
   }
 
   private def readFile(file: File): Unit = {
-    println(s"    ##### reading file: $file")
+    println(s"##### Reading file: $file")
     var count = 0
     val userDatumReader = new SpecificDatumReader[AvroDatapoint](classOf[AvroDatapoint])
     val dataFileReader = new DataFileReader[AvroDatapoint](file, userDatumReader)
     while (dataFileReader.hasNext) {
-      val dp = dataFileReader.next();
-      //println(dp)
       count += 1
     }
 
-    println(s"blockCount = ${dataFileReader.getBlockCount}")
-    println(s"blockSize  = ${dataFileReader.getBlockSize}")
-    println(s"numRecords = ${count}")
+    println(s"    blockCount = ${dataFileReader.getBlockCount}")
+    println(s"    blockSize  = ${dataFileReader.getBlockSize}")
+    println(s"    numRecords = $count")
 
     dataFileReader.close()
     println
