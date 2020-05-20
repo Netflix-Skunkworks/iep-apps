@@ -27,16 +27,25 @@ import com.netflix.atlas.webapi.PublishApi
 class PersistenceApi(localFileService: LocalFilePersistService) extends WebApi {
 
   override def routes: Route = {
-    endpointPathPrefix("api" / "v1" / "persistence") {
-      post {
-        parseEntity(customJson(p => PublishApi.decodeList(p))) { datapoints =>
-          datapoints match {
-            case Nil => complete(DiagnosticMessage.error(StatusCodes.BadRequest, "empty payload"))
-            case _ => {
-              datapoints.foreach(localFileService.persist)
-              complete(HttpResponse(StatusCodes.OK))
-            }
-          }
+    post {
+      endpointPath("api" / "v1" / "persistence") {
+        handleReq
+      } ~ endpointPath("api" / "v1" / "publish") {
+        handleReq
+      } ~ endpointPath("api" / "v1" / "publish-fast") {
+        // Legacy path from when there was more than one publish mode
+        handleReq
+      }
+    }
+  }
+
+  private def handleReq: Route = {
+    parseEntity(customJson(p => PublishApi.decodeList(p))) { datapoints =>
+      datapoints match {
+        case Nil => complete(DiagnosticMessage.error(StatusCodes.BadRequest, "empty payload"))
+        case _ => {
+          datapoints.foreach(localFileService.persist)
+          complete(HttpResponse(StatusCodes.OK))
         }
       }
     }
