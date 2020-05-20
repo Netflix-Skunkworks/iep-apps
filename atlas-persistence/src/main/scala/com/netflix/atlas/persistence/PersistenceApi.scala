@@ -40,7 +40,7 @@ class PersistenceApi(localFileService: LocalFilePersistService) extends WebApi {
   }
 
   private def handleReq: Route = {
-    parseEntity(customJson(p => PublishApi.decodeList(p))) { datapoints =>
+    parseEntity(customJson(p => PublishApi.decodeBatch(p))) { datapoints =>
       datapoints match {
         case Nil => complete(DiagnosticMessage.error(StatusCodes.BadRequest, "empty payload"))
         case _ => {
