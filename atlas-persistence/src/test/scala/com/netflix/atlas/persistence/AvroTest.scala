@@ -39,6 +39,7 @@ object AvroTest {
     val userDatumReader = new SpecificDatumReader[AvroDatapoint](classOf[AvroDatapoint])
     val dataFileReader = new DataFileReader[AvroDatapoint](file, userDatumReader)
     while (dataFileReader.hasNext) {
+      dataFileReader.next()
       count += 1
     }
 
