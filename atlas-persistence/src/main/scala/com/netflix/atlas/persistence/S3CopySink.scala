@@ -156,9 +156,7 @@ class S3CopySink(
       private def buildS3Key(fileName: String): String = {
         val hour = fileName.substring(0, HourlyRollingWriter.HourStringLen)
         val s3FileName = fileName.substring(HourlyRollingWriter.HourStringLen + 1)
-        //TODO not hash for now for easier data cleanup
-        //val hourPath = hash(s"$prefix/$hour")
-        val hourPath = s"$prefix/$hour"
+        val hourPath = hash(s"$prefix/$hour")
         s"$hourPath/$s3FileName"
       }
 

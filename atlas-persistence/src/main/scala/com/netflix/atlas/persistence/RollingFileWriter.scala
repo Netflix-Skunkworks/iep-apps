@@ -116,10 +116,11 @@ class AvroRollingFileWriter(
     }
   }
 
-  // Example file name: 2020051003.i-localhost.1.XkvU3A.tmp
+  // Example file name: 2020051003.i-localhost.0001.XkvU3A.tmp
   // The random string suffix is to avoid file name conflict when server restarts
   private def getNextTmpFilePath: String = {
-    s"$filePathPrefix.$getInstanceId.$nextFileSeqId.$getRandomStr${RollingFileWriter.TmpFileSuffix}"
+    val seqStr = "%04d".format(nextFileSeqId)
+    s"$filePathPrefix.$getInstanceId.$seqStr.$getRandomStr${RollingFileWriter.TmpFileSuffix}"
   }
 
   private def getInstanceId: String = {
