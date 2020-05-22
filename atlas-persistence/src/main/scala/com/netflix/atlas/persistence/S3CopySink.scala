@@ -99,7 +99,6 @@ class S3CopySink(
           .build()
       }
 
-      // TODO handle .tmp after long idle?
       private def shouldCopy(f: File): Boolean = {
         !f.getName.endsWith(RollingFileWriter.TmpFileSuffix)
       }
@@ -127,7 +126,7 @@ class S3CopySink(
       }
 
       def cleanupFile(file: File): Unit = {
-        FileUtil.delete(file.toPath, logger)
+        FileUtil.delete(file, logger)
         // Un-register from activeFiles map
         activeFiles -= file.getName
       }

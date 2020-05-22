@@ -15,28 +15,49 @@
  */
 package com.netflix.atlas.persistence
 
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 
 import com.typesafe.scalalogging.Logger
 
 object FileUtil {
 
-  def delete(path: Path, logger: Logger): Unit = {
+  def delete(f: File, logger: Logger): Unit = {
     try {
-      Files.delete(path)
-      logger.debug(s"deleted path $path")
+      Files.delete(f.toPath)
+      logger.debug(s"deleted file $f")
     } catch {
-      case e: Exception => logger.error(s"failed to delete path $path", e)
+      case e: Exception => logger.error(s"failed to delete path $f", e)
     }
   }
 
-  def move(source: Path, target: Path, logger: Logger): Unit = {
+  def listFiles(f: File, logger: Logger): List[File] = {
     try {
-      Files.move(source, target)
+      f.listFiles().toList
     } catch {
-      case e: Exception => logger.error(s"failed to move path from $source to $target", e)
+      case e: Exception =>
+        logger.error(s"failed to list files for: $f", e)
+        Nil
     }
   }
 
+  def isTmpFile(f: File): Boolean = {
+    f.getName.endsWith(RollingFileWriter.TmpFileSuffix)
+  }
+
+  // Mark a file as complete by removing tmp suffix, so it's ready for s3 copy
+  def markWriteComplete(f: File, logger: Logger): Unit = {
+    try {
+      val filePath = f.getCanonicalPath
+      Files.move(
+        Paths.get(filePath),
+        Paths.get(filePath.substring(0, filePath.length - RollingFileWriter.TmpFileSuffix.length))
+      )
+    } catch {
+      case e: Exception =>
+        logger.error(s"Failed to mark file as complete by removing tmp suffix: $f", e)
+    }
+  }
 }

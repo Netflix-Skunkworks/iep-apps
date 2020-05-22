@@ -104,15 +104,11 @@ class AvroRollingFileWriter(
     if (currNumRecords == 0) {
       // Simply delete the file if no records written
       logger.debug(s"deleting file with 0 record: ${currFile}")
-      FileUtil.delete(Paths.get(currFile), logger)
+      FileUtil.delete(new File(currFile), logger)
     } else {
       // Rename file, removing tmp file suffix
       logger.debug(s"rolling over file $currFile")
-      FileUtil.move(
-        Paths.get(currFile),
-        Paths.get(currFile.substring(0, currFile.length - RollingFileWriter.TmpFileSuffix.length)),
-        logger
-      )
+      FileUtil.markWriteComplete(new File(currFile), logger)
     }
   }
 

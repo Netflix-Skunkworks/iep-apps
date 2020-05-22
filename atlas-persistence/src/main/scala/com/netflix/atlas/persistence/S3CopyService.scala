@@ -38,7 +38,7 @@ class S3CopyService @Inject()(
 ) extends AbstractService
     with StrictLogging {
 
-  private val baseDir = config.getString("atlas.persistence.local-file.data-dir")
+  private val dataDir = config.getString("atlas.persistence.local-file.data-dir")
 
   private implicit val ec = scala.concurrent.ExecutionContext.global
   private implicit val mat = ActorMaterializer()
@@ -48,6 +48,16 @@ class S3CopyService @Inject()(
   private val bucket = s3Config.getString("bucket")
   private val region = s3Config.getString("region")
   private val prefix = s3Config.getString("prefix")
+  private val cleanupTimeoutMs = s3Config.getDuration("cleanup-timeout").toMillis
+  private val maxInactiveMs = s3Config.getDuration("max-inactive-duration").toMillis
+
+  private val maxFileDurationMs =
+    config.getDuration("atlas.persistence.local-file.max-duration").toMillis
+
+  require(
+    maxInactiveMs > maxFileDurationMs,
+    "`max-inactive-duration` MUST be longer than `max-duration`, otherwise file may be closed before normal write competes"
+  )
 
   override def startImpl(): Unit = {
     logger.info("Starting service")
@@ -56,11 +66,6 @@ class S3CopyService @Inject()(
       // S3CopySink handles flow restart for each file so no need to use RestartSink here
       .toMat(new S3CopySink(bucket, region, prefix, registry, system))(Keep.left)
       .run()
-  }
-
-  override def stopImpl(): Unit = {
-    logger.info("Stopping service")
-    if (killSwitch != null) killSwitch.shutdown()
   }
 
   private def getFileWatchSource: Source[File, NotUsed] = {
@@ -72,7 +77,40 @@ class S3CopyService @Inject()(
       maxRestarts = -1
     ) { () =>
       Source
-        .fromGraph(new FileWatchSource(baseDir))
+        .fromGraph(new FileWatchSource(dataDir, maxInactiveMs))
+    }
+  }
+
+  override def stopImpl(): Unit = {
+    waitForCleanup()
+    logger.info("Stopping service")
+    if (killSwitch != null) killSwitch.shutdown()
+  }
+
+  private def waitForCleanup(): Unit = {
+    logger.info("Waiting for cleanup")
+    val start = System.currentTimeMillis
+    while (!listFiles.isEmpty) {
+      if (System.currentTimeMillis() > start + cleanupTimeoutMs) {
+        logger.error("Cleanup timeout")
+        return
+      }
+      Thread.sleep(1000)
+    }
+    logger.info("Cleanup done")
+  }
+
+  private def listFiles: List[File] = {
+    try {
+      new File(dataDir)
+        .listFiles()
+        .filter(_.isFile)
+        .toList
+    } catch {
+      case e: Exception => {
+        logger.error(s"Error listing files in $dataDir", e)
+        throw e
+      }
     }
   }
 }
