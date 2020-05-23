@@ -34,7 +34,10 @@ trait RollingFileWriter extends StrictLogging {
       rollOver
       newWriter
     }
-    writeImpl(dp)
+    // Ignore the special datapoint
+    if (RollingFileWriter.RolloverCheckDatapoint ne dp) {
+      writeImpl(dp)
+    }
   }
 
   // Assuming rollOver closes current file
@@ -138,4 +141,6 @@ class AvroRollingFileWriter(
 
 object RollingFileWriter {
   val TmpFileSuffix = ".tmp"
+  // A special Datapoint used solely for triggering rollover check
+  val RolloverCheckDatapoint = Datapoint(Map.empty, 0, 0)
 }
