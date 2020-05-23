@@ -80,8 +80,6 @@ class AvroRollingFileWriter(
     currWriter = dataFileWriter
     currCreatedAtMs = System.currentTimeMillis()
     currNumRecords = 0
-
-    nextFileSeqId += 1
   }
 
   override protected def writeImpl(dp: Datapoint): Unit = {
@@ -107,10 +105,12 @@ class AvroRollingFileWriter(
       // Simply delete the file if no records written
       logger.debug(s"deleting file with 0 record: ${currFile}")
       FileUtil.delete(new File(currFile))
+      // Note: nextFileSeqId is not increased here so that actual file seq are always consecutive
     } else {
       // Rename file, removing tmp file suffix
       logger.debug(s"rolling over file $currFile")
       FileUtil.markWriteComplete(new File(currFile))
+      nextFileSeqId += 1
     }
   }
 

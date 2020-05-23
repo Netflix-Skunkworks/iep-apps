@@ -80,6 +80,7 @@ class HourlyRollingWriter(
     checkPrevHourExpiration(now)
 
     if (RollingFileWriter.RolloverCheckDatapoint eq dp) {
+      //check rollover for both writers
       currWriterInfo.write(dp)
       if (prevWriterInfo != null) prevWriterInfo.write(dp)
     } else {

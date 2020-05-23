@@ -77,7 +77,25 @@ class S3CopyService @Inject()(
       .run()
   }
 
-  def isInactive(f: File): Boolean = {
+  def shouldProcess(f: File): Boolean = {
+    if (activeFiles.containsKey(f.getName)) {
+      logger.debug(s"Should NOT process: being processed - $f")
+      false
+    } else if (FileUtil.isTmpFile(f)) {
+      if (isInactive(f)) {
+        logger.warn(s"Should process: temp file but inactive - $f")
+        true
+      } else {
+        logger.debug(s"Should NOT process: temp file - $f")
+        false
+      }
+    } else {
+      logger.debug(s"Should process: regular file - $f")
+      true
+    }
+  }
+
+  private def isInactive(f: File): Boolean = {
     try {
       System.currentTimeMillis > f.lastModified() + maxInactiveMs
     } catch {
@@ -87,34 +105,16 @@ class S3CopyService @Inject()(
     }
   }
 
-  def shouldProcess(f: File): Boolean = {
-    if (activeFiles.containsKey(f.getName)) {
-      logger.debug(s"Should NOT process $f: being processed already")
-      false
-    } else if (FileUtil.isTmpFile(f)) {
-      if (isInactive(f)) {
-        logger.warn(s"Should process: .tmp file but inactive")
-        true
-      } else {
-        logger.debug(s"Should NOT process $f: .tmp file")
-        false
-      }
-    } else {
-      logger.debug(s"Should NOT process $f: regular file")
-      true
-    }
-  }
-
   override def stopImpl(): Unit = {
-    waitForCleanup()
     logger.info("Stopping service")
+    waitForCleanup()
     if (killSwitch != null) killSwitch.shutdown()
   }
 
   private def waitForCleanup(): Unit = {
     logger.info("Waiting for cleanup")
     val start = System.currentTimeMillis
-    while (!listFiles.isEmpty) {
+    while (hasMoreFiles) {
       if (System.currentTimeMillis() > start + cleanupTimeoutMs) {
         logger.error("Cleanup timeout")
         return
@@ -124,16 +124,13 @@ class S3CopyService @Inject()(
     logger.info("Cleanup done")
   }
 
-  private def listFiles: List[File] = {
+  private def hasMoreFiles: Boolean = {
     try {
-      new File(dataDir)
-        .listFiles()
-        .filter(_.isFile)
-        .toList
+      !new File(dataDir).listFiles().filter(_.isFile).toList.isEmpty
     } catch {
       case e: Exception => {
-        logger.error(s"Error listing files in $dataDir", e)
-        throw e
+        logger.error(s"Error checking hasMoreFiles in $dataDir", e)
+        true // Assuming there's more files on error to retry
       }
     }
   }
