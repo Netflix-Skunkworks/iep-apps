@@ -89,10 +89,10 @@ class FileWatchSource(val dataDir: String, val maxInactiveMs: Long)
         */
       private def checkInactiveFiles(): Unit = {
         logger.debug("Checking inactive files")
-        listFiles(new File(dataDir), logger)
+        listFiles(new File(dataDir))
           .filter(isTmpFile)
           .filter(isInactive)
-          .foreach(markWriteComplete(_, logger))
+          .foreach(markWriteComplete(_))
       }
 
       private def isInactive(f: File): Boolean = {

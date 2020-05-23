@@ -47,6 +47,7 @@ class S3CopySink(
   val bucket: String,
   val region: String,
   val prefix: String,
+  val activeFiles: ConcurrentHashMap[String, KillSwitch],
   val registry: Registry,
   implicit val system: ActorSystem
 ) extends GraphStage[SinkShape[File]]
@@ -61,10 +62,9 @@ class S3CopySink(
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
     new GraphStageLogic(shape) with InHandler {
 
-      private var s3Client: S3AsyncClient = _
+      @volatile private var s3Client: S3AsyncClient = _
       // This map tracks ongoing file copy flows. It should be thread safe since "remove" happens
       // in a different flow.
-      private val activeFiles = new ConcurrentHashMap[String, KillSwitch].asScala
       private val numActiveFiles = registry.distributionSummary("persistence.s3.numActiveFiles")
 
       override def preStart(): Unit = {
@@ -73,21 +73,18 @@ class S3CopySink(
       }
 
       override def onPush(): Unit = {
-        val file = grab(in)
-        if (shouldCopy(file)) {
-          process(file)
-        }
+        process(grab(in))
         pull(in)
       }
 
       override def onUpstreamFinish(): Unit = {
         super.completeStage()
-        activeFiles.values.foreach(_.shutdown())
+        activeFiles.values.asScala.foreach(_.shutdown())
       }
 
       override def onUpstreamFailure(ex: Throwable): Unit = {
         super.failStage(ex)
-        activeFiles.values.foreach(_.shutdown())
+        activeFiles.values.asScala.foreach(_.shutdown())
       }
 
       setHandler(in, this)
@@ -99,10 +96,6 @@ class S3CopySink(
           .build()
       }
 
-      private def shouldCopy(f: File): Boolean = {
-        !f.getName.endsWith(RollingFileWriter.TmpFileSuffix)
-      }
-
       // Start a new stream to copy each file
       private def process(file: File): Unit = {
         import scala.concurrent.duration._
@@ -110,8 +103,8 @@ class S3CopySink(
 
         val killSwitch = RestartSource
           .onFailuresWithBackoff(
-            minBackoff = 100.millis,
-            maxBackoff = 1.seconds,
+            minBackoff = 1.seconds,
+            maxBackoff = 5.seconds,
             randomFactor = 0,
             maxRestarts = -1
           ) { () =>
@@ -126,9 +119,8 @@ class S3CopySink(
       }
 
       def cleanupFile(file: File): Unit = {
-        FileUtil.delete(file, logger)
-        // Un-register from activeFiles map
-        activeFiles -= file.getName
+        FileUtil.delete(file)
+        activeFiles.remove(file.getName)
       }
 
       private def copyToS3Async(file: File): CompletableFuture[PutObjectResponse] = {

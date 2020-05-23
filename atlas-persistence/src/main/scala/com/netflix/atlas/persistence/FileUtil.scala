@@ -17,14 +17,14 @@ package com.netflix.atlas.persistence
 
 import java.io.File
 import java.nio.file.Files
-import java.nio.file.Path
 import java.nio.file.Paths
 
 import com.typesafe.scalalogging.Logger
+import com.typesafe.scalalogging.StrictLogging
 
-object FileUtil {
+object FileUtil extends StrictLogging {
 
-  def delete(f: File, logger: Logger): Unit = {
+  def delete(f: File): Unit = {
     try {
       Files.delete(f.toPath)
       logger.debug(s"deleted file $f")
@@ -33,9 +33,9 @@ object FileUtil {
     }
   }
 
-  def listFiles(f: File, logger: Logger): List[File] = {
+  def listFiles(f: File): List[File] = {
     try {
-      f.listFiles().toList
+      f.listFiles().toList.filter(_.isFile)
     } catch {
       case e: Exception =>
         logger.error(s"failed to list files for: $f", e)
@@ -48,7 +48,7 @@ object FileUtil {
   }
 
   // Mark a file as complete by removing tmp suffix, so it's ready for s3 copy
-  def markWriteComplete(f: File, logger: Logger): Unit = {
+  def markWriteComplete(f: File): Unit = {
     try {
       val filePath = f.getCanonicalPath
       Files.move(

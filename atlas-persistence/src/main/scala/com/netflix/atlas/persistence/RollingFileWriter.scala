@@ -16,7 +16,6 @@
 package com.netflix.atlas.persistence
 
 import java.io.File
-import java.nio.file.Paths
 
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.spectator.api.Registry
@@ -104,11 +103,11 @@ class AvroRollingFileWriter(
     if (currNumRecords == 0) {
       // Simply delete the file if no records written
       logger.debug(s"deleting file with 0 record: ${currFile}")
-      FileUtil.delete(new File(currFile), logger)
+      FileUtil.delete(new File(currFile))
     } else {
       // Rename file, removing tmp file suffix
       logger.debug(s"rolling over file $currFile")
-      FileUtil.markWriteComplete(new File(currFile), logger)
+      FileUtil.markWriteComplete(new File(currFile))
     }
   }
 

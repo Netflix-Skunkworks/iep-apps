@@ -16,6 +16,7 @@
 package com.netflix.atlas.persistence
 
 import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 import akka.NotUsed
 import akka.actor.ActorSystem
@@ -23,13 +24,14 @@ import akka.stream.ActorMaterializer
 import akka.stream.KillSwitch
 import akka.stream.KillSwitches
 import akka.stream.scaladsl.Keep
-import akka.stream.scaladsl.RestartSource
 import akka.stream.scaladsl.Source
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
+
+import scala.concurrent.duration._
 
 class S3CopyService @Inject()(
   val config: Config,
@@ -56,28 +58,50 @@ class S3CopyService @Inject()(
 
   require(
     maxInactiveMs > maxFileDurationMs,
-    "`max-inactive-duration` MUST be longer than `max-duration`, otherwise file may be closed before normal write competes"
+    "`max-inactive-duration` MUST be longer than `max-duration`, otherwise file may be renamed before normal write competes"
   )
 
+  // Tracking files which is being processed to avoid duplication
+  private val activeFiles = new ConcurrentHashMap[String, KillSwitch]
+
+  // TODO handle .tmp
   override def startImpl(): Unit = {
     logger.info("Starting service")
-    killSwitch = getFileWatchSource
+    killSwitch = Source
+      .tick(1.second, 5.seconds, NotUsed)
       .viaMat(KillSwitches.single)(Keep.right)
+      .flatMapMerge(Int.MaxValue, _ => Source(FileUtil.listFiles(new File(dataDir))))
+      .filter(shouldProcess)
       // S3CopySink handles flow restart for each file so no need to use RestartSink here
-      .toMat(new S3CopySink(bucket, region, prefix, registry, system))(Keep.left)
+      .toMat(new S3CopySink(bucket, region, prefix, activeFiles, registry, system))(Keep.left)
       .run()
   }
 
-  private def getFileWatchSource: Source[File, NotUsed] = {
-    import scala.concurrent.duration._
-    RestartSource.withBackoff(
-      minBackoff = 1.second,
-      maxBackoff = 5.seconds,
-      randomFactor = 0,
-      maxRestarts = -1
-    ) { () =>
-      Source
-        .fromGraph(new FileWatchSource(dataDir, maxInactiveMs))
+  def isInactive(f: File): Boolean = {
+    try {
+      System.currentTimeMillis > f.lastModified() + maxInactiveMs
+    } catch {
+      case e: Exception =>
+        logger.error(s"Error get lastModified for file $f", e)
+        false
+    }
+  }
+
+  def shouldProcess(f: File): Boolean = {
+    if (activeFiles.containsKey(f.getName)) {
+      logger.debug(s"Should NOT process $f: being processed already")
+      false
+    } else if (FileUtil.isTmpFile(f)) {
+      if (isInactive(f)) {
+        logger.warn(s"Should process: .tmp file but inactive")
+        true
+      } else {
+        logger.debug(s"Should NOT process $f: .tmp file")
+        false
+      }
+    } else {
+      logger.debug(s"Should NOT process $f: regular file")
+      true
     }
   }
 
