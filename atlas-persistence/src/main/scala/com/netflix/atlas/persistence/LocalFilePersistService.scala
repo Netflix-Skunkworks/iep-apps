@@ -35,6 +35,9 @@ import javax.inject.Singleton
 class LocalFilePersistService @Inject()(
   val config: Config,
   val registry: Registry,
+  // S3CopyService is actually NOT used by this service, it is here just to guarantee that the
+  // shutdown callback (stopImpl) of this service is invoked before S3CopyService's
+  val s3CopyService: S3CopyService,
   implicit val system: ActorSystem
 ) extends AbstractService
     with StrictLogging {
