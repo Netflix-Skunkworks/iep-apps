@@ -31,10 +31,12 @@ import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
+import javax.inject.Singleton
 
 import scala.concurrent.duration._
 import scala.jdk.StreamConverters._
 
+@Singleton
 class S3CopyService @Inject()(
   val config: Config,
   val registry: Registry,
