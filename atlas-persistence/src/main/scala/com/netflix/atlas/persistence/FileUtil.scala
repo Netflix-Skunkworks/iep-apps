@@ -19,8 +19,9 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
 
-import com.typesafe.scalalogging.Logger
 import com.typesafe.scalalogging.StrictLogging
+
+import scala.jdk.StreamConverters._
 
 object FileUtil extends StrictLogging {
 
@@ -35,7 +36,7 @@ object FileUtil extends StrictLogging {
 
   def listFiles(f: File): List[File] = {
     try {
-      f.listFiles().toList.filter(_.isFile)
+      Files.list(f.toPath).toScala(List).map(_.toFile)
     } catch {
       case e: Exception =>
         logger.error(s"failed to list files for: $f", e)

@@ -64,7 +64,7 @@ class S3CopySink(
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
     new GraphStageLogic(shape) with InHandler {
 
-      @volatile private var s3Client: S3AsyncClient = _
+      private var s3Client: S3AsyncClient = _
       private val numActiveFiles = registry.distributionSummary("persistence.s3.numActiveFiles")
       // Tracking files which is being processed to avoid duplication
       private val activeFiles = new ConcurrentHashMap[String, Option[KillSwitch]]
@@ -88,12 +88,13 @@ class S3CopySink(
       }
 
       override def onUpstreamFailure(ex: Throwable): Unit = {
-        super.failStage(ex)
         activeFiles.values.asScala.foreach(option => option.foreach(_.shutdown()))
+        super.failStage(ex)
       }
 
       setHandler(in, this)
 
+      // TODO use iep/iep-module-aws2
       private def initS3Client(): Unit = {
         s3Client = S3AsyncClient
           .builder()
@@ -120,12 +121,11 @@ class S3CopySink(
       }
 
       private def isInactive(f: File): Boolean = {
-        try {
+        val lastModified = f.lastModified()
+        if (lastModified == 0) {
+          false // Error getting lastModified, assuming not inactive yet
+        } else {
           System.currentTimeMillis > f.lastModified() + maxInactiveMs
-        } catch {
-          case e: Exception =>
-            logger.error(s"Error get lastModified for file $f", e)
-            false
         }
       }
 

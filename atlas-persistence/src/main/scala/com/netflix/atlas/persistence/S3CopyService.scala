@@ -16,6 +16,8 @@
 package com.netflix.atlas.persistence
 
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.Paths
 
 import akka.NotUsed
 import akka.actor.ActorSystem
@@ -31,6 +33,7 @@ import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
 
 import scala.concurrent.duration._
+import scala.jdk.StreamConverters._
 
 class S3CopyService @Inject()(
   val config: Config,
@@ -92,7 +95,7 @@ class S3CopyService @Inject()(
 
   private def hasMoreFiles: Boolean = {
     try {
-      !new File(dataDir).listFiles().filter(_.isFile).toList.isEmpty
+      !Files.list(Paths.get(dataDir)).toScala(List).map(_.toFile).filter(_.isFile).isEmpty
     } catch {
       case e: Exception => {
         logger.error(s"Error checking hasMoreFiles in $dataDir", e)

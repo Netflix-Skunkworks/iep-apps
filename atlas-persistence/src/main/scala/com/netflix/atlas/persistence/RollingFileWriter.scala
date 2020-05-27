@@ -68,7 +68,7 @@ class AvroRollingFileWriter(
 
   override protected def newWriter(): Unit = {
     val newFile = getNextTmpFilePath
-    logger.info(s"New avro file: $newFile")
+    logger.debug(s"New avro file: $newFile")
     val dataFileWriter = new DataFileWriter[AvroDatapoint](
       new SpecificDatumWriter[AvroDatapoint](classOf[AvroDatapoint])
     )
