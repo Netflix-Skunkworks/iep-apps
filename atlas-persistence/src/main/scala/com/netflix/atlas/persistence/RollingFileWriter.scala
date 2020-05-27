@@ -16,7 +16,6 @@
 package com.netflix.atlas.persistence
 
 import java.io.File
-import java.nio.file.Paths
 
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.spectator.api.Registry
@@ -35,7 +34,10 @@ trait RollingFileWriter extends StrictLogging {
       rollOver
       newWriter
     }
-    writeImpl(dp)
+    // Ignore the special datapoint
+    if (RollingFileWriter.RolloverCheckDatapoint ne dp) {
+      writeImpl(dp)
+    }
   }
 
   // Assuming rollOver closes current file
@@ -66,7 +68,7 @@ class AvroRollingFileWriter(
 
   override protected def newWriter(): Unit = {
     val newFile = getNextTmpFilePath
-    logger.info(s"New avro file: $newFile")
+    logger.debug(s"New avro file: $newFile")
     val dataFileWriter = new DataFileWriter[AvroDatapoint](
       new SpecificDatumWriter[AvroDatapoint](classOf[AvroDatapoint])
     )
@@ -78,8 +80,6 @@ class AvroRollingFileWriter(
     currWriter = dataFileWriter
     currCreatedAtMs = System.currentTimeMillis()
     currNumRecords = 0
-
-    nextFileSeqId += 1
   }
 
   override protected def writeImpl(dp: Datapoint): Unit = {
@@ -104,15 +104,13 @@ class AvroRollingFileWriter(
     if (currNumRecords == 0) {
       // Simply delete the file if no records written
       logger.debug(s"deleting file with 0 record: ${currFile}")
-      FileUtil.delete(Paths.get(currFile), logger)
+      FileUtil.delete(new File(currFile))
+      // Note: nextFileSeqId is not increased here so that actual file seq are always consecutive
     } else {
       // Rename file, removing tmp file suffix
       logger.debug(s"rolling over file $currFile")
-      FileUtil.move(
-        Paths.get(currFile),
-        Paths.get(currFile.substring(0, currFile.length - RollingFileWriter.TmpFileSuffix.length)),
-        logger
-      )
+      FileUtil.markWriteComplete(new File(currFile))
+      nextFileSeqId += 1
     }
   }
 
@@ -143,4 +141,6 @@ class AvroRollingFileWriter(
 
 object RollingFileWriter {
   val TmpFileSuffix = ".tmp"
+  // A special Datapoint used solely for triggering rollover check
+  val RolloverCheckDatapoint = Datapoint(Map.empty, 0, 0)
 }

@@ -79,19 +79,25 @@ class HourlyRollingWriter(
     checkHourRollover(now)
     checkPrevHourExpiration(now)
 
-    // Range checking in order, higher possibility goes first:
-    //   current hour -> previous hour -> late -> future
-    val ts = dp.timestamp
-    if (currWriterInfo.inRange(ts)) {
+    if (RollingFileWriter.RolloverCheckDatapoint eq dp) {
+      //check rollover for both writers
       currWriterInfo.write(dp)
-    } else if (prevWriterInfo != null && prevWriterInfo.inRange(ts)) {
-      prevWriterInfo.write(dp)
-    } else if (ts < currWriterInfo.startTime) {
-      lateEventsCounter.increment()
-      logger.debug(s"found late event: $dp")
+      if (prevWriterInfo != null) prevWriterInfo.write(dp)
     } else {
-      futureEventsCounter.increment()
-      logger.debug(s"found future event: $dp")
+      // Range checking in order, higher possibility goes first:
+      //   current hour -> previous hour -> late -> future
+      val ts = dp.timestamp
+      if (currWriterInfo.inRange(ts)) {
+        currWriterInfo.write(dp)
+      } else if (prevWriterInfo != null && prevWriterInfo.inRange(ts)) {
+        prevWriterInfo.write(dp)
+      } else if (ts < currWriterInfo.startTime) {
+        lateEventsCounter.increment()
+        logger.debug(s"found late event: $dp")
+      } else {
+        futureEventsCounter.increment()
+        logger.debug(s"found future event: $dp")
+      }
     }
   }
 

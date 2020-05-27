@@ -1,5 +1,5 @@
 ## Atlas Persistence
-Receive Atlas data points and save them to S3.
+Receive Atlas data points, batch to local files and save them to S3.
 
 #### Java code generation from avro schema
 - Avro code generation is a dependent step of sbt compile, so it will be executed by:

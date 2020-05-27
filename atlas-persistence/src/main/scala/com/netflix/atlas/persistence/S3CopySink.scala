@@ -41,12 +41,15 @@ import software.amazon.awssdk.services.s3.S3AsyncClient
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import software.amazon.awssdk.services.s3.model.PutObjectResponse
 
+import scala.concurrent.duration._
 import scala.jdk.CollectionConverters._
+import scala.jdk.FutureConverters._
 
 class S3CopySink(
   val bucket: String,
   val region: String,
   val prefix: String,
+  val maxInactiveMs: Long,
   val registry: Registry,
   implicit val system: ActorSystem
 ) extends GraphStage[SinkShape[File]]
@@ -62,10 +65,9 @@ class S3CopySink(
     new GraphStageLogic(shape) with InHandler {
 
       private var s3Client: S3AsyncClient = _
-      // This map tracks ongoing file copy flows. It should be thread safe since "remove" happens
-      // in a different flow.
-      private val activeFiles = new ConcurrentHashMap[String, KillSwitch].asScala
       private val numActiveFiles = registry.distributionSummary("persistence.s3.numActiveFiles")
+      // Tracking files which is being processed to avoid duplication
+      private val activeFiles = new ConcurrentHashMap[String, Option[KillSwitch]]
 
       override def preStart(): Unit = {
         initS3Client()
@@ -74,7 +76,7 @@ class S3CopySink(
 
       override def onPush(): Unit = {
         val file = grab(in)
-        if (shouldCopy(file)) {
+        if (shouldProcess(file)) {
           process(file)
         }
         pull(in)
@@ -82,16 +84,17 @@ class S3CopySink(
 
       override def onUpstreamFinish(): Unit = {
         super.completeStage()
-        activeFiles.values.foreach(_.shutdown())
+        activeFiles.values.asScala.foreach(option => option.foreach(_.shutdown()))
       }
 
       override def onUpstreamFailure(ex: Throwable): Unit = {
+        activeFiles.values.asScala.foreach(option => option.foreach(_.shutdown()))
         super.failStage(ex)
-        activeFiles.values.foreach(_.shutdown())
       }
 
       setHandler(in, this)
 
+      // TODO use iep/iep-module-aws2
       private def initS3Client(): Unit = {
         s3Client = S3AsyncClient
           .builder()
@@ -99,19 +102,41 @@ class S3CopySink(
           .build()
       }
 
-      // TODO handle .tmp after long idle?
-      private def shouldCopy(f: File): Boolean = {
-        !f.getName.endsWith(RollingFileWriter.TmpFileSuffix)
+      def shouldProcess(f: File): Boolean = {
+        if (activeFiles.containsKey(f.getName)) {
+          logger.debug(s"Should NOT process: being processed - $f")
+          false
+        } else if (FileUtil.isTmpFile(f)) {
+          if (isInactive(f)) {
+            logger.warn(s"Should process: temp file but inactive - $f")
+            true
+          } else {
+            logger.debug(s"Should NOT process: temp file - $f")
+            false
+          }
+        } else {
+          logger.debug(s"Should process: regular file - $f")
+          true
+        }
+      }
+
+      private def isInactive(f: File): Boolean = {
+        val lastModified = f.lastModified()
+        if (lastModified == 0) {
+          false // Error getting lastModified, assuming not inactive yet
+        } else {
+          System.currentTimeMillis > f.lastModified() + maxInactiveMs
+        }
       }
 
       // Start a new stream to copy each file
       private def process(file: File): Unit = {
-        import scala.concurrent.duration._
-        import scala.jdk.FutureConverters._
+        // Adding "None" just to indicate if cleanupFile has been called
+        activeFiles.put(file.getName, None)
 
         val killSwitch = RestartSource
           .onFailuresWithBackoff(
-            minBackoff = 100.millis,
+            minBackoff = 1.seconds,
             maxBackoff = 1.seconds,
             randomFactor = 0,
             maxRestarts = -1
@@ -122,14 +147,16 @@ class S3CopySink(
           .toMat(Sink.foreach(_ => cleanupFile(file)))(Keep.left)
           .run
 
-        activeFiles.put(file.getName, killSwitch)
+        // Note: computeIfPresent makes sure the file is only added to map if it's present (before
+        //   cleanFile removes it) to avoid a leak
+        activeFiles.computeIfPresent(file.getName, (k, v) => Option(killSwitch))
+
         numActiveFiles.record(activeFiles.size)
       }
 
       def cleanupFile(file: File): Unit = {
-        FileUtil.delete(file.toPath, logger)
-        // Un-register from activeFiles map
-        activeFiles -= file.getName
+        FileUtil.delete(file)
+        activeFiles.remove(file.getName)
       }
 
       private def copyToS3Async(file: File): CompletableFuture[PutObjectResponse] = {

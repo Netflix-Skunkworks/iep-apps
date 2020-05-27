@@ -18,8 +18,6 @@ package com.netflix.atlas.persistence
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import akka.stream.KillSwitch
-import akka.stream.KillSwitches
 import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.RestartSink
 import akka.stream.scaladsl.Sink
@@ -53,18 +51,14 @@ class LocalFilePersistService @Inject()(
   require(maxRecords > 0)
   require(maxDurationMs > 0)
 
-  private var killSwitch: KillSwitch = _
   private var queue: SourceQueue[Datapoint] = _
 
   override def startImpl(): Unit = {
     logger.info("Starting service")
-    val (q, k) = StreamOps
+    queue = StreamOps
       .blockingQueue[Datapoint](registry, "LocalFilePersistService", queueSize)
-      .viaMat(KillSwitches.single)(Keep.both)
       .toMat(getRollingFileSink)(Keep.left)
       .run
-    killSwitch = k
-    queue = q
   }
 
   private def getRollingFileSink(): Sink[Datapoint, NotUsed] = {
@@ -81,12 +75,13 @@ class LocalFilePersistService @Inject()(
     }
   }
 
+  // This service should stop the Akka flow when application is shutdown gracefully, and let
+  // S3CopyService do the cleanup. It should trigger:
+  //   1. stop taking more data points (monitor droppedQueueClosed)
+  //   2. close current file writer so that last file is ready to copy to s3
   override def stopImpl(): Unit = {
     logger.info("Stopping service")
-    if (killSwitch != null) killSwitch.shutdown()
-    // TODO 'sleep' is a best effort to wait for file flush downstream
-    //      need a better way, maybe system shutdown hook
-    Thread.sleep(1000)
+    queue.complete()
   }
 
   def persist(dp: Datapoint): Unit = {

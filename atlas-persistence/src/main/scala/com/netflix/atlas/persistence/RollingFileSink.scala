@@ -24,9 +24,12 @@ import akka.stream.SinkShape
 import akka.stream.stage.GraphStage
 import akka.stream.stage.GraphStageLogic
 import akka.stream.stage.InHandler
+import akka.stream.stage.TimerGraphStageLogic
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
+
+import scala.concurrent.duration._
 
 class RollingFileSink(
   val dataDir: String,
@@ -42,7 +45,7 @@ class RollingFileSink(
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
 
-    new GraphStageLogic(shape) with InHandler {
+    new TimerGraphStageLogic(shape) with InHandler {
 
       private var hourlyWriter: HourlyRollingWriter = _
       private val writerFactory: String => RollingFileWriter =
@@ -55,13 +58,19 @@ class RollingFileSink(
 
         hourlyWriter = new HourlyRollingWriter(dataDir, maxLateDuration, writerFactory, registry)
         hourlyWriter.initialize
+        // This is to trigger rollover check when writer is idle for long time: e.g. in most cases
+        // file writer will be idle while hour has ended but it is still waiting for late events
+        schedulePeriodically(None, 5.seconds)
         pull(in)
       }
 
-      // TODO timer to trigger rollover in case of long idle
       override def onPush(): Unit = {
         hourlyWriter.write(grab(in))
         pull(in)
+      }
+
+      override protected def onTimer(timerKey: Any): Unit = {
+        hourlyWriter.write(RollingFileWriter.RolloverCheckDatapoint)
       }
 
       override def onUpstreamFinish(): Unit = {

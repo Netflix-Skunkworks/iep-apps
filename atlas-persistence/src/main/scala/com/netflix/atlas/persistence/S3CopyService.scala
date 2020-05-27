@@ -16,6 +16,8 @@
 package com.netflix.atlas.persistence
 
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.Paths
 
 import akka.NotUsed
 import akka.actor.ActorSystem
@@ -23,13 +25,15 @@ import akka.stream.ActorMaterializer
 import akka.stream.KillSwitch
 import akka.stream.KillSwitches
 import akka.stream.scaladsl.Keep
-import akka.stream.scaladsl.RestartSource
 import akka.stream.scaladsl.Source
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
+
+import scala.concurrent.duration._
+import scala.jdk.StreamConverters._
 
 class S3CopyService @Inject()(
   val config: Config,
@@ -38,7 +42,7 @@ class S3CopyService @Inject()(
 ) extends AbstractService
     with StrictLogging {
 
-  private val baseDir = config.getString("atlas.persistence.local-file.data-dir")
+  private val dataDir = config.getString("atlas.persistence.local-file.data-dir")
 
   private implicit val ec = scala.concurrent.ExecutionContext.global
   private implicit val mat = ActorMaterializer()
@@ -48,31 +52,55 @@ class S3CopyService @Inject()(
   private val bucket = s3Config.getString("bucket")
   private val region = s3Config.getString("region")
   private val prefix = s3Config.getString("prefix")
+  private val cleanupTimeoutMs = s3Config.getDuration("cleanup-timeout").toMillis
+  private val maxInactiveMs = s3Config.getDuration("max-inactive-duration").toMillis
+
+  private val maxFileDurationMs =
+    config.getDuration("atlas.persistence.local-file.max-duration").toMillis
+
+  require(
+    maxInactiveMs > maxFileDurationMs,
+    "`max-inactive-duration` MUST be longer than `max-duration`, otherwise file may be renamed before normal write competes"
+  )
 
   override def startImpl(): Unit = {
     logger.info("Starting service")
-    killSwitch = getFileWatchSource
+    killSwitch = Source
+      .tick(1.second, 5.seconds, NotUsed)
       .viaMat(KillSwitches.single)(Keep.right)
+      .flatMapMerge(Int.MaxValue, _ => Source(FileUtil.listFiles(new File(dataDir))))
       // S3CopySink handles flow restart for each file so no need to use RestartSink here
-      .toMat(new S3CopySink(bucket, region, prefix, registry, system))(Keep.left)
+      .toMat(new S3CopySink(bucket, region, prefix, maxInactiveMs, registry, system))(Keep.left)
       .run()
   }
 
   override def stopImpl(): Unit = {
     logger.info("Stopping service")
+    waitForCleanup()
     if (killSwitch != null) killSwitch.shutdown()
   }
 
-  private def getFileWatchSource: Source[File, NotUsed] = {
-    import scala.concurrent.duration._
-    RestartSource.withBackoff(
-      minBackoff = 1.second,
-      maxBackoff = 5.seconds,
-      randomFactor = 0,
-      maxRestarts = -1
-    ) { () =>
-      Source
-        .fromGraph(new FileWatchSource(baseDir))
+  private def waitForCleanup(): Unit = {
+    logger.info("Waiting for cleanup")
+    val start = System.currentTimeMillis
+    while (hasMoreFiles) {
+      if (System.currentTimeMillis() > start + cleanupTimeoutMs) {
+        logger.error("Cleanup timeout")
+        return
+      }
+      Thread.sleep(1000)
+    }
+    logger.info("Cleanup done")
+  }
+
+  private def hasMoreFiles: Boolean = {
+    try {
+      !Files.list(Paths.get(dataDir)).toScala(List).map(_.toFile).filter(_.isFile).isEmpty
+    } catch {
+      case e: Exception => {
+        logger.error(s"Error checking hasMoreFiles in $dataDir", e)
+        true // Assuming there's more files on error to retry
+      }
     }
   }
 }
