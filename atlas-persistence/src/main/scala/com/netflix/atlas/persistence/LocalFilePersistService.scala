@@ -29,7 +29,9 @@ import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
+import javax.inject.Singleton
 
+@Singleton
 class LocalFilePersistService @Inject()(
   val config: Config,
   val registry: Registry,
