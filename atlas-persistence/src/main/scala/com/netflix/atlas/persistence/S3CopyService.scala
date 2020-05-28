@@ -33,8 +33,12 @@ import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import scala.concurrent.Await
+import scala.concurrent.Promise
+import scala.concurrent.TimeoutException
 import scala.concurrent.duration._
 import scala.jdk.StreamConverters._
+import scala.util.Success
 
 @Singleton
 class S3CopyService @Inject()(
@@ -64,6 +68,8 @@ class S3CopyService @Inject()(
     "`max-inactive-duration` MUST be longer than `max-duration`, otherwise file may be renamed before normal write competes"
   )
 
+  private val writeCompletePromise = Promise[NotUsed]
+
   override def startImpl(): Unit = {
     logger.info("Starting service")
     killSwitch = Source
@@ -77,15 +83,30 @@ class S3CopyService @Inject()(
 
   override def stopImpl(): Unit = {
     logger.info("Stopping service")
-    waitForCleanup()
+    waitForWriteComplete()
+    waitForCopyComplete()
     if (killSwitch != null) killSwitch.shutdown()
   }
 
-  private def waitForCleanup(): Unit = {
+  def markWriteComplete(): Unit = {
+    writeCompletePromise.tryComplete(Success(NotUsed))
+  }
+
+  private def waitForWriteComplete(): Unit = {
+    logger.info("waitForWriteComplete start")
+    try {
+      // This should be very quick in reality
+      Await.result(writeCompletePromise.future, 10.seconds)
+      logger.info("waitForWriteComplete done")
+    } catch {
+      case _: TimeoutException => logger.warn(s"waitForWriteComplete timeout")
+      case e: Exception        => logger.error(s"waitForWriteComplete error", e)
+    }
+  }
+
+  private def waitForCopyComplete(): Unit = {
     logger.info("Waiting for cleanup")
     val start = System.currentTimeMillis
-    // Wait a bit first as a best effort try in case atomic rename is not supported by FileSystem
-    Thread.sleep(5000)
     while (hasMoreFiles) {
       if (System.currentTimeMillis() > start + cleanupTimeoutMs) {
         logger.error("Cleanup timeout")

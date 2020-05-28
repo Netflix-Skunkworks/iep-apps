@@ -35,8 +35,8 @@ import javax.inject.Singleton
 class LocalFilePersistService @Inject()(
   val config: Config,
   val registry: Registry,
-  // S3CopyService is actually NOT used by this service, it is here just to guarantee that the
-  // shutdown callback (stopImpl) of this service is invoked before S3CopyService's
+  // S3CopyService as a dependency also guarantees that the shutdown callback (stopImpl) of this
+  // service is invoked before S3CopyService's
   val s3CopyService: S3CopyService,
   implicit val system: ActorSystem
 ) extends AbstractService
@@ -75,7 +75,14 @@ class LocalFilePersistService @Inject()(
       maxRestarts = -1
     ) { () =>
       Sink.fromGraph(
-        new RollingFileSink(dataDir, maxRecords, maxDurationMs, maxLateDurationMs, registry)
+        new RollingFileSink(
+          dataDir,
+          maxRecords,
+          maxDurationMs,
+          maxLateDurationMs,
+          registry,
+          () => s3CopyService.markWriteComplete()
+        )
       )
     }
   }

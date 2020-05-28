@@ -36,7 +36,8 @@ class RollingFileSink(
   val maxRecords: Long,
   val maxDurationMs: Long,
   val maxLateDuration: Long,
-  val registry: Registry
+  val registry: Registry,
+  val writeCompleteHandler: () => Unit
 ) extends GraphStage[SinkShape[Datapoint]]
     with StrictLogging {
 
@@ -76,11 +77,13 @@ class RollingFileSink(
       override def onUpstreamFinish(): Unit = {
         super.completeStage()
         hourlyWriter.close()
+        writeCompleteHandler()
       }
 
       override def onUpstreamFailure(ex: Throwable): Unit = {
-        super.failStage(ex)
         hourlyWriter.close()
+        writeCompleteHandler()
+        super.failStage(ex)
       }
 
       setHandler(in, this)
