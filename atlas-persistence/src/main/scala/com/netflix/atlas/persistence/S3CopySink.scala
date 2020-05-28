@@ -58,7 +58,6 @@ class S3CopySink(
   private val in = Inlet[File]("S3CopySink.in")
   override val shape = SinkShape(in)
 
-  private implicit val ec = scala.concurrent.ExecutionContext.global
   private implicit val mat = ActorMaterializer()
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
@@ -111,11 +110,9 @@ class S3CopySink(
             logger.warn(s"Should process: temp file but inactive - $f")
             true
           } else {
-            logger.debug(s"Should NOT process: temp file - $f")
             false
           }
         } else {
-          logger.debug(s"Should process: regular file - $f")
           true
         }
       }

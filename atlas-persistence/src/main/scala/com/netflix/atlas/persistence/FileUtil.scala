@@ -18,6 +18,7 @@ package com.netflix.atlas.persistence
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
 
 import com.typesafe.scalalogging.StrictLogging
 
@@ -54,7 +55,9 @@ object FileUtil extends StrictLogging {
       val filePath = f.getCanonicalPath
       Files.move(
         Paths.get(filePath),
-        Paths.get(filePath.substring(0, filePath.length - RollingFileWriter.TmpFileSuffix.length))
+        Paths.get(filePath.substring(0, filePath.length - RollingFileWriter.TmpFileSuffix.length)),
+        // Atomic to avoid incorrect file list view during process of rename
+        StandardCopyOption.ATOMIC_MOVE
       )
     } catch {
       case e: Exception =>
