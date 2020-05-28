@@ -46,7 +46,6 @@ class S3CopyService @Inject()(
 
   private val dataDir = config.getString("atlas.persistence.local-file.data-dir")
 
-  private implicit val ec = scala.concurrent.ExecutionContext.global
   private implicit val mat = ActorMaterializer()
 
   private var killSwitch: KillSwitch = _
@@ -85,6 +84,8 @@ class S3CopyService @Inject()(
   private def waitForCleanup(): Unit = {
     logger.info("Waiting for cleanup")
     val start = System.currentTimeMillis
+    // Wait a bit first as a best effort try in case atomic rename is not supported by FileSystem
+    Thread.sleep(5000)
     while (hasMoreFiles) {
       if (System.currentTimeMillis() > start + cleanupTimeoutMs) {
         logger.error("Cleanup timeout")
