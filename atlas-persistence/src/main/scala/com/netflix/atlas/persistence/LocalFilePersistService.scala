@@ -15,11 +15,13 @@
  */
 package com.netflix.atlas.persistence
 
+import akka.Done
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Keep
-import akka.stream.scaladsl.RestartSink
+import akka.stream.scaladsl.RestartFlow
 import akka.stream.scaladsl.Sink
 import com.netflix.atlas.akka.StreamOps
 import com.netflix.atlas.akka.StreamOps.SourceQueue
@@ -30,6 +32,10 @@ import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import javax.inject.Inject
 import javax.inject.Singleton
+
+import scala.concurrent.Await
+import scala.concurrent.Future
+import scala.concurrent.duration.Duration
 
 @Singleton
 class LocalFilePersistService @Inject()(
@@ -57,25 +63,29 @@ class LocalFilePersistService @Inject()(
   require(maxDurationMs > 0)
 
   private var queue: SourceQueue[Datapoint] = _
+  private var flowComplete: Future[Done] = _
 
   override def startImpl(): Unit = {
     logger.info("Starting service")
-    queue = StreamOps
+    val (q, f) = StreamOps
       .blockingQueue[Datapoint](registry, "LocalFilePersistService", queueSize)
-      .toMat(getRollingFileSink)(Keep.left)
+      .via(getRollingFileFlow)
+      .toMat(Sink.ignore)(Keep.both)
       .run
+    queue = q
+    flowComplete = f
   }
 
-  private def getRollingFileSink(): Sink[Datapoint, NotUsed] = {
+  private def getRollingFileFlow(): Flow[Datapoint, NotUsed, NotUsed] = {
     import scala.concurrent.duration._
-    RestartSink.withBackoff(
+    RestartFlow.withBackoff(
       minBackoff = 1.second,
       maxBackoff = 3.seconds,
       randomFactor = 0,
       maxRestarts = -1
     ) { () =>
-      Sink.fromGraph(
-        new RollingFileSink(dataDir, maxRecords, maxDurationMs, maxLateDurationMs, registry)
+      Flow.fromGraph(
+        new RollingFileFlow(dataDir, maxRecords, maxDurationMs, maxLateDurationMs, registry)
       )
     }
   }
@@ -87,6 +97,8 @@ class LocalFilePersistService @Inject()(
   override def stopImpl(): Unit = {
     logger.info("Stopping service")
     queue.complete()
+    Await.result(flowComplete, Duration.Inf)
+    logger.info("Stopped service")
   }
 
   def persist(dp: Datapoint): Unit = {

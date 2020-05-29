@@ -18,12 +18,15 @@ package com.netflix.atlas.persistence
 import java.nio.file.Files
 import java.nio.file.Paths
 
+import akka.NotUsed
 import akka.stream.Attributes
+import akka.stream.FlowShape
 import akka.stream.Inlet
-import akka.stream.SinkShape
+import akka.stream.Outlet
 import akka.stream.stage.GraphStage
 import akka.stream.stage.GraphStageLogic
 import akka.stream.stage.InHandler
+import akka.stream.stage.OutHandler
 import akka.stream.stage.TimerGraphStageLogic
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.spectator.api.Registry
@@ -31,21 +34,22 @@ import com.typesafe.scalalogging.StrictLogging
 
 import scala.concurrent.duration._
 
-class RollingFileSink(
+class RollingFileFlow(
   val dataDir: String,
   val maxRecords: Long,
   val maxDurationMs: Long,
   val maxLateDuration: Long,
   val registry: Registry
-) extends GraphStage[SinkShape[Datapoint]]
+) extends GraphStage[FlowShape[Datapoint, NotUsed]]
     with StrictLogging {
 
   private val in = Inlet[Datapoint]("RollingFileSink.in")
-  override val shape = SinkShape(in)
+  private val out = Outlet[NotUsed]("RollingFileSink.out")
+  override val shape = FlowShape(in, out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
 
-    new TimerGraphStageLogic(shape) with InHandler {
+    new TimerGraphStageLogic(shape) with InHandler with OutHandler {
 
       private var hourlyWriter: HourlyRollingWriter = _
       private val writerFactory: String => RollingFileWriter =
@@ -61,7 +65,6 @@ class RollingFileSink(
         // This is to trigger rollover check when writer is idle for long time: e.g. in most cases
         // file writer will be idle while hour has ended but it is still waiting for late events
         schedulePeriodically(None, 5.seconds)
-        pull(in)
       }
 
       override def onPush(): Unit = {
@@ -74,16 +77,21 @@ class RollingFileSink(
       }
 
       override def onUpstreamFinish(): Unit = {
-        super.completeStage()
         hourlyWriter.close()
+        completeStage()
       }
 
       override def onUpstreamFailure(ex: Throwable): Unit = {
-        super.failStage(ex)
         hourlyWriter.close()
+        failStage(ex)
       }
 
-      setHandler(in, this)
+      setHandlers(in, out, this)
+
+      override def onPull(): Unit = {
+        // Nothing to emit
+        pull(in)
+      }
     }
   }
 }
