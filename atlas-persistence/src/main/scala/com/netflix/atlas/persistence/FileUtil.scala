@@ -20,6 +20,7 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 
+import com.netflix.atlas.core.util.Streams
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.jdk.StreamConverters._
@@ -37,7 +38,9 @@ object FileUtil extends StrictLogging {
 
   def listFiles(f: File): List[File] = {
     try {
-      Files.list(f.toPath).toScala(List).map(_.toFile)
+      Streams.scope(Files.list(f.toPath)) { dir =>
+        dir.toScala(List).map(_.toFile)
+      }
     } catch {
       case e: Exception =>
         logger.error(s"failed to list files for: $f", e)
