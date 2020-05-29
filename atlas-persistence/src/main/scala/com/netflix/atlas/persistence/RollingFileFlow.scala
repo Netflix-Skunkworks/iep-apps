@@ -65,7 +65,6 @@ class RollingFileFlow(
         // This is to trigger rollover check when writer is idle for long time: e.g. in most cases
         // file writer will be idle while hour has ended but it is still waiting for late events
         schedulePeriodically(None, 5.seconds)
-        pull(in)
       }
 
       override def onPush(): Unit = {
@@ -91,6 +90,7 @@ class RollingFileFlow(
 
       override def onPull(): Unit = {
         // Nothing to emit
+        pull(in)
       }
     }
   }
