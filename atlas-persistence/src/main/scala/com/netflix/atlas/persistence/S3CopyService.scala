@@ -84,8 +84,6 @@ class S3CopyService @Inject()(
   private def waitForCleanup(): Unit = {
     logger.info("Waiting for cleanup")
     val start = System.currentTimeMillis
-    // Wait a bit first as a best effort try in case atomic rename is not supported by FileSystem
-    Thread.sleep(5000)
     while (hasMoreFiles) {
       if (System.currentTimeMillis() > start + cleanupTimeoutMs) {
         logger.error("Cleanup timeout")
