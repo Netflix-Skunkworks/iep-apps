@@ -26,6 +26,7 @@ import akka.stream.KillSwitch
 import akka.stream.KillSwitches
 import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.Source
+import com.netflix.atlas.core.util.Streams
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
@@ -96,7 +97,9 @@ class S3CopyService @Inject()(
 
   private def hasMoreFiles: Boolean = {
     try {
-      !Files.list(Paths.get(dataDir)).toScala(List).map(_.toFile).filter(_.isFile).isEmpty
+      Streams.scope(Files.list(Paths.get(dataDir))) { dir =>
+        dir.anyMatch(f => Files.isRegularFile(f))
+      }
     } catch {
       case e: Exception => {
         logger.error(s"Error checking hasMoreFiles in $dataDir", e)
