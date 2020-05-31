@@ -34,6 +34,7 @@ import akka.stream.stage.GraphStage
 import akka.stream.stage.GraphStageLogic
 import akka.stream.stage.InHandler
 import com.netflix.spectator.api.Registry
+import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3AsyncClient
@@ -41,14 +42,15 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import software.amazon.awssdk.services.s3.model.PutObjectResponse
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.TimeoutException
 import scala.jdk.CollectionConverters._
+import scala.jdk.DurationConverters._
 import scala.jdk.FutureConverters._
+import scala.util.Failure
+import scala.util.Success
 
 class S3CopySink(
-  val bucket: String,
-  val region: String,
-  val prefix: String,
-  val maxInactiveMs: Long,
+  val s3Config: Config,
   val registry: Registry,
   implicit val system: ActorSystem
 ) extends GraphStage[SinkShape[File]]
@@ -59,6 +61,12 @@ class S3CopySink(
 
   private implicit val mat = ActorMaterializer()
   private implicit val ec = ExecutionContext.global
+
+  private val bucket = s3Config.getString("bucket")
+  private val region = s3Config.getString("region")
+  private val prefix = s3Config.getString("prefix")
+  private val maxInactiveMs = s3Config.getDuration("max-inactive-duration").toMillis
+  private val clientTimeout = s3Config.getDuration("client-timeout").toScala
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
     new GraphStageLogic(shape) with InHandler {
@@ -131,15 +139,29 @@ class S3CopySink(
         // Add to map to mark file being processed
         activeFiles.put(file.getName, None)
 
-        // No retry, failed processing will be picked up again by periodical file listing
-        val (killSwitch, future) = Source
-          .fromFuture(copyToS3Async(file).asScala)
+        val s3CopyFuture = copyToS3Async(file)
+        val (killSwitch, streamFuture) = Source
+          .fromFuture(s3CopyFuture.asScala)
+          // Set a timeout for s3 async client call because it sometimes never completes and current
+          // file cannot be re-processed because it's been marked in activeFiles already
+          .completionTimeout(clientTimeout)
           .viaMat(KillSwitches.single)(Keep.right)
           .toMat(Sink.foreach(_ => cleanupFile(file)))(Keep.both)
-          .run
+          .run()
 
-        // Remove to allow this file to be re-processed in case the flow fail to process
-        future.onComplete(_ => activeFiles.remove(file.getName))
+        // Remove file to allow this file to be re-processed in case the flow fail to process
+        streamFuture.onComplete {
+          case Success(_) =>
+            activeFiles.remove(file.getName)
+            logger.debug(s"Stream done for file $file")
+          case Failure(te: TimeoutException) =>
+            activeFiles.remove(file.getName)
+            logger.error(s"Stream timeout for file $file: ${te.getMessage}")
+            s3CopyFuture.cancel(true)
+          case Failure(e) =>
+            activeFiles.remove(file.getName)
+            logger.error(s"Stream failed for file $file", e)
+        }
 
         // Use computeIfPresent to makes sure only add if it's not been removed, in theory there's a
         // chance the flow has completed before it reach here
