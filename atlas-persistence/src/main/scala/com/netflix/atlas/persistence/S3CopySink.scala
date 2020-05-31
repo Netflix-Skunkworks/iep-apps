@@ -28,7 +28,6 @@ import akka.stream.KillSwitch
 import akka.stream.KillSwitches
 import akka.stream.SinkShape
 import akka.stream.scaladsl.Keep
-import akka.stream.scaladsl.RestartSource
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
 import akka.stream.stage.GraphStage
@@ -41,7 +40,7 @@ import software.amazon.awssdk.services.s3.S3AsyncClient
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import software.amazon.awssdk.services.s3.model.PutObjectResponse
 
-import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters._
 import scala.jdk.FutureConverters._
 
@@ -59,6 +58,7 @@ class S3CopySink(
   override val shape = SinkShape(in)
 
   private implicit val mat = ActorMaterializer()
+  private implicit val ec = ExecutionContext.global
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
     new GraphStageLogic(shape) with InHandler {
@@ -128,24 +128,21 @@ class S3CopySink(
 
       // Start a new stream to copy each file
       private def process(file: File): Unit = {
-        // Adding "None" just to indicate if cleanupFile has been called
+        // Add to map to mark file being processed
         activeFiles.put(file.getName, None)
 
-        val killSwitch = RestartSource
-          .onFailuresWithBackoff(
-            minBackoff = 1.seconds,
-            maxBackoff = 1.seconds,
-            randomFactor = 0,
-            maxRestarts = -1
-          ) { () =>
-            Source.fromFuture(copyToS3Async(file).asScala)
-          }
+        // No retry, failed processing will be picked up again by periodical file listing
+        val (killSwitch, future) = Source
+          .fromFuture(copyToS3Async(file).asScala)
           .viaMat(KillSwitches.single)(Keep.right)
-          .toMat(Sink.foreach(_ => cleanupFile(file)))(Keep.left)
+          .toMat(Sink.foreach(_ => cleanupFile(file)))(Keep.both)
           .run
 
-        // Note: computeIfPresent makes sure the file is only added to map if it's present (before
-        //   cleanFile removes it) to avoid a leak
+        // Remove to allow this file to be re-processed in case the flow fail to process
+        future.onComplete(_ => activeFiles.remove(file.getName))
+
+        // Use computeIfPresent to makes sure only add if it's not been removed, in theory there's a
+        // chance the flow has completed before it reach here
         activeFiles.computeIfPresent(file.getName, (k, v) => Option(killSwitch))
 
         numActiveFiles.record(activeFiles.size)

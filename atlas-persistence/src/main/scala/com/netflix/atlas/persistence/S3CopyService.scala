@@ -35,7 +35,6 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 import scala.concurrent.duration._
-import scala.jdk.StreamConverters._
 
 @Singleton
 class S3CopyService @Inject()(
