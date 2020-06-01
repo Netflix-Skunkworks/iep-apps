@@ -35,7 +35,6 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 import scala.concurrent.duration._
-import scala.jdk.StreamConverters._
 
 @Singleton
 class S3CopyService @Inject()(
@@ -51,12 +50,9 @@ class S3CopyService @Inject()(
 
   private var killSwitch: KillSwitch = _
   private val s3Config = config.getConfig("atlas.persistence.s3")
-  private val bucket = s3Config.getString("bucket")
-  private val region = s3Config.getString("region")
-  private val prefix = s3Config.getString("prefix")
+
   private val cleanupTimeoutMs = s3Config.getDuration("cleanup-timeout").toMillis
   private val maxInactiveMs = s3Config.getDuration("max-inactive-duration").toMillis
-
   private val maxFileDurationMs =
     config.getDuration("atlas.persistence.local-file.max-duration").toMillis
 
@@ -71,8 +67,7 @@ class S3CopyService @Inject()(
       .tick(1.second, 5.seconds, NotUsed)
       .viaMat(KillSwitches.single)(Keep.right)
       .flatMapMerge(Int.MaxValue, _ => Source(FileUtil.listFiles(new File(dataDir))))
-      // S3CopySink handles flow restart for each file so no need to use RestartSink here
-      .toMat(new S3CopySink(bucket, region, prefix, maxInactiveMs, registry, system))(Keep.left)
+      .toMat(new S3CopySink(s3Config, registry, system))(Keep.left)
       .run()
   }
 
