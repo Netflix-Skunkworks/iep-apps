@@ -17,8 +17,6 @@ package com.netflix.atlas.persistence
 
 import java.io.File
 import java.nio.file.Files
-import java.nio.file.Paths
-import java.nio.file.StandardCopyOption
 
 import com.netflix.atlas.core.util.Streams
 import com.typesafe.scalalogging.StrictLogging
@@ -52,19 +50,4 @@ object FileUtil extends StrictLogging {
     f.getName.endsWith(RollingFileWriter.TmpFileSuffix)
   }
 
-  // Mark a file as complete by removing tmp suffix, so it's ready for s3 copy
-  def markWriteComplete(f: File): Unit = {
-    try {
-      val filePath = f.getCanonicalPath
-      Files.move(
-        Paths.get(filePath),
-        Paths.get(filePath.substring(0, filePath.length - RollingFileWriter.TmpFileSuffix.length)),
-        // Atomic to avoid incorrect file list view during process of rename
-        StandardCopyOption.ATOMIC_MOVE
-      )
-    } catch {
-      case e: Exception =>
-        logger.error(s"Failed to mark file as complete by removing tmp suffix: $f", e)
-    }
-  }
 }

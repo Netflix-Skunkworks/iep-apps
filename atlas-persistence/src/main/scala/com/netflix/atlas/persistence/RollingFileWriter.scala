@@ -16,6 +16,9 @@
 package com.netflix.atlas.persistence
 
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
 
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.spectator.api.Registry
@@ -25,9 +28,31 @@ import org.apache.avro.specific.SpecificDatumWriter
 
 import scala.util.Random
 
-trait RollingFileWriter extends StrictLogging {
+class RollingFileWriter(
+  val filePathPrefix: String,
+  val rollingConf: RollingConfig,
+  val startTime: Long,
+  val endTime: Long,
+  val registry: Registry
+) extends StrictLogging {
 
-  def initialize(): Unit = newWriter
+  // These "curr*" fields track status of the current file writer
+  private var currFile: String = _
+  private var currWriter: DataFileWriter[AvroDatapoint] = _
+  private var currCreatedAtMs: Long = 0
+  private var currNumRecords: Long = 0
+  private var currStartTimeSeen: Long = _
+  private var currEndTimeSeen: Long = _
+
+  private var nextFileSeqId: Long = 0
+
+  private val avroWriteErrors = registry.counter("persistence.avroWriteErrors")
+
+  def initialize(): Unit = newWriter()
+
+  def shouldAccept(dp: Datapoint): Boolean = {
+    dp.timestamp >= startTime && dp.timestamp < endTime
+  }
 
   def write(dp: Datapoint): Unit = {
     if (shouldRollOver) {
@@ -35,38 +60,14 @@ trait RollingFileWriter extends StrictLogging {
       newWriter
     }
     // Ignore the special datapoint
-    if (RollingFileWriter.RolloverCheckDatapoint ne dp) {
+    if ((RollingFileWriter.RolloverCheckDatapoint ne dp) && shouldAccept(dp)) {
       writeImpl(dp)
     }
   }
 
-  // Assuming rollOver closes current file
   def close(): Unit = rollOver
 
-  protected[this] def newWriter(): Unit
-  protected[this] def writeImpl(dp: Datapoint): Unit
-  protected[this] def shouldRollOver: Boolean
-  protected[this] def rollOver(): Unit
-}
-
-class AvroRollingFileWriter(
-  val filePathPrefix: String,
-  val maxRecords: Long,
-  val maxDurationMs: Long,
-  val registry: Registry
-) extends RollingFileWriter {
-
-  // These "curr*" fields track status of the current file writer
-  private var currFile: String = _
-  private var currWriter: DataFileWriter[AvroDatapoint] = _
-  private var currCreatedAtMs: Long = 0
-  private var currNumRecords: Long = 0
-
-  private var nextFileSeqId: Long = 0
-
-  private val avroWriteErrors = registry.counter("persistence.avroWriteErrors")
-
-  override protected def newWriter(): Unit = {
+  private def newWriter(): Unit = {
     val newFile = getNextTmpFilePath
     logger.debug(s"New avro file: $newFile")
     val dataFileWriter = new DataFileWriter[AvroDatapoint](
@@ -80,25 +81,30 @@ class AvroRollingFileWriter(
     currWriter = dataFileWriter
     currCreatedAtMs = System.currentTimeMillis()
     currNumRecords = 0
+    currStartTimeSeen = endTime - 1
+    currEndTimeSeen = startTime
   }
 
-  override protected def writeImpl(dp: Datapoint): Unit = {
+  private def writeImpl(dp: Datapoint): Unit = {
     try {
       currWriter.append(toAvro(dp))
+      currStartTimeSeen = Math.min(currStartTimeSeen, dp.timestamp)
+      currEndTimeSeen = Math.max(currEndTimeSeen, dp.timestamp)
+      currNumRecords += 1
     } catch {
       case e: Exception => {
         avroWriteErrors.increment()
         logger.debug(s"error writing to avro file, file=$currFile datapoint=$dp", e)
       }
     }
-    currNumRecords += 1
   }
 
-  override protected def shouldRollOver: Boolean = {
-    currNumRecords >= maxRecords || System.currentTimeMillis() - currCreatedAtMs >= maxDurationMs
+  private def shouldRollOver: Boolean = {
+    currNumRecords >= rollingConf.maxRecords ||
+    (System.currentTimeMillis() - currCreatedAtMs) >= rollingConf.maxDurationMs
   }
 
-  override protected def rollOver: Unit = {
+  private def rollOver: Unit = {
     currWriter.close()
 
     if (currNumRecords == 0) {
@@ -107,11 +113,32 @@ class AvroRollingFileWriter(
       FileUtil.delete(new File(currFile))
       // Note: nextFileSeqId is not increased here so that actual file seq are always consecutive
     } else {
-      // Rename file, removing tmp file suffix
       logger.debug(s"rolling over file $currFile")
-      FileUtil.markWriteComplete(new File(currFile))
+      renameCurrFile()
       nextFileSeqId += 1
     }
+  }
+
+  // Removing tmp suffix, and add time range as suffix
+  def renameCurrFile(): Unit = {
+    try {
+      val filePath = new File(currFile).getCanonicalPath
+      val rangeSuffix = s".${secOfHour(currStartTimeSeen)}-${secOfHour(currEndTimeSeen)}"
+      val newPath = filePath.substring(0, filePath.length - RollingFileWriter.TmpFileSuffix.length) + rangeSuffix
+      Files.move(
+        Paths.get(filePath),
+        Paths.get(newPath),
+        // Atomic to avoid incorrect file list view during process of rename
+        StandardCopyOption.ATOMIC_MOVE
+      )
+    } catch {
+      case e: Exception =>
+        logger.error(s"Failed to mark file as complete by removing tmp suffix: $currFile", e)
+    }
+  }
+
+  private def secOfHour(timestamp: Long): String = {
+    "%04d".format((timestamp / 1000) % 3600)
   }
 
   // Example file name: 2020051003.i-localhost.0001.XkvU3A.tmp
