@@ -169,17 +169,6 @@ class PayloadDecoder(
   }
 
   private def convertToId(tags: TagMap): Id = {
-    var value = idCache.getIfPresent(tags)
-    if (value == null) {
-      // To avoid blocking for loading cache, we do an explicit get/put. The replacement may
-      // occur multiple times for the same id, but that is not a problem here.
-      value = createId(tags)
-      idCache.put(tags, value)
-    }
-    value
-  }
-
-  private def createId(tags: TagMap): Id = {
     val name = tags("name")
     val otherTags = (tags - "name").asInstanceOf[TagMap]
     Id.create(name).withTags(otherTags.asJavaMap)
@@ -219,12 +208,6 @@ object PayloadDecoder {
     .maximumSize(config.getInt("cache.strings.max-size"))
     .expireAfterAccess(config.getDuration("cache.strings.expires-after"))
     .build[String, String]()
-
-  private val idCache = Caffeine
-    .newBuilder()
-    .maximumSize(config.getInt("cache.ids.max-size"))
-    .expireAfterAccess(config.getDuration("cache.ids.expires-after"))
-    .build[TagMap, Id]()
 
   /**
     * For internal usage after validation has already been performed. Avoids the cost of
