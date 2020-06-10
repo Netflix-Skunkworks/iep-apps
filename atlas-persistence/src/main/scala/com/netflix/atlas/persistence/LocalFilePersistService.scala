@@ -57,6 +57,7 @@ class LocalFilePersistService @Inject()(
   private val maxRecords = fileConfig.getLong("max-records")
   private val maxDurationMs = fileConfig.getDuration("max-duration").toMillis
   private val maxLateDurationMs = fileConfig.getDuration("max-late-duration").toMillis
+  private val rollingConf = RollingConfig(maxRecords, maxDurationMs, maxLateDurationMs)
 
   require(queueSize > 0)
   require(maxRecords > 0)
@@ -85,7 +86,7 @@ class LocalFilePersistService @Inject()(
       maxRestarts = -1
     ) { () =>
       Flow.fromGraph(
-        new RollingFileFlow(dataDir, maxRecords, maxDurationMs, maxLateDurationMs, registry)
+        new RollingFileFlow(dataDir, rollingConf, registry)
       )
     }
   }

@@ -30,8 +30,7 @@ import com.typesafe.scalalogging.StrictLogging
   */
 class HourlyRollingWriter(
   dataDir: String,
-  maxLateDuration: Long,
-  writerFactory: String => RollingFileWriter,
+  rollingConf: RollingConfig,
   registry: Registry
 ) extends StrictLogging {
 
@@ -41,37 +40,43 @@ class HourlyRollingWriter(
   private val lateEventsCounter = registry.counter(baseId.withTag("id", "late"))
   private val futureEventsCounter = registry.counter(baseId.withTag("id", "future"))
 
-  private var currWriterInfo: WriterInfo = _
-  private var prevWriterInfo: WriterInfo = _
+  private var currWriter: RollingFileWriter = _
+  private var prevWriter: RollingFileWriter = _
 
   // Assume maxLateDuration is within 1h
-  require(maxLateDuration > 0 && maxLateDuration <= msOfOneHour)
+  require(rollingConf.maxLateDurationMs > 0 && rollingConf.maxLateDurationMs <= msOfOneHour)
 
   def initialize(): Unit = {
-    currWriterInfo = createWriterInfo(System.currentTimeMillis())
+    currWriter = createWriter(System.currentTimeMillis())
     // Create Writer for previous hour if still within limit
-    if (System.currentTimeMillis() <= maxLateDuration + currWriterInfo.startTime) {
-      prevWriterInfo = createWriterInfo(currWriterInfo.startTime - msOfOneHour)
+    if (System.currentTimeMillis() <= rollingConf.maxLateDurationMs + currWriter.startTime) {
+      prevWriter = createWriter(currWriter.startTime - msOfOneHour)
     }
   }
 
   def close(): Unit = {
-    if (currWriterInfo != null) currWriterInfo.writer.close()
-    if (prevWriterInfo != null) prevWriterInfo.writer.close()
+    if (currWriter != null) currWriter.close()
+    if (prevWriter != null) prevWriter.close()
   }
 
   private def rollOverWriter(): Unit = {
-    if (prevWriterInfo != null) prevWriterInfo.writer.close
-    prevWriterInfo = currWriterInfo
-    currWriterInfo = createWriterInfo(System.currentTimeMillis())
+    if (prevWriter != null) prevWriter.close
+    prevWriter = currWriter
+    currWriter = createWriter(System.currentTimeMillis())
   }
 
-  private def createWriterInfo(ts: Long): WriterInfo = {
+  private def createWriter(ts: Long): RollingFileWriter = {
     val hourStart = getHourStart(ts)
     val hourEnd = hourStart + msOfOneHour
-    val writer = writerFactory(getFilePathPrefixForHour(hourStart))
+    val writer = new RollingFileWriter(
+      getFilePathPrefixForHour(hourStart),
+      rollingConf,
+      hourStart,
+      hourEnd,
+      registry
+    )
     writer.initialize
-    WriterInfo(writer, hourStart, hourEnd)
+    writer
   }
 
   def write(dp: Datapoint): Unit = {
@@ -81,17 +86,17 @@ class HourlyRollingWriter(
 
     if (RollingFileWriter.RolloverCheckDatapoint eq dp) {
       //check rollover for both writers
-      currWriterInfo.write(dp)
-      if (prevWriterInfo != null) prevWriterInfo.write(dp)
+      currWriter.write(dp)
+      if (prevWriter != null) prevWriter.write(dp)
     } else {
       // Range checking in order, higher possibility goes first:
       //   current hour -> previous hour -> late -> future
-      val ts = dp.timestamp
-      if (currWriterInfo.inRange(ts)) {
-        currWriterInfo.write(dp)
-      } else if (prevWriterInfo != null && prevWriterInfo.inRange(ts)) {
-        prevWriterInfo.write(dp)
-      } else if (ts < currWriterInfo.startTime) {
+
+      if (currWriter.shouldAccept(dp)) {
+        currWriter.write(dp)
+      } else if (prevWriter != null && prevWriter.shouldAccept(dp)) {
+        prevWriter.write(dp)
+      } else if (dp.timestamp < currWriter.startTime) {
         lateEventsCounter.increment()
         logger.debug(s"found late event: $dp")
       } else {
@@ -102,17 +107,19 @@ class HourlyRollingWriter(
   }
 
   private def checkHourRollover(now: Long) = {
-    if (now >= currWriterInfo.endTime) {
+    if (now >= currWriter.endTime) {
       rollOverWriter()
     }
   }
 
   // Note: late arrival is only checked cross hour, not rolling time
   private def checkPrevHourExpiration(now: Long) = {
-    if (prevWriterInfo != null && (now > currWriterInfo.startTime + maxLateDuration)) {
-      logger.debug(s"stop writer for previous hour after maxLateDuration of $maxLateDuration ms")
-      prevWriterInfo.writer.close
-      prevWriterInfo = null
+    if (prevWriter != null && (now > currWriter.startTime + rollingConf.maxLateDurationMs)) {
+      logger.debug(
+        s"stop writer for previous hour after maxLateDuration of ${rollingConf.maxLateDurationMs} ms"
+      )
+      prevWriter.close
+      prevWriter = null
     }
   }
 
@@ -124,24 +131,11 @@ class HourlyRollingWriter(
     val dateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(hourStart), ZoneOffset.UTC)
     s"$dataDir/${dateTime.format(HourlyRollingWriter.HourFormatter)}"
   }
-
-  case class WriterInfo(
-    writer: RollingFileWriter,
-    startTime: Long,
-    endTime: Long
-  ) {
-
-    def write(dp: Datapoint): Unit = {
-      writer.write(dp)
-    }
-
-    def inRange(ts: Long): Boolean = {
-      ts >= startTime && ts < endTime
-    }
-  }
 }
 
 object HourlyRollingWriter {
   val HourFormatter = DateTimeFormatter.ofPattern("yyyyMMddHH")
   val HourStringLen: Int = 10
 }
+
+case class RollingConfig(maxRecords: Long, maxDurationMs: Long, maxLateDurationMs: Long)

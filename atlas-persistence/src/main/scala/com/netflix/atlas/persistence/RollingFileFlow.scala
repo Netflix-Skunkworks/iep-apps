@@ -36,9 +36,7 @@ import scala.concurrent.duration._
 
 class RollingFileFlow(
   val dataDir: String,
-  val maxRecords: Long,
-  val maxDurationMs: Long,
-  val maxLateDuration: Long,
+  val rollingConf: RollingConfig,
   val registry: Registry
 ) extends GraphStage[FlowShape[Datapoint, NotUsed]]
     with StrictLogging {
@@ -52,15 +50,12 @@ class RollingFileFlow(
     new TimerGraphStageLogic(shape) with InHandler with OutHandler {
 
       private var hourlyWriter: HourlyRollingWriter = _
-      private val writerFactory: String => RollingFileWriter =
-        filePathPrefix =>
-          new AvroRollingFileWriter(filePathPrefix, maxRecords, maxDurationMs, registry)
 
       override def preStart(): Unit = {
         logger.info(s"creating sink directory: $dataDir")
         Files.createDirectories(Paths.get(dataDir))
 
-        hourlyWriter = new HourlyRollingWriter(dataDir, maxLateDuration, writerFactory, registry)
+        hourlyWriter = new HourlyRollingWriter(dataDir, rollingConf, registry)
         hourlyWriter.initialize
         // This is to trigger rollover check when writer is idle for long time: e.g. in most cases
         // file writer will be idle while hour has ended but it is still waiting for late events
