@@ -195,7 +195,7 @@ class S3CopySink(
         }
       }
 
-      // Example file name: 2020051003.i-localhost.1.XkvU3A
+      // Example file name: 2020-05-10T0300.i-localhost.1.XkvU3A
       private def buildS3Key(fileName: String): String = {
         val hour = fileName.substring(0, HourlyRollingWriter.HourStringLen)
         val s3FileName = fileName.substring(HourlyRollingWriter.HourStringLen + 1)
@@ -208,8 +208,8 @@ class S3CopySink(
         md.update(path.getBytes("UTF-8"))
         val digest = md.digest()
         val hexBytes = digest.take(2).map("%02x".format(_)).mkString
-        val ramdonPrefix = hexBytes.take(3)
-        s"$ramdonPrefix/$path"
+        val randomPrefix = hexBytes.take(3)
+        s"$randomPrefix/$path"
       }
     }
   }

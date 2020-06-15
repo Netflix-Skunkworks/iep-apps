@@ -134,8 +134,8 @@ class HourlyRollingWriter(
 }
 
 object HourlyRollingWriter {
-  val HourFormatter = DateTimeFormatter.ofPattern("yyyyMMddHH")
-  val HourStringLen: Int = 10
+  val HourFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH'00'")
+  val HourStringLen: Int = 15
 }
 
 case class RollingConfig(maxRecords: Long, maxDurationMs: Long, maxLateDurationMs: Long)
