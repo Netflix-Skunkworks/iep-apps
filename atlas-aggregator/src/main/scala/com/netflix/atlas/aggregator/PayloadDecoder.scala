@@ -186,9 +186,14 @@ object PayloadDecoder {
   private val ADD = 0
   private val MAX = 10
 
-  private val aggrTag = Tag.of("atlas.aggr", NetflixEnvironment.instanceId())
-
   private val config = ConfigManager.get().getConfig("atlas.aggregator")
+
+  private val aggrTag = {
+    if (config.getBoolean("include-aggr-tag"))
+      Tag.of("atlas.aggr", NetflixEnvironment.instanceId())
+    else
+      Tag.of(TagKey.dsType, "sum")
+  }
 
   private val maxUserTags = config.getInt("validation.max-user-tags")
 
