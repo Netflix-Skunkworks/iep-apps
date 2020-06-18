@@ -35,7 +35,7 @@ class UpdateApiSuite extends AnyFunSuite {
 
   private val factory = new JsonFactory()
 
-  private val aggrTag = Tag.of("atlas.aggr", "i-123")
+  private val aggrTag = Tag.of("atlas.dstype", "sum")
 
   private def createAggrService(clock: Clock): AtlasAggregatorService = {
     new AtlasAggregatorService(ConfigFactory.load(), clock, new NoopRegistry)
