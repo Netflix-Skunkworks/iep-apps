@@ -47,6 +47,7 @@ class RollingFileWriter(
   private var nextFileSeqId: Long = 0
 
   private val avroWriteErrors = registry.counter("persistence.avroWriteErrors")
+  private val avroCloseErrors = registry.counter("persistence.avroCloseErrors")
 
   def initialize(): Unit = newWriter()
 
@@ -56,8 +57,8 @@ class RollingFileWriter(
 
   def write(dp: Datapoint): Unit = {
     if (shouldRollOver) {
-      rollOver
-      newWriter
+      rollOver()
+      newWriter()
     }
     // Ignore the special datapoint
     if ((RollingFileWriter.RolloverCheckDatapoint ne dp) && shouldAccept(dp)) {
@@ -65,7 +66,7 @@ class RollingFileWriter(
     }
   }
 
-  def close(): Unit = rollOver
+  def close(): Unit = rollOver()
 
   private def newWriter(): Unit = {
     val newFile = getNextTmpFilePath
@@ -92,10 +93,9 @@ class RollingFileWriter(
       currEndTimeSeen = Math.max(currEndTimeSeen, dp.timestamp)
       currNumRecords += 1
     } catch {
-      case e: Exception => {
-        avroWriteErrors.increment()
+      case e: Exception =>
         logger.debug(s"error writing to avro file, file=$currFile datapoint=$dp", e)
-      }
+        avroWriteErrors.increment()
     }
   }
 
@@ -104,18 +104,28 @@ class RollingFileWriter(
     (System.currentTimeMillis() - currCreatedAtMs) >= rollingConf.maxDurationMs
   }
 
-  private def rollOver: Unit = {
-    currWriter.close()
+  private def rollOver(): Unit = {
+    closeCurrWriter()
 
     if (currNumRecords == 0) {
       // Simply delete the file if no records written
-      logger.debug(s"deleting file with 0 record: ${currFile}")
+      logger.debug(s"deleting file with 0 record: $currFile")
       FileUtil.delete(new File(currFile))
       // Note: nextFileSeqId is not increased here so that actual file seq are always consecutive
     } else {
       logger.debug(s"rolling over file $currFile")
       renameCurrFile()
       nextFileSeqId += 1
+    }
+  }
+
+  private def closeCurrWriter(): Unit = {
+    try {
+      currWriter.close()
+    } catch {
+      case e: Exception =>
+        logger.error(s"Failed to close avro writer for file: $currFile", e)
+        avroCloseErrors.increment()
     }
   }
 
@@ -167,7 +177,7 @@ class RollingFileWriter(
 }
 
 object RollingFileWriter {
-  val TmpFileSuffix = ".tmp"
+  val TmpFileSuffix: String = ".tmp"
   // A special Datapoint used solely for triggering rollover check
-  val RolloverCheckDatapoint = Datapoint(Map.empty, 0, 0)
+  val RolloverCheckDatapoint: Datapoint = Datapoint(Map.empty, 0, 0)
 }
