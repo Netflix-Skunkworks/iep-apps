@@ -8,7 +8,7 @@ object Dependencies {
     val akkaHttpV  = "10.1.11"
     val atlas      = "1.7.0-SNAPSHOT"
     val aws        = "1.11.764"
-    val aws2       = "2.13.6"
+    val aws2       = "2.13.43"
     val iep        = "2.5.0"
     val guice      = "4.1.0"
     val log4j      = "2.13.2"
@@ -42,6 +42,7 @@ object Dependencies {
   val awsEC2             = "com.amazonaws" % "aws-java-sdk-ec2" % aws
   val awsSQS             = "com.amazonaws" % "aws-java-sdk-sqs" % aws
   val awsSTS             = "com.amazonaws" % "aws-java-sdk-sts" % aws
+  val aws2ApacheClient   = "software.amazon.awssdk" % "apache-client" % aws2
   val aws2S3             = "software.amazon.awssdk" % "s3" % aws2
   val aws2SQS            = "software.amazon.awssdk" % "sqs" % aws2
   val frigga             = "com.netflix.frigga" % "frigga" % "0.24.0"
