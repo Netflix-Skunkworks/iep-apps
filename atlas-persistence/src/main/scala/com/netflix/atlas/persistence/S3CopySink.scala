@@ -17,8 +17,8 @@ package com.netflix.atlas.persistence
 
 import java.io.File
 import java.security.MessageDigest
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
@@ -37,15 +37,14 @@ import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import software.amazon.awssdk.regions.Region
-import software.amazon.awssdk.services.s3.S3AsyncClient
+import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
-import software.amazon.awssdk.services.s3.model.PutObjectResponse
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 import scala.concurrent.TimeoutException
 import scala.jdk.CollectionConverters._
 import scala.jdk.DurationConverters._
-import scala.jdk.FutureConverters._
 import scala.util.Failure
 import scala.util.Success
 
@@ -57,21 +56,24 @@ class S3CopySink(
     with StrictLogging {
 
   private val in = Inlet[File]("S3CopySink.in")
-  override val shape = SinkShape(in)
-
-  private implicit val mat = ActorMaterializer()
-  private implicit val ec = ExecutionContext.global
+  override val shape: SinkShape[File] = SinkShape(in)
 
   private val bucket = s3Config.getString("bucket")
   private val region = s3Config.getString("region")
   private val prefix = s3Config.getString("prefix")
   private val maxInactiveMs = s3Config.getDuration("max-inactive-duration").toMillis
   private val clientTimeout = s3Config.getDuration("client-timeout").toScala
+  private val threadPoolSize = s3Config.getInt("thread-pool-size")
+
+  private implicit val mat: ActorMaterializer = ActorMaterializer()
+  private val globalEc = ExecutionContext.global
+  private val s3Ec =
+    ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(threadPoolSize))
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
     new GraphStageLogic(shape) with InHandler {
 
-      private var s3Client: S3AsyncClient = _
+      private var s3Client: S3Client = _
       private val numActiveFiles = registry.distributionSummary("persistence.s3.numActiveFiles")
       // Tracking files which is being processed to avoid duplication
       private val activeFiles = new ConcurrentHashMap[String, Option[KillSwitch]]
@@ -103,7 +105,7 @@ class S3CopySink(
 
       // TODO use iep/iep-module-aws2
       private def initS3Client(): Unit = {
-        s3Client = S3AsyncClient
+        s3Client = S3Client
           .builder()
           .region(Region.of(region))
           .build()
@@ -139,9 +141,8 @@ class S3CopySink(
         // Add to map to mark file being processed
         activeFiles.put(file.getName, None)
 
-        val s3CopyFuture = copyToS3Async(file)
         val (killSwitch, streamFuture) = Source
-          .fromFuture(s3CopyFuture.asScala)
+          .fromFuture(Future[Unit](copyToS3Sync(file))(s3Ec))
           // Set a timeout for s3 async client call because it sometimes never completes and current
           // file cannot be re-processed because it's been marked in activeFiles already
           .completionTimeout(clientTimeout)
@@ -157,11 +158,10 @@ class S3CopySink(
           case Failure(te: TimeoutException) =>
             activeFiles.remove(file.getName)
             logger.error(s"Stream timeout for file $file: ${te.getMessage}")
-            s3CopyFuture.cancel(true)
           case Failure(e) =>
             activeFiles.remove(file.getName)
             logger.error(s"Stream failed for file $file", e)
-        }
+        }(globalEc)
 
         // Use computeIfPresent to makes sure only add if it's not been removed, in theory there's a
         // chance the flow has completed before it reach here
@@ -175,24 +175,16 @@ class S3CopySink(
         activeFiles.remove(file.getName)
       }
 
-      private def copyToS3Async(file: File): CompletableFuture[PutObjectResponse] = {
+      private def copyToS3Sync(file: File): Unit = {
         val s3Key = buildS3Key(file.getName)
+        logger.debug(s"copyToS3 start: file=$file, key=$s3Key")
         val putReq = PutObjectRequest
           .builder()
           .bucket(bucket)
           .key(s3Key)
           .build()
-
-        logger.debug(s"copyToS3 start: file=$file, key=$s3Key")
-        s3Client.putObject(putReq, file.toPath).whenComplete { (res, err) =>
-          {
-            if (res != null) {
-              logger.info(s"copyToS3 done: file=$file, key=$s3Key")
-            } else {
-              logger.error(s"copyToS3 failed: file=$file, key=$s3Key, error=${err.getMessage}")
-            }
-          }
-        }
+        s3Client.putObject(putReq, file.toPath)
+        logger.info(s"copyToS3 done: file=$file, key=$s3Key")
       }
 
       // Example file name: 2020-05-10T0300.i-localhost.1.XkvU3A
