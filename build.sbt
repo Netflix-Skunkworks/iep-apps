@@ -57,7 +57,6 @@ lazy val `atlas-persistence` = project
       Dependencies.atlasModuleAkka,
       Dependencies.atlasModuleWebApi,
       Dependencies.avro,
-      Dependencies.aws2ApacheClient,
       Dependencies.aws2S3,
       Dependencies.iepGuice,
       Dependencies.log4jApi,

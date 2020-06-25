@@ -42,7 +42,6 @@ object Dependencies {
   val awsEC2             = "com.amazonaws" % "aws-java-sdk-ec2" % aws
   val awsSQS             = "com.amazonaws" % "aws-java-sdk-sqs" % aws
   val awsSTS             = "com.amazonaws" % "aws-java-sdk-sts" % aws
-  val aws2ApacheClient   = "software.amazon.awssdk" % "apache-client" % aws2
   val aws2S3             = "software.amazon.awssdk" % "s3" % aws2
   val aws2SQS            = "software.amazon.awssdk" % "sqs" % aws2
   val frigga             = "com.netflix.frigga" % "frigga" % "0.24.0"

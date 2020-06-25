@@ -36,7 +36,6 @@ import akka.stream.stage.InHandler
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
-import software.amazon.awssdk.http.apache.ApacheHttpClient
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
@@ -109,7 +108,6 @@ class S3CopySink(
         s3Client = S3Client
           .builder()
           .region(Region.of(region))
-          .httpClientBuilder(ApacheHttpClient.builder())
           .build()
       }
 
