@@ -15,6 +15,8 @@
  */
 package com.netflix.atlas.aggregator
 
+import java.security.SecureRandom
+
 import com.netflix.spectator.api.Clock
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.atlas.AtlasConfig
@@ -35,8 +37,19 @@ class AggrConfig(config: Config, registry: Registry) extends AtlasConfig {
     val now = clock.wallTime()
     val stepBoundary = now / stepSize * stepSize
 
-    // Buffer by 10% of the step interval
-    val firstTime = stepBoundary + stepSize / 10
+    // Random delay to spread out load. Default implementation from the super class assumes
+    // relatively random start time across instances so uses now. Here we use a random number
+    // since there are multiple registries per aggregator with the same start time.
+    val random = new SecureRandom()
+
+    // To give it plenty of time, we give a 10% buffer after step boundary and spread out
+    // across the first half of the step.
+    val offset = stepSize / 10
+    val range = stepSize / 2 - offset
+    val delay = (range * random.nextDouble()).toLong + offset
+
+    // Check if the current delay is after the current time
+    val firstTime = stepBoundary + delay
     if (firstTime > now) firstTime - now else firstTime + stepSize - now
   }
 
