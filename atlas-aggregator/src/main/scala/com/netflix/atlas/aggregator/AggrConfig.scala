@@ -58,4 +58,9 @@ class AggrConfig(config: Config, registry: Registry) extends AtlasConfig {
     * for the aggregator.
     */
   override def maxNumberOfMeters(): Int = maxMeters
+
+  /**
+    * Set to null since this will get corrected before it gets to the registry.
+    */
+  override def validTagCharacters(): String = null
 }
