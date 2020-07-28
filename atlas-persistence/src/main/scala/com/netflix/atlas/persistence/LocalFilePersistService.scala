@@ -54,14 +54,13 @@ class LocalFilePersistService @Inject()(
 
   private val fileConfig = config.getConfig("atlas.persistence.local-file")
   private val dataDir = fileConfig.getString("data-dir")
-  private val maxRecords = fileConfig.getLong("max-records")
-  private val maxDurationMs = fileConfig.getDuration("max-duration").toMillis
-  private val maxLateDurationMs = fileConfig.getDuration("max-late-duration").toMillis
-  private val rollingConf = RollingConfig(maxRecords, maxDurationMs, maxLateDurationMs)
-
-  require(queueSize > 0)
-  require(maxRecords > 0)
-  require(maxDurationMs > 0)
+  private val rollingConf = RollingConfig(
+    fileConfig.getLong("max-records"),
+    fileConfig.getDuration("max-duration").toMillis,
+    fileConfig.getDuration("max-late-duration").toMillis,
+    fileConfig.getString("avro-codec"),
+    fileConfig.getInt("avro-syncInterval")
+  )
 
   private var queue: SourceQueue[Datapoint] = _
   private var flowComplete: Future[Done] = _

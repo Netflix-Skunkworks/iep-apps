@@ -61,7 +61,8 @@ lazy val `atlas-persistence` = project
       Dependencies.iepGuice,
       Dependencies.log4jApi,
       Dependencies.log4jCore,
-      Dependencies.log4jSlf4j
+      Dependencies.log4jSlf4j,
+      Dependencies.snappy
   ))
 
 lazy val `atlas-slotting` = project
