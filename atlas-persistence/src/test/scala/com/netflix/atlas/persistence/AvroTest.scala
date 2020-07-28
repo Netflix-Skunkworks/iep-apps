@@ -41,10 +41,11 @@ object AvroTest {
     while (dataFileReader.hasNext) {
       dataFileReader.next()
       count += 1
+      if (count < 4) {
+        println(s"    blockSize  = ${dataFileReader.getBlockSize}")
+      }
     }
 
-    println(s"    blockCount = ${dataFileReader.getBlockCount}")
-    println(s"    blockSize  = ${dataFileReader.getBlockSize}")
     println(s"    numRecords = $count")
 
     dataFileReader.close()

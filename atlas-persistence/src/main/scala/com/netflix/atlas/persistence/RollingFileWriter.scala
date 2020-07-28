@@ -23,6 +23,7 @@ import java.nio.file.StandardCopyOption
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.avro.file.CodecFactory
 import org.apache.avro.file.DataFileWriter
 import org.apache.avro.specific.SpecificDatumWriter
 
@@ -74,6 +75,10 @@ class RollingFileWriter(
     val dataFileWriter = new DataFileWriter[AvroDatapoint](
       new SpecificDatumWriter[AvroDatapoint](classOf[AvroDatapoint])
     )
+
+    dataFileWriter.setCodec(CodecFactory.fromString(rollingConf.codec))
+    dataFileWriter.setSyncInterval(rollingConf.syncInterval)
+
     // Possible to use API that takes OutputStream to track file size if needed
     dataFileWriter.create(AvroDatapoint.getClassSchema, new File(newFile))
 

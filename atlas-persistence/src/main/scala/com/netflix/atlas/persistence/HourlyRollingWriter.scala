@@ -138,4 +138,14 @@ object HourlyRollingWriter {
   val HourStringLen: Int = 15
 }
 
-case class RollingConfig(maxRecords: Long, maxDurationMs: Long, maxLateDurationMs: Long)
+case class RollingConfig(
+  maxRecords: Long,
+  maxDurationMs: Long,
+  maxLateDurationMs: Long,
+  codec: String,
+  syncInterval: Int
+) {
+  require(maxRecords > 0)
+  require(maxDurationMs > 0)
+  require(maxLateDurationMs > 0)
+}

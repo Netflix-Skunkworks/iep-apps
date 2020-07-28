@@ -44,39 +44,50 @@ class RollingFileWriterSuite extends AnyFunSuite with BeforeAndAfter with Before
     Files.deleteIfExists(Paths.get(outputDir))
   }
 
+  testWriterWithCodec("null")
+  testWriterWithCodec("deflate")
+  testWriterWithCodec("bzip2")
+
+  // ########### Below codec's require additional library ############
+  testWriterWithCodec("snappy")
+  //testWriterWithCodec("xz")  // Higher ratio and slower than bzip2
+  //testWriterWithCodec("zstandard")  // Seems similar to snappy
+
   // Write 3 datapoints, first 2 is written in file 1, rollover, and 3rd one is written in file 2
-  test("avro writer rollover by max records") {
-    val rollingConf = RollingConfig(2, 12000, 12000)
-    val hourStart = 3600000
-    val hourEnd = 7200000
-    val writer =
-      new RollingFileWriter(s"$outputDir/prefix", rollingConf, hourStart, hourEnd, registry)
-    writer.initialize()
-    createData(hourStart, 0, 1, 2).foreach(writer.write)
-    writer.write(Datapoint(Map.empty, hourEnd, 3)) // out of range, should be ignored
-    writer.close()
+  private def testWriterWithCodec(codec: String) {
+    test(s"avro writer rollover by max records - codec=$codec") {
+      val rollingConf = RollingConfig(2, 12000, 12000, codec, 64000)
+      val hourStart = 3600000
+      val hourEnd = 7200000
+      val writer =
+        new RollingFileWriter(s"$outputDir/codec.$codec", rollingConf, hourStart, hourEnd, registry)
+      writer.initialize()
+      createData(hourStart, 0, 1, 2).foreach(writer.write)
+      writer.write(Datapoint(Map.empty, hourEnd, 3)) // out of range, should be ignored
+      writer.close()
 
-    // Check num of files
-    val files = listFilesSorted(outputDir)
-    assert(files.size == 2)
+      // Check num of files
+      val files = listFilesSorted(outputDir)
+      assert(files.size == 2)
 
-    // Check file 1 records
-    val file1 = files.head
-    assert(file1.getName.endsWith(".0000-0001"))
-    val dpArray1 = readAvro(file1)
-    assert(dpArray1.size == 2)
-    assert(dpArray1(0).getValue == 0)
-    assert(dpArray1(0).getTags.get("node") == "0")
-    assert(dpArray1(1).getValue == 1)
-    assert(dpArray1(1).getTags.get("node") == "1")
+      // Check file 1 records
+      val file1 = files.head
+      assert(file1.getName.endsWith(".0000-0001"))
+      val dpArray1 = readAvro(file1)
+      assert(dpArray1.size == 2)
+      assert(dpArray1(0).getValue == 0)
+      assert(dpArray1(0).getTags.get("node") == "0")
+      assert(dpArray1(1).getValue == 1)
+      assert(dpArray1(1).getTags.get("node") == "1")
 
-    // Check file 2 records
-    val file2 = files.last
-    assert(file2.getName.endsWith(".0002-0002"))
-    val dpArray2 = readAvro(file2)
-    assert(dpArray2.size == 1)
-    assert(dpArray2(0).getValue == 2)
-    assert(dpArray2(0).getTags.get("node") == "2")
+      // Check file 2 records
+      val file2 = files.last
+      assert(file2.getName.endsWith(".0002-0002"))
+      val dpArray2 = readAvro(file2)
+      assert(dpArray2.size == 1)
+      assert(dpArray2(0).getValue == 2)
+      assert(dpArray2(0).getTags.get("node") == "2")
+    }
   }
 
   private def createData(startTime: Long, values: Double*): List[Datapoint] = {
