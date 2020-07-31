@@ -175,16 +175,16 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
         //
         // The limit for number of returned values cannot be applied to the query sent to Druid
         // because it could truncate the results for multi-value dimensions.
-        val druidQueries = datasources.map { ds =>
-          val searchQuery = SearchQuery(
-            dataSource = ds.name,
-            searchDimensions = List(DefaultDimensionSpec(k, k)),
-            intervals = List(tagsQueryInterval),
-            filter = DruidFilter.forQuery(query),
-            limit = Int.MaxValue
-          )
-          client.search(searchQuery)
-        }
+        val searchQuery = SearchQuery(
+          dataSources = datasources.map { ds =>
+            ds.name
+          },
+          searchDimensions = List(DefaultDimensionSpec(k, k)),
+          intervals = List(tagsQueryInterval),
+          filter = DruidFilter.forQuery(query),
+          limit = Int.MaxValue
+        )
+        val druidQueries = List(client.search(searchQuery))
         Source(druidQueries)
           .flatMapMerge(Int.MaxValue, v => v)
           .map(_.flatMap(_.values))

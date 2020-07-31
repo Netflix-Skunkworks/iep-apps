@@ -254,7 +254,7 @@ object DruidClient {
 
   // http://druid.io/docs/latest/querying/searchquery.html
   case class SearchQuery(
-    dataSource: String,
+    private val dataSources: List[String],
     searchDimensions: List[DimensionSpec],
     intervals: List[String],
     filter: Option[DruidFilter] = None,
@@ -264,6 +264,15 @@ object DruidClient {
   ) {
     val queryType: String = "search"
     val query: DruidQuery.type = DruidQuery
+    // Use a union of the datasource(s) to send 1 query to Druid
+    // The Druid broker will handle sending the query to each datasource
+    // and merge the results before responding.
+    // https://druid.apache.org/docs/latest/querying/query-execution.html#union
+    val dataSource: UnionDatasource = UnionDatasource(dataSources)
+  }
+
+  case class UnionDatasource(dataSources: List[String]) {
+    val `type`: String = "union"
   }
 
   case object DruidQuery {
