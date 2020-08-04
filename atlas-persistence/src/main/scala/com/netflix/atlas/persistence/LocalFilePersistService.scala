@@ -54,11 +54,16 @@ class LocalFilePersistService @Inject()(
 
   private val fileConfig = config.getConfig("atlas.persistence.local-file")
   private val dataDir = fileConfig.getString("data-dir")
+
+  private val avroDeflateCompressionLevel = fileConfig.getInt("avro-deflate-compressionLevel")
+  // Assert here to fail early at service level for invalid value
+  require(avroDeflateCompressionLevel >= 1 && avroDeflateCompressionLevel <= 9)
   private val rollingConf = RollingConfig(
     fileConfig.getLong("max-records"),
     fileConfig.getDuration("max-duration").toMillis,
     fileConfig.getDuration("max-late-duration").toMillis,
     fileConfig.getString("avro-codec"),
+    avroDeflateCompressionLevel,
     fileConfig.getInt("avro-syncInterval")
   )
 

@@ -143,6 +143,7 @@ case class RollingConfig(
   maxDurationMs: Long,
   maxLateDurationMs: Long,
   codec: String,
+  compressionLevel: Int,
   syncInterval: Int
 ) {
   require(maxRecords > 0)
