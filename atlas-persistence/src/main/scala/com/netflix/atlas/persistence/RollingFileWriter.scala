@@ -76,7 +76,13 @@ class RollingFileWriter(
       new SpecificDatumWriter[AvroDatapoint](classOf[AvroDatapoint])
     )
 
-    dataFileWriter.setCodec(CodecFactory.fromString(rollingConf.codec))
+    val codecFactory: CodecFactory = rollingConf.codec match {
+      case "deflate" =>
+        CodecFactory.deflateCodec(rollingConf.compressionLevel)
+      case c: String => CodecFactory.fromString(c)
+    }
+
+    dataFileWriter.setCodec(codecFactory)
     dataFileWriter.setSyncInterval(rollingConf.syncInterval)
 
     // Possible to use API that takes OutputStream to track file size if needed
