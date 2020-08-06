@@ -23,6 +23,7 @@ import java.time.format.DateTimeFormatter
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.avro.file.CodecFactory
 
 /**
   * Hourly writer does hourly directory rolling, and delegates actual writing to underlying
@@ -146,7 +147,10 @@ case class RollingConfig(
   compressionLevel: Int,
   syncInterval: Int
 ) {
+  // Doing config checks here to fail early for invalid values
   require(maxRecords > 0)
   require(maxDurationMs > 0)
   require(maxLateDurationMs > 0)
+  CodecFactory.fromString(codec) // just for validation
+  require(compressionLevel >= 1 && compressionLevel <= 9)
 }
