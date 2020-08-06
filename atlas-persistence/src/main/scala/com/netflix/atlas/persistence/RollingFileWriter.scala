@@ -23,11 +23,16 @@ import java.nio.file.StandardCopyOption
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.avro.Schema.Parser
 import org.apache.avro.file.CodecFactory
 import org.apache.avro.file.DataFileWriter
-import org.apache.avro.specific.SpecificDatumWriter
+import org.apache.avro.generic.GenericData
+import org.apache.avro.generic.GenericDatumWriter
+import org.apache.avro.generic.GenericRecord
 
+import scala.io.Source
 import scala.util.Random
+import scala.util.Using
 
 class RollingFileWriter(
   val filePathPrefix: String,
@@ -39,7 +44,7 @@ class RollingFileWriter(
 
   // These "curr*" fields track status of the current file writer
   private var currFile: String = _
-  private var currWriter: DataFileWriter[AvroDatapoint] = _
+  private var currWriter: DataFileWriter[GenericRecord] = _
   private var currCreatedAtMs: Long = 0
   private var currNumRecords: Long = 0
   private var currStartTimeSeen: Long = _
@@ -72,8 +77,8 @@ class RollingFileWriter(
   private def newWriter(): Unit = {
     val newFile = getNextTmpFilePath
     logger.debug(s"New avro file: $newFile")
-    val dataFileWriter = new DataFileWriter[AvroDatapoint](
-      new SpecificDatumWriter[AvroDatapoint](classOf[AvroDatapoint])
+    val dataFileWriter = new DataFileWriter[GenericRecord](
+      new GenericDatumWriter[GenericRecord](RollingFileWriter.AvroSchema)
     )
 
     val codecFactory: CodecFactory = rollingConf.codec match {
@@ -86,7 +91,7 @@ class RollingFileWriter(
     dataFileWriter.setSyncInterval(rollingConf.syncInterval)
 
     // Possible to use API that takes OutputStream to track file size if needed
-    dataFileWriter.create(AvroDatapoint.getClassSchema, new File(newFile))
+    dataFileWriter.create(RollingFileWriter.AvroSchema, new File(newFile))
 
     // Update tracking fields
     currFile = newFile
@@ -177,13 +182,13 @@ class RollingFileWriter(
     Random.alphanumeric.take(6).mkString
   }
 
-  private def toAvro(dp: Datapoint): AvroDatapoint = {
+  private def toAvro(dp: Datapoint): GenericRecord = {
     import scala.jdk.CollectionConverters._
-    AvroDatapoint.newBuilder
-      .setTags(dp.tags.asJava)
-      .setTimestamp(dp.timestamp)
-      .setValue(dp.value)
-      .build
+    val record = new GenericData.Record(RollingFileWriter.AvroSchema)
+    record.put("tags", dp.tags.asJava)
+    record.put("timestamp", dp.timestamp)
+    record.put("value", dp.value)
+    record
   }
 }
 
@@ -191,4 +196,7 @@ object RollingFileWriter {
   val TmpFileSuffix: String = ".tmp"
   // A special Datapoint used solely for triggering rollover check
   val RolloverCheckDatapoint: Datapoint = Datapoint(Map.empty, 0, 0)
+
+  val AvroSchema =
+    new Parser().parse(Using.resource(Source.fromResource("datapoint.avsc"))(_.mkString))
 }

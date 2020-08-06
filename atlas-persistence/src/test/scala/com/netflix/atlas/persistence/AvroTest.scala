@@ -20,7 +20,8 @@ import java.nio.file.Files
 import java.nio.file.Paths
 
 import org.apache.avro.file.DataFileReader
-import org.apache.avro.specific.SpecificDatumReader
+import org.apache.avro.generic.GenericDatumReader
+import org.apache.avro.generic.GenericRecord
 
 // Read metadata for all avro files in given directory
 object AvroTest {
@@ -36,14 +37,14 @@ object AvroTest {
   private def readFile(file: File): Unit = {
     println(s"##### Reading file: $file")
     var count = 0
-    val userDatumReader = new SpecificDatumReader[AvroDatapoint](classOf[AvroDatapoint])
-    val dataFileReader = new DataFileReader[AvroDatapoint](file, userDatumReader)
+    val genericDatumReader = new GenericDatumReader[GenericRecord](RollingFileWriter.AvroSchema)
+    val dataFileReader = new DataFileReader[GenericRecord](file, genericDatumReader)
     while (dataFileReader.hasNext) {
-      dataFileReader.next()
-      count += 1
+      val record = dataFileReader.next()
       if (count < 4) {
-        println(s"    blockSize  = ${dataFileReader.getBlockSize}")
+        println(s"blockSize = ${dataFileReader.getBlockSize} | record = $record")
       }
+      count += 1
     }
 
     println(s"    numRecords = $count")

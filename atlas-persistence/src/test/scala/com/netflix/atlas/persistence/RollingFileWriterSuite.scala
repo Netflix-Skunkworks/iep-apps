@@ -22,7 +22,9 @@ import java.nio.file.Paths
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.spectator.api.NoopRegistry
 import org.apache.avro.file.DataFileReader
-import org.apache.avro.specific.SpecificDatumReader
+import org.apache.avro.generic.GenericDatumReader
+import org.apache.avro.generic.GenericRecord
+import org.apache.avro.util.Utf8
 import org.scalatest.BeforeAndAfter
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.funsuite.AnyFunSuite
@@ -75,18 +77,18 @@ class RollingFileWriterSuite extends AnyFunSuite with BeforeAndAfter with Before
       assert(file1.getName.endsWith(".0000-0001"))
       val dpArray1 = readAvro(file1)
       assert(dpArray1.size == 2)
-      assert(dpArray1(0).getValue == 0)
-      assert(dpArray1(0).getTags.get("node") == "0")
-      assert(dpArray1(1).getValue == 1)
-      assert(dpArray1(1).getTags.get("node") == "1")
+      assert(dpArray1(0).value == 0)
+      assert(dpArray1(0).tags.get("node").get == "0")
+      assert(dpArray1(1).value == 1)
+      assert(dpArray1(1).tags.get("node").get == "1")
 
       // Check file 2 records
       val file2 = files.last
       assert(file2.getName.endsWith(".0002-0002"))
       val dpArray2 = readAvro(file2)
       assert(dpArray2.size == 1)
-      assert(dpArray2(0).getValue == 2)
-      assert(dpArray2(0).getTags.get("node") == "2")
+      assert(dpArray2(0).value == 2)
+      assert(dpArray2(0).tags.get("node").get == "2")
     }
   }
 
@@ -110,10 +112,10 @@ class RollingFileWriterSuite extends AnyFunSuite with BeforeAndAfter with Before
     }
   }
 
-  private def readAvro(file: File): Array[AvroDatapoint] = {
-    val userDatumReader = new SpecificDatumReader[AvroDatapoint](classOf[AvroDatapoint])
-    val dataFileReader = new DataFileReader[AvroDatapoint](file, userDatumReader)
-    val dpListBuf = ListBuffer.empty[AvroDatapoint]
+  private def readAvro(file: File): Array[Datapoint] = {
+    val genericDatumReader = new GenericDatumReader[GenericRecord](RollingFileWriter.AvroSchema)
+    val dataFileReader = new DataFileReader[GenericRecord](file, genericDatumReader)
+    val dpListBuf = ListBuffer.empty[GenericRecord]
     try {
       while (dataFileReader.hasNext) {
         dpListBuf.addOne(dataFileReader.next)
@@ -121,6 +123,20 @@ class RollingFileWriterSuite extends AnyFunSuite with BeforeAndAfter with Before
     } finally {
       dataFileReader.close()
     }
-    dpListBuf.toArray
+    dpListBuf.toArray.map(record => {
+      import scala.jdk.CollectionConverters._
+      Datapoint(
+        record
+          .get("tags")
+          .asInstanceOf[java.util.Map[Utf8, Utf8]]
+          .asScala
+          .map { kv =>
+            (kv._1.toString, kv._2.toString)
+          }
+          .toMap,
+        record.get("timestamp").asInstanceOf[Long],
+        record.get("value").asInstanceOf[Double]
+      )
+    })
   }
 }
