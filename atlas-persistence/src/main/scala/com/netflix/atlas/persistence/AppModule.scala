@@ -23,5 +23,6 @@ class AppModule extends AbstractModule {
   override def configure(): Unit = {
     val serviceBinder = Multibinder.newSetBinder(binder(), classOf[Service])
     serviceBinder.addBinding().to(classOf[S3CopyService])
+    serviceBinder.addBinding().to(classOf[LocalFilePersistService])
   }
 }
