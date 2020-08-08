@@ -40,7 +40,8 @@ class RollingFileWriter(
   val rollingConf: RollingConfig,
   val startTime: Long,
   val endTime: Long,
-  val registry: Registry
+  val registry: Registry,
+  val workerId: Int
 ) extends StrictLogging {
 
   // These "curr*" fields track status of the current file writer
@@ -168,11 +169,11 @@ class RollingFileWriter(
     "%04d".format((timestamp / 1000) % 3600)
   }
 
-  // Example file name: 2020051003.i-localhost.0001.XkvU3A.tmp
+  // Example file name: 2020051003.i-localhost.0.0001.XkvU3A.tmp
   // The random string suffix is to avoid file name conflict when server restarts
   private def getNextTmpFilePath: String = {
     val seqStr = "%04d".format(nextFileSeqId)
-    s"$filePathPrefix.$getInstanceId.$seqStr.$getRandomStr${RollingFileWriter.TmpFileSuffix}"
+    s"$filePathPrefix.$getInstanceId.$workerId.$seqStr.$getRandomStr${RollingFileWriter.TmpFileSuffix}"
   }
 
   private def getInstanceId: String = {

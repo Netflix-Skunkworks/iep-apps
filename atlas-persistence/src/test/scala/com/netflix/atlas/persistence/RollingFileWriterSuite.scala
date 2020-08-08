@@ -62,7 +62,14 @@ class RollingFileWriterSuite extends AnyFunSuite with BeforeAndAfter with Before
       val hourStart = 3600000
       val hourEnd = 7200000
       val writer =
-        new RollingFileWriter(s"$outputDir/codec.$codec", rollingConf, hourStart, hourEnd, registry)
+        new RollingFileWriter(
+          s"$outputDir/codec.$codec",
+          rollingConf,
+          hourStart,
+          hourEnd,
+          registry,
+          0
+        )
       writer.initialize()
       createData(hourStart, 0, 1, 2).foreach(writer.write)
       writer.write(Datapoint(Map.empty, hourEnd, 3)) // out of range, should be ignored
