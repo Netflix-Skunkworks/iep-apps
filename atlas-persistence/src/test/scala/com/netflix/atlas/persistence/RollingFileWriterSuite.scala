@@ -56,7 +56,7 @@ class RollingFileWriterSuite extends AnyFunSuite with BeforeAndAfter with Before
   //testWriterWithCodec("zstandard")  // Seems similar to snappy
 
   // Write 3 datapoints, first 2 is written in file 1, rollover, and 3rd one is written in file 2
-  private def testWriterWithCodec(codec: String) {
+  private def testWriterWithCodec(codec: String): Unit = {
     test(s"avro writer rollover by max records - codec=$codec") {
       val rollingConf = RollingConfig(2, 12000, 12000, codec, 9, 64000)
       val hourStart = 3600000

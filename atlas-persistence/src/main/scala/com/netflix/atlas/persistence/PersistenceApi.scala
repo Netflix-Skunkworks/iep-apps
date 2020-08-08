@@ -22,6 +22,7 @@ import akka.http.scaladsl.server.Route
 import com.netflix.atlas.akka.CustomDirectives._
 import com.netflix.atlas.akka.DiagnosticMessage
 import com.netflix.atlas.akka.WebApi
+import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.webapi.PublishApi
 
 class PersistenceApi(localFileService: LocalFilePersistService) extends WebApi {
@@ -40,14 +41,11 @@ class PersistenceApi(localFileService: LocalFilePersistService) extends WebApi {
   }
 
   private def handleReq: Route = {
-    parseEntity(customJson(p => PublishApi.decodeBatch(p))) { datapoints =>
-      datapoints match {
-        case Nil => complete(DiagnosticMessage.error(StatusCodes.BadRequest, "empty payload"))
-        case _ => {
-          datapoints.foreach(localFileService.persist)
-          complete(HttpResponse(StatusCodes.OK))
-        }
-      }
+    parseEntity(customJson(p => PublishApi.decodeBatch(p))) {
+      case Nil => complete(DiagnosticMessage.error(StatusCodes.BadRequest, "empty payload"))
+      case dps: List[Datapoint] =>
+        localFileService.persist(dps)
+        complete(HttpResponse(StatusCodes.OK))
     }
   }
 }

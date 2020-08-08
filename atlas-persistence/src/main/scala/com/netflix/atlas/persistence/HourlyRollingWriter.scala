@@ -62,7 +62,7 @@ class HourlyRollingWriter(
   }
 
   private def rollOverWriter(): Unit = {
-    if (prevWriter != null) prevWriter.close
+    if (prevWriter != null) prevWriter.close()
     prevWriter = currWriter
     currWriter = createWriter(System.currentTimeMillis())
   }
@@ -78,11 +78,15 @@ class HourlyRollingWriter(
       registry,
       workerId
     )
-    writer.initialize
+    writer.initialize()
     writer
   }
 
-  def write(dp: Datapoint): Unit = {
+  def write(dps: List[Datapoint]): Unit = {
+    dps.foreach(writeDp)
+  }
+
+  private def writeDp(dp: Datapoint): Unit = {
     val now = System.currentTimeMillis()
     checkHourRollover(now)
     checkPrevHourExpiration(now)
@@ -109,19 +113,19 @@ class HourlyRollingWriter(
     }
   }
 
-  private def checkHourRollover(now: Long) = {
+  private def checkHourRollover(now: Long): Unit = {
     if (now >= currWriter.endTime) {
       rollOverWriter()
     }
   }
 
   // Note: late arrival is only checked cross hour, not rolling time
-  private def checkPrevHourExpiration(now: Long) = {
+  private def checkPrevHourExpiration(now: Long): Unit = {
     if (prevWriter != null && (now > currWriter.startTime + rollingConf.maxLateDurationMs)) {
       logger.debug(
         s"stop writer for previous hour after maxLateDuration of ${rollingConf.maxLateDurationMs} ms"
       )
-      prevWriter.close
+      prevWriter.close()
       prevWriter = null
     }
   }
@@ -137,7 +141,7 @@ class HourlyRollingWriter(
 }
 
 object HourlyRollingWriter {
-  val HourFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH'00'")
+  val HourFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH'00'")
   val HourStringLen: Int = 15
 }
 

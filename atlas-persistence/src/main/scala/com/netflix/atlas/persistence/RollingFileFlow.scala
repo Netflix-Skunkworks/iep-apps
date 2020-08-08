@@ -39,12 +39,12 @@ class RollingFileFlow(
   val rollingConf: RollingConfig,
   val registry: Registry,
   val id: Int
-) extends GraphStage[FlowShape[Datapoint, NotUsed]]
+) extends GraphStage[FlowShape[List[Datapoint], NotUsed]]
     with StrictLogging {
 
-  private val in = Inlet[Datapoint]("RollingFileSink.in")
+  private val in = Inlet[List[Datapoint]]("RollingFileSink.in")
   private val out = Outlet[NotUsed]("RollingFileSink.out")
-  override val shape = FlowShape(in, out)
+  override val shape = FlowShape[List[Datapoint], NotUsed](in, out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
 
@@ -57,7 +57,7 @@ class RollingFileFlow(
         Files.createDirectories(Paths.get(dataDir))
 
         hourlyWriter = new HourlyRollingWriter(dataDir, rollingConf, registry, id)
-        hourlyWriter.initialize
+        hourlyWriter.initialize()
         // This is to trigger rollover check when writer is idle for long time: e.g. in most cases
         // file writer will be idle while hour has ended but it is still waiting for late events
         schedulePeriodically(None, 5.seconds)
@@ -69,7 +69,7 @@ class RollingFileFlow(
       }
 
       override protected def onTimer(timerKey: Any): Unit = {
-        hourlyWriter.write(RollingFileWriter.RolloverCheckDatapoint)
+        hourlyWriter.write(RollingFileWriter.RolloverCheckDatapointList)
       }
 
       override def onUpstreamFinish(): Unit = {
