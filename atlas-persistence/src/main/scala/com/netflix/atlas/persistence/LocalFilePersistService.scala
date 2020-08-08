@@ -102,7 +102,7 @@ class LocalFilePersistService @Inject()(
     workerCount: Int
   ): Flow[In, Out, NotUsed] = {
     if (workerCount == 1) {
-      // Don't add overhead of balancer and sync boundary for single worker
+      // Don't add overhead of balancer and async boundary for single worker
       workerFlowFactory(0)
     } else {
       import akka.stream.scaladsl.GraphDSL.Implicits._
