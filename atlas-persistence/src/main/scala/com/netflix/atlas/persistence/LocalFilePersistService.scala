@@ -19,8 +19,12 @@ import akka.Done
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
+import akka.stream.FlowShape
+import akka.stream.scaladsl.Balance
 import akka.stream.scaladsl.Flow
+import akka.stream.scaladsl.GraphDSL
 import akka.stream.scaladsl.Keep
+import akka.stream.scaladsl.Merge
 import akka.stream.scaladsl.RestartFlow
 import akka.stream.scaladsl.Sink
 import com.netflix.atlas.akka.StreamOps
@@ -51,7 +55,7 @@ class LocalFilePersistService @Inject()(
   implicit val mat = ActorMaterializer()
 
   private val queueSize = config.getInt("atlas.persistence.queue-size")
-
+  private val writeWorkerSize = config.getInt("atlas.persistence.write-worker-size")
   private val fileConfig = config.getConfig("atlas.persistence.local-file")
   private val dataDir = fileConfig.getString("data-dir")
 
@@ -71,14 +75,14 @@ class LocalFilePersistService @Inject()(
     logger.info("Starting service")
     val (q, f) = StreamOps
       .blockingQueue[Datapoint](registry, "LocalFilePersistService", queueSize)
-      .via(getRollingFileFlow)
+      .via(balancer(getRollingFileFlow(_), writeWorkerSize))
       .toMat(Sink.ignore)(Keep.both)
       .run
     queue = q
     flowComplete = f
   }
 
-  private def getRollingFileFlow(): Flow[Datapoint, NotUsed, NotUsed] = {
+  private def getRollingFileFlow(workerId: Int): Flow[Datapoint, NotUsed, NotUsed] = {
     import scala.concurrent.duration._
     RestartFlow.withBackoff(
       minBackoff = 1.second,
@@ -87,8 +91,28 @@ class LocalFilePersistService @Inject()(
       maxRestarts = -1
     ) { () =>
       Flow.fromGraph(
-        new RollingFileFlow(dataDir, rollingConf, registry)
+        new RollingFileFlow(dataDir, rollingConf, registry, workerId)
       )
+    }
+  }
+
+  def balancer[In, Out](
+    workerFlowFactory: Int => Flow[In, Out, NotUsed],
+    workerCount: Int
+  ): Flow[In, Out, NotUsed] = {
+    if (workerCount == 1) {
+      // Don't add overhead of balancer and sync boundary for single worker
+      workerFlowFactory(0)
+    } else {
+      import akka.stream.scaladsl.GraphDSL.Implicits._
+      Flow.fromGraph(GraphDSL.create() { implicit b =>
+        val balancer = b.add(Balance[In](workerCount))
+        val merge = b.add(Merge[Out](workerCount))
+        for (i <- 0 until workerCount) {
+          balancer ~> workerFlowFactory(i).async ~> merge
+        }
+        FlowShape(balancer.in, merge.out)
+      })
     }
   }
 

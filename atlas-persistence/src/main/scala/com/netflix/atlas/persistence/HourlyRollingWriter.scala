@@ -30,9 +30,10 @@ import org.apache.avro.file.CodecFactory
   * RollingFileWriter.
   */
 class HourlyRollingWriter(
-  dataDir: String,
-  rollingConf: RollingConfig,
-  registry: Registry
+  val dataDir: String,
+  val rollingConf: RollingConfig,
+  val registry: Registry,
+  val workerId: Int
 ) extends StrictLogging {
 
   private val msOfOneHour = 3600000
@@ -74,7 +75,8 @@ class HourlyRollingWriter(
       rollingConf,
       hourStart,
       hourEnd,
-      registry
+      registry,
+      workerId
     )
     writer.initialize
     writer
