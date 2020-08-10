@@ -108,7 +108,7 @@ class LocalFilePersistService @Inject()(
       Flow.fromGraph(GraphDSL.create() { implicit b =>
         val balancer = b.add(Balance[In](workerCount))
         val merge = b.add(Merge[Out](workerCount))
-        for (i <- 0 to workerCount - 1) {
+        for (i <- 0 until workerCount) {
           balancer ~> workerFlowFactory(i).async ~> merge
         }
         FlowShape(balancer.in, merge.out)
