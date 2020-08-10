@@ -24,6 +24,7 @@ import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.core.util.SmallHashMap
 import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.avro.Schema
 import org.apache.avro.Schema.Parser
 import org.apache.avro.file.CodecFactory
 import org.apache.avro.file.DataFileWriter
@@ -54,8 +55,10 @@ class RollingFileWriter(
 
   private var nextFileSeqId: Long = 0
 
-  private val avroWriteErrors = registry.counter("persistence.avroWriteErrors")
-  private val avroCloseErrors = registry.counter("persistence.avroCloseErrors")
+  private val baseId = registry.createId("persistence.avroWrite")
+  private val avroWriteCount = registry.counter(baseId.withTag("id", "ok"))
+  private val avroWriteErrors = registry.counter(baseId.withTag("id", "error"))
+  private val avroCloseErrors = registry.counter(baseId.withTag("id", "closeError"))
 
   def initialize(): Unit = newWriter()
 
@@ -107,6 +110,7 @@ class RollingFileWriter(
   private def writeImpl(dp: Datapoint): Unit = {
     try {
       currWriter.append(toAvro(dp))
+      avroWriteCount.increment()
       currStartTimeSeen = Math.min(currStartTimeSeen, dp.timestamp)
       currEndTimeSeen = Math.max(currEndTimeSeen, dp.timestamp)
       currNumRecords += 1
@@ -204,7 +208,8 @@ object RollingFileWriter {
   val TmpFileSuffix: String = ".tmp"
   // A special Datapoint used solely for triggering rollover check
   val RolloverCheckDatapoint: Datapoint = Datapoint(Map.empty, 0, 0)
+  val RolloverCheckDatapointList: List[Datapoint] = List(RolloverCheckDatapoint)
 
-  val AvroSchema =
+  val AvroSchema: Schema =
     new Parser().parse(Using.resource(Source.fromResource("datapoint.avsc"))(_.mkString))
 }

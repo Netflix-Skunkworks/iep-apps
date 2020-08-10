@@ -38,6 +38,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 import scala.concurrent.Await
+import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 
@@ -51,8 +52,8 @@ class LocalFilePersistService @Inject()(
   implicit val system: ActorSystem
 ) extends AbstractService
     with StrictLogging {
-  implicit val ec = scala.concurrent.ExecutionContext.global
-  implicit val mat = ActorMaterializer()
+  implicit val ec: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
+  implicit val mat: ActorMaterializer = ActorMaterializer()
 
   private val queueSize = config.getInt("atlas.persistence.queue-size")
   private val writeWorkerSize = config.getInt("atlas.persistence.write-worker-size")
@@ -68,21 +69,21 @@ class LocalFilePersistService @Inject()(
     fileConfig.getInt("avro-syncInterval")
   )
 
-  private var queue: SourceQueue[Datapoint] = _
+  private var queue: SourceQueue[List[Datapoint]] = _
   private var flowComplete: Future[Done] = _
 
   override def startImpl(): Unit = {
     logger.info("Starting service")
     val (q, f) = StreamOps
-      .blockingQueue[Datapoint](registry, "LocalFilePersistService", queueSize)
-      .via(balancer(getRollingFileFlow(_), writeWorkerSize))
+      .blockingQueue[List[Datapoint]](registry, "LocalFilePersistService", queueSize)
+      .via(balancer(getRollingFileFlow, writeWorkerSize))
       .toMat(Sink.ignore)(Keep.both)
       .run
     queue = q
     flowComplete = f
   }
 
-  private def getRollingFileFlow(workerId: Int): Flow[Datapoint, NotUsed, NotUsed] = {
+  private def getRollingFileFlow(workerId: Int): Flow[List[Datapoint], NotUsed, NotUsed] = {
     import scala.concurrent.duration._
     RestartFlow.withBackoff(
       minBackoff = 1.second,
@@ -101,7 +102,7 @@ class LocalFilePersistService @Inject()(
     workerCount: Int
   ): Flow[In, Out, NotUsed] = {
     if (workerCount == 1) {
-      // Don't add overhead of balancer and sync boundary for single worker
+      // Don't add overhead of balancer and async boundary for single worker
       workerFlowFactory(0)
     } else {
       import akka.stream.scaladsl.GraphDSL.Implicits._
@@ -127,7 +128,7 @@ class LocalFilePersistService @Inject()(
     logger.info("Stopped service")
   }
 
-  def persist(dp: Datapoint): Unit = {
+  def persist(dp: List[Datapoint]): Unit = {
     queue.offer(dp)
   }
 }

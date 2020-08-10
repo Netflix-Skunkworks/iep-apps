@@ -18,10 +18,10 @@ package com.netflix.atlas.persistence
 import java.io.File
 import java.nio.file.Files
 
-import com.netflix.atlas.core.util.Streams
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.jdk.StreamConverters._
+import scala.util.Using
 
 object FileUtil extends StrictLogging {
 
@@ -36,7 +36,7 @@ object FileUtil extends StrictLogging {
 
   def listFiles(f: File): List[File] = {
     try {
-      Streams.scope(Files.list(f.toPath)) { dir =>
+      Using.resource(Files.list(f.toPath)) { dir =>
         dir.toScala(List).map(_.toFile)
       }
     } catch {

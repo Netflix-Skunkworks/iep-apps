@@ -26,7 +26,6 @@ import akka.stream.KillSwitch
 import akka.stream.KillSwitches
 import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.Source
-import com.netflix.atlas.core.util.Streams
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
@@ -35,6 +34,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 import scala.concurrent.duration._
+import scala.util.Using
 
 @Singleton
 class S3CopyService @Inject()(
@@ -92,7 +92,7 @@ class S3CopyService @Inject()(
 
   private def hasMoreFiles: Boolean = {
     try {
-      Streams.scope(Files.list(Paths.get(dataDir))) { dir =>
+      Using.resource(Files.list(Paths.get(dataDir))) { dir =>
         dir.anyMatch(f => Files.isRegularFile(f))
       }
     } catch {

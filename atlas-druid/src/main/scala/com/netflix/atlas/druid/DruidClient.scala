@@ -35,13 +35,13 @@ import akka.util.ByteString
 import com.fasterxml.jackson.core.JsonToken
 import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.akka.ByteStringInputStream
-import com.netflix.atlas.core.util.Streams
 import com.netflix.atlas.json.Json
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.util.Failure
 import scala.util.Success
+import scala.util.Using
 
 class DruidClient(
   config: Config,
@@ -148,7 +148,7 @@ class DruidClient(
   }
 
   private def parseResult(dimensions: List[String], data: ByteString): List[GroupByDatapoint] = {
-    Streams.scope(Json.newJsonParser(new ByteStringInputStream(data))) { parser =>
+    Using.resource(Json.newJsonParser(new ByteStringInputStream(data))) { parser =>
       import com.netflix.atlas.json.JsonParserHelper._
       val builder = List.newBuilder[GroupByDatapoint]
       foreachItem(parser) {
