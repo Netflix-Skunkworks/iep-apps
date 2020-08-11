@@ -83,7 +83,7 @@ class LocalFilePersistService @Inject()(
     flowComplete = f
   }
 
-  override def isHealthy: Boolean =  {
+  override def isHealthy: Boolean = {
     super.isHealthy && queue != null && !queue.isDone
   }
 
