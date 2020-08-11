@@ -44,8 +44,12 @@ class PersistenceApi(localFileService: LocalFilePersistService) extends WebApi {
     parseEntity(customJson(p => PublishApi.decodeBatch(p))) {
       case Nil => complete(DiagnosticMessage.error(StatusCodes.BadRequest, "empty payload"))
       case dps: List[Datapoint] =>
-        localFileService.persist(dps)
-        complete(HttpResponse(StatusCodes.OK))
+        if (localFileService.isHealthy) {
+          localFileService.persist(dps)
+          complete(HttpResponse(StatusCodes.OK))
+        } else {
+          complete(DiagnosticMessage.error(StatusCodes.ServiceUnavailable, "service unhealthy"))
+        }
     }
   }
 }
