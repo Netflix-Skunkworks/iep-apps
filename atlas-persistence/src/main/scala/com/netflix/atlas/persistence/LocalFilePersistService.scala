@@ -83,6 +83,10 @@ class LocalFilePersistService @Inject()(
     flowComplete = f
   }
 
+  override def isHealthy: Boolean = {
+    super.isHealthy && queue != null && !queue.isDone
+  }
+
   private def getRollingFileFlow(workerId: Int): Flow[List[Datapoint], NotUsed, NotUsed] = {
     import scala.concurrent.duration._
     RestartFlow.withBackoff(
