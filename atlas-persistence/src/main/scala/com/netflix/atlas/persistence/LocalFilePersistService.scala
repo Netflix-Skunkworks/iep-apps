@@ -56,7 +56,13 @@ class LocalFilePersistService @Inject()(
   implicit val mat: ActorMaterializer = ActorMaterializer()
 
   private val queueSize = config.getInt("atlas.persistence.queue-size")
-  private val writeWorkerSize = config.getInt("atlas.persistence.write-worker-size")
+
+  // Set worker size based on number of cores
+  private val writeWorkerSize = getWorkerSize
+  logger.info(s"writeWorkerSize=$writeWorkerSize")
+  // To expose in admin portal for convenience
+  System.setProperty("persistence.writeWorkerSize", writeWorkerSize.toString)
+
   private val fileConfig = config.getConfig("atlas.persistence.local-file")
   private val dataDir = fileConfig.getString("data-dir")
 
@@ -85,6 +91,12 @@ class LocalFilePersistService @Inject()(
 
   override def isHealthy: Boolean = {
     super.isHealthy && queue != null && !queue.isDone
+  }
+
+  // Set worker size to half of core size is optimal based on benchmark on M5 instances
+  private def getWorkerSize: Int = {
+    val cores = Runtime.getRuntime.availableProcessors()
+    Math.max(1, cores / 2)
   }
 
   private def getRollingFileFlow(workerId: Int): Flow[List[Datapoint], NotUsed, NotUsed] = {
