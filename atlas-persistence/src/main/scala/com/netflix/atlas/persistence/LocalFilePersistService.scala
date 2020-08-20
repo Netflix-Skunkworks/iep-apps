@@ -90,7 +90,7 @@ class LocalFilePersistService @Inject()(
   }
 
   override def isHealthy: Boolean = {
-    super.isHealthy && queue != null && !queue.isDone
+    super.isHealthy && queue != null && queue.isOpen
   }
 
   // Set worker size to half of core size is optimal based on benchmark on M5 instances
