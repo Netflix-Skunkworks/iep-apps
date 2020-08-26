@@ -47,7 +47,10 @@ object FileUtil extends StrictLogging {
   }
 
   def isTmpFile(f: File): Boolean = {
-    f.getName.endsWith(RollingFileWriter.TmpFileSuffix)
+    isTmpFile(f.getName)
   }
 
+  def isTmpFile(s: String): Boolean = {
+    s.endsWith(RollingFileWriter.TmpFileSuffix)
+  }
 }
