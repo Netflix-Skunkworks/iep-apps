@@ -210,8 +210,11 @@ class S3CopySink(
 
 object S3CopySink {
 
-  // Extract start-end minute from file name: "xyz.1200-1320" => "20-21"
-  // Use the special range "61-61" for tmp files.
+  /**
+    * Extract start and end minute from file name's suffix, which is start and end seconds of hour.
+    * For example a file name "xyz.1200-1320" would be extracted as "20-22".
+    * Use the special range "61-61" for tmp files because they don't have time range suffix.
+    */
   def extractMinuteRange(fileName: String): String = {
     if (FileUtil.isTmpFile(fileName)) {
       "61-61"
