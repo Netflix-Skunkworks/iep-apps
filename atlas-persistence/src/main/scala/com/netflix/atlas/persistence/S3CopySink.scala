@@ -187,12 +187,13 @@ class S3CopySink(
         logger.info(s"copyToS3 done: file=$file, key=$s3Key")
       }
 
-      // Example file name: 2020-05-10T0300.i-localhost.1.XkvU3A
+      // Example file name: 2020-05-10T0300.i-localhost.1.XkvU3A.1200-1320
       private def buildS3Key(fileName: String): String = {
         val hour = fileName.substring(0, HourlyRollingWriter.HourStringLen)
         val s3FileName = fileName.substring(HourlyRollingWriter.HourStringLen + 1)
         val hourPath = hash(s"$prefix/$hour")
-        s"$hourPath/$s3FileName"
+        val startMinute = S3CopySink.extractMinuteRange(fileName)
+        s"$hourPath/$startMinute/$s3FileName"
       }
 
       private def hash(path: String): String = {
@@ -203,6 +204,25 @@ class S3CopySink(
         val randomPrefix = hexBytes.take(3)
         s"$randomPrefix/$path"
       }
+    }
+  }
+}
+
+object S3CopySink {
+
+  /**
+    * Extract start and end minute from file name's suffix, which is start and end seconds of hour.
+    * For example a file name "xyz.1200-1320" would be extracted as "20-22".
+    * Use the special range "61-61" for tmp files because they don't have time range suffix.
+    */
+  def extractMinuteRange(fileName: String): String = {
+    if (FileUtil.isTmpFile(fileName)) {
+      "61-61"
+    } else {
+      val len = fileName.length
+      val startMinute = fileName.substring(len - 9, len - 5).toInt / 60
+      val endMinute = fileName.substring(len - 4).toInt / 60
+      "%02d".format(startMinute) + "-" + "%02d".format(endMinute)
     }
   }
 }
