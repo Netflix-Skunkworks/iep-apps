@@ -170,38 +170,43 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
         val datasources = metadata.datasources.filter { ds =>
           ds.datasource.dimensions.contains(k) && ds.metrics.exists(query.couldMatch)
         }
+
         // Server side dimensions filtering doesn't work for search queries, use default spec
         // and filter locally after the results are returned.
         //
         // The limit for number of returned values cannot be applied to the query sent to Druid
         // because it could truncate the results for multi-value dimensions.
-        val searchQuery = SearchQuery(
-          dataSources = datasources.map { ds =>
-            ds.name
-          },
-          searchDimensions = List(DefaultDimensionSpec(k, k)),
-          intervals = List(tagsQueryInterval),
-          filter = DruidFilter.forQuery(query),
-          limit = Int.MaxValue
-        )
-        val druidQueries = List(client.search(searchQuery))
-        Source(druidQueries)
-          .flatMapMerge(Int.MaxValue, v => v)
-          .map(_.flatMap(_.values))
-          .map { vs =>
-            // If a single value for a multi-value dimension matches, then it will be
-            // returned by druid. This local filter reduces the set to those that match
-            // the users query expression.
-            vs.filter { v =>
-              query.couldMatch(Map(k -> v))
+        if (!datasources.isEmpty) {
+          val searchQuery = SearchQuery(
+            dataSources = datasources.map { ds =>
+              ds.name
+            },
+            searchDimensions = List(DefaultDimensionSpec(k, k)),
+            intervals = List(tagsQueryInterval),
+            filter = DruidFilter.forQuery(query),
+            limit = Int.MaxValue
+          )
+          val druidQueries = List(client.search(searchQuery))
+          Source(druidQueries)
+            .flatMapMerge(Int.MaxValue, v => v)
+            .map(_.flatMap(_.values))
+            .map { vs =>
+              // If a single value for a multi-value dimension matches, then it will be
+              // returned by druid. This local filter reduces the set to those that match
+              // the users query expression.
+              vs.filter { v =>
+                query.couldMatch(Map(k -> v))
+              }
             }
-          }
-          .fold(List.empty[String]) { (vs1, vs2) =>
-            ListHelper.merge(tq.limit, vs1, vs2)
-          }
-          .runWith(Sink.foreach { vs =>
-            callback(k, vs)
-          })
+            .fold(List.empty[String]) { (vs1, vs2) =>
+              ListHelper.merge(tq.limit, vs1, vs2)
+            }
+            .runWith(Sink.foreach { vs =>
+              callback(k, vs)
+            })
+        } else {
+          callback(null, Nil)
+        }
       case None =>
         callback(null, Nil)
     }
