@@ -7,15 +7,15 @@ object Dependencies {
     val akka       = "2.5.31"
     val akkaHttpV  = "10.1.11"
     val atlas      = "1.7.0-SNAPSHOT"
-    val aws        = "1.11.764"
-    val aws2       = "2.13.43"
-    val iep        = "2.5.0"
+    val aws        = "1.11.847"
+    val aws2       = "2.14.4"
+    val iep        = "2.6.0"
     val guice      = "4.1.0"
-    val log4j      = "2.13.2"
-    val scala      = "2.13.2"
+    val log4j      = "2.13.3"
+    val scala      = "2.13.3"
     val servo      = "0.13.0"
     val slf4j      = "1.7.30"
-    val spectator  = "0.111.0"
+    val spectator  = "0.116.0"
     val avroV      = "1.9.2"
 
     val crossScala = Seq(scala)
@@ -29,7 +29,7 @@ object Dependencies {
   val akkaHttpTestkit    = "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV
   val akkaSlf4j          = "com.typesafe.akka" %% "akka-slf4j" % akka
   val akkaTestkit        = "com.typesafe.akka" %% "akka-testkit" % akka
-  val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % "2.0.0"
+  val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % "2.0.1"
   val atlasEval          = "com.netflix.atlas_v1" %% "atlas-eval" % atlas
   val atlasJson          = "com.netflix.atlas_v1" %% "atlas-json" % atlas
   val atlasModuleAkka    = "com.netflix.atlas_v1" %% "atlas-module-akka" % atlas
@@ -58,7 +58,7 @@ object Dependencies {
   val iepModuleJmx       = "com.netflix.iep" % "iep-module-jmxport" % iep
   val iepNflxEnv         = "com.netflix.iep" % "iep-nflxenv" % iep
   val iepService         = "com.netflix.iep" % "iep-service" % iep
-  val jsonSchema         = "com.github.java-json-tools" % "json-schema-validator" % "2.2.13"
+  val jsonSchema         = "com.github.java-json-tools" % "json-schema-validator" % "2.2.14"
   val jsr305             = "com.google.code.findbugs" % "jsr305" % "3.0.2"
   val log4jApi           = "org.apache.logging.log4j" % "log4j-api" % log4j
   val log4jCore          = "org.apache.logging.log4j" % "log4j-core" % log4j
@@ -69,12 +69,12 @@ object Dependencies {
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
   val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
   val scalaReflect       = "org.scala-lang" % "scala-reflect" % scala
-  val scalatest          = "org.scalatest" %% "scalatest" % "3.1.1"
+  val scalatest          = "org.scalatest" %% "scalatest" % "3.2.2"
   val servoCore          = "com.netflix.servo" % "servo-core" % servo
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
   val slf4jLog4j         = "org.slf4j" % "slf4j-log4j12" % slf4j
   val slf4jSimple        = "org.slf4j" % "slf4j-simple" % slf4j
-  val snappy             = "org.xerial.snappy" % "snappy-java" % "1.1.7.6"
+  val snappy             = "org.xerial.snappy" % "snappy-java" % "1.1.7.7"
   val spectatorApi       = "com.netflix.spectator" % "spectator-api" % spectator
   val spectatorAws2      = "com.netflix.spectator" % "spectator-ext-aws2" % spectator
   val spectatorAtlas     = "com.netflix.spectator" % "spectator-reg-atlas" % spectator

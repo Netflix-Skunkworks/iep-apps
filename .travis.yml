@@ -2,10 +2,10 @@ language: scala
 matrix:
   include:
   - jdk: openjdk8
-    scala: 2.13.2
+    scala: 2.13.3
     env: BINTRAY_PUBLISH=true
   - jdk: openjdk11
-    scala: 2.13.2
+    scala: 2.13.3
     env: BINTRAY_PUBLISH=false
 git:
   depth: 10
