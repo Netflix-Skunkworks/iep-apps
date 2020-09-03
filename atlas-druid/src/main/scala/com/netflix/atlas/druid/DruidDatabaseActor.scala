@@ -462,17 +462,17 @@ object DruidDatabaseActor {
         } else {
           val dimensions = getDimensions(simpleQuery, expr.finalGrouping)
 
-          // Filter out datapoints that are zero on the server side to reduce the payload
-          // sizes and improve query performance.
-          val havingSpec = HavingSpec("value", 0.0)
+          // Add to the filter to remove rows that don't include the metric we're aggregating.
+          // This reduces what needs to be merged and passed back to the broker, improving query performance.
+          val metricValueFilter = Query.Not(Query.Equal(name, "0"))
+          val finalQueryWithFilter = finalQuery.and(metricValueFilter)
 
           val groupByQuery = GroupByQuery(
             dataSource = datasource,
             dimensions = dimensions,
             intervals = intervals,
             aggregations = List(toAggregation(name, expr)),
-            filter = DruidFilter.forQuery(finalQuery),
-            having = Some(havingSpec),
+            filter = DruidFilter.forQuery(finalQueryWithFilter),
             granularity = Granularity.millis(context.step)
           )
           val druidQuery =
