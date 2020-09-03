@@ -176,7 +176,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
         //
         // The limit for number of returned values cannot be applied to the query sent to Druid
         // because it could truncate the results for multi-value dimensions.
-        if (!datasources.isEmpty) {
+        if (datasources.nonEmpty) {
           val searchQuery = SearchQuery(
             dataSources = datasources.map { ds =>
               ds.name
