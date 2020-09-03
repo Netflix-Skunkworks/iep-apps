@@ -462,17 +462,12 @@ object DruidDatabaseActor {
           val metricValueFilter = Query.Not(Query.Equal(name, "0"))
           val finalQueryWithFilter = finalQuery.and(metricValueFilter)
 
-          // Filter out datapoints that are zero on the server side to reduce the payload
-          // sizes and improve query performance.
-          val havingSpec = HavingSpec("value", 0.0)
-
           val groupByQuery = GroupByQuery(
             dataSource = datasource,
             dimensions = dimensions,
             intervals = intervals,
             aggregations = List(toAggregation(name, expr)),
             filter = DruidFilter.forQuery(finalQueryWithFilter),
-            having = Some(havingSpec),
             granularity = Granularity.millis(context.step)
           )
           val druidQuery =
