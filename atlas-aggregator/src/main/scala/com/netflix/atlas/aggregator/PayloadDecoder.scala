@@ -128,14 +128,14 @@ class PayloadDecoder(
     strings: Array[String],
     parser: JsonParser
   ): Either[ValidationResult, Id] = {
-    var result: ValidationResult = ValidationResult.Pass
+    var result: String = TagRule.Pass
     var numUserTags = 0
     val tags = new SmallHashMap.Builder[String, String](n * 2)
     var i = 0
     while (i < n) {
       val k = strings(nextInt(parser))
       val v = strings(nextInt(parser))
-      if (result == ValidationResult.Pass) {
+      if (result == TagRule.Pass) {
         // Avoid doing unnecessary work if it has already failed validation. We still need
         // to process the entry as subsequent entries may be fine.
         tags.add(k, v)
@@ -147,24 +147,27 @@ class PayloadDecoder(
       i += 1
     }
 
-    if (result == ValidationResult.Pass) {
+    if (result == TagRule.Pass) {
       // Validation of individual key/value pairs passed, now check rules for the
       // overall tag set
       if (numUserTags > maxUserTags) {
         Left(
-          ValidationResult
-            .Fail("MaxUserTagsRule", s"too many user tags: $numUserTags > $maxUserTags")
+          ValidationResult.Fail(
+            "MaxUserTagsRule",
+            s"too many user tags: $numUserTags > $maxUserTags",
+            tags.result
+          )
         )
       } else {
         val ts = tags.result
         if (ts.contains("name"))
           Right(convertToId(rollupFunction(ts)))
         else
-          Left(ValidationResult.Fail("HasKeyRule", s"missing 'name': ${ts.keys}"))
+          Left(ValidationResult.Fail("HasKeyRule", s"missing 'name': ${ts.keys}", ts))
       }
     } else {
       // Tag rule check failed
-      Left(result)
+      Left(ValidationResult.Fail("KeyValueRule", result, tags.result))
     }
   }
 
@@ -178,7 +181,7 @@ class PayloadDecoder(
 object PayloadDecoder {
 
   case object NoValidation extends TagRule {
-    override def validate(k: String, v: String): ValidationResult = ValidationResult.Pass
+    override def validate(k: String, v: String): String = TagRule.Pass
   }
 
   case class Result(numDatapoints: Int, failures: List[ValidationResult])

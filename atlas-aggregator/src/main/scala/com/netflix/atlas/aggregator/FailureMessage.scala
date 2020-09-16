@@ -17,6 +17,7 @@ package com.netflix.atlas.aggregator
 
 import com.netflix.atlas.akka.DiagnosticMessage
 import com.netflix.atlas.core.validation.ValidationResult
+import com.netflix.atlas.json.Json
 import com.netflix.atlas.json.JsonSupport
 
 /**
@@ -38,13 +39,26 @@ case class FailureMessage(`type`: String, errorCount: Int, message: List[String]
 
 object FailureMessage {
 
+  private def createMessage(
+    level: String,
+    message: List[ValidationResult],
+    n: Int
+  ): FailureMessage = {
+    val failures = message.collect {
+      case msg: ValidationResult.Fail => msg
+    }
+    // Limit encoding the tags to just the summary set
+    val summary = failures.take(5).map { msg =>
+      s"${msg.reason} (tags=${Json.encode(msg.tags)})"
+    }
+    new FailureMessage(level, n, summary)
+  }
+
   def error(message: List[ValidationResult], n: Int): FailureMessage = {
-    val failures = message.collect { case ValidationResult.Fail(_, reason) => reason }
-    new FailureMessage(DiagnosticMessage.Error, n, failures.take(5))
+    createMessage(DiagnosticMessage.Error, message, n)
   }
 
   def partial(message: List[ValidationResult], n: Int): FailureMessage = {
-    val failures = message.collect { case ValidationResult.Fail(_, reason) => reason }
-    new FailureMessage("partial", n, failures.take(5))
+    createMessage("partial", message, n)
   }
 }
