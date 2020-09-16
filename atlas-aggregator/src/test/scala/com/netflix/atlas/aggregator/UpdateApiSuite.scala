@@ -189,7 +189,7 @@ class UpdateApiSuite extends AnyFunSuite {
     val tags = SmallHashMap("foo" -> "bar")
     val msg = validationTest(tags, StatusCodes.BadRequest)
     assert(msg.errorCount === 1)
-    assert(msg.message === List("missing 'name': Set(foo)"))
+    assert(msg.message === List("missing 'name': Set(foo) (tags={\"foo\":\"bar\"})"))
   }
 
   test("validation: too many user tags") {
@@ -198,7 +198,7 @@ class UpdateApiSuite extends AnyFunSuite {
         .map(v => v -> v)
     val msg = validationTest(SmallHashMap(tags), StatusCodes.BadRequest)
     assert(msg.errorCount === 1)
-    assert(msg.message === List("too many user tags: 21 > 20"))
+    assert(msg.message.head.startsWith("too many user tags: 21 > 20 (tags={"))
   }
 
   test("validation: user tags, ignore restricted") {
@@ -213,7 +213,11 @@ class UpdateApiSuite extends AnyFunSuite {
     val tags = SmallHashMap("name" -> "test", "nf.foo" -> "bar")
     val msg = validationTest(tags, StatusCodes.BadRequest)
     assert(msg.errorCount === 1)
-    assert(msg.message === List("invalid key for reserved prefix 'nf.': nf.foo"))
+    assert(
+      msg.message === List(
+          "invalid key for reserved prefix 'nf.': nf.foo (tags={\"nf.foo\":\"bar\"})"
+        )
+    )
   }
 
   test("validation: partial failure") {
@@ -223,7 +227,11 @@ class UpdateApiSuite extends AnyFunSuite {
     )
     val msg = validationTest(ts, StatusCodes.Accepted)
     assert(msg.errorCount === 1)
-    assert(msg.message === List("invalid key for reserved prefix 'nf.': nf.foo"))
+    assert(
+      msg.message === List(
+          "invalid key for reserved prefix 'nf.': nf.foo (tags={\"nf.foo\":\"bar\"})"
+        )
+    )
   }
 
   test("validation: truncate if there are too many errors") {
