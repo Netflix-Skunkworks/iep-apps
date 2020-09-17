@@ -84,7 +84,7 @@ class LocalFilePersistService @Inject()(
       .blockingQueue[List[Datapoint]](registry, "LocalFilePersistService", queueSize)
       .via(balancer(getRollingFileFlow, writeWorkerSize))
       .toMat(Sink.ignore)(Keep.both)
-      .run
+      .run()
     queue = q
     flowComplete = f
   }

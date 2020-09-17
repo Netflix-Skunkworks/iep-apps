@@ -31,7 +31,7 @@ class TimerSuite extends AnyFunSuiteLike {
 
     val timer = new TestTimer()
 
-    val result = measure(work, "workTimer", clock, timer.record)
+    val result = measure(work(), "workTimer", clock, timer.record)
     assert(result == "done")
 
     assert(timer.name == "workTimer")
@@ -51,7 +51,7 @@ class TimerSuite extends AnyFunSuiteLike {
     val timer = new TestTimer()
 
     assertThrows[RuntimeException](
-      measure(work, "workTimer", clock, timer.record)
+      measure(work(), "workTimer", clock, timer.record)
     )
     assert(timer.name == "workTimer")
     assert(timer.tags === List("exception", "RuntimeException"))

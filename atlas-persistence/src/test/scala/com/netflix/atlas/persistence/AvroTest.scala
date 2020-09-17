@@ -50,6 +50,6 @@ object AvroTest {
     println(s"    numRecords = $count")
 
     dataFileReader.close()
-    println
+    println()
   }
 }

@@ -15,15 +15,10 @@
  */
 package com.netflix.atlas.stream
 
-import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import com.netflix.atlas.eval.stream.Evaluator.DataSource
 import org.scalatest.funsuite.AnyFunSuite
 
 class DataSourceValidatorSuite extends AnyFunSuite {
-
-  private implicit val system = ActorSystem(getClass.getSimpleName)
-  private implicit val mat = ActorMaterializer()
 
   private val validateNoop: DataSource => Unit = _ => ()
   private val validateException: DataSource => Unit = _ => { throw new Exception("validate error") }
