@@ -42,6 +42,7 @@ import scala.concurrent.duration.Duration
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
+import scala.util.Using
 
 class DruidClientSuite extends AnyFunSuite with BeforeAndAfterAll {
 
@@ -135,7 +136,7 @@ class DruidClientSuite extends AnyFunSuite with BeforeAndAfterAll {
   private def executeSegmentMetadataRequest: List[SegmentMetadataResult] = {
     import com.netflix.atlas.core.util.Streams._
     val file = "segmentMetadataResponse.json"
-    val payload = scope(resource(file))(byteArray)
+    val payload = Using.resource(resource(file))(byteArray)
     val response = HttpResponse(StatusCodes.OK, entity = payload)
     val client = newClient(Success(response))
     val query = SegmentMetadataQuery("test")
@@ -183,7 +184,7 @@ class DruidClientSuite extends AnyFunSuite with BeforeAndAfterAll {
   private def executeGroupByRequest: List[GroupByDatapoint] = {
     import com.netflix.atlas.core.util.Streams._
     val file = "groupByResponseArray.json"
-    val payload = scope(resource(file))(byteArray)
+    val payload = Using.resource(resource(file))(byteArray)
     val response = HttpResponse(StatusCodes.OK, entity = payload)
     val client = newClient(Success(response))
     val query =

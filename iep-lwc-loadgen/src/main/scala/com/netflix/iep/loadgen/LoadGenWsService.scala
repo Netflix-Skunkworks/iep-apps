@@ -130,7 +130,7 @@ class LoadGenWsService @Inject()(
   }
 
   private def dataSources: Evaluator.DataSources = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     val defaultStep = config.getDuration("iep.lwc.loadgen.step")
     val uris = config
       .getStringList("iep.lwc.loadgen.uris")

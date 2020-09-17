@@ -220,7 +220,7 @@ object ForwardingService extends StrictLogging {
         msg match {
           case m if m.isHeartbeat =>
             heartbeats.increment()
-            repoVersion.set(m.repoVersion)
+            repoVersion.set(m.repoVersion.toDouble)
           case m if m.isInvalid => invalid.increment()
           case m if m.isUpdate  => (if (m.response.isDelete) deletes else updates).increment()
           case m if m.isDone    => done.increment()

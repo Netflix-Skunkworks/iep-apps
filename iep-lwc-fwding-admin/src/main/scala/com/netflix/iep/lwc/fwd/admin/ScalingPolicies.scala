@@ -49,7 +49,7 @@ class ScalingPolicies(config: Config, dao: ScalingPoliciesDao)
   override def receive: Receive = {
     case GetScalingPolicy(metricInfo) => respond(getScalingPolicy(metricInfo))
     case AddScalingPolicies(policies) => scalingPolicies = scalingPolicies ++ policies
-    case RefreshCache                 => respond(refreshCache)
+    case RefreshCache                 => respond(refreshCache())
     case GetCache                     => sender() ! scalingPolicies
     case message                      => throw new RuntimeException(s"Unknown message $message")
   }
