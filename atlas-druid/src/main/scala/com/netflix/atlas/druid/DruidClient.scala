@@ -263,7 +263,6 @@ object DruidClient {
     limit: Int = 1000
   ) {
     val queryType: String = "search"
-    val query: DruidQuery.type = DruidQuery
     // Use a union of the datasource(s) to send 1 query to Druid
     // The Druid broker will handle sending the query to each datasource
     // and merge the results before responding.
@@ -273,11 +272,6 @@ object DruidClient {
 
   case class UnionDatasource(dataSources: List[String]) {
     val `type`: String = "union"
-  }
-
-  case object DruidQuery {
-    val `type`: String = "regex"
-    val pattern: String = ".*"
   }
 
   case class SearchResult(
