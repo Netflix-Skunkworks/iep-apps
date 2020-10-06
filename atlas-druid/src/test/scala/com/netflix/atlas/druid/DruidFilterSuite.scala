@@ -89,7 +89,7 @@ class DruidFilterSuite extends AnyFunSuite {
     DruidFilter.forQuery(eval("country,US,:reic"))
     val actual = DruidFilter.forQuery(eval("country,US,:reic"))
     val expected =
-      Some(DruidFilter.JavaScript("country", "function(x) { var re = /^US/i; return re.test(x); }"))
+      Some(DruidFilter.Regex("country", "(?i)^US"))
     assert(actual === expected)
   }
 
