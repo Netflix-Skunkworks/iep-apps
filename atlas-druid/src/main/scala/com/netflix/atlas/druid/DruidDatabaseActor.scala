@@ -464,7 +464,7 @@ object DruidDatabaseActor {
 
           // Add to the filter to remove rows that don't include the metric we're aggregating.
           // This reduces what needs to be merged and passed back to the broker, improving query performance.
-          val metricValueFilter = Query.Not(Query.Equal(name, "0"))
+          val metricValueFilter = Query.Not(Query.Equal(name, "0")).and(Query.HasKey(name))
           val finalQueryWithFilter = finalQuery.and(metricValueFilter)
 
           val groupByQuery = GroupByQuery(
