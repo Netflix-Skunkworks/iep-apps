@@ -20,7 +20,6 @@ import javax.inject.Inject
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.Uri
 import akka.stream.AbruptTerminationException
-import akka.stream.ActorMaterializer
 import akka.stream.KillSwitch
 import akka.stream.KillSwitches
 import akka.stream.ThrottleMode
@@ -58,7 +57,6 @@ class LoadGenService @Inject()(
   private val streamFailures = registry.counter("loadgen.streamFailures")
 
   private implicit val ec = scala.concurrent.ExecutionContext.global
-  private implicit val mat = ActorMaterializer()
 
   private val limiter = CardinalityLimiters.mostFrequent(20)
 

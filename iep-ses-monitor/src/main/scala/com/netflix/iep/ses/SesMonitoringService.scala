@@ -21,7 +21,6 @@ import java.util.concurrent.TimeUnit
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.AbruptTerminationException
-import akka.stream.ActorMaterializer
 import akka.stream.KillSwitch
 import akka.stream.KillSwitches
 import akka.stream.alpakka.sqs.MessageAction
@@ -73,7 +72,6 @@ class SesMonitoringService @Inject()(
   private val streamFailures = registry.counter("ses.monitor.streamFailures")
 
   private implicit val ec = scala.concurrent.ExecutionContext.global
-  private implicit val mat = ActorMaterializer()
 
   private var killSwitch: KillSwitch = _
 

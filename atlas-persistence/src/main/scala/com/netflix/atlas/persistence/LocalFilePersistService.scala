@@ -18,8 +18,8 @@ package com.netflix.atlas.persistence
 import akka.Done
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import akka.stream.FlowShape
+import akka.stream.RestartSettings
 import akka.stream.scaladsl.Balance
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.GraphDSL
@@ -53,7 +53,6 @@ class LocalFilePersistService @Inject()(
 ) extends AbstractService
     with StrictLogging {
   implicit val ec: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
-  implicit val mat: ActorMaterializer = ActorMaterializer()
 
   private val queueSize = config.getInt("atlas.persistence.queue-size")
 
@@ -102,10 +101,11 @@ class LocalFilePersistService @Inject()(
   private def getRollingFileFlow(workerId: Int): Flow[List[Datapoint], NotUsed, NotUsed] = {
     import scala.concurrent.duration._
     RestartFlow.withBackoff(
-      minBackoff = 1.second,
-      maxBackoff = 3.seconds,
-      randomFactor = 0,
-      maxRestarts = -1
+      RestartSettings(
+        minBackoff = 1.second,
+        maxBackoff = 3.seconds,
+        randomFactor = 0
+      )
     ) { () =>
       Flow.fromGraph(
         new RollingFileFlow(dataDir, rollingConf, registry, workerId)

@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 package com.netflix.iep.lwc.fwd.admin
+
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.RawHeader
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
@@ -41,7 +41,6 @@ class PurgerSuite extends AnyFunSuite {
   import ExpressionDetails._
 
   private implicit val system = ActorSystem(getClass.getSimpleName)
-  private implicit val mat = ActorMaterializer()
 
   test("Filter purge eligible expressions") {
     val data = List(

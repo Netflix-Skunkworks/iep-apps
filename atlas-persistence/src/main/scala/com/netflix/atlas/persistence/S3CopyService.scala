@@ -21,7 +21,6 @@ import java.nio.file.Paths
 
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import akka.stream.KillSwitch
 import akka.stream.KillSwitches
 import akka.stream.scaladsl.Keep
@@ -45,8 +44,6 @@ class S3CopyService @Inject()(
     with StrictLogging {
 
   private val dataDir = config.getString("atlas.persistence.local-file.data-dir")
-
-  private implicit val mat = ActorMaterializer()
 
   private var killSwitch: KillSwitch = _
   private val s3Config = config.getConfig("atlas.persistence.s3")

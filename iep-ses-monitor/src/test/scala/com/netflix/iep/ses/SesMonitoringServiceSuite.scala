@@ -19,8 +19,6 @@ import java.net.UnknownHostException
 import java.time.{Duration => JTDuration}
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
-import akka.stream.Materializer
 import akka.stream.alpakka.sqs.MessageAction
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
@@ -44,7 +42,6 @@ import scala.concurrent.duration._
 class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAndAfterEach {
 
   private implicit val system: ActorSystem = ActorSystem()
-  private implicit val mat: Materializer = ActorMaterializer()
 
   private object DummyAmazonSQSAsync extends SqsAsyncClient {
     override def serviceName(): String = getClass.getSimpleName

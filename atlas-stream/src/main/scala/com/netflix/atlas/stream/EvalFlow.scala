@@ -115,8 +115,8 @@ private[stream] class EvalFlow(
         evalService.unregister(streamId)
       }
 
-      override def onDownstreamFinish(): Unit = {
-        super.onDownstreamFinish()
+      override def onDownstreamFinish(ex: Throwable): Unit = {
+        super.onDownstreamFinish(ex)
         evalService.unregister(streamId)
       }
 

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 package com.netflix.iep.lwc.fwd.admin
+
 import java.nio.charset.StandardCharsets
 
 import akka.Done
@@ -23,7 +24,6 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.stream.ActorAttributes
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
@@ -51,8 +51,6 @@ class PurgerImpl @Inject()(
 ) extends Purger
     with StrictLogging {
   import PurgerImpl._
-
-  private implicit val mat = ActorMaterializer()
 
   private val cwExprUri = config.getString("iep.lwc.fwding-admin.cw-expr-uri")
   private val client = Http().superPool[AccessLogger]()

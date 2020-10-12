@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 package com.netflix.iep.lwc.fwd.admin
+
 import akka.NotUsed
 import akka.actor.Actor
 import akka.actor.Timers
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
 import com.netflix.iep.NetflixEnvironment._
@@ -34,8 +35,8 @@ class ScalingPolicies(config: Config, dao: ScalingPoliciesDao)
     with Timers
     with StrictLogging {
 
-  private implicit val mat = ActorMaterializer()
   private implicit val ec = scala.concurrent.ExecutionContext.global
+  private implicit val mat = Materializer(context.system)
 
   protected var scalingPolicies = Map.empty[EddaEndpoint, List[ScalingPolicy]]
   private val accountEnvMapping =
@@ -55,7 +56,7 @@ class ScalingPolicies(config: Config, dao: ScalingPoliciesDao)
   }
 
   def startPeriodicTimer(): Unit = {
-    timers.startPeriodicTimer(NotUsed, RefreshCache, cacheRefreshInterval)
+    timers.startTimerAtFixedRate(NotUsed, RefreshCache, cacheRefreshInterval)
   }
 
   def respond[T](handleMessage: => Future[T]): Unit = {

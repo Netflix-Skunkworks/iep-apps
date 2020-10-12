@@ -22,9 +22,9 @@ import akka.http.scaladsl.model.ws.BinaryMessage
 import akka.http.scaladsl.model.ws.TextMessage
 import akka.http.scaladsl.model.ws.WebSocketRequest
 import akka.stream.AbruptTerminationException
-import akka.stream.ActorMaterializer
 import akka.stream.KillSwitch
 import akka.stream.KillSwitches
+import akka.stream.RestartSettings
 import akka.stream.ThrottleMode
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Keep
@@ -59,7 +59,6 @@ class LoadGenWsService @Inject()(
   private val streamFailures = registry.counter("loadgen.streamFailures")
 
   private implicit val ec = scala.concurrent.ExecutionContext.global
-  private implicit val mat = ActorMaterializer()
 
   private var killSwitch: KillSwitch = _
 
@@ -99,7 +98,7 @@ class LoadGenWsService @Inject()(
   }
 
   private def evalSourceWsFlowWithAutoRestart: Flow[Evaluator.DataSources, String, NotUsed] = {
-    RestartFlow.withBackoff(1.second, 2.second, 0.0) { () =>
+    RestartFlow.withBackoff(RestartSettings(1.second, 2.second, 0.0)) { () =>
       logger.warn("restarting evalSourceWsFlow")
       evalSourceWsFlow
     }

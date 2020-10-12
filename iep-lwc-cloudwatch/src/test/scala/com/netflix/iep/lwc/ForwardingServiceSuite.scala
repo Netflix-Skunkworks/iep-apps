@@ -25,7 +25,6 @@ import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.Uri
 import akka.http.scaladsl.unmarshalling.Unmarshal
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
@@ -54,7 +53,6 @@ class ForwardingServiceSuite extends AnyFunSuite {
   import scala.jdk.CollectionConverters._
 
   private implicit val system = ActorSystem(getClass.getSimpleName)
-  private implicit val mat = ActorMaterializer()
 
   private val version =
     """{"ts":1505226236957,"hash":"2d4d"}"""
@@ -501,7 +499,6 @@ class ForwardingServiceSuite extends AnyFunSuite {
 
   test("Send the messages to Admin endpoint") {
     implicit val ec = scala.concurrent.ExecutionContext.global
-    implicit val mat = ActorMaterializer()
 
     val requests = List.newBuilder[HttpRequest]
     val client: Client =
