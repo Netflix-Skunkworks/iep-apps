@@ -4,18 +4,18 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val akka       = "2.5.31"
-    val akkaHttpV  = "10.1.11"
-    val atlas      = "1.7.0-rc.10"
-    val aws        = "1.11.847"
-    val aws2       = "2.14.4"
-    val iep        = "2.6.0"
+    val akka       = "2.6.10"
+    val akkaHttpV  = "10.2.1"
+    val atlas      = "1.7.0-SNAPSHOT"
+    val aws        = "1.11.877"
+    val aws2       = "2.15.7"
+    val iep        = "2.6.2"
     val guice      = "4.1.0"
     val log4j      = "2.13.3"
     val scala      = "2.13.3"
     val servo      = "0.13.0"
     val slf4j      = "1.7.30"
-    val spectator  = "0.116.0"
+    val spectator  = "0.119.0"
     val avroV      = "1.9.2"
 
     val crossScala = Seq(scala)
@@ -29,7 +29,7 @@ object Dependencies {
   val akkaHttpTestkit    = "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV
   val akkaSlf4j          = "com.typesafe.akka" %% "akka-slf4j" % akka
   val akkaTestkit        = "com.typesafe.akka" %% "akka-testkit" % akka
-  val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % "2.0.1"
+  val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % "2.0.2"
   val atlasEval          = "com.netflix.atlas_v1" %% "atlas-eval" % atlas
   val atlasJson          = "com.netflix.atlas_v1" %% "atlas-json" % atlas
   val atlasModuleAkka    = "com.netflix.atlas_v1" %% "atlas-module-akka" % atlas

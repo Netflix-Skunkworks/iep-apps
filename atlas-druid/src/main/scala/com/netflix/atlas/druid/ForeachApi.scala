@@ -62,7 +62,7 @@ class ForeachApi(config: Config, implicit val actorRefFactory: ActorRefFactory) 
   override def routes: Route = {
     endpointPath("api" / "v1" / "foreach") {
       get {
-        parameters(("q".as[String], "in".as[String], "k".as[String].*)) { (q, in, ks) =>
+        parameters("q".as[String], "in".as[String], "k".as[String].*) { (q, in, ks) =>
           val exprs = evalGraph(q)
           val inQuery = evalQuery(in)
           val source = rewrite(RewriteEntry(exprs, inQuery, ks.toList, Map.empty))
