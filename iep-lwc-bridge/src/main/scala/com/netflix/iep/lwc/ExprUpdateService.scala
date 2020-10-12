@@ -25,7 +25,6 @@ import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.Uri
-import akka.stream.ActorMaterializer
 import akka.stream.KillSwitch
 import akka.stream.KillSwitches
 import akka.stream.OverflowStrategy
@@ -70,7 +69,6 @@ class ExprUpdateService @Inject()(
 
   private implicit val ec = scala.concurrent.ExecutionContext.global
   private implicit val system = ActorSystem()
-  private implicit val materializer = ActorMaterializer()
 
   private var killSwitch: KillSwitch = _
 
@@ -113,7 +111,7 @@ class ExprUpdateService @Inject()(
       .filterNot(_.isEmpty)
       .buffer(1, OverflowStrategy.dropHead)
       .flatMapConcat { data =>
-        Source.fromFuture(update(data))
+        Source.future(update(data))
       }
   }
 

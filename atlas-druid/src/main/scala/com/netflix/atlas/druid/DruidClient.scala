@@ -28,7 +28,7 @@ import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCodes
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
@@ -46,7 +46,6 @@ import scala.util.Using
 class DruidClient(
   config: Config,
   system: ActorSystem,
-  materializer: ActorMaterializer,
   client: HttpClient
 ) extends StrictLogging {
 
@@ -54,7 +53,7 @@ class DruidClient(
 
   private val uri = config.getString("uri")
 
-  private implicit val mat: ActorMaterializer = materializer
+  private implicit val mat = Materializer(system)
 
   private val loggingClient = Flow[HttpRequest]
     .map(req => req -> AccessLogger.newClientLogger("druid", req))

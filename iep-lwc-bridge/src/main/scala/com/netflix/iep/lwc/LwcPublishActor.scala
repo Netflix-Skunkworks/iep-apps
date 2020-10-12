@@ -27,7 +27,7 @@ import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCode
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.Uri
-import akka.stream.ActorMaterializer
+import akka.stream.Materializer
 import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.akka.DiagnosticMessage
 import com.netflix.atlas.core.model.Datapoint
@@ -53,10 +53,9 @@ class LwcPublishActor(config: Config, registry: Registry, evaluator: Expressions
   import com.netflix.atlas.webapi.PublishApi._
 
   import scala.concurrent.ExecutionContext.Implicits.global
+  private implicit val mat = Materializer(context.system)
 
   type SubscriptionList = java.util.List[Subscription]
-
-  private implicit val materializer = ActorMaterializer()
 
   private val evalUri = Uri(config.getString("netflix.iep.lwc.bridge.eval-uri"))
 

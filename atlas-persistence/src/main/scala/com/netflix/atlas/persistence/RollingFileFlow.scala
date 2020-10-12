@@ -60,7 +60,7 @@ class RollingFileFlow(
         hourlyWriter.initialize()
         // This is to trigger rollover check when writer is idle for long time: e.g. in most cases
         // file writer will be idle while hour has ended but it is still waiting for late events
-        schedulePeriodically(None, 5.seconds)
+        scheduleAtFixedRate(None, 5.seconds, 5.seconds)
       }
 
       override def onPush(): Unit = {

@@ -65,7 +65,7 @@ class StreamApi(
 
   def routes: Route = {
     endpointPath("stream") {
-      extractUpgradeToWebSocket { upgrade =>
+      extractWebSocketUpgrade { upgrade =>
         if (evalService.getNumDataSources > maxDataSourcesTotal) {
           complete(
             DiagnosticMessage.error(

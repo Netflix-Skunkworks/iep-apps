@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 package com.netflix.iep.lwc.fwd.admin
+
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model._
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
@@ -35,7 +35,6 @@ import scala.util.Try
 class ScalingPoliciesDaoSuite extends AnyFunSuite {
   val config = ConfigFactory.load()
   private implicit val system = ActorSystem()
-  private implicit val mat = ActorMaterializer()
 
   val ec2PoliciesUri = config.getString("iep.lwc.fwding-admin.ec2-policies-uri")
   val cwAlarmsUri = config.getString("iep.lwc.fwding-admin.cw-alarms-uri")

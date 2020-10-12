@@ -16,7 +16,6 @@
 package com.netflix.atlas.stream
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
 import com.netflix.atlas.akka.DiagnosticMessage
@@ -32,7 +31,6 @@ import scala.concurrent.duration.Duration
 
 class EvalFlowSuite extends AnyFunSuite {
   private implicit val system = ActorSystem(getClass.getSimpleName)
-  private implicit val mat = ActorMaterializer()
   private val config = ConfigFactory.load
   private val registry = new NoopRegistry()
   private val validateNoop: DataSource => Unit = _ => ()

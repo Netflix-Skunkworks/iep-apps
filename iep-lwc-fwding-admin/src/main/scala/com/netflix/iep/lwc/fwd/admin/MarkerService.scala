@@ -66,7 +66,6 @@ class MarkerServiceImpl @Inject()(
   private val fwdMetricInfoPurgeLimitMillis =
     config.getDuration("iep.lwc.fwding-admin.fwd-metric-info-purge-limit").toMillis
 
-  private implicit val mat = ActorMaterializer()
   private implicit val ec = scala.concurrent.ExecutionContext.global
   private var killSwitch: KillSwitch = _
 

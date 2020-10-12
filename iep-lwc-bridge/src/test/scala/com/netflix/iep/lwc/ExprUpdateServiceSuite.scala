@@ -18,7 +18,6 @@ package com.netflix.iep.lwc
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.StatusCodes
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
 import com.netflix.spectator.api.DefaultRegistry
@@ -34,7 +33,6 @@ import scala.concurrent.duration.Duration
 class ExprUpdateServiceSuite extends AnyFunSuite with BeforeAndAfter {
 
   private implicit val system = ActorSystem()
-  private implicit val materializer = ActorMaterializer()
 
   private val config = ConfigFactory.load()
   private val clock = new ManualClock()

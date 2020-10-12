@@ -18,13 +18,12 @@ package com.netflix.iep.lwc.fwd.admin
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.coding.Gzip
+import akka.http.scaladsl.coding.Coders
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.Accept
 import akka.http.scaladsl.model.headers.HttpEncodings
 import akka.http.scaladsl.model.headers.`Accept-Encoding`
 import akka.http.scaladsl.unmarshalling.Unmarshal
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Source
 import com.netflix.atlas.akka.AccessLogger
@@ -48,7 +47,6 @@ class ScalingPoliciesDaoImpl @Inject()(
 ) extends ScalingPoliciesDao
     with StrictLogging {
 
-  private implicit val mat = ActorMaterializer()
   private implicit val ec = scala.concurrent.ExecutionContext.global
 
   private val ec2PoliciesUri = config.getString("iep.lwc.fwding-admin.ec2-policies-uri")
@@ -191,7 +189,7 @@ class ScalingPoliciesDaoImpl @Inject()(
         r
       })
       .filter(_.status == StatusCodes.OK)
-      .map(Gzip.decodeMessage(_))
+      .map(Coders.Gzip.decodeMessage(_))
       .mapAsync[String](1)(r => Unmarshal(r.entity).to[String])
   }
 

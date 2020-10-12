@@ -25,7 +25,6 @@ import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCodes
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
@@ -51,14 +50,13 @@ class DruidClientSuite extends AnyFunSuite with BeforeAndAfterAll {
   private val config = ConfigFactory.load().getConfig("atlas.druid")
 
   private implicit val system: ActorSystem = ActorSystem(getClass.getSimpleName)
-  private implicit val materializer: ActorMaterializer = ActorMaterializer()
 
   private def newClient(result: Try[HttpResponse]): DruidClient = {
     val client = Flow[(HttpRequest, AccessLogger)]
       .map {
         case (_, logger) => result -> logger
       }
-    new DruidClient(config, system, materializer, client)
+    new DruidClient(config, system, client)
   }
 
   private def ok[T: Manifest](data: T): HttpResponse = {
@@ -67,7 +65,6 @@ class DruidClientSuite extends AnyFunSuite with BeforeAndAfterAll {
   }
 
   override def afterAll(): Unit = {
-    materializer.shutdown()
     Await.result(system.terminate(), Duration.Inf)
     super.afterAll()
   }

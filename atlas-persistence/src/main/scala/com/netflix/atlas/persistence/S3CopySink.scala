@@ -21,7 +21,6 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
 import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
 import akka.stream.Attributes
 import akka.stream.Inlet
 import akka.stream.KillSwitch
@@ -65,7 +64,6 @@ class S3CopySink(
   private val clientTimeout = s3Config.getDuration("client-timeout").toScala
   private val threadPoolSize = s3Config.getInt("thread-pool-size")
 
-  private implicit val mat: ActorMaterializer = ActorMaterializer()
   private val globalEc = ExecutionContext.global
   private val s3Ec =
     ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(threadPoolSize))
@@ -142,7 +140,7 @@ class S3CopySink(
         activeFiles.put(file.getName, None)
 
         val (killSwitch, streamFuture) = Source
-          .fromFuture(Future[Unit](copyToS3Sync(file))(s3Ec))
+          .future(Future[Unit](copyToS3Sync(file))(s3Ec))
           // Set a timeout for s3 async client call because it sometimes never completes and current
           // file cannot be re-processed because it's been marked in activeFiles already
           .completionTimeout(clientTimeout)

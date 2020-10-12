@@ -79,7 +79,7 @@ class ForeachApi(config: Config, implicit val actorRefFactory: ActorRefFactory) 
     val tq = TagQuery(Some(query), Some(key))
     val future = akka.pattern.ask(dbRef, ListValuesRequest(tq))(Timeout(10.seconds))
     Source
-      .fromFuture(future)
+      .future(future)
       .map {
         case ValueListResponse(vs) => vs
       }

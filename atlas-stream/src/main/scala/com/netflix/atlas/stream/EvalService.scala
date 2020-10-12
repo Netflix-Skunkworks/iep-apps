@@ -21,7 +21,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.AbruptTerminationException
-import akka.stream.ActorMaterializer
 import akka.stream.ThrottleMode
 import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.Sink
@@ -54,7 +53,6 @@ class EvalService @Inject()(
     with StrictLogging {
 
   private implicit val ec = scala.concurrent.ExecutionContext.global
-  private implicit val mat = ActorMaterializer()
 
   private val registrations = new ConcurrentHashMap[String, StreamInfo]
   private val numDataSources = new AtomicInteger(0)

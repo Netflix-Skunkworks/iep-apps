@@ -18,7 +18,6 @@ package com.netflix.iep.lwc.fwd.admin
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.actor.Props
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
@@ -38,7 +37,6 @@ class MarkerServiceSuite extends AnyFunSuite {
 
   private val config = ConfigFactory.load()
   private implicit val system = ActorSystem(getClass.getSimpleName)
-  private implicit val mat = ActorMaterializer()
   implicit val ec = scala.concurrent.ExecutionContext.global
 
   test("Read ExpressionDetails using a dedicated dispatcher") {

@@ -22,7 +22,6 @@ import akka.actor.Actor
 import akka.actor.ActorRef
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
 import com.netflix.atlas.akka.AccessLogger
@@ -57,16 +56,15 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
   import com.netflix.atlas.webapi.TagsApi._
 
   private implicit val sys: ActorSystem = context.system
-  private implicit val mat: ActorMaterializer = ActorMaterializer()
 
   private val client =
-    new DruidClient(config.getConfig("atlas.druid"), sys, mat, Http().superPool[AccessLogger]())
+    new DruidClient(config.getConfig("atlas.druid"), sys, Http().superPool[AccessLogger]())
 
   private val tagsInterval = config.getDuration("atlas.druid.tags-interval")
 
   private var metadata: Metadata = Metadata(Nil)
 
-  private val cancellable = context.system.scheduler.schedule(0.seconds, 10.minutes, self, Tick)
+  private val cancellable = context.system.scheduler.scheduleAtFixedRate(0.seconds, 10.minutes, self, Tick)
 
   def receive: Receive = {
     case Tick        => refreshMetadata(sender())

@@ -80,7 +80,6 @@ class ForwardingService @Inject()(
   private val streamFailures = registry.counter("forwarding.streamFailures")
 
   private implicit val ec = scala.concurrent.ExecutionContext.global
-  private implicit val mat = ActorMaterializer()
 
   private val clock = registry.clock()
   private val lastSuccessfulPutTime = PolledMeter
