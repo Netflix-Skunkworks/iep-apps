@@ -17,7 +17,6 @@ package com.netflix.iep.lwc.fwd.admin
 
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.Sink
 import com.netflix.atlas.akka.StreamOps.SourceQueue
@@ -33,6 +32,7 @@ import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import ExpressionDetails._
 import akka.Done
+import akka.stream.Materializer
 import org.scalatest.funsuite.AnyFunSuite
 
 import scala.concurrent.Future
@@ -50,7 +50,7 @@ class ApiSuite
     new Evaluator(config, new NoopRegistry(), system)
   )
 
-  private val markerService = new MarkerServiceTest()
+  private val markerService = new MarkerServiceTest()(Materializer(system))
 
   private val purger = new Purger {
     override def purge(expressions: List[ExpressionId]): Future[Done] = Future(Done)
@@ -164,7 +164,7 @@ class ApiSuite
 }
 
 class MarkerServiceTest(
-  implicit val mat: ActorMaterializer
+  implicit val mat: Materializer
 ) extends MarkerService {
 
   var result = List.newBuilder[Report]
