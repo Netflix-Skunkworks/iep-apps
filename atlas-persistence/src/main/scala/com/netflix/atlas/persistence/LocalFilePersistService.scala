@@ -100,11 +100,13 @@ class LocalFilePersistService @Inject()(
 
   private def getRollingFileFlow(workerId: Int): Flow[List[Datapoint], NotUsed, NotUsed] = {
     import scala.concurrent.duration._
-    RestartFlow.withBackoff(RestartSettings(
-      minBackoff = 1.second,
-      maxBackoff = 3.seconds,
-      randomFactor = 0
-    )) { () =>
+    RestartFlow.withBackoff(
+      RestartSettings(
+        minBackoff = 1.second,
+        maxBackoff = 3.seconds,
+        randomFactor = 0
+      )
+    ) { () =>
       Flow.fromGraph(
         new RollingFileFlow(dataDir, rollingConf, registry, workerId)
       )

@@ -64,7 +64,8 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
 
   private var metadata: Metadata = Metadata(Nil)
 
-  private val cancellable = context.system.scheduler.scheduleAtFixedRate(0.seconds, 10.minutes, self, Tick)
+  private val cancellable =
+    context.system.scheduler.scheduleAtFixedRate(0.seconds, 10.minutes, self, Tick)
 
   def receive: Receive = {
     case Tick        => refreshMetadata(sender())
