@@ -11,10 +11,14 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 8
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.sbt
+            ~/.ivy2
+          key: ${{ runner.os }}-${{ hashFiles('**/*.sbt') }}
       - name: Build
-        env:
-          TRAVIS_SCALA_VERSION=2.13.3
-        run: make build
+        run: cat /dev/null | project/sbt ++2.13.3 clean test checkLicenseHeaders scalafmtCheckAll
   build-jdk11:
     runs-on: ubuntu-latest
     steps:
@@ -23,10 +27,14 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 11
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.sbt
+            ~/.ivy2
+          key: ${{ runner.os }}-${{ hashFiles('**/*.sbt') }}
       - name: Build
-        env:
-          TRAVIS_SCALA_VERSION=2.13.3
-        run: make build
+        run: cat /dev/null | project/sbt ++2.13.3 clean test checkLicenseHeaders scalafmtCheckAll
   build-jdk15:
     runs-on: ubuntu-latest
     steps:
@@ -35,7 +43,11 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: 15
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.sbt
+            ~/.ivy2
+          key: ${{ runner.os }}-${{ hashFiles('**/*.sbt') }}
       - name: Build
-        env:
-          TRAVIS_SCALA_VERSION=2.13.3
-        run: make build
+        run: cat /dev/null | project/sbt ++2.13.3 clean test checkLicenseHeaders scalafmtCheckAll
