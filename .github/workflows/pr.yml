@@ -18,7 +18,7 @@ jobs:
             ~/.ivy2
           key: ${{ runner.os }}-${{ hashFiles('**/*.sbt') }}
       - name: Build
-        run: cat /dev/null | project/sbt ++2.13.3 clean test
+        run: cat /dev/null | project/sbt clean test
   build-jdk15:
     runs-on: ubuntu-latest
     steps:
@@ -34,7 +34,7 @@ jobs:
             ~/.ivy2
           key: ${{ runner.os }}-${{ hashFiles('**/*.sbt') }}
       - name: Build
-        run: cat /dev/null | project/sbt ++2.13.3 clean test
+        run: cat /dev/null | project/sbt clean test
   check:
     runs-on: ubuntu-latest
     steps:
