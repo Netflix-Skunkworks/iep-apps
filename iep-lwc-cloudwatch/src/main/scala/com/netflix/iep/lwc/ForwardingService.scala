@@ -375,7 +375,9 @@ object ForwardingService extends StrictLogging {
             }
             .recover {
               case t: Throwable =>
-                logger.warn(s"cloudwatch request failed (region=$region, account=$account)", t)
+                val exprs = Json.encode(data.map(_.id))
+                val context = s"(region=$region, account=$account, exprs=$exprs)"
+                logger.warn(s"cloudwatch request failed $context", t)
                 data.map(_.copy(error = Some(t)))
             }
             .mapConcat(identity)
