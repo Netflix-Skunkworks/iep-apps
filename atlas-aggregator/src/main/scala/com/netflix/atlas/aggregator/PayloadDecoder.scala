@@ -214,7 +214,6 @@ object PayloadDecoder {
   private val stringCache = Caffeine
     .newBuilder()
     .maximumSize(config.getInt("cache.strings.max-size"))
-    .expireAfterAccess(config.getDuration("cache.strings.expires-after"))
     .build[String, String]()
 
   /**
