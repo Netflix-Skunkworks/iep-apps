@@ -3,7 +3,7 @@ matrix:
   include:
   - jdk: openjdk8
     scala: 2.13.3
-    env: BINTRAY_PUBLISH=true
+    env: BINTRAY_PUBLISH=false
   - jdk: openjdk11
     scala: 2.13.3
     env: BINTRAY_PUBLISH=false
