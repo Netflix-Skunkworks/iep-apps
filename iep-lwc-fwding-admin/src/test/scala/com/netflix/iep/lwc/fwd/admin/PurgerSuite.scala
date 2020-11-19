@@ -25,20 +25,19 @@ import akka.stream.scaladsl.Source
 import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.json.Json
 import com.netflix.iep.lwc.fwd.cw.ClusterConfig
-import com.netflix.iep.lwc.fwd.cw.ConfigBinVersion
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
 import org.scalatest.funsuite.AnyFunSuite
 
 import scala.concurrent.Await
-import scala.concurrent.duration._
 import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 import scala.util.Success
 
 class PurgerSuite extends AnyFunSuite {
 
-  import PurgerImpl._
   import ExpressionDetails._
+  import PurgerImpl._
 
   private implicit val system = ActorSystem(getClass.getSimpleName)
 
@@ -88,10 +87,7 @@ class PurgerSuite extends AnyFunSuite {
 
   test("Read cluster config") {
 
-    val cfgPayload = ClusterCfgPayload(
-      ConfigBinVersion(1552669178072L, "", None, None),
-      ClusterConfig("", List(ForwardingExpression("", "", None, "")))
-    )
+    val cfgPayload = ClusterConfig("", List(ForwardingExpression("uri", "", None, "")))
 
     val client: Client =
       Flow[(HttpRequest, AccessLogger)]
@@ -147,10 +143,7 @@ class PurgerSuite extends AnyFunSuite {
       ForwardingExpression("uri2", "", None, "")
     )
 
-    val cfgPayload = ClusterCfgPayload(
-      ConfigBinVersion(0, "", None, None),
-      ClusterConfig("", expressions)
-    )
+    val cfgPayload = ClusterConfig("", expressions)
 
     val now = 1552891811000L
     val exprToRemove = List(
@@ -166,20 +159,12 @@ class PurgerSuite extends AnyFunSuite {
 
     val actual = makeClusterCfgPayload(exprToRemove, cfgPayload)
 
-    val expected = ClusterCfgPayload(
-      ConfigBinVersion(
-        0,
-        "",
-        Some("admin"),
-        Some("Removed 1 expressions. Purge Markers: NoDataFoundEvent")
-      ),
-      ClusterConfig("", expressions.filterNot(_.atlasUri == "uri1"))
-    )
+    val expected = ClusterConfig("", expressions.filterNot(_.atlasUri == "uri1"))
 
     assert(actual === expected)
   }
 
-  test("Send out PUT req for purging expr in cluster config") {
+  test("Send out POST req for purging expr in cluster config") {
     val requests = List.newBuilder[HttpRequest]
     val client: Client =
       Flow[(HttpRequest, AccessLogger)]
@@ -189,10 +174,7 @@ class PurgerSuite extends AnyFunSuite {
             (Success(HttpResponse(StatusCodes.OK)), accessLogger)
         }
 
-    val cfgPayload = ClusterCfgPayload(
-      ConfigBinVersion(1552669178072L, "", None, None),
-      ClusterConfig("", List(ForwardingExpression("", "", None, "")))
-    )
+    val cfgPayload = ClusterConfig("", List(ForwardingExpression("", "", None, "")))
 
     val future = Source
       .single(("config1", cfgPayload))
@@ -200,7 +182,7 @@ class PurgerSuite extends AnyFunSuite {
       .runWith(Sink.head)
 
     val expected = HttpRequest(
-      HttpMethods.PUT,
+      HttpMethods.POST,
       Uri("http://local/config1"),
       entity = Json.encode(cfgPayload)
     ).withHeaders(RawHeader("conditional", "true"))

@@ -10,7 +10,7 @@
     </Appenders>
     <Loggers>
         <Logger name="com.netflix.iep" level="debug"/>
-        <Logger name="com.netflix.spectator" level="debug"/>
+        <Logger name="com.netflix.spectator" level="info"/>
         <Root level="info">
             <AppenderRef ref="STDERR"/>
         </Root>
