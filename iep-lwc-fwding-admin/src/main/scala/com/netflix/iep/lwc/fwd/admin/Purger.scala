@@ -15,6 +15,7 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
+import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 import akka.Done
@@ -52,8 +53,16 @@ class PurgerImpl @Inject()(
     with StrictLogging {
   import PurgerImpl._
 
+  private val user = encodeUriParam(config.getString("iep.lwc.fwding-admin.user"))
+  private val comment = encodeUriParam("Removed expressions by iep-lwc-fwding-admin")
   private val cwExprUri = config.getString("iep.lwc.fwding-admin.cw-expr-uri")
+  private val cwExprUriForUpdate = s"$cwExprUri?user=$user&comment=$comment&overwrite=true"
+
   private val client = Http().superPool[AccessLogger]()
+
+  private def encodeUriParam(param: String): String = {
+    URLEncoder.encode(param, "UTF_8")
+  }
 
   override def purge(expressions: List[ExpressionId]): Future[Done] = {
     Source(expressions.groupBy(_.key))
@@ -76,7 +85,7 @@ class PurgerImpl @Inject()(
         case ((k, e), c) =>
           Source
             .single((k, c))
-            .via(doPurge(cwExprUri, client))
+            .via(doPurge(cwExprUriForUpdate, client))
             .map(_ => e)
       }
       .mapConcat(identity)
@@ -130,10 +139,10 @@ object PurgerImpl extends StrictLogging {
   def getClusterConfig(
     cwExprUri: String,
     client: Client
-  ): Flow[String, ClusterCfgPayload, NotUsed] = {
+  ): Flow[String, ClusterConfig, NotUsed] = {
     Flow[String]
       .map(key => HttpRequest(HttpMethods.GET, Uri(cwExprUri.format(key))))
-      .map(r => r -> AccessLogger.newClientLogger("configbin", r))
+      .map(r => r -> AccessLogger.newClientLogger("configbinv2", r))
       .via(client)
       .map {
         case (result, accessLog) =>
@@ -157,7 +166,7 @@ object PurgerImpl extends StrictLogging {
       .flatMapConcat(r => r.entity.dataBytes)
       .map { d =>
         Json
-          .decode[ClusterCfgPayload](
+          .decode[ClusterConfig](
             d.decodeString(StandardCharsets.UTF_8)
           )
       }
@@ -165,37 +174,30 @@ object PurgerImpl extends StrictLogging {
 
   def makeClusterCfgPayload(
     exprToRemove: List[ExpressionDetails],
-    clusterCfgPayload: ClusterCfgPayload
-  ): ClusterCfgPayload = {
-
-    val markers = exprToRemove.flatMap(_.events.keys).toSet.mkString(",")
-    val comment = s"Removed ${exprToRemove.size} expressions. Purge Markers: $markers"
-
-    ClusterCfgPayload(
-      clusterCfgPayload.version.copy(user = Some("admin"), comment = Some(comment)),
-      clusterCfgPayload.payload.copy(
-        expressions = clusterCfgPayload.payload.expressions.diff(
-          exprToRemove.map(_.expressionId.expression)
-        )
+    clusterConfig: ClusterConfig
+  ): ClusterConfig = {
+    clusterConfig.copy(
+      expressions = clusterConfig.expressions.diff(
+        exprToRemove.map(_.expressionId.expression)
       )
     )
   }
 
   def doPurge(
-    cwExprUri: String,
+    cwExprUriForUpdate: String,
     client: Client
-  ): Flow[(String, ClusterCfgPayload), NotUsed, NotUsed] = {
-    Flow[(String, ClusterCfgPayload)]
+  ): Flow[(String, ClusterConfig), NotUsed, NotUsed] = {
+    Flow[(String, ClusterConfig)]
       .map {
         case (k, c) =>
           HttpRequest(
-            HttpMethods.PUT,
-            Uri(cwExprUri.format(k)),
+            HttpMethods.POST,
+            Uri(cwExprUriForUpdate.format(k)),
             entity = Json.encode(c)
           ).withHeaders(RawHeader("conditional", "true"))
       }
       .map { r =>
-        r -> AccessLogger.newClientLogger("configbin", r)
+        r -> AccessLogger.newClientLogger("configbinv2", r)
       }
       .via(client)
       .via(StreamOps.map { (t, mat) =>
@@ -232,8 +234,3 @@ object PurgerImpl extends StrictLogging {
   }
 
 }
-
-case class ClusterCfgPayload(
-  version: ConfigBinVersion,
-  payload: ClusterConfig
-)
