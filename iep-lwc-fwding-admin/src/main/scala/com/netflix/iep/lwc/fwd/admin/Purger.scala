@@ -61,7 +61,7 @@ class PurgerImpl @Inject()(
   private val client = Http().superPool[AccessLogger]()
 
   private def encodeUriParam(param: String): String = {
-    URLEncoder.encode(param, "UTF_8")
+    URLEncoder.encode(param, "UTF-8")
   }
 
   override def purge(expressions: List[ExpressionId]): Future[Done] = {
