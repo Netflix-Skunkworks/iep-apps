@@ -15,6 +15,7 @@
  */
 package com.netflix.iep.lwc
 
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 import akka.NotUsed
@@ -66,6 +67,11 @@ class ExprUpdateService @Inject()(
     .using(registry)
     .withName("lwc.expressionsAge")
     .monitorValue(new AtomicLong(registry.clock().wallTime()), Functions.age(registry.clock()))
+
+  private val numExpressions = PolledMeter
+    .using(registry)
+    .withName("lwc.numExpressions")
+    .monitorValue(new AtomicInteger())
 
   private implicit val ec = scala.concurrent.ExecutionContext.global
   private implicit val system = ActorSystem()
@@ -126,6 +132,7 @@ class ExprUpdateService @Inject()(
           .filter(_.getFrequency == 60000) // Limit to primary publish step size
           .asJava
         evaluator.sync(exprs)
+        numExpressions.set(exprs.size())
         lastUpdateTime.set(registry.clock().wallTime())
       } catch {
         case e: Exception =>
