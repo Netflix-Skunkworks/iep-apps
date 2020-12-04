@@ -7,8 +7,9 @@ object BuildSettings {
     "-deprecation",
     "-unchecked",
     "-Xlint:_,-infer-any",
-    "-feature",
-    "-target:jvm-1.8")
+    "-feature")
+
+  private val isRecentJdk = System.getProperty("java.specification.version").toDouble >= 11.0
 
   lazy val checkLicenseHeaders = taskKey[Unit]("Check the license headers for all source files.")
   lazy val formatLicenseHeaders = taskKey[Unit]("Fix the license headers for all source files.")
@@ -21,7 +22,20 @@ object BuildSettings {
   lazy val buildSettings = baseSettings ++ Seq(
     organization := "com.netflix.iep-apps",
     scalaVersion := Dependencies.Versions.scala,
-    scalacOptions ++= BuildSettings.compilerFlags,
+    scalacOptions ++= {
+      // -release option is not supported in scala 2.11
+      val v = scalaVersion.value
+      CrossVersion.partialVersion(v).map(_._2.toInt) match {
+        case Some(v) if v > 11 && isRecentJdk => compilerFlags ++ Seq("-release", "8")
+        case _                                => compilerFlags ++ Seq("-target:jvm-1.8")
+      }
+    },
+    javacOptions ++= {
+      if (isRecentJdk)
+        Seq("--release", "8")
+      else
+        Seq("-source", "1.8", "-target", "1.8")
+    },
     crossPaths := true,
     crossScalaVersions := Dependencies.Versions.crossScala,
     sourcesInBase := false,
