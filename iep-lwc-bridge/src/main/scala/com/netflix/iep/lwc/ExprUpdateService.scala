@@ -60,6 +60,7 @@ class ExprUpdateService @Inject()(
     with StrictLogging {
 
   import scala.concurrent.duration._
+  import com.netflix.atlas.akka.OpportunisticEC._
 
   private val configUri = Uri(config.getString("netflix.iep.lwc.bridge.config-uri"))
 
@@ -73,7 +74,6 @@ class ExprUpdateService @Inject()(
     .withName("lwc.numExpressions")
     .monitorValue(new AtomicInteger())
 
-  private implicit val ec = scala.concurrent.ExecutionContext.global
   private implicit val system = ActorSystem()
 
   private var killSwitch: KillSwitch = _
