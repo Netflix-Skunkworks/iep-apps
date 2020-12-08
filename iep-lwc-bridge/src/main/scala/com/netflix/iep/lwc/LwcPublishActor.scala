@@ -51,8 +51,8 @@ class LwcPublishActor(config: Config, registry: Registry, evaluator: Expressions
     with StrictLogging {
 
   import com.netflix.atlas.webapi.PublishApi._
+  import com.netflix.atlas.akka.OpportunisticEC._
 
-  import scala.concurrent.ExecutionContext.Implicits.global
   private implicit val mat = Materializer(context.system)
 
   type SubscriptionList = java.util.List[Subscription]
