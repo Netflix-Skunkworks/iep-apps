@@ -75,8 +75,8 @@ class StatsApiSuite extends AnyFunSuite with ScalatestRouteTest with BeforeAndAf
 
     // Stats only get updated when data is sent
     val datapoints = List(
-      Datapoint(Map("name" -> "ssCpuUser", "node" -> "i-1"), 60000, 42.0),
-      Datapoint(Map("name" -> "ssCpuUser", "node" -> "i-2"), 60000, 44.0)
+      new BridgeDatapoint("ssCpuUser", Array("node", "i-1"), 2, 60000, 42.0),
+      new BridgeDatapoint("ssCpuUser", Array("node", "i-2"), 2, 60000, 44.0)
     )
     evaluator.eval(60000, datapoints)
 
