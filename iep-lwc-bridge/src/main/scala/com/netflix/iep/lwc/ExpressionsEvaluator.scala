@@ -18,17 +18,12 @@ package com.netflix.iep.lwc
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.atomic.AtomicReference
 
-import com.netflix.atlas.core.index.QueryIndex
-import com.netflix.atlas.core.model.Datapoint
-import com.netflix.atlas.core.model.Query
-import com.netflix.atlas.core.model.QueryVocabulary
-import com.netflix.atlas.core.stacklang.Interpreter
-import com.netflix.atlas.core.util.SmallHashMap
+import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Utils
 import com.netflix.spectator.atlas.impl.DataExpr.Aggregator
 import com.netflix.spectator.atlas.impl.EvalPayload
+import com.netflix.spectator.atlas.impl.QueryIndex
 import com.netflix.spectator.atlas.impl.Subscription
 import com.netflix.spectator.atlas.impl.TagsValuePair
 import com.typesafe.config.Config
@@ -50,58 +45,42 @@ class ExpressionsEvaluator @Inject()(config: Config) extends StrictLogging {
     config.getStringList("netflix.iep.lwc.bridge.logging.subscriptions").asScala.toSet
   }
 
-  private val indexRef = new AtomicReference[QueryIndex[Subscription]](emptyIndex)
+  private var subscriptions = Set.empty[Subscription]
+
+  private[lwc] val index = QueryIndex.newInstance[Subscription](new NoopRegistry)
 
   private val statsMap = new ConcurrentHashMap[String, SubscriptionStats]()
 
   private val pendingMessages = new LinkedBlockingQueue[EvalPayload.Message]()
 
-  /** Return the query index for this evaluator. */
-  private[lwc] def index: QueryIndex[Subscription] = indexRef.get()
-
   /**
     * Synchronize the set of subscriptions for this evaluator with the specified list. Typically
     * the list will come from the `/expressions` endpoint of the LWC API service.
     */
-  def sync(subs: SubscriptionList): Unit = {
+  def sync(subs: SubscriptionList): Unit = synchronized {
     import scala.jdk.CollectionConverters._
-    val index = QueryIndex.create(subs.asScala.map(toEntry).toList)
 
-    // The top level fallback entries are removed to greatly reduce the cost. These entries
-    // would need to get checked against every datapoint and are typically costly regex queries.
-    // For a simple test remove the 46 top-level fallback expressions of 18.5k overall improved
-    // throughput by 3x.
-    index.entries.foreach { entry =>
-      val sub = entry.value
-      val expr = sub.getExpression
-      val error = s"rejected expression [$expr], must have at least one equals clause"
-      val msg = new EvalPayload.Message(
-        sub.getId,
-        new EvalPayload.DiagnosticMessage(EvalPayload.MessageType.error, error)
-      )
-      pendingMessages.offer(msg)
-    }
-    indexRef.set(index.copy(entries = Array.empty))
-  }
+    val previous = subscriptions
+    val current = subs.asScala.toSet
+    val added = current.diff(previous)
+    val removed = previous.diff(current)
+    subscriptions = current
 
-  private def toEntry(sub: Subscription): QueryIndex.Entry[Subscription] = {
-    // Convert from spectator Query object to atlas Query object needed for the index
-    val atlasQuery = parseQuery(sub.dataExpr().query().toString)
-    QueryIndex.Entry(atlasQuery, sub)
+    added.foreach(s => index.add(s.dataExpr().query(), s))
+    removed.foreach(s => index.remove(s))
   }
 
   /**
     * Evaluate a set of datapoints and generate a payload for the `/evaluate` endpoint
     * of the LWC API service.
     */
-  def eval(timestamp: Long, values: List[Datapoint]): EvalPayload = {
-    val index = indexRef.get
+  def eval(timestamp: Long, values: List[BridgeDatapoint]): EvalPayload = {
     val aggregates = collection.mutable.AnyRefMap.empty[String, Aggregator]
     values.filter(!_.value.isNaN).foreach { v =>
-      val subs = index.matchingEntries(v.tags)
-      if (subs.nonEmpty) {
-        val pair = toPair(v)
-        subs.foreach { sub =>
+      val subs = index.findMatches(v.id)
+      if (!subs.isEmpty) {
+        val pair = new TagsValuePair(v.tagsMap, v.value)
+        subs.forEach { sub =>
           Utils.computeIfAbsent(statsMap, sub.getId, (_: String) => SubscriptionStats(sub)).update()
           val aggr = aggregates.getOrElseUpdate(sub.getId, newAggregator(sub))
           aggr.update(pair)
@@ -134,17 +113,6 @@ class ExpressionsEvaluator @Inject()(config: Config) extends StrictLogging {
     sub.dataExpr().aggregator(tags, false)
   }
 
-  private def toPair(d: Datapoint): TagsValuePair = {
-    import scala.jdk.CollectionConverters._
-    // Use custom java map wrapper from SmallHashMap if possible for improved
-    // performance during the eval.
-    val jmap = d.tags match {
-      case m: SmallHashMap[_, _] => m.asInstanceOf[SmallHashMap[String, String]].asJavaMap
-      case m                     => m.asJava
-    }
-    new TagsValuePair(jmap, d.value)
-  }
-
   /** Return some basic stats about the subscriptions that are being evaluated. */
   def stats: List[SubscriptionStats] = {
     val builder = List.newBuilder[SubscriptionStats]
@@ -162,24 +130,15 @@ class ExpressionsEvaluator @Inject()(config: Config) extends StrictLogging {
   }
 
   /** Clear all internal state for this evaluator. */
-  def clear(): Unit = {
-    indexRef.set(emptyIndex)
+  def clear(): Unit = synchronized {
+    subscriptions.foreach(s => index.remove(s))
+    subscriptions = Set.empty[Subscription]
     statsMap.clear()
   }
 }
 
 object ExpressionsEvaluator {
   private val OneHour = 60 * 60 * 1000
-
-  private val interpreter = Interpreter(QueryVocabulary.words)
-
-  private val emptyIndex = QueryIndex.create[Subscription](Nil)
-
-  def parseQuery(str: String): Query = {
-    val stack = interpreter.execute(str).stack
-    require(stack.lengthCompare(1) == 0, s"invalid query: $str")
-    stack.head.asInstanceOf[Query]
-  }
 
   case class SubscriptionStats(
     sub: Subscription,

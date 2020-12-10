@@ -151,8 +151,8 @@ lazy val `iep-clienttest` = project
 lazy val `iep-lwc-bridge` = project
   .configure(BuildSettings.profile)
   .settings(libraryDependencies ++= Seq(
+    Dependencies.atlasCore,
     Dependencies.atlasModuleAkka,
-    Dependencies.atlasModuleWebApi,
     Dependencies.frigga,
     Dependencies.iepGuice,
     Dependencies.iepModuleAtlas,

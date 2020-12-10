@@ -21,6 +21,7 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
 import com.netflix.spectator.api.DefaultRegistry
+import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.ManualClock
 import com.netflix.spectator.api.patterns.PolledMeter
 import com.typesafe.config.ConfigFactory
@@ -93,7 +94,7 @@ class ExprUpdateServiceSuite extends AnyFunSuite with BeforeAndAfter {
 
   test("valid update rebuilds index") {
     doValidUpdate()
-    assert(1 === evaluator.index.matchingEntries(Map("name" -> "cpu")).size)
+    assert(1 === evaluator.index.findMatches(Id.create("cpu")).size)
   }
 
   test("valid update refreshes age metric") {
