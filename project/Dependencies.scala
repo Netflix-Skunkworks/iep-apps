@@ -5,18 +5,18 @@ import sbt._
 object Dependencies {
   object Versions {
     val akka       = "2.6.10"
-    val akkaHttpV  = "10.2.1"
+    val akkaHttpV  = "10.2.2"
     val atlas      = "1.7.0-SNAPSHOT"
-    val aws        = "1.11.877"
-    val aws2       = "2.15.7"
-    val iep        = "2.6.2"
+    val aws        = "1.11.901"
+    val aws2       = "2.15.44"
+    val iep        = "2.6.4"
     val guice      = "4.1.0"
-    val log4j      = "2.13.3"
+    val log4j      = "2.14.0"
     val scala      = "2.13.4"
     val servo      = "0.13.0"
     val slf4j      = "1.7.30"
     val spectator  = "0.122.0"
-    val avroV      = "1.9.2"
+    val avroV      = "1.10.1"
 
     val crossScala = Seq(scala)
   }
@@ -70,19 +70,19 @@ object Dependencies {
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
   val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
   val scalaReflect       = "org.scala-lang" % "scala-reflect" % scala
-  val scalatest          = "org.scalatest" %% "scalatest" % "3.2.2"
+  val scalatest          = "org.scalatest" %% "scalatest" % "3.2.3"
   val servoCore          = "com.netflix.servo" % "servo-core" % servo
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
   val slf4jLog4j         = "org.slf4j" % "slf4j-log4j12" % slf4j
   val slf4jSimple        = "org.slf4j" % "slf4j-simple" % slf4j
-  val snappy             = "org.xerial.snappy" % "snappy-java" % "1.1.7.7"
+  val snappy             = "org.xerial.snappy" % "snappy-java" % "1.1.8.2"
   val spectatorApi       = "com.netflix.spectator" % "spectator-api" % spectator
   val spectatorAws2      = "com.netflix.spectator" % "spectator-ext-aws2" % spectator
   val spectatorAtlas     = "com.netflix.spectator" % "spectator-reg-atlas" % spectator
   val spectatorLog4j     = "com.netflix.spectator" % "spectator-ext-log4j2" % spectator
   val spectatorM2        = "com.netflix.spectator" % "spectator-reg-metrics2" % spectator
   val spectatorSandbox   = "com.netflix.spectator" % "spectator-ext-sandbox" % spectator
-  val typesafeConfig     = "com.typesafe" % "config" % "1.4.0"
+  val typesafeConfig     = "com.typesafe" % "config" % "1.4.1"
 }
 
 // format: on
