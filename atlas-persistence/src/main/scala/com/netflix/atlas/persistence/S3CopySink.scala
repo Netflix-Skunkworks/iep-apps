@@ -73,6 +73,7 @@ class S3CopySink(
 
       private var s3Client: S3Client = _
       private val numActiveFiles = registry.distributionSummary("persistence.s3.numActiveFiles")
+      private val numTempFilesToCopy = registry.counter("persistence.s3.tempFilesToCopy")
       // Tracking files which is being processed to avoid duplication
       private val activeFiles = new ConcurrentHashMap[String, Option[KillSwitch]]
 
@@ -138,6 +139,10 @@ class S3CopySink(
       private def process(file: File): Unit = {
         // Add to map to mark file being processed
         activeFiles.put(file.getName, None)
+
+        if (FileUtil.isTmpFile(file)) {
+          numTempFilesToCopy.increment()
+        }
 
         val (killSwitch, streamFuture) = Source
           .future(Future[Unit](copyToS3Sync(file))(s3Ec))
