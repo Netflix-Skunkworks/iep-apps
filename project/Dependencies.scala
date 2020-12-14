@@ -70,7 +70,7 @@ object Dependencies {
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
   val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
   val scalaReflect       = "org.scala-lang" % "scala-reflect" % scala
-  val scalatest          = "org.scalatest" %% "scalatest" % "3.2.2"
+  val scalatest          = "org.scalatest" %% "scalatest" % "3.2.3"
   val servoCore          = "com.netflix.servo" % "servo-core" % servo
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
   val slf4jLog4j         = "org.slf4j" % "slf4j-log4j12" % slf4j
