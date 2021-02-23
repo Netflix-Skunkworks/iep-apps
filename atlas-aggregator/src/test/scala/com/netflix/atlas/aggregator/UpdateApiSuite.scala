@@ -115,6 +115,39 @@ class UpdateApiSuite extends AnyFunSuite {
     assert(service.lookup(id).counter(id).actualCount() === 42.0)
   }
 
+  test("payload with invalid characters null") {
+    val clock = new ManualClock()
+    val service = createAggrService(clock)
+    val json = Json.encode(
+      List(
+        6,
+        "name",
+        "cpu\u0000user",
+        "app",
+        "www",
+        "zone",
+        "1e",
+        3,
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        0,
+        42.0
+      )
+    )
+    val parser = factory.createParser(json)
+    assert(UpdateApi.processPayload(parser, service).status === StatusCodes.OK)
+    clock.setWallTime(62000)
+    val id = Id
+      .create("cpu_user")
+      .withTags("app", "www", "zone", "1e")
+      .withTag(aggrTag)
+    assert(service.lookup(id).counter(id).actualCount() === 42.0)
+  }
+
   test("percentile node rollup") {
     val clock = new ManualClock()
     val service = createAggrService(clock)
