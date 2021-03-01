@@ -208,10 +208,16 @@ object ForwardingService extends StrictLogging {
     val done = registry.counter(baseId.withTag("id", "done"))
     val repoVersion = registry.gauge("forwarding.repoVersion")
 
+    val clock = registry.clock()
+    val lastHeartbeat = PolledMeter
+      .using(registry)
+      .withName("forwarding.timeSinceLastHeartbeat")
+      .monitorValue(new AtomicLong(clock.wallTime()), Functions.age(clock))
+
     Flow[ByteString]
       .via(Framing.delimiter(ByteString("\n"), MaxFrameLength, allowTruncation = true))
       .map(_.decodeString(StandardCharsets.UTF_8))
-      .filter(s => !s.trim.isEmpty)
+      .filter(s => s.trim.nonEmpty)
       .map(s => Message(s))
       .filter { msg =>
         logger.debug(s"message [${msg.str}]")
@@ -219,6 +225,7 @@ object ForwardingService extends StrictLogging {
         msg match {
           case m if m.isHeartbeat =>
             heartbeats.increment()
+            lastHeartbeat.set(clock.wallTime())
             repoVersion.set(m.repoVersion.toDouble)
           case m if m.isInvalid => invalid.increment()
           case m if m.isUpdate  => (if (m.response.isDelete) deletes else updates).increment()
