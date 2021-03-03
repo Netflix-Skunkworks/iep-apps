@@ -7,15 +7,15 @@ object Dependencies {
     val akka       = "2.6.13"
     val akkaHttpV  = "10.2.4"
     val atlas      = "1.7.0-SNAPSHOT"
-    val aws        = "1.11.934"
-    val aws2       = "2.15.61"
-    val iep        = "2.6.5"
+    val aws        = "1.11.965"
+    val aws2       = "2.16.10"
+    val iep        = "2.6.7"
     val guice      = "4.1.0"
     val log4j      = "2.14.0"
-    val scala      = "2.13.4"
-    val servo      = "0.13.0"
+    val scala      = "2.13.5"
+    val servo      = "0.13.2"
     val slf4j      = "1.7.30"
-    val spectator  = "0.123.1"
+    val spectator  = "0.125.0"
     val avroV      = "1.10.1"
 
     val crossScala = Seq(scala)
@@ -70,12 +70,12 @@ object Dependencies {
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
   val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
   val scalaReflect       = "org.scala-lang" % "scala-reflect" % scala
-  val scalatest          = "org.scalatest" %% "scalatest" % "3.2.3"
+  val scalatest          = "org.scalatest" %% "scalatest" % "3.2.5"
   val servoCore          = "com.netflix.servo" % "servo-core" % servo
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
   val slf4jLog4j         = "org.slf4j" % "slf4j-log4j12" % slf4j
   val slf4jSimple        = "org.slf4j" % "slf4j-simple" % slf4j
-  val snappy             = "org.xerial.snappy" % "snappy-java" % "1.1.8.2"
+  val snappy             = "org.xerial.snappy" % "snappy-java" % "1.1.8.4"
   val spectatorApi       = "com.netflix.spectator" % "spectator-api" % spectator
   val spectatorAws2      = "com.netflix.spectator" % "spectator-ext-aws2" % spectator
   val spectatorAtlas     = "com.netflix.spectator" % "spectator-reg-atlas" % spectator
