@@ -13,7 +13,7 @@ object Dependencies {
     val guice      = "4.1.0"
     val log4j      = "2.14.0"
     val scala      = "2.13.5"
-    val servo      = "0.13.0"
+    val servo      = "0.13.2"
     val slf4j      = "1.7.30"
     val spectator  = "0.125.0"
     val avroV      = "1.10.1"
