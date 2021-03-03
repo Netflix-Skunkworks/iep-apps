@@ -8,6 +8,7 @@ jobs:
     strategy:
       matrix:
         java: [8, 15]
+        scala: [2.13.5]
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}
@@ -21,7 +22,7 @@ jobs:
             ~/.ivy2
           key: ${{ runner.os }}-${{ hashFiles('**/*.sbt') }}
       - name: Build
-        run: cat /dev/null | project/sbt clean test
+        run: cat /dev/null | project/sbt ++${{ matrix.scala }} clean test
   check:
     runs-on: ubuntu-latest
     steps:
