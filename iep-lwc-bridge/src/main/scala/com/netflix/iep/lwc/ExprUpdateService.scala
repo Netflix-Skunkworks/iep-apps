@@ -17,7 +17,6 @@ package com.netflix.iep.lwc
 
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -36,6 +35,7 @@ import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.netflix.atlas.akka.AccessLogger
+import com.netflix.atlas.akka.ByteStringInputStream
 import com.netflix.atlas.json.Json
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Functions
@@ -44,8 +44,8 @@ import com.netflix.spectator.api.patterns.PolledMeter
 import com.netflix.spectator.atlas.impl.Subscriptions
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
-import javax.inject.Inject
 
+import javax.inject.Inject
 import scala.concurrent.Future
 import scala.util.Success
 
@@ -55,7 +55,8 @@ import scala.util.Success
 class ExprUpdateService @Inject()(
   config: Config,
   registry: Registry,
-  evaluator: ExpressionsEvaluator
+  evaluator: ExpressionsEvaluator,
+  implicit val system: ActorSystem
 ) extends AbstractService
     with StrictLogging {
 
@@ -69,12 +70,8 @@ class ExprUpdateService @Inject()(
     .withName("lwc.expressionsAge")
     .monitorValue(new AtomicLong(registry.clock().wallTime()), Functions.age(registry.clock()))
 
-  private val numExpressions = PolledMeter
-    .using(registry)
-    .withName("lwc.numExpressions")
-    .monitorValue(new AtomicInteger())
-
-  private implicit val system = ActorSystem()
+  private val syncPayloadBytes = registry.distributionSummary("lwc.syncPayloadBytes")
+  private val syncPayloadExprs = registry.distributionSummary("lwc.syncPayloadExprs")
 
   private var killSwitch: KillSwitch = _
 
@@ -114,6 +111,10 @@ class ExprUpdateService @Inject()(
           response.discardEntityBytes()
           Source.single(ByteString.empty)
       }
+      .map { bytes =>
+        syncPayloadBytes.record(bytes.size)
+        bytes
+      }
       .filterNot(_.isEmpty)
       .buffer(1, OverflowStrategy.dropHead)
       .flatMapConcat { data =>
@@ -126,13 +127,13 @@ class ExprUpdateService @Inject()(
     Future {
       try {
         val exprs = Json
-          .decode[Subscriptions](data.toArray)
+          .decode[Subscriptions](new ByteStringInputStream(data))
           .getExpressions
           .asScala
           .filter(_.getFrequency == 60000) // Limit to primary publish step size
           .asJava
         evaluator.sync(exprs)
-        numExpressions.set(exprs.size())
+        syncPayloadExprs.record(exprs.size())
         lastUpdateTime.set(registry.clock().wallTime())
       } catch {
         case e: Exception =>
