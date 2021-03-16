@@ -40,7 +40,7 @@ class ExprUpdateServiceSuite extends AnyFunSuite with BeforeAndAfter {
   private val registry = new DefaultRegistry(clock)
   private val evaluator = new ExpressionsEvaluator(config)
 
-  private val service = new ExprUpdateService(config, registry, evaluator)
+  private val service = new ExprUpdateService(config, registry, evaluator, system)
 
   private def update(response: HttpResponse): Unit = {
     val future = Source
