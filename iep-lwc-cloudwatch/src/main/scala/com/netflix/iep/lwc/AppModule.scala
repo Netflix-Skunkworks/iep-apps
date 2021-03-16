@@ -15,22 +15,13 @@
  */
 package com.netflix.iep.lwc
 
-import com.amazonaws.services.cloudwatch.AmazonCloudWatch
 import com.google.inject.AbstractModule
-import com.google.inject.Provides
 import com.google.inject.multibindings.Multibinder
-import com.netflix.iep.aws.AwsClientFactory
 import com.netflix.iep.service.Service
 
 class AppModule extends AbstractModule {
   override def configure(): Unit = {
     val serviceBinder = Multibinder.newSetBinder(binder(), classOf[Service])
     serviceBinder.addBinding().to(classOf[ForwardingService])
-  }
-
-  // Visibility of protected to avoid unused method warning from scala compiler
-  @Provides
-  protected def awsCloudWatchClient(factory: AwsClientFactory): AmazonCloudWatch = {
-    factory.newInstance(classOf[AmazonCloudWatch])
   }
 }

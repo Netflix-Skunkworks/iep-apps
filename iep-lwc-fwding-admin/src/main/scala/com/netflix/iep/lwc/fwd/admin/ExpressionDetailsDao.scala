@@ -15,18 +15,21 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB
-import com.amazonaws.services.dynamodbv2.document.DynamoDB
-import com.amazonaws.services.dynamodbv2.document.Item
-import com.amazonaws.services.dynamodbv2.document.PrimaryKey
-import com.amazonaws.services.dynamodbv2.document.spec.ScanSpec
-import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
 import com.netflix.atlas.json.Json
 import com.netflix.iep.lwc.fwd.admin.Timer._
 import com.netflix.iep.lwc.fwd.cw._
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
+import software.amazon.awssdk.core.SdkBytes
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest
+import software.amazon.awssdk.services.dynamodb.model.GetItemRequest
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest
+
+import java.nio.ByteBuffer
 import javax.inject.Inject
 
 trait ExpressionDetailsDao {
@@ -40,105 +43,143 @@ trait ExpressionDetailsDao {
 
 class ExpressionDetailsDaoImpl @Inject()(
   config: Config,
-  dynamoDBClient: AmazonDynamoDB,
+  dynamoDBClient: DynamoDbClient,
   registry: Registry
 ) extends ExpressionDetailsDao
     with StrictLogging {
   import ExpressionDetails._
 
   import scala.jdk.CollectionConverters._
+  import scala.jdk.StreamConverters._
 
   private val ageLimitMillis = config.getDuration("iep.lwc.fwding-admin.age-limit").toMillis
 
-  private val table = new DynamoDB(dynamoDBClient).getTable(TableName)
+  private def javaMap[K, V](pairs: Seq[(K, V)]): java.util.Map[K, V] = {
+    pairs.toMap.asJava
+  }
+
+  private def createValueMap(
+    pairs: (String, AttributeValue)*
+  ): java.util.Map[String, AttributeValue] = {
+    javaMap[String, AttributeValue](pairs)
+  }
+
+  private def number(value: Long): AttributeValue = {
+    AttributeValue.builder().n(value.toString).build()
+  }
+
+  private def string(value: String): AttributeValue = {
+    AttributeValue.builder().s(value).build()
+  }
+
+  private def map(value: Map[String, Long]): AttributeValue = {
+    val m = new java.util.HashMap[String, AttributeValue]()
+    value.foreachEntry { (k, v) =>
+      m.put(k, number(v))
+    }
+    AttributeValue.builder().m(m).build()
+  }
 
   override def save(exprDetails: ExpressionDetails): Unit = {
-    var item =
-      new Item()
-        .withPrimaryKey(ExpressionIdAttr, Json.encode(exprDetails.expressionId))
-        .withNumber(Timestamp, exprDetails.timestamp)
-        .withMap(Events, exprDetails.events.asJava)
-
-    item = item.withString(ForwardedMetrics, Json.encode(exprDetails.forwardedMetrics))
+    val item = createValueMap(
+      ExpressionIdAttr    -> string(Json.encode(exprDetails.expressionId)),
+      Timestamp           -> number(exprDetails.timestamp),
+      Events              -> map(exprDetails.events),
+      ForwardedMetrics    -> string(Json.encode(exprDetails.forwardedMetrics)),
+      ScalingPoliciesAttr -> string(Json.encode(exprDetails.scalingPolicies))
+    )
 
     exprDetails.error.foreach { e =>
-      item = item.withString(Error, Json.encode(e))
+      item.put(Error, string(Json.encode(e)))
     }
 
-    item = item.withString(ScalingPoliciesAttr, Json.encode(exprDetails.scalingPolicies))
-
-    record(table.putItem(item), "fwdingAdminSaveTimer", registry)
-
+    val request = PutItemRequest
+      .builder()
+      .tableName(TableName)
+      .item(item)
+      .build()
+    record(dynamoDBClient.putItem(request), "fwdingAdminSaveTimer", registry)
   }
 
   override def read(id: ExpressionId): Option[ExpressionDetails] = {
-    val item = record(
-      table.getItem(new PrimaryKey(ExpressionIdAttr, Json.encode(id))),
+    val request = GetItemRequest
+      .builder()
+      .key(createValueMap(ExpressionIdAttr -> string(Json.encode(id))))
+      .build()
+    val itemResponse = record(
+      dynamoDBClient.getItem(request),
       "fwdingAdminReadTimer",
       registry
     )
 
-    Option(item).map { i =>
-      new ExpressionDetails(
+    if (itemResponse.hasItem) {
+      val item = itemResponse.item()
+      val details = new ExpressionDetails(
         id,
-        i.getNumber(Timestamp).longValue(),
-        Json.decode[List[FwdMetricInfo]](i.getString(ForwardedMetrics)),
-        Option(i.getString(Error)).map(Json.decode[Throwable](_)),
-        i.getMap[java.math.BigDecimal](Events).asScala.toMap.map {
-          case (k, v) => (k, BigDecimal(v).toLong)
+        item.get(Timestamp).n().toLong,
+        Json.decode[List[FwdMetricInfo]](item.get(ForwardedMetrics).s()),
+        Option(item.get(Error)).map(v => Json.decode[Throwable](v.s())),
+        item.get(Events).m().asScala.toMap.map {
+          case (k, v) => k -> v.n().toLong
         },
-        Json.decode[List[ScalingPolicy]](i.getString(ScalingPoliciesAttr))
+        Json.decode[List[ScalingPolicy]](item.get(ScalingPoliciesAttr).s())
       )
+      Some(details)
+    } else {
+      None
     }
   }
 
   override def scan(): List[ExpressionId] = {
-    val spec = new ScanSpec()
-      .withProjectionExpression(ExpressionIdAttr)
+    val request = ScanRequest
+      .builder()
+      .tableName(TableName)
+      .projectionExpression(ExpressionIdAttr)
+      .build()
 
-    val result = table.scan(spec)
-    val idList = result
-      .iterator()
-      .asScala
-      .map(item => Json.decode[ExpressionId](item.getString(ExpressionIdAttr)))
-      .toList
-
-    if (Option(
-          result.getLastLowLevelResult.getScanResult.getLastEvaluatedKey
-        ).isDefined) {
-      logger.warn("Multiple pages found when querying for purge eligible expressions")
-    }
-    idList
+    dynamoDBClient
+      .scanPaginator(request)
+      .items()
+      .stream()
+      .map { item =>
+        Json.decode[ExpressionId](item.get(ExpressionIdAttr).s())
+      }
+      .toScala(List)
   }
 
   override def queryPurgeEligible(now: Long, events: List[String]): List[ExpressionId] = {
-    import scala.jdk.CollectionConverters._
-
     require(events.nonEmpty, s"Event markers required. Use $PurgeMarkerEvents")
     require(events.forall(PurgeMarkerEvents.contains), s"Invalid $events. Use: $PurgeMarkerEvents")
 
-    val spec = new ScanSpec()
-      .withProjectionExpression(ExpressionIdAttr)
-      .withFilterExpression(events.map(e => s"$Events.$e < :ageThreshold").mkString(" OR "))
-      .withValueMap(new ValueMap().withNumber(":ageThreshold", now - ageLimitMillis))
+    val request = ScanRequest
+      .builder()
+      .tableName(TableName)
+      .projectionExpression(ExpressionIdAttr)
+      .filterExpression(events.map(e => s"$Events.$e < :ageThreshold").mkString(" OR "))
+      .expressionAttributeValues(
+        createValueMap(
+          ":ageThreshold" -> number(now - ageLimitMillis)
+        )
+      )
+      .build()
 
-    val result = table.scan(spec)
-
-    val idList = result
-      .iterator()
-      .asScala
-      .map(item => Json.decode[ExpressionId](item.getString(ExpressionIdAttr)))
-      .toList
-
-    if (result.getLastLowLevelResult.getScanResult.getLastEvaluatedKey != null) {
-      logger.warn("Multiple pages found when querying for purge eligible expressions")
-    }
-
-    idList
+    dynamoDBClient
+      .scanPaginator(request)
+      .items()
+      .stream()
+      .map { item =>
+        Json.decode[ExpressionId](item.get(ExpressionIdAttr).s())
+      }
+      .toScala(List)
   }
 
   override def delete(id: ExpressionId): Unit = {
-    table.deleteItem(new PrimaryKey(ExpressionIdAttr, Json.encode(id)))
+    val request = DeleteItemRequest
+      .builder()
+      .tableName(TableName)
+      .key(createValueMap(ExpressionIdAttr -> string(Json.encode(id))))
+      .build()
+    dynamoDBClient.deleteItem(request)
   }
 
   override def isPurgeEligible(ed: ExpressionDetails, now: Long): Boolean = {

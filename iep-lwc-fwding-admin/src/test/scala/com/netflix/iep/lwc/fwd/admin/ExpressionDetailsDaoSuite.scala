@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 package com.netflix.iep.lwc.fwd.admin
-import com.amazonaws.client.builder.AwsClientBuilder
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder
 import com.netflix.iep.lwc.fwd.admin.ExpressionDetails._
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.ForwardingDimension
@@ -27,7 +24,10 @@ import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest.BeforeAndAfter
 import org.scalatest.funsuite.AnyFunSuite
+import software.amazon.awssdk.regions.Region
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 
+import java.net.URI
 import scala.concurrent.duration._
 
 class ExpressionDetailsDaoSuite extends AnyFunSuite with BeforeAndAfter with StrictLogging {
@@ -38,20 +38,16 @@ class ExpressionDetailsDaoSuite extends AnyFunSuite with BeforeAndAfter with Str
     new NoopRegistry()
   )
 
-  def makeDynamoDBClient(): AmazonDynamoDB = {
-    AmazonDynamoDBClientBuilder
-      .standard()
-      .withEndpointConfiguration(
-        new AwsClientBuilder.EndpointConfiguration(
-          "http://localhost:8000",
-          "us-east-1"
-        )
-      )
+  def makeDynamoDBClient(): DynamoDbClient = {
+    DynamoDbClient
+      .builder()
+      .endpointOverride(URI.create("http://localhost:8000"))
+      .region(Region.US_EAST_1)
       .build()
   }
 
   def localTest(testName: String)(testFun: => Any): Unit = {
-    if (sys.env.get("LOCAL_TESTS").isDefined) {
+    if (sys.env.contains("LOCAL_TESTS")) {
       test(testName)(testFun)
     } else {
       logger.info(s"Skipped local only test: $testName")

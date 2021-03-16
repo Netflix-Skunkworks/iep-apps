@@ -16,10 +16,10 @@
 package com.netflix.iep.archaius
 
 import akka.actor.Actor
-import com.amazonaws.services.dynamodbv2.model.ScanRequest
 import com.netflix.atlas.json.Json
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest
 
 import scala.util.Failure
 import scala.util.Success
@@ -34,6 +34,8 @@ class PropertiesLoader(config: Config, propContext: PropertiesContext, dynamoSer
 
   private val table = config.getString("netflix.iep.archaius.table")
 
+  import scala.jdk.StreamConverters._
+
   import scala.concurrent.duration._
   import scala.concurrent.ExecutionContext.Implicits.global
   context.system.scheduler.scheduleAtFixedRate(5.seconds, 5.seconds, self, PropertiesLoader.Tick)
@@ -41,16 +43,13 @@ class PropertiesLoader(config: Config, propContext: PropertiesContext, dynamoSer
   def receive: Receive = {
     case PropertiesLoader.Tick =>
       val future = dynamoService.execute { client =>
-        val matches = List.newBuilder[PropertiesApi.Property]
-        val request = new ScanRequest().withTableName(table)
-        var response = client.scan(request)
-        matches ++= process(response.getItems)
-        while (response.getLastEvaluatedKey != null) {
-          request.setExclusiveStartKey(response.getLastEvaluatedKey)
-          response = client.scan(request)
-          matches ++= process(response.getItems)
-        }
-        matches.result()
+        val request = ScanRequest.builder().tableName(table).build()
+        client
+          .scanPaginator(request)
+          .items()
+          .stream()
+          .toScala(List)
+          .flatMap(process)
       }
 
       future.onComplete {
@@ -59,13 +58,8 @@ class PropertiesLoader(config: Config, propContext: PropertiesContext, dynamoSer
       }
   }
 
-  private def process(items: Items): PropList = {
-    import scala.jdk.CollectionConverters._
-    items.asScala
-      .filter(_.containsKey("data"))
-      .map(_.get("data").getS)
-      .map(s => Json.decode[PropertiesApi.Property](s))
-      .toList
+  private def process(item: AttrMap): Option[PropertiesApi.Property] = {
+    Option(item.get("data")).map(v => Json.decode[PropertiesApi.Property](v.s()))
   }
 }
 

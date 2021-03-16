@@ -17,24 +17,24 @@ package com.netflix.atlas.slotting
 
 import java.nio.ByteBuffer
 import java.time.Duration
-
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB
-import com.amazonaws.services.dynamodbv2.document.Item
-import com.amazonaws.services.dynamodbv2.document.spec.ScanSpec
-import com.amazonaws.services.dynamodbv2.document.spec.UpdateItemSpec
-import com.amazonaws.services.dynamodbv2.document.utils.NameMap
-import com.amazonaws.services.dynamodbv2.document.utils.ValueMap
-import com.amazonaws.services.dynamodbv2.model.AttributeDefinition
-import com.amazonaws.services.dynamodbv2.model.CreateTableRequest
-import com.amazonaws.services.dynamodbv2.model.DescribeTableRequest
-import com.amazonaws.services.dynamodbv2.model.KeySchemaElement
-import com.amazonaws.services.dynamodbv2.model.KeyType
-import com.amazonaws.services.dynamodbv2.model.ProvisionedThroughput
-import com.amazonaws.services.dynamodbv2.model.ResourceNotFoundException
-import com.amazonaws.services.dynamodbv2.model.UpdateTableRequest
 import com.netflix.iep.NetflixEnvironment
 import com.netflix.spectator.api.Counter
 import com.typesafe.scalalogging.StrictLogging
+import software.amazon.awssdk.core.SdkBytes
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient
+import software.amazon.awssdk.services.dynamodb.model.AttributeDefinition
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue
+import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest
+import software.amazon.awssdk.services.dynamodb.model.DescribeTableRequest
+import software.amazon.awssdk.services.dynamodb.model.KeySchemaElement
+import software.amazon.awssdk.services.dynamodb.model.KeyType
+import software.amazon.awssdk.services.dynamodb.model.ProvisionedThroughput
+import software.amazon.awssdk.services.dynamodb.model.PutItemRequest
+import software.amazon.awssdk.services.dynamodb.model.ResourceNotFoundException
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest
+import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest
+import software.amazon.awssdk.services.dynamodb.model.UpdateTableRequest
 
 trait DynamoOps extends StrictLogging {
 
@@ -43,107 +43,188 @@ trait DynamoOps extends StrictLogging {
   val Active = "active"
   val Timestamp = "timestamp"
 
-  def activeItemsScanSpec(): ScanSpec = {
-    val nameMap = new NameMap()
-      .`with`("#a", Active)
-
-    val valueMap = new ValueMap()
-      .withBoolean(":v1", true)
-
-    new ScanSpec()
-      .withFilterExpression("#a = :v1")
-      .withNameMap(nameMap)
-      .withValueMap(valueMap)
+  private def javaMap[K, V](pairs: Seq[(K, V)]): java.util.Map[K, V] = {
+    import scala.jdk.CollectionConverters._
+    new java.util.TreeMap[K, V](pairs.toMap.asJava)
   }
 
-  def oldItemsScanSpec(cutoffInterval: Duration): ScanSpec = {
+  private def createNameMap(pairs: (String, String)*): java.util.Map[String, String] = {
+    javaMap[String, String](pairs)
+  }
+
+  private def createValueMap(
+    pairs: (String, AttributeValue)*
+  ): java.util.Map[String, AttributeValue] = {
+    javaMap[String, AttributeValue](pairs)
+  }
+
+  private def binary(value: ByteBuffer): AttributeValue = {
+    AttributeValue.builder().b(SdkBytes.fromByteBuffer(value)).build()
+  }
+
+  private def bool(value: Boolean): AttributeValue = {
+    AttributeValue.builder().bool(value).build()
+  }
+
+  private def number(value: Long): AttributeValue = {
+    AttributeValue.builder().n(value.toString).build()
+  }
+
+  private def string(value: String): AttributeValue = {
+    AttributeValue.builder().s(value).build()
+  }
+
+  def activeItemsScanRequest(table: String): ScanRequest = {
+    val nameMap = createNameMap(
+      "#a" -> Active
+    )
+
+    val valueMap = createValueMap(
+      ":v1" -> bool(true)
+    )
+
+    ScanRequest
+      .builder()
+      .tableName(table)
+      .filterExpression("#a = :v1")
+      .expressionAttributeNames(nameMap)
+      .expressionAttributeValues(valueMap)
+      .build()
+  }
+
+  def oldItemsScanRequest(table: String, cutoffInterval: Duration): ScanRequest = {
     val cutoffMillis = System.currentTimeMillis() - cutoffInterval.toMillis
 
-    val nameMap = new NameMap()
-      .`with`("#n", Name)
-      .`with`("#t", Timestamp)
+    val nameMap = createNameMap(
+      "#n" -> Name,
+      "#t" -> Timestamp
+    )
 
-    val valueMap = new ValueMap()
-      .withLong(":v1", cutoffMillis)
+    val valueMap = createValueMap(
+      ":v1" -> number(cutoffMillis)
+    )
 
-    new ScanSpec()
-      .withProjectionExpression("#n")
-      .withFilterExpression("#t < :v1")
-      .withNameMap(nameMap)
-      .withValueMap(valueMap)
+    ScanRequest
+      .builder()
+      .tableName(table)
+      .projectionExpression("#n")
+      .filterExpression("#t < :v1")
+      .expressionAttributeNames(nameMap)
+      .expressionAttributeValues(valueMap)
+      .build()
   }
 
-  def newAsgItem(name: String, newData: ByteBuffer): Item = {
-    new Item()
-      .withPrimaryKey(Name, name)
-      .withBinary(Data, newData)
-      .withBoolean(Active, true)
-      .withLong(Timestamp, System.currentTimeMillis)
+  def deleteItemRequest(table: String, name: String): DeleteItemRequest = {
+    DeleteItemRequest
+      .builder()
+      .tableName(table)
+      .key(createValueMap(Name -> string(name)))
+      .build()
   }
 
-  def updateAsgItemSpec(name: String, oldData: ByteBuffer, newData: ByteBuffer): UpdateItemSpec = {
-    val nameMap = new NameMap()
-      .`with`("#d", Data)
-      .`with`("#a", Active)
-      .`with`("#t", Timestamp)
-
-    val valueMap = new ValueMap()
-      .withBinary(":v1", Util.toByteArray(oldData))
-      .withBinary(":v2", Util.toByteArray(newData))
-      .withBoolean(":v3", true)
-      .withLong(":v4", System.currentTimeMillis)
-
-    new UpdateItemSpec()
-      .withPrimaryKey(Name, name)
-      .withConditionExpression("#d = :v1")
-      .withUpdateExpression("set #d = :v2, #a = :v3, #t = :v4")
-      .withNameMap(nameMap)
-      .withValueMap(valueMap)
+  def putAsgItemRequest(table: String, name: String, newData: ByteBuffer): PutItemRequest = {
+    PutItemRequest
+      .builder()
+      .tableName(table)
+      .item(
+        createValueMap(
+          Name      -> string(name),
+          Data      -> binary(newData),
+          Active    -> bool(true),
+          Timestamp -> number(System.currentTimeMillis())
+        )
+      )
+      .build()
   }
 
-  def updateTimestampItemSpec(name: String, oldTimestamp: Long): UpdateItemSpec = {
-    val nameMap = new NameMap()
-      .`with`("#a", Active)
-      .`with`("#t", Timestamp)
+  def updateAsgItemRequest(
+    table: String,
+    name: String,
+    oldData: ByteBuffer,
+    newData: ByteBuffer
+  ): UpdateItemRequest = {
+    val nameMap = createNameMap(
+      "#d" -> Data,
+      "#a" -> Active,
+      "#t" -> Timestamp
+    )
 
-    val valueMap = new ValueMap()
-      .withLong(":v1", oldTimestamp)
-      .withBoolean(":v2", true)
-      .withLong(":v3", System.currentTimeMillis)
+    val valueMap = createValueMap(
+      ":v1" -> binary(oldData),
+      ":v2" -> binary(newData),
+      ":v3" -> bool(true),
+      ":v4" -> number(System.currentTimeMillis())
+    )
 
-    new UpdateItemSpec()
-      .withPrimaryKey(Name, name)
-      .withConditionExpression("#t = :v1")
-      .withUpdateExpression("set #a = :v2, #t = :v3")
-      .withNameMap(nameMap)
-      .withValueMap(valueMap)
+    UpdateItemRequest
+      .builder()
+      .tableName(table)
+      .key(createValueMap(Name -> string(name)))
+      .conditionExpression("#d = :v1")
+      .updateExpression("set #d = :v2, #a = :v3, #t = :v4")
+      .expressionAttributeNames(nameMap)
+      .expressionAttributeValues(valueMap)
+      .build()
   }
 
-  def deactivateAsgItemSpec(name: String): UpdateItemSpec = {
-    val nameMap = new NameMap()
-      .`with`("#a", Active)
-      .`with`("#t", Timestamp)
+  def updateTimestampItemRequest(
+    table: String,
+    name: String,
+    oldTimestamp: Long
+  ): UpdateItemRequest = {
+    val nameMap = createNameMap(
+      "#a" -> Active,
+      "#t" -> Timestamp
+    )
 
-    val valueMap = new ValueMap()
-      .withBoolean(":v1", true)
-      .withBoolean(":v2", false)
-      .withLong(":v3", System.currentTimeMillis)
+    val valueMap = createValueMap(
+      ":v1" -> number(oldTimestamp),
+      ":v2" -> bool(true),
+      ":v3" -> number(System.currentTimeMillis())
+    )
 
-    new UpdateItemSpec()
-      .withPrimaryKey(Name, name)
-      .withConditionExpression("#a = :v1")
-      .withUpdateExpression("set #a = :v2, #t = :v3")
-      .withNameMap(nameMap)
-      .withValueMap(valueMap)
+    UpdateItemRequest
+      .builder()
+      .tableName(table)
+      .key(createValueMap(Name -> string(name)))
+      .conditionExpression("#t = :v1")
+      .updateExpression("set #a = :v2, #t = :v3")
+      .expressionAttributeNames(nameMap)
+      .expressionAttributeValues(valueMap)
+      .build()
+  }
+
+  def deactivateAsgItemRequest(table: String, name: String): UpdateItemRequest = {
+    val nameMap = createNameMap(
+      "#a" -> Active,
+      "#t" -> Timestamp
+    )
+
+    val valueMap = createValueMap(
+      ":v1" -> bool(true),
+      ":v2" -> bool(false),
+      ":v3" -> number(System.currentTimeMillis())
+    )
+
+    UpdateItemRequest
+      .builder()
+      .tableName(table)
+      .key(createValueMap(Name -> string(name)))
+      .conditionExpression("#a = :v1")
+      .updateExpression("set #a = :v2, #t = :v3")
+      .expressionAttributeNames(nameMap)
+      .expressionAttributeValues(valueMap)
+      .build()
   }
 
   def initTable(
-    ddbClient: AmazonDynamoDB,
+    ddbClient: DynamoDbClient,
     tableName: String,
     desiredRead: Long,
     desiredWrite: Long,
     dynamodbErrors: Counter
   ): Unit = {
+
     logger.info(s"init dynamodb table $tableName in ${NetflixEnvironment.region()}")
 
     var continue = true
@@ -166,25 +247,32 @@ trait DynamoOps extends StrictLogging {
   }
 
   def syncCapacity(
-    ddbClient: AmazonDynamoDB,
+    ddbClient: DynamoDbClient,
     tableName: String,
     desiredRead: Long,
     desiredWrite: Long
   ): String = {
-    val request = new DescribeTableRequest().withTableName(tableName)
-    val table = ddbClient.describeTable(request).getTable
+    val request = DescribeTableRequest
+      .builder()
+      .tableName(tableName)
+      .build()
+    val table = ddbClient.describeTable(request).table()
 
-    val currentRead = table.getProvisionedThroughput.getReadCapacityUnits
-    val currentWrite = table.getProvisionedThroughput.getWriteCapacityUnits
+    val currentRead = table.provisionedThroughput().readCapacityUnits()
+    val currentWrite = table.provisionedThroughput().writeCapacityUnits()
 
     if (currentWrite != desiredWrite || currentRead != desiredRead) {
-      val throughput = new ProvisionedThroughput()
-        .withReadCapacityUnits(desiredRead)
-        .withWriteCapacityUnits(desiredWrite)
+      val throughput = ProvisionedThroughput
+        .builder()
+        .readCapacityUnits(desiredRead)
+        .writeCapacityUnits(desiredWrite)
+        .build()
 
-      val request = new UpdateTableRequest()
-        .withTableName(tableName)
-        .withProvisionedThroughput(throughput)
+      val request = UpdateTableRequest
+        .builder()
+        .tableName(tableName)
+        .provisionedThroughput(throughput)
+        .build()
 
       logger.info(
         s"update capacity region=${NetflixEnvironment.region()} " +
@@ -194,32 +282,40 @@ trait DynamoOps extends StrictLogging {
       ddbClient.updateTable(request)
     }
 
-    table.getTableStatus
+    table.tableStatusAsString()
   }
 
   def createTable(
-    ddbClient: AmazonDynamoDB,
+    ddbClient: DynamoDbClient,
     tableName: String,
     desiredRead: Long,
     desiredWrite: Long
   ): Unit = {
-    val keySchema = new KeySchemaElement()
-      .withAttributeName("name")
-      .withKeyType(KeyType.HASH)
+    val keySchema = KeySchemaElement
+      .builder()
+      .attributeName("name")
+      .keyType(KeyType.HASH)
+      .build()
 
-    val attrDef = new AttributeDefinition()
-      .withAttributeName("name")
-      .withAttributeType("S")
+    val attrDef = AttributeDefinition
+      .builder()
+      .attributeName("name")
+      .attributeType("S")
+      .build()
 
-    val throughput = new ProvisionedThroughput()
-      .withReadCapacityUnits(desiredRead)
-      .withWriteCapacityUnits(desiredWrite)
+    val throughput = ProvisionedThroughput
+      .builder()
+      .readCapacityUnits(desiredRead)
+      .writeCapacityUnits(desiredWrite)
+      .build()
 
-    val request = new CreateTableRequest()
-      .withTableName(tableName)
-      .withKeySchema(keySchema)
-      .withAttributeDefinitions(attrDef)
-      .withProvisionedThroughput(throughput)
+    val request = CreateTableRequest
+      .builder()
+      .tableName(tableName)
+      .keySchema(keySchema)
+      .attributeDefinitions(attrDef)
+      .provisionedThroughput(throughput)
+      .build()
 
     logger.info(
       s"create table region=${NetflixEnvironment.region()} " +

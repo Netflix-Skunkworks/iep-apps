@@ -17,7 +17,6 @@ package com.netflix.iep.lwc
 
 import java.util.Date
 import java.util.concurrent.atomic.AtomicLong
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.HttpRequest
@@ -28,10 +27,6 @@ import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
-import com.amazonaws.services.cloudwatch.model.Dimension
-import com.amazonaws.services.cloudwatch.model.MetricDatum
-import com.amazonaws.services.cloudwatch.model.PutMetricDataRequest
-import com.amazonaws.services.cloudwatch.model.PutMetricDataResult
 import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.eval.model.ArrayData
 import com.netflix.atlas.eval.model.TimeSeriesMessage
@@ -40,8 +35,14 @@ import com.netflix.atlas.json.Json
 import com.netflix.iep.lwc.fwd.cw._
 import com.netflix.spectator.api.NoopRegistry
 import org.scalatest.funsuite.AnyFunSuite
+import software.amazon.awssdk.services.cloudwatch.model.Dimension
+import software.amazon.awssdk.services.cloudwatch.model.MetricDatum
+import software.amazon.awssdk.services.cloudwatch.model.PutMetricDataRequest
+import software.amazon.awssdk.services.cloudwatch.model.PutMetricDataResponse
 
+import java.time.Instant
 import scala.concurrent.Await
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 import scala.util.Success
@@ -264,7 +265,7 @@ class ForwardingServiceSuite extends AnyFunSuite {
 
     assert(actual.id === Json.decode[ExpressionId](id))
     assert(actual.accountDatum.get.account === "1234567890")
-    assert(actual.accountDatum.get.datum.getMetricName === "ssCpuUser")
+    assert(actual.accountDatum.get.datum.metricName() === "ssCpuUser")
   }
 
   test("toMetricDatum: filter out NaN values") {
@@ -323,9 +324,9 @@ class ForwardingServiceSuite extends AnyFunSuite {
       region: String,
       account: String,
       request: PutMetricDataRequest
-    ): PutMetricDataResult = {
+    ): PutMetricDataResponse = {
       requests += AccountRequest(region, account, request)
-      new PutMetricDataResult
+      PutMetricDataResponse.builder().build()
     }
     val future = Source(msgs)
       .via(sendToCloudWatch(new AtomicLong(), ns, doPut))
@@ -337,11 +338,13 @@ class ForwardingServiceSuite extends AnyFunSuite {
 
   def createDataSet(n: Int): List[AccountDatum] = {
     (0 until n).toList.map { i =>
-      val datum = new MetricDatum()
-        .withMetricName(i.toString)
-        .withDimensions(new Dimension().withName("foo").withValue("bar"))
-        .withTimestamp(new Date())
-        .withValue(i.toDouble)
+      val datum = MetricDatum
+        .builder()
+        .metricName(i.toString)
+        .dimensions(Dimension.builder().name("foo").value("bar").build())
+        .timestamp(Instant.now())
+        .value(i.toDouble)
+        .build()
       AccountDatum("us-east-1", "12345", datum)
     }
   }
@@ -353,9 +356,11 @@ class ForwardingServiceSuite extends AnyFunSuite {
       AccountRequest(
         "us-east-1",
         "12345",
-        new PutMetricDataRequest()
-          .withNamespace("Netflix/Namespace")
-          .withMetricData(data.map(_.datum).asJava)
+        PutMetricDataRequest
+          .builder()
+          .namespace("Netflix/Namespace")
+          .metricData(data.map(_.datum).asJava)
+          .build()
       )
     )
     assert(actual === expected)
@@ -368,9 +373,11 @@ class ForwardingServiceSuite extends AnyFunSuite {
       AccountRequest(
         "us-east-1",
         "12345",
-        new PutMetricDataRequest()
-          .withNamespace("Netflix/Namespace")
-          .withMetricData(data.map(_.datum).asJava)
+        PutMetricDataRequest
+          .builder()
+          .namespace("Netflix/Namespace")
+          .metricData(data.map(_.datum).asJava)
+          .build()
       )
     )
     assert(actual === expected)
@@ -383,9 +390,11 @@ class ForwardingServiceSuite extends AnyFunSuite {
       AccountRequest(
         "us-east-1",
         "12345",
-        new PutMetricDataRequest()
-          .withNamespace("Netflix/Namespace")
-          .withMetricData(vs.map(_.datum).asJava)
+        PutMetricDataRequest
+          .builder()
+          .namespace("Netflix/Namespace")
+          .metricData(vs.map(_.datum).asJava)
+          .build()
       )
     }
     assert(actual === expected)
@@ -420,23 +429,27 @@ class ForwardingServiceSuite extends AnyFunSuite {
       AccountRequest(
         "us-east-1",
         "12345",
-        new PutMetricDataRequest()
-          .withNamespace(ns)
-          .withMetricData(dataMsgs.map(_.accountDatum.get.datum).asJava)
+        PutMetricDataRequest
+          .builder()
+          .namespace(ns)
+          .metricData(dataMsgs.map(_.accountDatum.get.datum).asJava)
+          .build()
       )
     )
 
     assert(requests === expectedReqs)
-    assert(msgsOut.toList === (noDataMsgsIn ++ dataMsgs))
+    assert(msgsOut.toSet === (noDataMsgsIn ++ dataMsgs).toSet)
   }
 
   def createMultiAccountDataSet(mod: Int, n: Int): List[AccountDatum] = {
     (0 until n).toList.map { i =>
-      val datum = new MetricDatum()
-        .withMetricName(i.toString)
-        .withDimensions(new Dimension().withName("foo").withValue("bar"))
-        .withTimestamp(new Date())
-        .withValue(i.toDouble)
+      val datum = MetricDatum
+        .builder()
+        .metricName(i.toString)
+        .dimensions(Dimension.builder().name("foo").value("bar").build())
+        .timestamp(Instant.now())
+        .value(i.toDouble)
+        .build()
       AccountDatum("eu-west-1", (i % mod).toString, datum)
     }
   }
@@ -449,9 +462,11 @@ class ForwardingServiceSuite extends AnyFunSuite {
         AccountRequest(
           "eu-west-1",
           i.toString,
-          new PutMetricDataRequest()
-            .withNamespace("Netflix/Namespace")
-            .withMetricData(v.datum)
+          PutMetricDataRequest
+            .builder()
+            .namespace("Netflix/Namespace")
+            .metricData(v.datum)
+            .build()
         )
     }
     assert(actual.sortWith(_.account < _.account) === expected)
@@ -462,18 +477,20 @@ class ForwardingServiceSuite extends AnyFunSuite {
     val actual = runCloudWatchPut("Netflix/Namespace", data)
     assert(actual.size === 4)
     assert(actual.map(_.account).toSet === Set("0", "1"))
-    assert(actual.filter(_.account == "0").map(_.request.getMetricData.size()).sum === 24)
-    assert(actual.filter(_.account == "1").map(_.request.getMetricData.size()).sum === 23)
+    assert(actual.filter(_.account == "0").map(_.request.metricData.size()).sum === 24)
+    assert(actual.filter(_.account == "1").map(_.request.metricData.size()).sum === 23)
   }
 
   def createMultiRegionDataSet(mod: Int, n: Int): List[AccountDatum] = {
     val regions = Array("us-east-1", "eu-west-1", "us-west-2")
     (0 until n).toList.map { i =>
-      val datum = new MetricDatum()
-        .withMetricName(i.toString)
-        .withDimensions(new Dimension().withName("foo").withValue("bar"))
-        .withTimestamp(new Date())
-        .withValue(i.toDouble)
+      val datum = MetricDatum
+        .builder()
+        .metricName(i.toString)
+        .dimensions(Dimension.builder().name("foo").value("bar").build())
+        .timestamp(Instant.now())
+        .value(i.toDouble)
+        .build()
       AccountDatum(regions(i % regions.length), (i % mod).toString, datum)
     }
   }
@@ -485,9 +502,11 @@ class ForwardingServiceSuite extends AnyFunSuite {
       AccountRequest(
         v.region,
         v.account,
-        new PutMetricDataRequest()
-          .withNamespace("Netflix/Namespace")
-          .withMetricData(v.datum)
+        PutMetricDataRequest
+          .builder()
+          .namespace("Netflix/Namespace")
+          .metricData(v.datum)
+          .build()
       )
     }
     assert(actual.sortWith(_.account < _.account) === expected)
@@ -498,7 +517,7 @@ class ForwardingServiceSuite extends AnyFunSuite {
   //
 
   test("Send the messages to Admin endpoint") {
-    implicit val ec = scala.concurrent.ExecutionContext.global
+    implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.global
 
     val requests = List.newBuilder[HttpRequest]
     val client: Client =

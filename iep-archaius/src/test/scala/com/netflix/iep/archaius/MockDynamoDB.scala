@@ -15,27 +15,31 @@
  */
 package com.netflix.iep.archaius
 
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse
+import software.amazon.awssdk.services.dynamodb.paginators.ScanIterable
+
 import java.lang.reflect.InvocationHandler
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB
-import com.amazonaws.services.dynamodbv2.model.ScanResult
-
 class MockDynamoDB extends InvocationHandler {
 
-  var scanResult: ScanResult = _
+  var scanResponse: ScanResponse = _
 
   override def invoke(proxy: Any, method: Method, args: Array[AnyRef]): AnyRef = {
+    val client = proxy.asInstanceOf[DynamoDbClient]
     method.getName match {
-      case "scan" => scanResult
-      case _      => throw new UnsupportedOperationException(method.toString)
+      case "scan"          => scanResponse
+      case "scanPaginator" => new ScanIterable(client, args(0).asInstanceOf[ScanRequest])
+      case _               => throw new UnsupportedOperationException(method.toString)
     }
   }
 
-  def client: AmazonDynamoDB = {
+  def client: DynamoDbClient = {
     val clsLoader = Thread.currentThread().getContextClassLoader
-    val proxy = Proxy.newProxyInstance(clsLoader, Array(classOf[AmazonDynamoDB]), this)
-    proxy.asInstanceOf[AmazonDynamoDB]
+    val proxy = Proxy.newProxyInstance(clsLoader, Array(classOf[DynamoDbClient]), this)
+    proxy.asInstanceOf[DynamoDbClient]
   }
 }

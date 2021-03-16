@@ -17,10 +17,8 @@ package com.netflix.iep.lwc
 
 import java.nio.charset.StandardCharsets
 import java.time.Duration
-import java.util.Date
 import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
@@ -32,11 +30,6 @@ import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import com.amazonaws.services.cloudwatch.AmazonCloudWatch
-import com.amazonaws.services.cloudwatch.model.Dimension
-import com.amazonaws.services.cloudwatch.model.MetricDatum
-import com.amazonaws.services.cloudwatch.model.PutMetricDataRequest
-import com.amazonaws.services.cloudwatch.model.PutMetricDataResult
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
@@ -50,8 +43,7 @@ import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.json.Json
 import com.netflix.atlas.json.JsonSupport
 import com.netflix.iep.NetflixEnvironment
-import com.netflix.iep.aws.AwsClientFactory
-import com.netflix.iep.aws.Pagination
+import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.lwc.fwd.cw._
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Functions
@@ -59,8 +51,19 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.patterns.PolledMeter
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
-import javax.inject.Inject
+import software.amazon.awssdk.services.cloudwatch.CloudWatchClient
+import software.amazon.awssdk.services.cloudwatch.model.Dimension
+import software.amazon.awssdk.services.cloudwatch.model.MetricDatum
+import software.amazon.awssdk.services.cloudwatch.model.PutMetricDataRequest
+import software.amazon.awssdk.services.cloudwatch.model.PutMetricDataResponse
 
+import java.time.Instant
+import java.util.concurrent.Executors
+import java.util.concurrent.ThreadFactory
+import java.util.concurrent.atomic.AtomicInteger
+import javax.inject.Inject
+import scala.concurrent.ExecutionContext
+import scala.concurrent.Future
 import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Success
@@ -79,7 +82,7 @@ class ForwardingService @Inject()(
 
   private val streamFailures = registry.counter("forwarding.streamFailures")
 
-  private implicit val ec = scala.concurrent.ExecutionContext.global
+  private implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.global
 
   private val clock = registry.clock()
   private val lastSuccessfulPutTime = PolledMeter
@@ -96,8 +99,12 @@ class ForwardingService @Inject()(
     val adminUri = Uri(config.getString("iep.lwc.cloudwatch.admin-uri"))
     val client = Http().superPool[AccessLogger]()
 
-    def put(region: String, account: String, request: PutMetricDataRequest): PutMetricDataResult = {
-      val cwClient = clientFactory.getInstance(region, classOf[AmazonCloudWatch], account)
+    def put(
+      region: String,
+      account: String,
+      request: PutMetricDataRequest
+    ): PutMetricDataResponse = {
+      val cwClient = clientFactory.getInstance(region, classOf[CloudWatchClient], account)
       cwClient.putMetricData(request)
     }
 
@@ -133,6 +140,15 @@ class ForwardingService @Inject()(
 
 object ForwardingService extends StrictLogging {
 
+  // Pool for CloudWatch requests
+  private val executor = Executors.newCachedThreadPool(new ThreadFactory {
+    private val nextId = new AtomicInteger()
+    override def newThread(runnable: Runnable): Thread = {
+      new Thread(runnable, s"aws-publisher-${nextId.getAndIncrement()}")
+    }
+  })
+  private val awsEC: ExecutionContext = ExecutionContext.fromExecutor(executor)
+
   //
   // Constants for interacting with CloudWatch. For more details see:
   //
@@ -161,7 +177,7 @@ object ForwardingService extends StrictLogging {
   // Helpers for constructing parts of the stream
   //
 
-  type PutFunction = (String, String, PutMetricDataRequest) => PutMetricDataResult
+  type PutFunction = (String, String, PutMetricDataRequest) => PutMetricDataResponse
 
   type Client = Flow[(HttpRequest, AccessLogger), (Try[HttpResponse], AccessLogger), NotUsed]
 
@@ -295,13 +311,15 @@ object ForwardingService extends StrictLogging {
 
     msg.data match {
       case data: ArrayData if !data.values(0).isNaN =>
-        val datum = new MetricDatum()
-          .withMetricName(name)
-          .withDimensions(
+        val datum = MetricDatum
+          .builder()
+          .metricName(name)
+          .dimensions(
             expression.dimensions.map(toDimension(_, msg.tags)).asJava
           )
-          .withTimestamp(new Date(msg.start))
-          .withValue(truncate(data.values(0)))
+          .timestamp(Instant.ofEpochMilli(msg.start))
+          .value(truncate(data.values(0)))
+          .build()
         Some(AccountDatum(regionStr, accountId, datum))
       case _ =>
         None
@@ -310,9 +328,11 @@ object ForwardingService extends StrictLogging {
   }
 
   def toDimension(dimension: ForwardingDimension, tags: Map[String, String]): Dimension = {
-    new Dimension()
-      .withName(dimension.name)
-      .withValue(Strings.substitute(dimension.value, tags))
+    Dimension
+      .builder()
+      .name(dimension.name)
+      .value(Strings.substitute(dimension.value, tags))
+      .build()
   }
 
   /**
@@ -363,18 +383,17 @@ object ForwardingService extends StrictLogging {
       .groupedWithin(20, 5.seconds)
       .flatMapConcat { data =>
         if (data.head.accountDatum.isDefined) {
-          val request = new PutMetricDataRequest()
-            .withNamespace(namespace)
-            .withMetricData(data.map(_.accountDatum.get.datum).asJava)
+          val request = PutMetricDataRequest
+            .builder()
+            .namespace(namespace)
+            .metricData(data.map(_.accountDatum.get.datum).asJava)
+            .build()
 
           val region = data.head.accountDatum.get.region
           val account = data.head.accountDatum.get.account
-          val pub = Pagination.createPublisher(
-            request,
-            (r: PutMetricDataRequest) => doPut(region, account, r)
-          )
+          val future = Future(doPut(region, account, request))(awsEC)
           Source
-            .fromPublisher(pub)
+            .future(future)
             .map { response =>
               logger.debug(s"cloudwatch put result: $response")
               lastSuccessfulPutTime.set(System.currentTimeMillis())
@@ -429,8 +448,8 @@ object ForwardingService extends StrictLogging {
           FwdMetricInfo(
             a.region,
             a.account,
-            a.datum.getMetricName,
-            a.datum.getDimensions.asScala.map(d => (d.getName, d.getValue)).toMap
+            a.datum.metricName(),
+            a.datum.dimensions().asScala.map(d => (d.name(), d.value())).toMap
           )
       ),
       msg.error

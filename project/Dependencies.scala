@@ -7,7 +7,6 @@ object Dependencies {
     val akka       = "2.6.13"
     val akkaHttpV  = "10.2.4"
     val atlas      = "1.7.0-rc.14"
-    val aws        = "1.11.965"
     val aws2       = "2.16.10"
     val iep        = "2.6.7"
     val guice      = "4.1.0"
@@ -36,13 +35,10 @@ object Dependencies {
   val atlasModuleAkka    = "com.netflix.atlas_v1" %% "atlas-module-akka" % atlas
   val atlasModuleEval    = "com.netflix.atlas_v1" %% "atlas-module-eval" % atlas
   val atlasModuleWebApi  = "com.netflix.atlas_v1" %% "atlas-module-webapi" % atlas
-  val awsAutoScaling     = "com.amazonaws" % "aws-java-sdk-autoscaling" % aws
-  val awsCloudWatch      = "com.amazonaws" % "aws-java-sdk-cloudwatch" % aws
-  val awsCore            = "com.amazonaws" % "aws-java-sdk-core" % aws
-  val awsDynamoDB        = "com.amazonaws" % "aws-java-sdk-dynamodb" % aws
-  val awsEC2             = "com.amazonaws" % "aws-java-sdk-ec2" % aws
-  val awsSQS             = "com.amazonaws" % "aws-java-sdk-sqs" % aws
-  val awsSTS             = "com.amazonaws" % "aws-java-sdk-sts" % aws
+  val aws2AutoScaling    = "software.amazon.awssdk" % "autoscaling" % aws2
+  val aws2CloudWatch     = "software.amazon.awssdk" % "cloudwatch" % aws2
+  val aws2DynamoDB       = "software.amazon.awssdk" % "dynamodb" % aws2
+  val aws2EC2            = "software.amazon.awssdk" % "ec2" % aws2
   val aws2S3             = "software.amazon.awssdk" % "s3" % aws2
   val aws2SQS            = "software.amazon.awssdk" % "sqs" % aws2
   val frigga             = "com.netflix.frigga" % "frigga" % "0.24.0"

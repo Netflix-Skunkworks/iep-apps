@@ -16,7 +16,6 @@
 package com.netflix.iep.lwc
 
 import com.netflix.spectator.api.Id
-import org.slf4j.LoggerFactory
 
 class BridgeDatapoint(
   var name: String,
