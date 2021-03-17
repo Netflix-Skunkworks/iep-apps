@@ -19,11 +19,9 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
-
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClient
 import com.netflix.iep.service.AbstractService
 import com.typesafe.config.Config
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
@@ -39,7 +37,7 @@ import scala.concurrent.Future
   * ```
   */
 @Singleton
-class DynamoService @Inject()(client: AmazonDynamoDB, config: Config) extends AbstractService {
+class DynamoService @Inject()(client: DynamoDbClient, config: Config) extends AbstractService {
 
   private val nextId = new AtomicLong()
   private val pool = Executors.newFixedThreadPool(
@@ -52,12 +50,7 @@ class DynamoService @Inject()(client: AmazonDynamoDB, config: Config) extends Ab
 
   override def startImpl(): Unit = ()
 
-  override def stopImpl(): Unit = {
-    client match {
-      case c: AmazonDynamoDBClient => c.shutdown()
-      case _                       =>
-    }
-  }
+  override def stopImpl(): Unit = ()
 
-  def execute[T](task: AmazonDynamoDB => T): Future[T] = Future(task(client))(ec)
+  def execute[T](task: DynamoDbClient => T): Future[T] = Future(task(client))(ec)
 }

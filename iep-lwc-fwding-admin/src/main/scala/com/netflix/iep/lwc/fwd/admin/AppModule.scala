@@ -15,12 +15,14 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB
 import com.google.inject.AbstractModule
 import com.google.inject.Provides
 import com.google.inject.multibindings.Multibinder
-import com.netflix.iep.aws.AwsClientFactory
+import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.service.Service
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient
+
+import javax.inject.Singleton
 
 class AppModule extends AbstractModule {
   override def configure(): Unit = {
@@ -34,7 +36,8 @@ class AppModule extends AbstractModule {
 
   // Visibility of protected to avoid unused method warning from scala compiler
   @Provides
-  protected def awsDynamoDBClient(factory: AwsClientFactory): AmazonDynamoDB = {
-    factory.newInstance(classOf[AmazonDynamoDB])
+  @Singleton
+  protected def awsDynamoDBClient(factory: AwsClientFactory): DynamoDbClient = {
+    factory.getInstance(classOf[DynamoDbClient])
   }
 }

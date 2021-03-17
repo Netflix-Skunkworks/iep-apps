@@ -27,7 +27,6 @@ import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
 import com.netflix.atlas.akka.StreamOps
 import com.netflix.atlas.akka.StreamOps.SourceQueue
-import com.netflix.iep.aws.AwsClientFactory
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo
 import com.netflix.iep.lwc.fwd.cw.Report
@@ -54,7 +53,6 @@ trait MarkerService {
 class MarkerServiceImpl @Inject()(
   config: Config,
   registry: Registry,
-  clientFactory: AwsClientFactory,
   expressionDetailsDao: ExpressionDetailsDao,
   implicit val system: ActorSystem
 ) extends AbstractService

@@ -15,7 +15,7 @@
  */
 package com.netflix.iep
 
-import com.amazonaws.services.dynamodbv2.model.AttributeValue
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 
 /**
   * Helper types for working with properties.

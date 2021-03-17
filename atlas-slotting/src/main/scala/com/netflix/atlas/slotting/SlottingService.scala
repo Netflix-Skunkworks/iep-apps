@@ -17,45 +17,46 @@ package com.netflix.atlas.slotting
 
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
-
-import com.amazonaws.services.autoscaling.AmazonAutoScaling
-import com.amazonaws.services.autoscaling.model.DescribeAutoScalingGroupsRequest
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB
-import com.amazonaws.services.dynamodbv2.document.DynamoDB
-import com.amazonaws.services.dynamodbv2.document.Item
-import com.amazonaws.services.ec2.AmazonEC2
-import com.amazonaws.services.ec2.model.DescribeInstancesRequest
 import com.netflix.atlas.json.Json
-import com.netflix.iep.aws.Pagination
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Functions
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.patterns.PolledMeter
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
+import software.amazon.awssdk.services.autoscaling.AutoScalingClient
+import software.amazon.awssdk.services.autoscaling.model.DescribeAutoScalingGroupsRequest
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue
+import software.amazon.awssdk.services.dynamodb.model.ScanRequest
+import software.amazon.awssdk.services.ec2.Ec2Client
+import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest
+import software.amazon.awssdk.services.ec2.model.InstanceStateName
+
 import javax.inject.Inject
 import javax.inject.Singleton
-
 import scala.jdk.CollectionConverters._
+import scala.jdk.StreamConverters._
 import scala.collection.immutable.SortedMap
 
 @Singleton
 class SlottingService @Inject()(
   config: Config,
   registry: Registry,
-  asgClient: AmazonAutoScaling,
-  ddbClient: AmazonDynamoDB,
-  ec2Client: AmazonEC2,
+  asgClient: AutoScalingClient,
+  ddbClient: DynamoDbClient,
+  ec2Client: Ec2Client,
   slottingCache: SlottingCache
 ) extends AbstractService
     with Grouping
     with DynamoOps
     with StrictLogging {
 
+  type Item = java.util.Map[String, AttributeValue]
+
   private val clock = registry.clock()
 
   private val tableName = config.getString("aws.dynamodb.table-name")
-  private val dynamodb = new DynamoDB(ddbClient)
   private val dynamodbErrors = registry.counter("dynamodb.errors")
 
   private val apps = config.getStringList("slotting.app-names").asScala.toSet
@@ -115,17 +116,21 @@ class SlottingService @Inject()(
     pageSize: Int,
     includedApps: Set[String]
   ): Map[String, AsgDetails] = {
-    val request: DescribeAutoScalingGroupsRequest =
-      new DescribeAutoScalingGroupsRequest()
-        .withMaxRecords(pageSize)
+    val request = DescribeAutoScalingGroupsRequest
+      .builder()
+      .maxRecords(pageSize)
+      .build()
 
-    Pagination
-      .createIterator[AsgReq, AsgRes](request, asgClient.describeAutoScalingGroups)
-      .asScala
-      .flatMap(_.getAutoScalingGroups.asScala)
-      .filter(asg => includedApps.contains(getApp(asg.getAutoScalingGroupName)))
-      .map(asg => { crawlAsgsCount.increment(); asg })
-      .map(asg => asg.getAutoScalingGroupName -> mkAsgDetails(asg))
+    asgClient
+      .describeAutoScalingGroupsPaginator(request)
+      .autoScalingGroups()
+      .stream()
+      .toScala(List)
+      .filter(asg => includedApps.contains(getApp(asg.autoScalingGroupName())))
+      .map { asg =>
+        crawlAsgsCount.increment()
+        asg.autoScalingGroupName() -> mkAsgDetails(asg)
+      }
       .toMap
   }
 
@@ -175,25 +180,29 @@ class SlottingService @Inject()(
     * Filtering out instances in states other than "running" keeps the slot numbers stable for
     * a given desired capacity.
     *
-    * See [[com.amazonaws.services.ec2.model.InstanceStateName]] for a list of possible states.
+    * See [[software.amazon.awssdk.services.ec2.model.InstanceStateName]] for a list of possible states.
     *
     * Count the instances here, to avoid data consistency issues with publishing the count
     * on the minute boundary when the task runs.
     *
     */
   def crawlInstances(pageSize: Int): Map[String, Ec2InstanceDetails] = {
-    val request: DescribeInstancesRequest =
-      new DescribeInstancesRequest()
-        .withMaxResults(pageSize)
+    val request = DescribeInstancesRequest
+      .builder()
+      .maxResults(pageSize)
+      .build()
 
-    Pagination
-      .createIterator[Ec2Req, Ec2Res](request, ec2Client.describeInstances)
-      .asScala
-      .flatMap(_.getReservations.asScala)
-      .flatMap(_.getInstances.asScala)
-      .filter(_.getState.getName == "running")
-      .map(i => { crawlInstancesCount.increment(); i })
-      .map(i => i.getInstanceId -> mkEc2InstanceDetails(i))
+    ec2Client
+      .describeInstancesPaginator(request)
+      .reservations()
+      .stream()
+      .flatMap(_.instances().stream())
+      .filter(_.state().name() == InstanceStateName.RUNNING)
+      .map { instance =>
+        crawlInstancesCount.increment()
+        instance.instanceId() -> mkEc2InstanceDetails(instance)
+      }
+      .toScala(List)
       .toMap
   }
 
@@ -203,17 +212,19 @@ class SlottingService @Inject()(
     .monitorValue(new AtomicLong(clock.wallTime()), Functions.AGE)
 
   private def updateCacheTask(): Unit = {
-    var updatedAsgs = SortedMap.empty[String, SlottedAsgDetails]
-
-    val table = dynamodb.getTable(tableName)
-    val iter = table.scan(activeItemsScanSpec()).iterator
-
-    while (iter.hasNext) {
-      val item = iter.next
-      val name = item.getString(Name)
-      val data = Json.decode[SlottedAsgDetails](Util.decompress(item.getByteBuffer(Data)))
-      updatedAsgs += (name -> data)
-    }
+    val request = activeItemsScanRequest(tableName)
+    val updatedAsgs = SortedMap.empty[String, SlottedAsgDetails] ++ ddbClient
+        .scanPaginator(request)
+        .items()
+        .stream()
+        .map { item =>
+          val name = item.get(Name).s()
+          val data =
+            Json.decode[SlottedAsgDetails](Util.decompress(item.get(Data).b().asByteBuffer()))
+          name -> data
+        }
+        .toScala(List)
+        .toMap
 
     logger.info(s"replace cache with ${updatedAsgs.size} active asgs")
     slottingCache.asgs = updatedAsgs
@@ -230,24 +241,24 @@ class SlottingService @Inject()(
   private val cutoffInterval = config.getDuration("slotting.cutoff-interval")
 
   def janitorTask(): Unit = {
-    val table = dynamodb.getTable(tableName)
-    val iter = table.scan(oldItemsScanSpec(cutoffInterval)).iterator
     var count = 0
-
-    while (iter.hasNext) {
-      val item = iter.next
-      val name = item.getString(Name)
-
-      try {
-        logger.debug(s"delete item $name")
-        count += 1
-        table.deleteItem(Name, name)
-      } catch {
-        case e: Exception =>
-          logger.error(s"failed to delete item $name: ${e.getMessage}")
-          dynamodbErrors.increment()
+    val request = oldItemsScanRequest(tableName, cutoffInterval)
+    ddbClient
+      .scanPaginator(request)
+      .items()
+      .stream()
+      .forEach { item =>
+        val name = item.get(Name).s()
+        try {
+          logger.debug(s"delete item $name")
+          ddbClient.deleteItem(deleteItemRequest(tableName, name))
+          count += 1
+        } catch {
+          case e: Exception =>
+            logger.error(s"failed to delete item $name: ${e.getMessage}")
+            dynamodbErrors.increment()
+        }
       }
-    }
 
     logger.info(s"removed $count items older than $cutoffInterval from table $tableName")
     deletedCount.increment(count)
@@ -292,19 +303,20 @@ class SlottingService @Inject()(
     )
 
   def updateSlots(): Unit = {
-    val table = dynamodb.getTable(tableName)
-    val iter = table.scan().iterator
+    val request = ScanRequest.builder().tableName(tableName).build()
+    ddbClient
+      .scan(request)
+      .items()
+      .stream()
+      .forEach { item =>
+        val name = item.get(Name).s()
+        val active = item.get(Active).bool()
 
-    while (iter.hasNext) {
-      val item = iter.next
-      val name = item.getString(Name)
-      val active = item.getBOOL(Active)
-
-      if (remainingAsgs.contains(name))
-        updateItem(name, item, asgs(name))
-      else if (active)
-        deactivateItem(name, item)
-    }
+        if (remainingAsgs.contains(name))
+          updateItem(name, item, asgs(name))
+        else if (active)
+          deactivateItem(name, item)
+      }
 
     remainingAsgs.foreach { name =>
       addItem(name, asgs(name))
@@ -324,19 +336,18 @@ class SlottingService @Inject()(
     item: Item,
     newAsgDetails: AsgDetails
   ): Unit = {
-    val oldData = item.getByteBuffer("data")
+    val oldData = item.get(Data).b().asByteBuffer()
     val slotsErrors = registry.counter(slotsErrorsId.withTag("asg", name))
     val newData = mkNewDataMergeSlots(oldData, newAsgDetails, instanceInfo, slotsErrors)
-
-    val table = dynamodb.getTable(tableName)
 
     try {
       if (newData == oldData) {
         logger.debug(s"update timestamp for asg $name")
-        table.updateItem(updateTimestampItemSpec(name, item.getLong("timestamp")))
+        val timestamp = item.get(Timestamp).n().toLong
+        ddbClient.updateItem(updateTimestampItemRequest(tableName, name, timestamp))
       } else {
         logger.info(s"merge slots for asg $name")
-        table.updateItem(updateAsgItemSpec(name, oldData, newData))
+        ddbClient.updateItem(updateAsgItemRequest(tableName, name, oldData, newData))
         registry.counter(slotsChangedId.withTag("asg", name)).increment()
       }
     } catch {
@@ -349,11 +360,9 @@ class SlottingService @Inject()(
   }
 
   def deactivateItem(name: String, item: Item): Unit = {
-    val table = dynamodb.getTable(tableName)
-
     try {
       logger.info(s"deactivate asg $name")
-      table.updateItem(deactivateAsgItemSpec(name))
+      ddbClient.updateItem(deactivateAsgItemRequest(tableName, name))
     } catch {
       case e: Exception =>
         logger.error(s"failed to update item $name: ${e.getMessage}")
@@ -364,10 +373,8 @@ class SlottingService @Inject()(
   def addItem(name: String, newAsgDetails: AsgDetails): Unit = {
     try {
       val newData = mkNewDataAssignSlots(newAsgDetails, instanceInfo)
-      val table = dynamodb.getTable(tableName)
-
       logger.info(s"assign slots for asg $name")
-      table.putItem(newAsgItem(name, newData))
+      ddbClient.putItem(putAsgItemRequest(tableName, name, newData))
       registry.counter(slotsChangedId.withTag("asg", name)).increment()
     } catch {
       case e: IllegalArgumentException =>

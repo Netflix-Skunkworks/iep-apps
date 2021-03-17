@@ -19,14 +19,14 @@ import akka.actor.ActorSystem
 import akka.testkit.ImplicitSender
 import akka.testkit.TestActorRef
 import akka.testkit.TestKit
-import com.amazonaws.services.dynamodbv2.model.AttributeValue
-import com.amazonaws.services.dynamodbv2.model.ScanResult
 import com.netflix.atlas.json.Json
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.ManualClock
 import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.funsuite.AnyFunSuiteLike
+import software.amazon.awssdk.services.dynamodb.model.AttributeValue
+import software.amazon.awssdk.services.dynamodb.model.ScanResponse
 
 class PropertiesLoaderSuite
     extends TestKit(ActorSystem())
@@ -47,7 +47,10 @@ class PropertiesLoaderSuite
 
   val items = newItems("foo-main", Map("a"  -> "b", "1" -> "2"))
   items.addAll(newItems("bar-main", Map("c" -> "d")))
-  ddb.scanResult = new ScanResult().withItems(items)
+  ddb.scanResponse = ScanResponse
+    .builder()
+    .items(items)
+    .build()
 
   val ref = TestActorRef(new PropertiesLoader(config, propContext, service))
 
@@ -76,7 +79,7 @@ class PropertiesLoaderSuite
   test("update") {
     val items = newItems("foo-main", Map("a"  -> "b"))
     items.addAll(newItems("bar-main", Map("c" -> "d")))
-    ddb.scanResult = new ScanResult().withItems(items)
+    ddb.scanResponse = ScanResponse.builder().items(items).build()
 
     waitForUpdate()
 
@@ -93,8 +96,8 @@ class PropertiesLoaderSuite
     props.foreach {
       case (k, v) =>
         val prop = PropertiesApi.Property(s"$cluster::$k", cluster, k, v, 12345L)
-        val value = new AttributeValue().withS(Json.encode(prop))
-        val timestamp = new AttributeValue().withS("12345")
+        val value = AttributeValue.builder().s(Json.encode(prop)).build()
+        val timestamp = AttributeValue.builder().n("12345").build()
         val m = new java.util.HashMap[String, AttributeValue]()
         m.put("data", value)
         m.put("timestamp", timestamp)

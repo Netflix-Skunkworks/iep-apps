@@ -16,12 +16,11 @@
 package com.netflix.atlas.slotting
 
 import java.time.Instant
-
-import com.amazonaws.services.autoscaling.model.AutoScalingGroup
-import com.amazonaws.services.autoscaling.model.{Instance => AsgInstance}
-import com.amazonaws.services.ec2.model.{Instance => Ec2Instance}
 import com.netflix.atlas.json.Json
 import org.scalatest.funsuite.AnyFunSuite
+import software.amazon.awssdk.services.autoscaling.model.AutoScalingGroup
+import software.amazon.awssdk.services.autoscaling.model.{Instance => AsgInstance}
+import software.amazon.awssdk.services.ec2.model.{Instance => Ec2Instance}
 
 import scala.jdk.CollectionConverters._
 import scala.io.Source
@@ -50,27 +49,35 @@ class GroupingSuite extends AnyFunSuite with Grouping {
 
   test("make asg details") {
     val asgInstances = List(
-      new AsgInstance()
-        .withAvailabilityZone("us-west-2b")
-        .withLifecycleState("InService")
-        .withInstanceId("i-001"),
-      new AsgInstance()
-        .withAvailabilityZone("us-west-2a")
-        .withLifecycleState("InService")
-        .withInstanceId("i-002"),
-      new AsgInstance()
-        .withAvailabilityZone("us-west-2b")
-        .withLifecycleState("InService")
-        .withInstanceId("i-003")
+      AsgInstance
+        .builder()
+        .availabilityZone("us-west-2b")
+        .lifecycleState("InService")
+        .instanceId("i-001")
+        .build(),
+      AsgInstance
+        .builder()
+        .availabilityZone("us-west-2a")
+        .lifecycleState("InService")
+        .instanceId("i-002")
+        .build(),
+      AsgInstance
+        .builder()
+        .availabilityZone("us-west-2b")
+        .lifecycleState("InService")
+        .instanceId("i-003")
+        .build()
     ).asJava
 
-    val asg = new AutoScalingGroup()
-      .withAutoScalingGroupName("atlas_app-main-all-v001")
-      .withCreatedTime(new java.util.Date())
-      .withDesiredCapacity(3)
-      .withInstances(asgInstances)
-      .withMaxSize(6)
-      .withMinSize(0)
+    val asg = AutoScalingGroup
+      .builder()
+      .autoScalingGroupName("atlas_app-main-all-v001")
+      .createdTime(Instant.now())
+      .desiredCapacity(3)
+      .instances(asgInstances)
+      .maxSize(6)
+      .minSize(0)
+      .build()
 
     val asgDetails = mkAsgDetails(asg)
 
@@ -83,12 +90,14 @@ class GroupingSuite extends AnyFunSuite with Grouping {
   }
 
   test("make ec2 instance details") {
-    val instance = new Ec2Instance()
-      .withImageId("ami-001")
-      .withInstanceType("r4.large")
-      .withLaunchTime(new java.util.Date())
-      .withPrivateIpAddress("192.168.1.1")
-      .withPublicDnsName("")
+    val instance = Ec2Instance
+      .builder()
+      .imageId("ami-001")
+      .instanceType("r4.large")
+      .launchTime(Instant.now())
+      .privateIpAddress("192.168.1.1")
+      .publicDnsName("")
+      .build()
 
     val details = mkEc2InstanceDetails(instance)
 

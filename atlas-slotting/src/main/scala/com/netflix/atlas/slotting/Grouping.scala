@@ -17,14 +17,13 @@ package com.netflix.atlas.slotting
 
 import java.nio.ByteBuffer
 import java.time.Instant
-
-import com.amazonaws.services.autoscaling.model.AutoScalingGroup
-import com.amazonaws.services.autoscaling.model.{Instance => AsgInstance}
-import com.amazonaws.services.ec2.model.{Instance => Ec2Instance}
 import com.netflix.atlas.json.Json
 import com.netflix.spectator.api.Counter
 import com.netflix.spectator.ipc.ServerGroup
 import com.typesafe.scalalogging.StrictLogging
+import software.amazon.awssdk.services.autoscaling.model.AutoScalingGroup
+import software.amazon.awssdk.services.autoscaling.model.{Instance => AsgInstance}
+import software.amazon.awssdk.services.ec2.model.{Instance => Ec2Instance}
 
 import scala.jdk.CollectionConverters._
 
@@ -118,13 +117,13 @@ trait Grouping extends StrictLogging {
     */
   def mkAsgDetails(asg: AutoScalingGroup): AsgDetails = {
     AsgDetails(
-      asg.getAutoScalingGroupName,
-      getCluster(asg.getAutoScalingGroupName),
-      asg.getCreatedTime.toInstant,
-      asg.getDesiredCapacity,
-      asg.getMaxSize,
-      asg.getMinSize,
-      mkAsgInstanceDetailsList(asg.getInstances)
+      asg.autoScalingGroupName,
+      getCluster(asg.autoScalingGroupName),
+      asg.createdTime,
+      asg.desiredCapacity,
+      asg.maxSize,
+      asg.minSize,
+      mkAsgInstanceDetailsList(asg.instances)
     )
   }
 
@@ -139,9 +138,9 @@ trait Grouping extends StrictLogging {
     instances.asScala.toList
       .map { i =>
         AsgInstanceDetails(
-          i.getInstanceId,
-          i.getAvailabilityZone,
-          i.getLifecycleState
+          i.instanceId,
+          i.availabilityZone,
+          i.lifecycleState.toString
         )
       }
   }
@@ -155,15 +154,15 @@ trait Grouping extends StrictLogging {
     */
   def mkEc2InstanceDetails(instance: Ec2Instance): Ec2InstanceDetails = {
     Ec2InstanceDetails(
-      instance.getPrivateIpAddress,
-      Option(instance.getPublicIpAddress),
-      instance.getPublicDnsName match {
+      instance.privateIpAddress,
+      Option(instance.publicIpAddress),
+      instance.publicDnsName match {
         case ""      => None
         case default => Some(default)
       },
-      instance.getLaunchTime.toInstant,
-      instance.getImageId,
-      instance.getInstanceType
+      instance.launchTime,
+      instance.imageId,
+      instance.instanceType.toString
     )
   }
 

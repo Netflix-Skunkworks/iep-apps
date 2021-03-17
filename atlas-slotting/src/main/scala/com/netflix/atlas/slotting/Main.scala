@@ -15,14 +15,11 @@
  */
 package com.netflix.atlas.slotting
 
-import com.amazonaws.services.autoscaling.AmazonAutoScaling
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB
-import com.amazonaws.services.ec2.AmazonEC2
 import com.google.inject.AbstractModule
 import com.google.inject.Module
 import com.google.inject.Provides
 import com.google.inject.multibindings.Multibinder
-import com.netflix.iep.aws.AwsClientFactory
+import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.guice.BaseModule
 import com.netflix.iep.guice.GuiceHelper
 import com.netflix.iep.service.Service
@@ -32,6 +29,10 @@ import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
+import software.amazon.awssdk.services.autoscaling.AutoScalingClient
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient
+import software.amazon.awssdk.services.ec2.Ec2Client
+
 import javax.inject.Singleton
 
 object Main extends StrictLogging {
@@ -81,20 +82,20 @@ object Main extends StrictLogging {
 
     @Provides
     @Singleton
-    protected def providesAmazonDynamoDB(factory: AwsClientFactory): AmazonDynamoDB = {
-      factory.getInstance(classOf[AmazonDynamoDB])
+    protected def providesAmazonDynamoDB(factory: AwsClientFactory): DynamoDbClient = {
+      factory.getInstance(classOf[DynamoDbClient])
     }
 
     @Provides
     @Singleton
-    protected def providesAmazonEC2(factory: AwsClientFactory): AmazonEC2 = {
-      factory.getInstance(classOf[AmazonEC2])
+    protected def providesAmazonEC2(factory: AwsClientFactory): Ec2Client = {
+      factory.getInstance(classOf[Ec2Client])
     }
 
     @Provides
     @Singleton
-    protected def providesAmazonAutoScaling(factory: AwsClientFactory): AmazonAutoScaling = {
-      factory.getInstance(classOf[AmazonAutoScaling])
+    protected def providesAmazonAutoScaling(factory: AwsClientFactory): AutoScalingClient = {
+      factory.getInstance(classOf[AutoScalingClient])
     }
   }
 }

@@ -15,14 +15,16 @@
  */
 package com.netflix.iep.archaius
 
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB
 import com.google.inject.Provides
 import com.google.inject.multibindings.Multibinder
-import com.netflix.iep.aws.AwsClientFactory
+import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.config.ConfigManager
 import com.netflix.iep.guice.BaseModule
 import com.netflix.iep.service.Service
 import com.typesafe.config.Config
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient
+
+import javax.inject.Singleton
 
 object Main {
 
@@ -42,8 +44,9 @@ object Main {
 
     // Visibility of protected to avoid unused method warning from scala compiler
     @Provides
-    protected def providesDynamoDBClient(factory: AwsClientFactory): AmazonDynamoDB = {
-      factory.newInstance(classOf[AmazonDynamoDB])
+    @Singleton
+    protected def providesDynamoDbClient(factory: AwsClientFactory): DynamoDbClient = {
+      factory.getInstance(classOf[DynamoDbClient])
     }
   }
 }
