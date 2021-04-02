@@ -20,6 +20,7 @@ import akka.http.scaladsl.model.StatusCode
 import akka.http.scaladsl.model.StatusCodes
 import com.fasterxml.jackson.core.JsonFactory
 import com.netflix.atlas.akka.ByteStringInputStream
+import com.netflix.atlas.core.util.RefIntHashMap
 import com.netflix.atlas.core.util.SmallHashMap
 import com.netflix.atlas.core.util.Strings
 import com.netflix.atlas.json.Json
@@ -177,22 +178,37 @@ class UpdateApiSuite extends AnyFunSuite {
   }
 
   private def createPayload(ts: List[TagMap], op: Int, value: Double): String = {
-    val data = List.newBuilder[Any]
-    data += ts.map(_.size * 2).sum
+    val stringTable = new RefIntHashMap[String]()
     ts.foreach { tags =>
-      tags.foreach { t =>
-        data += t._1
-        data += t._2
+      tags.foreachEntry { (k, v) =>
+        stringTable.put(k, 0)
+        stringTable.put(v, 0)
       }
+    }
+    val strings = new Array[String](stringTable.size)
+    var i = 0
+    stringTable.foreach { (k, _) =>
+      strings(i) = k
+      i += 1
+    }
+    java.util.Arrays.sort(strings.asInstanceOf[Array[AnyRef]])
+
+    val data = List.newBuilder[Any]
+    data.addOne(strings.length)
+    strings.zipWithIndex.foreach {
+      case (s, i) =>
+        data.addOne(s)
+        stringTable.put(s, i)
     }
     var offset = 0
     ts.foreach { tags =>
-      data += tags.size
-      (0 until tags.size * 2).foreach { i =>
-        data += offset + i
+      data.addOne(tags.size)
+      tags.foreachEntry { (k, v) =>
+        data.addOne(stringTable.get(k, -1))
+        data.addOne(stringTable.get(v, -1))
       }
-      data += op
-      data += value
+      data.addOne(op)
+      data.addOne(value)
       offset += tags.size * 2
     }
     Json.encode(data)
@@ -222,7 +238,7 @@ class UpdateApiSuite extends AnyFunSuite {
     val tags = SmallHashMap("foo" -> "bar")
     val msg = validationTest(tags, StatusCodes.BadRequest)
     assert(msg.errorCount === 1)
-    assert(msg.message === List("missing 'name': Set(foo) (tags={\"foo\":\"bar\"})"))
+    assert(msg.message === List("missing key 'name' (tags={\"foo\":\"bar\"})"))
   }
 
   test("validation: too many user tags") {
@@ -248,7 +264,7 @@ class UpdateApiSuite extends AnyFunSuite {
     assert(msg.errorCount === 1)
     assert(
       msg.message === List(
-          "invalid key for reserved prefix 'nf.': nf.foo (tags={\"nf.foo\":\"bar\"})"
+          "invalid key for reserved prefix 'nf.': nf.foo (tags={\"name\":\"test\",\"nf.foo\":\"bar\"})"
         )
     )
   }
@@ -262,7 +278,7 @@ class UpdateApiSuite extends AnyFunSuite {
     assert(msg.errorCount === 1)
     assert(
       msg.message === List(
-          "invalid key for reserved prefix 'nf.': nf.foo (tags={\"nf.foo\":\"bar\"})"
+          "invalid key for reserved prefix 'nf.': nf.foo (tags={\"name\":\"test\",\"nf.foo\":\"bar\"})"
         )
     )
   }

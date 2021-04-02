@@ -19,6 +19,7 @@ import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.core.JsonToken
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.netflix.atlas.core.model.TagKey
+import com.netflix.atlas.core.util.IdMap
 import com.netflix.atlas.core.util.SmallHashMap
 import com.netflix.atlas.core.validation.CompositeTagRule
 import com.netflix.atlas.core.validation.Rule
@@ -58,7 +59,7 @@ import com.typesafe.scalalogging.StrictLogging
 class PayloadDecoder(
   replaceInvalidCharactersFunction: String => String,
   validator: TagRule,
-  rollupFunction: TagMap => TagMap
+  rollupFunction: Id => Id
 ) extends StrictLogging {
 
   import PayloadDecoder._
@@ -82,12 +83,13 @@ class PayloadDecoder(
     requireNextToken(parser, JsonToken.START_ARRAY)
     val numStrings = nextInt(parser)
     val strings = loadStringTable(numStrings, parser)
+    val nameIdx = findName(strings)
 
     var t = parser.nextToken()
     while (t != null && t != JsonToken.END_ARRAY) {
       numDatapoints += 1
       val numTags = parser.getIntValue
-      val result = loadTags(numTags, strings, parser)
+      val result = loadTags(numTags, strings, nameIdx, parser)
       val op = nextInt(parser)
       val value = nextDouble(parser)
       result match {
@@ -123,22 +125,42 @@ class PayloadDecoder(
     strings
   }
 
+  private def findName(strings: Array[String]): Int = {
+    var i = 0
+    while (i < strings.length) {
+      if (strings(i) == "name") return i
+      i += 1
+    }
+    -1
+  }
+
   private def loadTags(
     n: Int,
     strings: Array[String],
+    nameIdx: Int,
     parser: JsonParser
   ): Either[ValidationResult, Id] = {
     var result: String = TagRule.Pass
     var numUserTags = 0
-    val tags = new SmallHashMap.Builder[String, String](n * 2)
+    var name: String = null
+    val tags = new Array[String](2 * n)
+    var pos = 0
     var i = 0
     while (i < n) {
-      val k = strings(nextInt(parser))
+      val ki = nextInt(parser)
+      val k = strings(ki)
       val v = strings(nextInt(parser))
-      if (result == TagRule.Pass) {
+      if (ki == nameIdx) {
+        // Needs to be done before pass check so that it will not get
+        // incorrectly flagged as missing name if another check fails
+        name = v
+        numUserTags += 1
+      } else if (result == TagRule.Pass) {
         // Avoid doing unnecessary work if it has already failed validation. We still need
         // to process the entry as subsequent entries may be fine.
-        tags.add(k, v)
+        tags(pos) = k
+        tags(pos + 1) = v
+        pos += 2
         if (!TagKey.isRestricted(k)) {
           numUserTags += 1
         }
@@ -147,34 +169,36 @@ class PayloadDecoder(
       i += 1
     }
 
-    if (result == TagRule.Pass) {
-      // Validation of individual key/value pairs passed, now check rules for the
-      // overall tag set
-      if (numUserTags > maxUserTags) {
-        Left(
-          ValidationResult.Fail(
-            "MaxUserTagsRule",
-            s"too many user tags: $numUserTags > $maxUserTags",
-            tags.result
-          )
-        )
-      } else {
-        val ts = tags.result
-        if (ts.contains("name"))
-          Right(convertToId(rollupFunction(ts)))
-        else
-          Left(ValidationResult.Fail("HasKeyRule", s"missing 'name': ${ts.keys}", ts))
+    if (name == null) {
+      // This should never happen if clients are working properly
+      val builder = new SmallHashMap.Builder[String, String](n)
+      var i = 0
+      while (i < pos) {
+        builder.add(tags(i), tags(i + 1))
+        i += 2
       }
+      Left(ValidationResult.Fail("HasKeyRule", s"missing key 'name'", builder.result))
     } else {
-      // Tag rule check failed
-      Left(ValidationResult.Fail("KeyValueRule", result, tags.result))
+      val id = Id.unsafeCreate(name, tags, pos)
+      if (result == TagRule.Pass) {
+        // Validation of individual key/value pairs passed, now check rules for the
+        // overall tag set
+        if (numUserTags > maxUserTags) {
+          Left(
+            ValidationResult.Fail(
+              "MaxUserTagsRule",
+              s"too many user tags: $numUserTags > $maxUserTags",
+              IdMap(id)
+            )
+          )
+        } else {
+          Right(rollupFunction(id))
+        }
+      } else {
+        // Tag rule check failed
+        Left(ValidationResult.Fail("KeyValueRule", result, IdMap(id)))
+      }
     }
-  }
-
-  private def convertToId(tags: TagMap): Id = {
-    val name = tags("name")
-    val otherTags = (tags - "name").asInstanceOf[TagMap]
-    Id.create(name).withTags(otherTags.asJavaMap)
   }
 }
 
@@ -239,14 +263,45 @@ object PayloadDecoder {
     value
   }
 
+  private def containsKey(id: Id, key: String): Boolean = {
+    val size = id.size()
+    var i = 1 // skip name
+    while (i < size) {
+      val k = id.getKey(i)
+      // The id tags are sorted by key, so if the search key is less
+      // than the key from the id, then it will not be present and we
+      // can short circuit the check.
+      if (key <= k) return key == k
+      i += 1
+    }
+    false
+  }
+
+  private def removeNode(id: Id): Id = {
+    val size = id.size()
+    val tags = new Array[String](2 * (size - 1))
+    var i = 1
+    var j = 0
+    while (i < size) {
+      val k = id.getKey(i)
+      if (k != "nf.node" && k != "nf.task") {
+        tags(j) = k
+        tags(j + 1) = id.getValue(i)
+        j += 2
+      }
+      i += 1
+    }
+    Id.unsafeCreate(id.name(), tags, j)
+  }
+
   /**
     * Handle any automatic rollups on the id. For now it just removes the node dimension for
     * ids with percentiles.
     */
-  private def rollup(tags: TagMap): TagMap = {
-    if (tags.contains("percentile"))
-      (tags - "nf.node" - "nf.task").asInstanceOf[TagMap]
+  private def rollup(id: Id): Id = {
+    if (containsKey(id, "percentile"))
+      removeNode(id)
     else
-      tags
+      id
   }
 }
