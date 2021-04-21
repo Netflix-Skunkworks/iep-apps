@@ -94,6 +94,7 @@ class ExprUpdateService @Inject()(
         case Success(response) => response
       }
       .via(syncExpressionsFlow)
+      .log(getClass.getSimpleName)
       .viaMat(KillSwitches.single)(Keep.right)
       .toMat(Sink.ignore)(Keep.left)
       .run()
