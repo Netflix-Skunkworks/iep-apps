@@ -4,18 +4,18 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val akka       = "2.6.13"
+    val akka       = "2.6.14"
     val akkaHttpV  = "10.2.4"
     val atlas      = "1.7.0-SNAPSHOT"
-    val aws2       = "2.16.10"
-    val iep        = "2.6.7"
+    val aws2       = "2.16.45"
+    val iep        = "2.6.9"
     val guice      = "4.1.0"
-    val log4j      = "2.14.0"
+    val log4j      = "2.14.1"
     val scala      = "2.13.5"
     val servo      = "0.13.2"
     val slf4j      = "1.7.30"
-    val spectator  = "0.125.0"
-    val avroV      = "1.10.1"
+    val spectator  = "0.129.0"
+    val avroV      = "1.10.2"
 
     val crossScala = Seq(scala)
   }
@@ -41,7 +41,7 @@ object Dependencies {
   val aws2EC2            = "software.amazon.awssdk" % "ec2" % aws2
   val aws2S3             = "software.amazon.awssdk" % "s3" % aws2
   val aws2SQS            = "software.amazon.awssdk" % "sqs" % aws2
-  val frigga             = "com.netflix.frigga" % "frigga" % "0.24.0"
+  val frigga             = "com.netflix.frigga" % "frigga" % "0.25.0"
   val guiceCore          = "com.google.inject" % "guice" % guice
   val guiceMulti         = "com.google.inject.extensions" % "guice-multibindings" % guice
   val iepGuice           = "com.netflix.iep" % "iep-guice" % iep
@@ -64,9 +64,9 @@ object Dependencies {
   val log4jSlf4j         = "org.apache.logging.log4j" % "log4j-slf4j-impl" % log4j
   val scalaCompiler      = "org.scala-lang" % "scala-compiler" % scala
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
-  val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
+  val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.3"
   val scalaReflect       = "org.scala-lang" % "scala-reflect" % scala
-  val scalatest          = "org.scalatest" %% "scalatest" % "3.2.5"
+  val scalatest          = "org.scalatest" %% "scalatest" % "3.2.8"
   val servoCore          = "com.netflix.servo" % "servo-core" % servo
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
   val slf4jLog4j         = "org.slf4j" % "slf4j-log4j12" % slf4j
