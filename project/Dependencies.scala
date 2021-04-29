@@ -41,7 +41,7 @@ object Dependencies {
   val aws2EC2            = "software.amazon.awssdk" % "ec2" % aws2
   val aws2S3             = "software.amazon.awssdk" % "s3" % aws2
   val aws2SQS            = "software.amazon.awssdk" % "sqs" % aws2
-  val frigga             = "com.netflix.frigga" % "frigga" % "0.24.0"
+  val frigga             = "com.netflix.frigga" % "frigga" % "0.25.0"
   val guiceCore          = "com.google.inject" % "guice" % guice
   val guiceMulti         = "com.google.inject.extensions" % "guice-multibindings" % guice
   val iepGuice           = "com.netflix.iep" % "iep-guice" % iep
