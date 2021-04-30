@@ -112,7 +112,7 @@ class ForwardingService @Inject()(
       .via(configInput(registry))
       .via(toDataSources(pattern))
       .via(Flow.fromProcessor(() => evaluator.createStreamsProcessor()))
-      .via(toMetricDatum(registry))
+      .via(toMetricDatum(config, registry))
       .via(sendToCloudWatch(lastSuccessfulPutTime, namespace, put))
       .via(sendToAdmin(adminUri, client))
       .watchTermination() { (_, f) =>
@@ -276,6 +276,7 @@ object ForwardingService extends StrictLogging {
   }
 
   def toMetricDatum(
+    config: Config,
     registry: Registry
   ): Flow[Evaluator.MessageEnvelope, ForwardingMsgEnvelope, NotUsed] = {
     val datapoints = registry.counter("forwarding.cloudWatchDatapoints")
@@ -294,11 +295,12 @@ object ForwardingService extends StrictLogging {
       .map { env =>
         val id = Json.decode[ExpressionId](env.getId)
         val msg = env.getMessage.asInstanceOf[TimeSeriesMessage]
-        ForwardingMsgEnvelope(id, createMetricDatum(id.expression, msg), None)
+        ForwardingMsgEnvelope(id, createMetricDatum(config, id.expression, msg), None)
       }
   }
 
   def createMetricDatum(
+    config: Config,
     expression: ForwardingExpression,
     msg: TimeSeriesMessage
   ): Option[AccountDatum] = {
@@ -306,8 +308,9 @@ object ForwardingService extends StrictLogging {
     val name = Strings.substitute(expression.metricName, msg.tags)
     val accountId = Strings.substitute(expression.account, msg.tags)
 
+    val dfltRegionStr = config.getString("netflix.iep.aws.region")
     val regionStr =
-      Strings.substitute(expression.region.getOrElse(NetflixEnvironment.region()), msg.tags)
+      Strings.substitute(expression.region.getOrElse(dfltRegionStr), msg.tags)
 
     msg.data match {
       case data: ArrayData if !data.values(0).isNaN =>
@@ -394,15 +397,18 @@ object ForwardingService extends StrictLogging {
           val future = Future(doPut(region, account, request))(awsEC)
           Source
             .future(future)
-            .map { response =>
-              logger.debug(s"cloudwatch put result: $response")
+            .map { _ =>
+              logger.whenDebugEnabled {
+                val context = s"(region=$region, account=$account, request=$request)"
+                logger.debug(s"cloudwatch put succeeded $context")
+              }
               lastSuccessfulPutTime.set(System.currentTimeMillis())
               data
             }
             .recover {
               case t: Throwable =>
                 val exprs = Json.encode(data.map(_.id))
-                val context = s"(region=$region, account=$account, exprs=$exprs)"
+                val context = s"(region=$region, account=$account, request=$request, exprs=$exprs)"
                 logger.warn(s"cloudwatch request failed $context", t)
                 data.map(_.copy(error = Some(t)))
             }
