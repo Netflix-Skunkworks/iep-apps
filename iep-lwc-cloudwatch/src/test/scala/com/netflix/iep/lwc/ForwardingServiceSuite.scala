@@ -15,7 +15,6 @@
  */
 package com.netflix.iep.lwc
 
-import java.util.Date
 import java.util.concurrent.atomic.AtomicLong
 import akka.NotUsed
 import akka.actor.ActorSystem
@@ -34,6 +33,7 @@ import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.json.Json
 import com.netflix.iep.lwc.fwd.cw._
 import com.netflix.spectator.api.NoopRegistry
+import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
 import software.amazon.awssdk.services.cloudwatch.model.MetricDatum
@@ -231,7 +231,7 @@ class ForwardingServiceSuite extends AnyFunSuite {
   def runToMetricDatum(env: Evaluator.MessageEnvelope): ForwardingMsgEnvelope = {
     val future = Source
       .single(env)
-      .via(toMetricDatum(new NoopRegistry))
+      .via(toMetricDatum(ConfigFactory.load(), new NoopRegistry))
       .runWith(Sink.head)
     Await.result(future, Duration.Inf)
   }
