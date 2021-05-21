@@ -26,10 +26,16 @@ import com.netflix.atlas.core.validation.Rule
 import com.netflix.atlas.core.validation.TagRule
 import com.netflix.atlas.core.validation.ValidationResult
 import com.netflix.iep.NetflixEnvironment
+import com.netflix.iep.config.ConfigListener
 import com.netflix.iep.config.ConfigManager
 import com.netflix.spectator.api.Id
+import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Tag
+import com.netflix.spectator.atlas.impl.Parser
+import com.netflix.spectator.atlas.impl.Query
+import com.netflix.spectator.atlas.impl.QueryIndex
 import com.netflix.spectator.impl.AsciiSet
+import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
 /**
@@ -210,10 +216,34 @@ object PayloadDecoder {
 
   case class Result(numDatapoints: Int, failures: List[ValidationResult])
 
+  case class RollupPolicy(query: Query, rollup: java.util.List[String])
+
   private val ADD = 0
   private val MAX = 10
 
   private val config = ConfigManager.get().getConfig("atlas.aggregator")
+
+  @volatile private var rollupPolicies = QueryIndex.newInstance[RollupPolicy](new NoopRegistry)
+
+  ConfigManager
+    .dynamicConfigManager()
+    .addListener(
+      ConfigListener.forConfigList(
+        "atlas.aggregator.rollup-policy",
+        ps => updateRollupPolicies(ps)
+      )
+    )
+
+  private def updateRollupPolicies(policies: java.util.List[_ <: Config]): Unit = {
+    val idx = QueryIndex.newInstance[RollupPolicy](new NoopRegistry)
+    policies.forEach { c =>
+      val query = Parser.parseQuery(c.getString("query"))
+      val rollup = c.getStringList("rollup")
+      val policy = RollupPolicy(query, rollup)
+      idx.add(query, policy)
+    }
+    rollupPolicies = idx
+  }
 
   private val aggrTag = {
     if (config.getBoolean("include-aggr-tag"))
@@ -263,45 +293,15 @@ object PayloadDecoder {
     value
   }
 
-  private def containsKey(id: Id, key: String): Boolean = {
-    val size = id.size()
-    var i = 1 // skip name
-    while (i < size) {
-      val k = id.getKey(i)
-      // The id tags are sorted by key, so if the search key is less
-      // than the key from the id, then it will not be present and we
-      // can short circuit the check.
-      if (key <= k) return key == k
-      i += 1
-    }
-    false
-  }
-
-  private def removeNode(id: Id): Id = {
-    val size = id.size()
-    val tags = new Array[String](2 * (size - 1))
-    var i = 1
-    var j = 0
-    while (i < size) {
-      val k = id.getKey(i)
-      if (k != "nf.node" && k != "nf.task") {
-        tags(j) = k
-        tags(j + 1) = id.getValue(i)
-        j += 2
-      }
-      i += 1
-    }
-    Id.unsafeCreate(id.name(), tags, j)
-  }
-
   /**
-    * Handle any automatic rollups on the id. For now it just removes the node dimension for
-    * ids with percentiles.
+    * Handle any automatic rollups on the id.
     */
   private def rollup(id: Id): Id = {
-    if (containsKey(id, "percentile"))
-      removeNode(id)
-    else
+    val rollup = new java.util.HashSet[String]()
+    rollupPolicies.forEachMatch(id, p => rollup.addAll(p.rollup))
+    if (rollup.isEmpty)
       id
+    else
+      id.filterByKey(k => !rollup.contains(k))
   }
 }
