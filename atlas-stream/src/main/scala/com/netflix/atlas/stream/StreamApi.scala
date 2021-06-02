@@ -88,7 +88,7 @@ class StreamApi(
         }
       }
     } ~
-    endpointPath("stream") {
+    endpointPath("sse") {
       post {
         parseEntity(json[List[DataSource]]) { dsList =>
           val dsListWithDefaultStep = dsList.map { ds =>
