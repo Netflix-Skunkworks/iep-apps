@@ -159,11 +159,10 @@ class StreamApi(
       .repeat(heartbeat)
       .throttle(1, 5.seconds, 1, ThrottleMode.Shaping)
 
-    //repeat and throttle to keep the source alive, actual rate of stream is decided by step
+    // Use tick to keep the source alive, actual rate of stream is decided by step
     val src = Source
-      .repeat(dataSources)
-      .throttle(1, 5.seconds, 1, ThrottleMode.Shaping)
-      .via(Flow.fromProcessor(() => evaluator.createStreamsProcessor))
+      .tick(0.seconds, 1.minute, dataSources)
+      .via(evaluator.createStreamsFlow)
       .map { messageEnvelope =>
         prefix ++ ByteString(Json.encode[MessageEnvelope](messageEnvelope)) ++ suffix
       }
