@@ -4,17 +4,17 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val akka       = "2.6.14"
+    val akka       = "2.6.15"
     val akkaHttpV  = "10.2.4"
     val atlas      = "1.7.0-SNAPSHOT"
-    val aws2       = "2.16.45"
-    val iep        = "2.6.9"
+    val aws2       = "2.16.78"
+    val iep        = "3.0.0"
     val guice      = "4.1.0"
     val log4j      = "2.14.1"
-    val scala      = "2.13.5"
+    val scala      = "2.13.6"
     val servo      = "0.13.2"
     val slf4j      = "1.7.30"
-    val spectator  = "0.129.0"
+    val spectator  = "0.131.0"
     val avroV      = "1.10.2"
 
     val crossScala = Seq(scala)
@@ -28,7 +28,7 @@ object Dependencies {
   val akkaHttpTestkit    = "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV
   val akkaSlf4j          = "com.typesafe.akka" %% "akka-slf4j" % akka
   val akkaTestkit        = "com.typesafe.akka" %% "akka-testkit" % akka
-  val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % "2.0.2"
+  val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % "3.0.1"
   val atlasCore          = "com.netflix.atlas_v1" %% "atlas-core" % atlas
   val atlasEval          = "com.netflix.atlas_v1" %% "atlas-eval" % atlas
   val atlasJson          = "com.netflix.atlas_v1" %% "atlas-json" % atlas
@@ -46,12 +46,8 @@ object Dependencies {
   val guiceMulti         = "com.google.inject.extensions" % "guice-multibindings" % guice
   val iepGuice           = "com.netflix.iep" % "iep-guice" % iep
   val iepModuleAdmin     = "com.netflix.iep" % "iep-module-admin" % iep
-  val iepModuleArchaius2 = "com.netflix.iep" % "iep-module-archaius2" % iep
   val iepModuleAtlas     = "com.netflix.iep" % "iep-module-atlas" % iep
-  val iepModuleAws       = "com.netflix.iep" % "iep-module-aws" % iep
   val iepModuleAws2      = "com.netflix.iep" % "iep-module-aws2" % iep
-  val iepModuleAwsMetrics= "com.netflix.iep" % "iep-module-awsmetrics" % iep
-  val iepModuleEureka    = "com.netflix.iep" % "iep-module-eureka" % iep
   val iepModuleJmx       = "com.netflix.iep" % "iep-module-jmxport" % iep
   val iepNflxEnv         = "com.netflix.iep" % "iep-nflxenv" % iep
   val iepService         = "com.netflix.iep" % "iep-service" % iep
@@ -66,7 +62,7 @@ object Dependencies {
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
   val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.3"
   val scalaReflect       = "org.scala-lang" % "scala-reflect" % scala
-  val scalatest          = "org.scalatest" %% "scalatest" % "3.2.8"
+  val scalatest          = "org.scalatest" %% "scalatest" % "3.2.9"
   val servoCore          = "com.netflix.servo" % "servo-core" % servo
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
   val slf4jLog4j         = "org.slf4j" % "slf4j-log4j12" % slf4j

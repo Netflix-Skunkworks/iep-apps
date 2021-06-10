@@ -44,7 +44,7 @@ class DynamoOpsSuite extends AnyFunSuite with DynamoOps {
     val scanSpec = oldItemsScanRequest("test", Duration.ofDays(1))
     assert(scanSpec.filterExpression === "#t < :v1")
     assert(scanSpec.projectionExpression === "#n")
-    assert(scanSpec.expressionAttributeNames.toString === s"{#t=$Timestamp, #n=$Name}")
+    assert(scanSpec.expressionAttributeNames.toString === s"{#n=$Name, #t=$Timestamp}")
   }
 
   test("new asg item") {
@@ -62,20 +62,20 @@ class DynamoOpsSuite extends AnyFunSuite with DynamoOps {
     val updateSpec = updateAsgItemRequest("test", "atlas_app-main-all-v001", oldData, newData)
     assert(updateSpec.conditionExpression === "#d = :v1")
     assert(updateSpec.updateExpression === s"set #d = :v2, #a = :v3, #t = :v4")
-    assert(updateSpec.expressionAttributeNames.toString === s"{#d=data, #t=$Timestamp, #a=$Active}")
+    assert(updateSpec.expressionAttributeNames.toString === s"{#a=$Active, #d=data, #t=$Timestamp}")
   }
 
   test("update timestamp spec") {
     val updateSpec = updateTimestampItemRequest("test", "atlas_app-main-all-v001", 1556568270713L)
     assert(updateSpec.conditionExpression === "#t = :v1")
     assert(updateSpec.updateExpression === s"set #a = :v2, #t = :v3")
-    assert(updateSpec.expressionAttributeNames.toString === s"{#t=$Timestamp, #a=$Active}")
+    assert(updateSpec.expressionAttributeNames.toString === s"{#a=$Active, #t=$Timestamp}")
   }
 
   test("deactivate asg spec") {
     val updateSpec = deactivateAsgItemRequest("test", "atlas_app-main-all-v001")
     assert(updateSpec.conditionExpression === "#a = :v1")
     assert(updateSpec.updateExpression === s"set #a = :v2, #t = :v3")
-    assert(updateSpec.expressionAttributeNames.toString === s"{#t=$Timestamp, #a=$Active}")
+    assert(updateSpec.expressionAttributeNames.toString === s"{#a=$Active, #t=$Timestamp}")
   }
 }
