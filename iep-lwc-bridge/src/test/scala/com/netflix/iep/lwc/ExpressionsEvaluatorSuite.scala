@@ -15,7 +15,7 @@
  */
 package com.netflix.iep.lwc
 
-import com.netflix.atlas.core.model.Datapoint
+import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.atlas.impl.Subscription
 import com.typesafe.config.ConfigFactory
 import org.scalatest.funsuite.AnyFunSuite
@@ -25,6 +25,7 @@ class ExpressionsEvaluatorSuite extends AnyFunSuite {
   import scala.jdk.CollectionConverters._
 
   private val config = ConfigFactory.load()
+  private val registry = new NoopRegistry
 
   // pick an arbitrary time
   private val timestamp = 42 * 60000
@@ -49,14 +50,14 @@ class ExpressionsEvaluatorSuite extends AnyFunSuite {
   }
 
   test("eval with no expressions") {
-    val evaluator = new ExpressionsEvaluator(config)
+    val evaluator = new ExpressionsEvaluator(config, registry)
     val payload = evaluator.eval(timestamp, data(1.0))
     assert(payload.getTimestamp === timestamp)
     assert(payload.getMetrics.isEmpty)
   }
 
   test("eval with single expression") {
-    val evaluator = new ExpressionsEvaluator(config)
+    val evaluator = new ExpressionsEvaluator(config, registry)
     evaluator.sync(createSubs("node,i-00,:eq,:sum"))
     val payload = evaluator.eval(timestamp, data(1.0))
     assert(payload.getTimestamp === timestamp)
@@ -68,7 +69,7 @@ class ExpressionsEvaluatorSuite extends AnyFunSuite {
   }
 
   test("eval with multiple datapoints for an aggregate") {
-    val evaluator = new ExpressionsEvaluator(config)
+    val evaluator = new ExpressionsEvaluator(config, registry)
     evaluator.sync(createSubs("node,i-00,:eq,:sum"))
     val payload = evaluator.eval(timestamp, data(1.0) ::: data(4.0))
     assert(payload.getTimestamp === timestamp)
@@ -80,7 +81,7 @@ class ExpressionsEvaluatorSuite extends AnyFunSuite {
   }
 
   test("eval with multiple datapoints ignores NaN values") {
-    val evaluator = new ExpressionsEvaluator(config)
+    val evaluator = new ExpressionsEvaluator(config, registry)
     evaluator.sync(createSubs("node,i-00,:eq,:sum"))
     val payload = evaluator.eval(timestamp, data(7.0) ::: data(Double.NaN))
     assert(payload.getTimestamp === timestamp)
@@ -92,7 +93,7 @@ class ExpressionsEvaluatorSuite extends AnyFunSuite {
   }
 
   test("eval with multiple expressions") {
-    val evaluator = new ExpressionsEvaluator(config)
+    val evaluator = new ExpressionsEvaluator(config, registry)
     evaluator.sync(createSubs("node,i-00,:eq,:sum", "node,i-00,:eq,:max"))
     val payload = evaluator.eval(timestamp, data(1.0) ::: data(4.0))
     assert(payload.getTimestamp === timestamp)
@@ -105,7 +106,7 @@ class ExpressionsEvaluatorSuite extends AnyFunSuite {
   }
 
   test("sync: add/remove expressions") {
-    val evaluator = new ExpressionsEvaluator(config)
+    val evaluator = new ExpressionsEvaluator(config, registry)
     evaluator.sync(createSubs("node,i-00,:eq,:sum"))
     var payload = evaluator.eval(timestamp, data(1.0) ::: data(4.0))
     assert(payload.getMetrics.size() === 1)
@@ -124,7 +125,7 @@ class ExpressionsEvaluatorSuite extends AnyFunSuite {
   }
 
   ignore("sync: bad expressions") {
-    val evaluator = new ExpressionsEvaluator(config)
+    val evaluator = new ExpressionsEvaluator(config, registry)
     evaluator.sync(createSubs("node,i-00,:re,:sum"))
     val payload = evaluator.eval(timestamp, data(1.0) ::: data(4.0))
     assert(payload.getMetrics.isEmpty)

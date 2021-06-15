@@ -18,8 +18,8 @@ package com.netflix.iep.lwc
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicLong
-
 import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.Utils
 import com.netflix.spectator.atlas.impl.DataExpr.Aggregator
 import com.netflix.spectator.atlas.impl.EvalPayload
@@ -28,6 +28,7 @@ import com.netflix.spectator.atlas.impl.Subscription
 import com.netflix.spectator.atlas.impl.TagsValuePair
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
+
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,7 +38,7 @@ import javax.inject.Singleton
   * query index from Atlas so it can scale to a much larger set of expressions.
   */
 @Singleton
-class ExpressionsEvaluator @Inject()(config: Config) extends StrictLogging {
+class ExpressionsEvaluator @Inject()(config: Config, registry: Registry) extends StrictLogging {
   import ExpressionsEvaluator._
 
   private val subIdsToLog = {
@@ -45,9 +46,12 @@ class ExpressionsEvaluator @Inject()(config: Config) extends StrictLogging {
     config.getStringList("netflix.iep.lwc.bridge.logging.subscriptions").asScala.toSet
   }
 
+  private val subsAdded = registry.distributionSummary("lwc.syncExprsAdded")
+  private val subsRemoved = registry.distributionSummary("lwc.syncExprsRemoved")
+
   private var subscriptions = Set.empty[Subscription]
 
-  private[lwc] val index = QueryIndex.newInstance[Subscription](new NoopRegistry)
+  @volatile private[lwc] var index = QueryIndex.newInstance[Subscription](new NoopRegistry)
 
   private val statsMap = new ConcurrentHashMap[String, SubscriptionStats]()
 
@@ -66,8 +70,19 @@ class ExpressionsEvaluator @Inject()(config: Config) extends StrictLogging {
     val removed = previous.diff(current)
     subscriptions = current
 
-    added.foreach(s => index.add(s.dataExpr().query(), s))
-    removed.foreach(s => index.remove(s))
+    subsAdded.record(added.size)
+    subsRemoved.record(removed.size)
+
+    if (removed.size > 10) {
+      // Removals can be slow if there are a lot and it is a large index, prefer
+      // to replace the index
+      val tmp = QueryIndex.newInstance[Subscription](new NoopRegistry)
+      current.foreach(s => tmp.add(s.dataExpr().query(), s))
+      index = tmp
+    } else {
+      added.foreach(s => index.add(s.dataExpr().query(), s))
+      removed.foreach(s => index.remove(s))
+    }
   }
 
   /**

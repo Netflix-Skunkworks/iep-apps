@@ -22,8 +22,8 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.testkit.RouteTestTimeout
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import com.netflix.atlas.akka.RequestHandler
-import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.json.Json
+import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.atlas.impl.Subscription
 import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfter
@@ -37,7 +37,7 @@ class StatsApiSuite extends AnyFunSuite with ScalatestRouteTest with BeforeAndAf
   private implicit val routeTestTimeout = RouteTestTimeout(5.second)
 
   private val config = ConfigFactory.load()
-  private val evaluator = new ExpressionsEvaluator(config)
+  private val evaluator = new ExpressionsEvaluator(config, new NoopRegistry)
   private val endpoint = new StatsApi(evaluator)
   private val routes = RequestHandler.standardOptions(endpoint.routes)
 
