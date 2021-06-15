@@ -38,7 +38,7 @@ class ExprUpdateServiceSuite extends AnyFunSuite with BeforeAndAfter {
   private val config = ConfigFactory.load()
   private val clock = new ManualClock()
   private val registry = new DefaultRegistry(clock)
-  private val evaluator = new ExpressionsEvaluator(config)
+  private val evaluator = new ExpressionsEvaluator(config, registry)
 
   private val service = new ExprUpdateService(config, registry, evaluator, system)
 

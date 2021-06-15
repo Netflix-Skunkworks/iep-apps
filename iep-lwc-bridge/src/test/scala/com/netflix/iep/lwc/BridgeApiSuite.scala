@@ -31,7 +31,7 @@ class BridgeApiSuite extends AnyFunSuite with ScalatestRouteTest with BeforeAndA
   private implicit val routeTestTimeout = RouteTestTimeout(5.second)
 
   private val config = ConfigFactory.load()
-  private val evaluator = new ExpressionsEvaluator(config)
+  private val evaluator = new ExpressionsEvaluator(config, new NoopRegistry)
   private val endpoint = new BridgeApi(config, new NoopRegistry, evaluator, system)
   private val routes = RequestHandler.standardOptions(endpoint.routes)
 

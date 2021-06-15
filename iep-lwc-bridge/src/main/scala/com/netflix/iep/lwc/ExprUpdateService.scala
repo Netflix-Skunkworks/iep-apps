@@ -15,7 +15,6 @@
  */
 package com.netflix.iep.lwc
 
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import akka.NotUsed
 import akka.actor.ActorSystem
