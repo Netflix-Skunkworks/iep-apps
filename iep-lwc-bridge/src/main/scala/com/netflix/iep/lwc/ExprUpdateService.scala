@@ -27,9 +27,11 @@ import akka.http.scaladsl.model.Uri
 import akka.stream.KillSwitch
 import akka.stream.KillSwitches
 import akka.stream.OverflowStrategy
+import akka.stream.RestartSettings
 import akka.stream.ThrottleMode
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Keep
+import akka.stream.scaladsl.RestartFlow
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
@@ -77,11 +79,9 @@ class ExprUpdateService @Inject()(
   override def startImpl(): Unit = {
     val request = HttpRequest(HttpMethods.GET, configUri)
     val client = Http().superPool[AccessLogger]()
-    killSwitch = Source
-      .repeat(NotUsed)
-      .throttle(1, 10.seconds, 1, ThrottleMode.Shaping)
-      .map { _ =>
-        request -> AccessLogger.newClientLogger("lwc-subs", request)
+    val flow = Flow[HttpRequest]
+      .map { req =>
+        request -> AccessLogger.newClientLogger("lwc-subs", req)
       }
       .via(client)
       .map {
@@ -93,7 +93,14 @@ class ExprUpdateService @Inject()(
         case Success(response) => response
       }
       .via(syncExpressionsFlow)
-      .log(getClass.getSimpleName)
+    val restartSettings = RestartSettings(5.seconds, 5.seconds, 1.0)
+    val restartFlow = RestartFlow.onFailuresWithBackoff(restartSettings) { () =>
+      flow
+    }
+    killSwitch = Source
+      .repeat(request)
+      .throttle(1, 10.seconds, 1, ThrottleMode.Shaping)
+      .via(restartFlow)
       .viaMat(KillSwitches.single)(Keep.right)
       .toMat(Sink.ignore)(Keep.left)
       .run()
