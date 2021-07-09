@@ -27,7 +27,6 @@ import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.model.TransferEncodings
 import akka.http.scaladsl.model.headers._
 import akka.stream.Materializer
 import akka.stream.scaladsl.Flow
@@ -41,7 +40,6 @@ import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
 import java.io.InputStream
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.GZIPInputStream
 import scala.util.Failure
 import scala.util.Success

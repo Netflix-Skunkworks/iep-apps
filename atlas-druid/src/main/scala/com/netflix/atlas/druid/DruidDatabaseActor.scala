@@ -60,6 +60,8 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
   private val client =
     new DruidClient(config.getConfig("atlas.druid"), sys, Http().superPool[AccessLogger]())
 
+  private val maxDataSize = config.getBytes("atlas.druid.max-data-size")
+
   private val tagsInterval = config.getDuration("atlas.druid.tags-interval")
 
   private var metadata: Metadata = Metadata(Nil)
@@ -266,7 +268,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
     val druidQueries = toDruidQueries(metadata, fetchContext, expr).map {
       case (tags, groupByQuery) =>
         client.data(groupByQuery).map { result =>
-          val candidates = toTimeSeries(tags, fetchContext, result)
+          val candidates = toTimeSeries(tags, fetchContext, result, maxDataSize)
           // See behavior on multi-value dimensions:
           // http://druid.io/docs/latest/querying/groupbyquery.html
           //
@@ -398,11 +400,13 @@ object DruidDatabaseActor {
   def toTimeSeries(
     commonTags: Map[String, String],
     context: EvalContext,
-    data: List[GroupByDatapoint]
+    data: List[GroupByDatapoint],
+    limit: Long
   ): List[TimeSeries] = {
     val stepSeconds = context.step / 1000.0
     val arrays = scala.collection.mutable.AnyRefMap.empty[Map[String, String], Array[Double]]
     val length = context.bufferSize
+    val bytesPerTimeSeries = 8L * length
     data.foreach { d =>
       val tags = d.tags
       val array = arrays.getOrElseUpdate(tags, ArrayHelper.fill(length, Double.NaN))
@@ -413,6 +417,10 @@ object DruidDatabaseActor {
         // with Atlas conventions, the value should be reported as a rate per second. This
         // may need to be revisited in the future if other types are supported.
         array(i) = d.value / stepSeconds
+      }
+      // Stop early if data size is too large to avoid GC issues
+      if (arrays.size * bytesPerTimeSeries > limit) {
+        throw new IllegalStateException(s"data size exceeds $limit bytes")
       }
     }
     arrays.toList.map {
