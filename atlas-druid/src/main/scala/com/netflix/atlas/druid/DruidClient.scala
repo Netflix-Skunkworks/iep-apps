@@ -19,7 +19,6 @@ import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.time.Duration
 import java.time.Instant
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.HttpEntity
@@ -28,6 +27,8 @@ import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCodes
+import akka.http.scaladsl.model.TransferEncodings
+import akka.http.scaladsl.model.headers._
 import akka.stream.Materializer
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Source
@@ -39,6 +40,9 @@ import com.netflix.atlas.json.Json
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
+import java.io.InputStream
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.zip.GZIPInputStream
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Using
@@ -90,7 +94,8 @@ class DruidClient(
     val json = Json.encode(data)
     logger.trace(s"raw request payload: $json")
     val entity = HttpEntity(MediaTypes.`application/json`, json)
-    HttpRequest(HttpMethods.POST, uri, entity = entity)
+    val headers = List(`Accept-Encoding`(HttpEncodings.gzip))
+    HttpRequest(HttpMethods.POST, uri, headers = headers, entity = entity)
   }
 
   def datasources: Source[List[String], NotUsed] = {
@@ -98,7 +103,11 @@ class DruidClient(
     Source
       .single(request)
       .via(loggingClient)
-      .map(data => Json.decode[List[String]](data.toArray))
+      .map { data =>
+        Using.resource(inputStream(data)) { in =>
+          Json.decode[List[String]](in)
+        }
+      }
   }
 
   def datasource(name: String): Source[Datasource, NotUsed] = {
@@ -106,21 +115,33 @@ class DruidClient(
     Source
       .single(request)
       .via(loggingClient)
-      .map(data => Json.decode[Datasource](data.toArray))
+      .map { data =>
+        Using.resource(inputStream(data)) { in =>
+          Json.decode[Datasource](in)
+        }
+      }
   }
 
   def segmentMetadata(query: SegmentMetadataQuery): Source[List[SegmentMetadataResult], NotUsed] = {
     Source
       .single(mkRequest(query))
       .via(loggingClient)
-      .map(data => Json.decode[List[SegmentMetadataResult]](data.toArray))
+      .map { data =>
+        Using.resource(inputStream(data)) { in =>
+          Json.decode[List[SegmentMetadataResult]](in)
+        }
+      }
   }
 
   def search(query: SearchQuery): Source[List[SearchResult], NotUsed] = {
     Source
       .single(mkRequest(query))
       .via(loggingClient)
-      .map(data => Json.decode[List[SearchResult]](data.toArray))
+      .map { data =>
+        Using.resource(inputStream(data)) { in =>
+          Json.decode[List[SearchResult]](in)
+        }
+      }
   }
 
   def groupBy(query: GroupByQuery): Source[List[GroupByDatapoint], NotUsed] = {
@@ -135,7 +156,11 @@ class DruidClient(
     Source
       .single(mkRequest(query))
       .via(loggingClient)
-      .map(data => Json.decode[List[TimeseriesDatapoint]](data.toArray))
+      .map { data =>
+        Using.resource(inputStream(data)) { in =>
+          Json.decode[List[TimeseriesDatapoint]](in)
+        }
+      }
       .map(_.map(_.toGroupByDatapoint))
   }
 
@@ -147,7 +172,7 @@ class DruidClient(
   }
 
   private def parseResult(dimensions: List[String], data: ByteString): List[GroupByDatapoint] = {
-    Using.resource(Json.newJsonParser(new ByteStringInputStream(data))) { parser =>
+    Using.resource(Json.newJsonParser(inputStream(data))) { parser =>
       import com.netflix.atlas.json.JsonParserHelper._
       val builder = List.newBuilder[GroupByDatapoint]
       foreachItem(parser) {
@@ -385,4 +410,22 @@ object DruidClient {
   }
 
   case class TimeseriesResult(value: Double)
+
+  // Magic header to recognize GZIP compressed data
+  // http://www.zlib.org/rfc-gzip.html#file-format
+  private val gzipMagicHeader = ByteString(Array(0x1f.toByte, 0x8b.toByte))
+
+  /**
+    * Create an InputStream for reading the content of the ByteString. If the data is
+    * gzip compressed, then it will be wrapped in a GZIPInputStream to handle the
+    * decompression of the data. This can be handled at the server layer, but it may
+    * be preferable to decompress while parsing into the final object model to reduce
+    * the need to allocate an intermediate ByteString of the uncompressed data.
+    */
+  private def inputStream(bytes: ByteString): InputStream = {
+    if (bytes.startsWith(gzipMagicHeader))
+      new GZIPInputStream(new ByteStringInputStream(bytes))
+    else
+      new ByteStringInputStream(bytes)
+  }
 }
