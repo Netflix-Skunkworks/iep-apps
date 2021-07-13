@@ -73,16 +73,8 @@ class ExpressionsEvaluator @Inject()(config: Config, registry: Registry) extends
     subsAdded.record(added.size)
     subsRemoved.record(removed.size)
 
-    if (removed.size > 10) {
-      // Removals can be slow if there are a lot and it is a large index, prefer
-      // to replace the index
-      val tmp = QueryIndex.newInstance[Subscription](new NoopRegistry)
-      current.foreach(s => tmp.add(s.dataExpr().query(), s))
-      index = tmp
-    } else {
-      added.foreach(s => index.add(s.dataExpr().query(), s))
-      removed.foreach(s => index.remove(s))
-    }
+    added.foreach(s => index.add(s.dataExpr().query(), s))
+    removed.foreach(s => index.remove(s.dataExpr().query(), s))
   }
 
   /**
