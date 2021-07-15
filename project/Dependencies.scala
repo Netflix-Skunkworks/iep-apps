@@ -35,6 +35,7 @@ object Dependencies {
   val atlasModuleAkka    = "com.netflix.atlas_v1" %% "atlas-module-akka" % atlas
   val atlasModuleEval    = "com.netflix.atlas_v1" %% "atlas-module-eval" % atlas
   val atlasModuleWebApi  = "com.netflix.atlas_v1" %% "atlas-module-webapi" % atlas
+  val atlasWebApi        = "com.netflix.atlas_v1" %% "atlas-webapi" % atlas
   val aws2AutoScaling    = "software.amazon.awssdk" % "autoscaling" % aws2
   val aws2CloudWatch     = "software.amazon.awssdk" % "cloudwatch" % aws2
   val aws2DynamoDB       = "software.amazon.awssdk" % "dynamodb" % aws2
@@ -45,10 +46,13 @@ object Dependencies {
   val guiceCore          = "com.google.inject" % "guice" % guice
   val guiceMulti         = "com.google.inject.extensions" % "guice-multibindings" % guice
   val iepGuice           = "com.netflix.iep" % "iep-guice" % iep
+  val iepLeaderApi      = "com.netflix.iep" % "iep-leader-api" % iep
+  val iepLeaderDynamoDb = "com.netflix.iep" % "iep-leader-dynamodb" % iep
   val iepModuleAdmin     = "com.netflix.iep" % "iep-module-admin" % iep
   val iepModuleAtlas     = "com.netflix.iep" % "iep-module-atlas" % iep
   val iepModuleAws2      = "com.netflix.iep" % "iep-module-aws2" % iep
   val iepModuleJmx       = "com.netflix.iep" % "iep-module-jmxport" % iep
+  val iepModuleLeader   = "com.netflix.iep" % "iep-module-leader" % iep
   val iepNflxEnv         = "com.netflix.iep" % "iep-nflxenv" % iep
   val iepService         = "com.netflix.iep" % "iep-service" % iep
   val jsonSchema         = "com.github.java-json-tools" % "json-schema-validator" % "2.2.14"

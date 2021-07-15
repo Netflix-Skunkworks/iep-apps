@@ -3,6 +3,7 @@ lazy val `iep-apps` = project.in(file("."))
   .configure(BuildSettings.profile)
   .aggregate(
     `atlas-aggregator`,
+    `atlas-cloudwatch`,
     `atlas-druid`,
     `atlas-persistence`,
     `atlas-slotting`,
@@ -32,6 +33,30 @@ lazy val `atlas-aggregator` = project
     Dependencies.log4jSlf4j,
     Dependencies.spectatorAtlas,
 
+    Dependencies.akkaHttpTestkit % "test",
+    Dependencies.akkaTestkit % "test",
+    Dependencies.scalatest % "test"
+  ))
+
+lazy val `atlas-cloudwatch` = project
+  .configure(BuildSettings.profile)
+  .settings(libraryDependencies ++= Seq(
+    Dependencies.atlasCore,
+    Dependencies.atlasJson,
+    Dependencies.atlasModuleAkka,
+    Dependencies.aws2CloudWatch,
+    Dependencies.frigga,
+    Dependencies.iepGuice,
+    Dependencies.iepLeaderDynamoDb,
+    Dependencies.iepModuleAws2,
+    Dependencies.iepModuleLeader,
+    Dependencies.iepNflxEnv,
+    Dependencies.iepService,
+    Dependencies.log4jApi,
+    Dependencies.log4jCore,
+    Dependencies.log4jSlf4j,
+
+    Dependencies.atlasWebApi % "test",
     Dependencies.akkaHttpTestkit % "test",
     Dependencies.akkaTestkit % "test",
     Dependencies.scalatest % "test"
