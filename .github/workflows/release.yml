@@ -8,6 +8,7 @@ on:
 
 jobs:
   build:
+    if: ${{ github.repository == 'Netflix-Skunkworks/iep-apps' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
