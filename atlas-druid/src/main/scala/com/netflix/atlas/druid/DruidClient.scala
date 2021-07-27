@@ -142,6 +142,17 @@ class DruidClient(
       }
   }
 
+  def topn(query: TopNQuery): Source[List[TopNResult], NotUsed] = {
+    Source
+      .single(mkRequest(query))
+      .via(loggingClient)
+      .map { data =>
+        Using.resource(inputStream(data)) { in =>
+          Json.decode[List[TopNResult]](in)
+        }
+      }
+  }
+
   def groupBy(query: GroupByQuery): Source[List[GroupByDatapoint], NotUsed] = {
     val dimensions = query.dimensions.map(_.outputName)
     Source
@@ -304,6 +315,51 @@ object DruidClient {
   }
 
   case class DimensionValue(dimension: String, value: String, count: Int)
+
+  // https://druid.apache.org/docs/latest/querying/topnquery.html
+  case class TopNQuery(
+    private val dataSources: List[String],
+    dimension: DimensionSpec,
+    intervals: List[String],
+    filter: Option[DruidFilter] = None,
+    granularity: String = "all",
+    metric: TopNMetricSpec = TopNMetricSpec.Dimension,
+    threshold: Int = 1000
+  ) {
+    val queryType: String = "topN"
+    val dataSource: UnionDatasource = UnionDatasource(dataSources)
+  }
+
+  trait TopNMetricSpec
+
+  object TopNMetricSpec {
+    case object Dimension extends TopNMetricSpec {
+      val `type`: String = "dimension"
+      val ordering: DruidSort = DruidSort.Lexicographic
+      val previousStop: Option[String] = None
+    }
+
+    case class Numeric(
+      metric: String
+    ) extends TopNMetricSpec {
+      val `type`: String = "numeric"
+    }
+
+    case class Inverted(
+      metric: TopNMetricSpec
+    ) extends TopNMetricSpec {
+      val `type`: String = "inverted"
+    }
+  }
+
+  case class TopNResult(
+    timestamp: String,
+    result: List[TopNDimensionValue]
+  ) {
+    def values: List[String] = result.map(_.value)
+  }
+
+  case class TopNDimensionValue(value: String)
 
   sealed trait DataQuery
 

@@ -32,6 +32,8 @@ import com.netflix.atlas.core.model.DsType
 import com.netflix.atlas.core.model.EvalContext
 import com.netflix.atlas.core.model.Query
 import com.netflix.atlas.core.model.Query.KeyQuery
+import com.netflix.atlas.core.model.Query.KeyValueQuery
+import com.netflix.atlas.core.model.Query.PatternQuery
 import com.netflix.atlas.core.model.Tag
 import com.netflix.atlas.core.model.TimeSeries
 import com.netflix.atlas.core.util.ArrayHelper
@@ -172,33 +174,27 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
           ds.datasource.dimensions.contains(k) && ds.metrics.exists(query.couldMatch)
         }
 
-        // Server side dimensions filtering doesn't work for search queries, use default spec
-        // and filter locally after the results are returned.
-        //
-        // The limit for number of returned values cannot be applied to the query sent to Druid
-        // because it could truncate the results for multi-value dimensions.
         if (datasources.nonEmpty) {
-          val searchQuery = SearchQuery(
+          val dimensionFilterMatches = Query
+            .cnfList(query)
+            .map(toInClause)
+            .collect {
+              case q: KeyValueQuery if q.k == k => q
+              case q: PatternQuery if q.k == k  => q
+            }
+          val topnQuery = TopNQuery(
             dataSources = datasources.map { ds =>
               ds.name
             },
-            searchDimensions = List(DefaultDimensionSpec(k, k)),
+            dimension = toDimensionSpec(DefaultDimensionSpec(k, "value"), dimensionFilterMatches),
             intervals = List(tagsQueryInterval),
             filter = DruidFilter.forQuery(query),
-            limit = Int.MaxValue
+            threshold = tq.limit
           )
-          val druidQueries = List(client.search(searchQuery))
+          val druidQueries = List(client.topn(topnQuery))
           Source(druidQueries)
             .flatMapMerge(Int.MaxValue, v => v)
             .map(_.flatMap(_.values))
-            .map { vs =>
-              // If a single value for a multi-value dimension matches, then it will be
-              // returned by druid. This local filter reduces the set to those that match
-              // the users query expression.
-              vs.filter { v =>
-                query.couldMatch(Map(k -> v))
-              }
-            }
             .fold(List.empty[String]) { (vs1, vs2) =>
               ListHelper.merge(tq.limit, vs1, vs2)
             }
@@ -371,6 +367,8 @@ object DruidDatabaseActor {
         toDimensionSpec(ListFilteredDimensionSpec(delegate, vs), qs)
       case Query.Regex(_, p) :: qs =>
         toDimensionSpec(RegexFilteredDimensionSpec(delegate, s"^$p.*"), qs)
+      case Query.RegexIgnoreCase(_, p) :: qs =>
+        toDimensionSpec(RegexFilteredDimensionSpec(delegate, s"(?i)^$p.*"), qs)
       case _ :: qs =>
         toDimensionSpec(delegate, qs)
       case Nil =>
