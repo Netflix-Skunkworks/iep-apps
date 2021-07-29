@@ -189,7 +189,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
             dimension = toDimensionSpec(DefaultDimensionSpec(k, "value"), dimensionFilterMatches),
             intervals = List(tagsQueryInterval),
             filter = DruidFilter.forQuery(query),
-            threshold = tq.limit
+            threshold = if (tq.limit < Int.MaxValue) tq.limit else 1000
           )
           val druidQueries = List(client.topn(topnQuery))
           Source(druidQueries)
