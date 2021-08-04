@@ -356,7 +356,7 @@ object DruidClient {
     timestamp: String,
     result: List[TopNDimensionValue]
   ) {
-    def values: List[String] = result.map(_.value)
+    def values: List[String] = result.map(_.value).filterNot(v => v == null || v.isEmpty)
   }
 
   case class TopNDimensionValue(value: String)
