@@ -142,8 +142,16 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
     }
   }
 
+  private def getListQuery(tq: TagQuery): Query = {
+    val userQuery = tq.query.getOrElse(Query.True)
+    if (tq.offset == null || tq.offset == "")
+      userQuery
+    else
+      userQuery.and(Query.GreaterThan(tq.key.getOrElse("name"), tq.offset))
+  }
+
   private def listNames(callback: ListCallback, tq: TagQuery): Unit = {
-    val query = tq.query.getOrElse(Query.True)
+    val query = getListQuery(tq)
     val vs = metadata.datasources
       .flatMap(_.metrics)
       .filter(query.couldMatch)
@@ -155,7 +163,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
   }
 
   private def listDatasources(callback: ListCallback, tq: TagQuery): Unit = {
-    val query = tq.query.getOrElse(Query.True)
+    val query = getListQuery(tq)
     val vs = metadata.datasources
       .flatMap(_.metrics)
       .filter(query.couldMatch)
@@ -167,7 +175,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
   }
 
   private def listDimension(callback: ListCallback, tq: TagQuery): Unit = {
-    val query = tq.query.getOrElse(Query.True)
+    val query = getListQuery(tq)
     tq.key match {
       case Some(k) =>
         val datasources = metadata.datasources.filter { ds =>
