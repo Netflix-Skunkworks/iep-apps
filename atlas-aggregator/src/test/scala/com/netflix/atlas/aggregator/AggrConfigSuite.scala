@@ -15,7 +15,6 @@
  */
 package com.netflix.atlas.aggregator
 
-import akka.actor.ActorSystem
 import com.netflix.spectator.api.ManualClock
 import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
@@ -26,7 +25,7 @@ class AggrConfigSuite extends AnyFunSuite {
   test("initial polling delay") {
     val step = 60000L
     val clock = new ManualClock()
-    val config = new AggrConfig(ConfigFactory.load(), new NoopRegistry, ActorSystem("test"))
+    val config = new AggrConfig(ConfigFactory.load(), new NoopRegistry,  null)
     (0L until step).foreach { t =>
       clock.setWallTime(t)
       val delay = config.initialPollingDelay(clock, step)
