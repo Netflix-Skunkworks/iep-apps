@@ -15,14 +15,20 @@
  */
 package com.netflix.atlas.aggregator
 
-import java.security.SecureRandom
+import akka.actor.ActorSystem
 
+import java.security.SecureRandom
 import com.netflix.spectator.api.Clock
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.atlas.AtlasConfig
+import com.netflix.spectator.atlas.Publisher
 import com.typesafe.config.Config
 
-class AggrConfig(config: Config, registry: Registry) extends AtlasConfig {
+class AggrConfig(
+  config: Config,
+  registry: Registry,
+  system: ActorSystem
+) extends AtlasConfig {
 
   private val maxMeters = super.maxNumberOfMeters()
 
@@ -63,4 +69,8 @@ class AggrConfig(config: Config, registry: Registry) extends AtlasConfig {
     * Set to null since this will get corrected before it gets to the registry.
     */
   override def validTagCharacters(): String = null
+
+  override def publisher(): Publisher = {
+    new AkkaPublisher(this, system)
+  }
 }
