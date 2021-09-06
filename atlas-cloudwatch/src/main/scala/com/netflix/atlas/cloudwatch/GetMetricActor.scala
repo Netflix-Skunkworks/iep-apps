@@ -23,6 +23,7 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.histogram.BucketCounter
 import com.typesafe.scalalogging.StrictLogging
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient
+import software.amazon.awssdk.services.cloudwatch.model.CloudWatchException
 import software.amazon.awssdk.services.cloudwatch.model.Datapoint
 
 import java.time.temporal.ChronoUnit
@@ -76,6 +77,9 @@ class GetMetricActor(
       val endOffset = now.minusSeconds(m.category.endPeriodOffset * m.category.period)
       sorted.find(_.timestamp.isBefore(endOffset))
     } catch {
+      case e: CloudWatchException if e.isThrottlingException =>
+        logger.debug(s"failed to get data for ${m.category.namespace}/${m.definition.name}", e)
+        None
       case e: Exception =>
         logger.warn(s"failed to get data for ${m.category.namespace}/${m.definition.name}", e)
         None
