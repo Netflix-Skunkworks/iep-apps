@@ -18,6 +18,7 @@ package com.netflix.atlas.cloudwatch
 import akka.actor.Actor
 import com.typesafe.scalalogging.StrictLogging
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient
+import software.amazon.awssdk.services.cloudwatch.model.CloudWatchException
 import software.amazon.awssdk.services.cloudwatch.model.ListMetricsRequest
 import software.amazon.awssdk.services.cloudwatch.model.Metric
 
@@ -39,6 +40,9 @@ class ListMetricsActor(client: CloudWatchClient, tagger: Tagger) extends Actor w
       }
       builder.result()
     } catch {
+      case e: CloudWatchException if e.isThrottlingException =>
+        logger.debug("failed to list metrics", e)
+        Nil
       case e: Exception =>
         logger.warn("failed to list metrics", e)
         Nil
