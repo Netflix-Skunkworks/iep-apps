@@ -15,22 +15,28 @@
  */
 package com.netflix.atlas.aggregator
 
+import akka.actor.ActorSystem
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Clock
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.atlas.AtlasRegistry
 import com.typesafe.config.Config
+
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class AtlasAggregatorService @Inject()(config: Config, clock: Clock, registry: Registry)
-    extends AbstractService
+class AtlasAggregatorService @Inject()(
+  config: Config,
+  clock: Clock,
+  registry: Registry,
+  system: ActorSystem
+) extends AbstractService
     with Aggregator {
 
   private val n = math.max(1, Runtime.getRuntime.availableProcessors() / 2)
-  private val aggrCfg = new AggrConfig(config, registry)
+  private val aggrCfg = new AggrConfig(config, registry, system)
   private val registries = (0 until n)
     .map(_ => new AtlasRegistry(clock, aggrCfg))
     .toArray

@@ -15,6 +15,8 @@
  */
 package com.netflix.atlas.aggregator
 
+import akka.actor.ActorSystem
+
 import javax.inject.Singleton
 import com.google.inject.AbstractModule
 import com.google.inject.Guice
@@ -41,6 +43,7 @@ class AppModuleSuite extends AnyFunSuite {
         override def configure(): Unit = {
           bind(classOf[Config]).toInstance(config)
           bind(classOf[Registry]).toProvider(classOf[RegistryProvider])
+          bind(classOf[ActorSystem]).toInstance(ActorSystem("AppModuleSuite"))
         }
       }
     )
@@ -53,7 +56,7 @@ class AppModuleSuite extends AnyFunSuite {
     val config = ConfigFactory.parseString("""
         |netflix.atlas.aggr.registry.atlas.uri = "test"
       """.stripMargin)
-    val aggr = new AggrConfig(config, new NoopRegistry)
+    val aggr = new AggrConfig(config, new NoopRegistry, null)
     assert(aggr.uri() === "test")
   }
 
@@ -61,7 +64,7 @@ class AppModuleSuite extends AnyFunSuite {
     val config = ConfigFactory.parseString("""
         |netflix.atlas.aggr.registry.atlas.uri = "test"
       """.stripMargin)
-    val aggr = new AggrConfig(config, new NoopRegistry)
+    val aggr = new AggrConfig(config, new NoopRegistry, null)
     assert(aggr.batchSize() === 10000)
   }
 }

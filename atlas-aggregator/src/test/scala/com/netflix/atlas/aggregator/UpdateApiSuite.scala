@@ -15,6 +15,7 @@
  */
 package com.netflix.atlas.aggregator
 
+import akka.actor.ActorSystem
 import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.model.StatusCode
 import akka.http.scaladsl.model.StatusCodes
@@ -34,12 +35,13 @@ import org.scalatest.funsuite.AnyFunSuite
 
 class UpdateApiSuite extends AnyFunSuite {
 
+  private val system = ActorSystem("UpdateApiSuite")
   private val factory = new JsonFactory()
 
   private val aggrTag = Tag.of("atlas.dstype", "sum")
 
   private def createAggrService(clock: Clock): AtlasAggregatorService = {
-    new AtlasAggregatorService(ConfigFactory.load(), clock, new NoopRegistry)
+    new AtlasAggregatorService(ConfigFactory.load(), clock, new NoopRegistry, system)
   }
 
   test("simple payload") {
