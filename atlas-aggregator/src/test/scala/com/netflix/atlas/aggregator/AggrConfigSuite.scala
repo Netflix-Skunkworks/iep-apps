@@ -25,7 +25,7 @@ class AggrConfigSuite extends AnyFunSuite {
   test("initial polling delay") {
     val step = 60000L
     val clock = new ManualClock()
-    val config = new AggrConfig(ConfigFactory.load(), new NoopRegistry,  null)
+    val config = new AggrConfig(ConfigFactory.load(), new NoopRegistry, null)
     (0L until step).foreach { t =>
       clock.setWallTime(t)
       val delay = config.initialPollingDelay(clock, step)
