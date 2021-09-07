@@ -22,6 +22,8 @@ import akka.http.scaladsl.model.HttpMethods
 import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.Uri
 import akka.http.scaladsl.model.headers._
+import akka.stream.scaladsl.Source
+import akka.util.ByteString
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.core.StreamReadFeature
 import com.fasterxml.jackson.core.StreamWriteFeature
@@ -74,7 +76,8 @@ class AkkaPublisher(config: AggrConfig, implicit val system: ActorSystem) extend
 
   private def doPost(uri: Uri, id: String, payload: AnyRef): CompletableFuture[Void] = {
     import scala.jdk.FutureConverters._
-    val entity = HttpEntity(CustomMediaTypes.`application/x-jackson-smile`, encode(payload))
+    val source = Source.single(payload).map(obj => ByteString(encode(obj)))
+    val entity = HttpEntity(CustomMediaTypes.`application/x-jackson-smile`, source)
     val request = HttpRequest(HttpMethods.POST, uri, headers, entity)
     val logger = AccessLogger.newClientLogger(id, request)
     val future = Http().singleRequest(request)
