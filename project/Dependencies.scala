@@ -4,11 +4,11 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val akka       = "2.6.15"
+    val akka       = "2.6.16"
     val akkaHttpV  = "10.2.6"
     val atlas      = "1.7.0-SNAPSHOT"
-    val aws2       = "2.17.13"
-    val iep        = "3.0.3"
+    val aws2       = "2.17.34"
+    val iep        = "3.0.5"
     val guice      = "4.1.0"
     val log4j      = "2.14.1"
     val scala      = "2.13.6"
@@ -28,7 +28,7 @@ object Dependencies {
   val akkaHttpTestkit    = "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV
   val akkaSlf4j          = "com.typesafe.akka" %% "akka-slf4j" % akka
   val akkaTestkit        = "com.typesafe.akka" %% "akka-testkit" % akka
-  val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % "3.0.1"
+  val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % "3.0.3"
   val atlasCore          = "com.netflix.atlas_v1" %% "atlas-core" % atlas
   val atlasEval          = "com.netflix.atlas_v1" %% "atlas-eval" % atlas
   val atlasJson          = "com.netflix.atlas_v1" %% "atlas-json" % atlas
