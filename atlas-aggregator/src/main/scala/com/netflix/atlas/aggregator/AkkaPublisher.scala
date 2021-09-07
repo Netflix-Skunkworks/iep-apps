@@ -23,6 +23,7 @@ import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.Uri
 import akka.http.scaladsl.model.headers._
+import akka.stream.Attributes
 import akka.stream.RestartSettings
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Keep
@@ -80,6 +81,7 @@ class AkkaPublisher(config: AggrConfig, implicit val system: ActorSystem) extend
         case (response, t) => t.complete(response)
       }
     val restartSettings = RestartSettings(5.seconds, 5.seconds, 1.0)
+      .withLogSettings(RestartSettings.LogSettings(Attributes.LogLevels.Warning))
     val restartFlow = RestartFlow.onFailuresWithBackoff(restartSettings) { () =>
       flow
     }
