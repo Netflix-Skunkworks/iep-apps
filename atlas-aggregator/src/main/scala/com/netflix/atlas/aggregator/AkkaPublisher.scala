@@ -23,11 +23,14 @@ import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.Uri
 import akka.http.scaladsl.model.headers._
 import com.fasterxml.jackson.core.JsonGenerator
+import com.fasterxml.jackson.core.StreamReadFeature
+import com.fasterxml.jackson.core.StreamWriteFeature
 import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializerProvider
 import com.fasterxml.jackson.databind.module.SimpleModule
 import com.fasterxml.jackson.dataformat.smile.SmileFactory
+import com.fasterxml.jackson.dataformat.smile.SmileGenerator
 import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.akka.CustomMediaTypes
 import com.netflix.spectator.api.Measurement
@@ -120,7 +123,15 @@ object AkkaPublisher {
       }
     }
     val module = new SimpleModule().addSerializer(classOf[Measurement], serializer)
-    new ObjectMapper(new SmileFactory()).registerModule(module)
+    val factory = SmileFactory
+      .builder()
+      .enable(StreamReadFeature.AUTO_CLOSE_SOURCE)
+      .enable(StreamWriteFeature.AUTO_CLOSE_TARGET)
+      .disable(SmileGenerator.Feature.ENCODE_BINARY_AS_7BIT)
+      .disable(SmileGenerator.Feature.CHECK_SHARED_NAMES)
+      .disable(SmileGenerator.Feature.CHECK_SHARED_STRING_VALUES)
+      .build()
+    new ObjectMapper(factory).registerModule(module)
   }
 
   private val streams = new ThreadLocal[ByteArrayOutputStream]
