@@ -78,7 +78,9 @@ class AkkaPublisher(config: AggrConfig, implicit val system: ActorSystem) extend
       }
       .via(Http().superPool[RequestTuple]())
       .map {
-        case (response, t) => t.complete(response)
+        case (response, t) =>
+          t.complete(response)
+          response.foreach(_.discardEntityBytes())
       }
     val restartSettings = RestartSettings(5.seconds, 5.seconds, 1.0)
       .withLogSettings(RestartSettings.LogSettings(Attributes.LogLevels.Warning))
