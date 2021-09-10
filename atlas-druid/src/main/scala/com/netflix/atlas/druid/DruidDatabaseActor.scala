@@ -16,7 +16,6 @@
 package com.netflix.atlas.druid
 
 import java.time.Instant
-
 import akka.NotUsed
 import akka.actor.Actor
 import akka.actor.ActorRef
@@ -39,6 +38,7 @@ import com.netflix.atlas.core.model.TimeSeries
 import com.netflix.atlas.core.util.ArrayHelper
 import com.netflix.atlas.core.util.ListHelper
 import com.netflix.atlas.json.Json
+import com.netflix.spectator.impl.PatternMatcher
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
@@ -66,6 +66,9 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
 
   private val tagsInterval = config.getDuration("atlas.druid.tags-interval")
 
+  private val datasourceFilter =
+    PatternMatcher.compile(config.getString("atlas.druid.datasource-filter"))
+
   private var metadata: Metadata = Metadata(Nil)
 
   private val cancellable =
@@ -85,14 +88,16 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
   private def refreshMetadata(ref: ActorRef): Unit = {
     client.datasources
       .flatMapConcat { ds =>
-        val sources = ds.map { d =>
-          client
-            .segmentMetadata(SegmentMetadataQuery(d, List(tagsQueryInterval)))
-            .filter(_.nonEmpty)
-            .map { rs =>
-              DatasourceMetadata(d, rs.head.toDatasource)
-            }
-        }
+        val sources = ds
+          .filter(datasourceFilter.matches)
+          .map { d =>
+            client
+              .segmentMetadata(SegmentMetadataQuery(d, List(tagsQueryInterval)))
+              .filter(_.nonEmpty)
+              .map { rs =>
+                DatasourceMetadata(d, rs.head.toDatasource)
+              }
+          }
         Source(sources)
       }
       .flatMapConcat(v => v)
