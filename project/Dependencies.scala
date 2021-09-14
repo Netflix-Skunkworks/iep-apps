@@ -1,4 +1,5 @@
 import sbt._
+import sbt.librarymanagement.DependencyBuilders.OrganizationArtifactName
 
 // format: off
 
@@ -9,7 +10,7 @@ object Dependencies {
     val atlas      = "1.7.0-SNAPSHOT"
     val aws2       = "2.17.34"
     val iep        = "3.0.5"
-    val guice      = "4.1.0"
+    val guice      = "5.0.1"
     val log4j      = "2.14.1"
     val scala      = "2.13.6"
     val servo      = "0.13.2"
@@ -43,11 +44,11 @@ object Dependencies {
   val aws2S3             = "software.amazon.awssdk" % "s3" % aws2
   val aws2SQS            = "software.amazon.awssdk" % "sqs" % aws2
   val frigga             = "com.netflix.frigga" % "frigga" % "0.25.0"
-  val guiceCore          = "com.google.inject" % "guice" % guice
-  val guiceMulti         = "com.google.inject.extensions" % "guice-multibindings" % guice
+  val guiceCoreBase      = "com.google.inject" % "guice"
+  val guiceMultiBase     = "com.google.inject.extensions" % "guice-multibindings"
   val iepGuice           = "com.netflix.iep" % "iep-guice" % iep
-  val iepLeaderApi      = "com.netflix.iep" % "iep-leader-api" % iep
-  val iepLeaderDynamoDb = "com.netflix.iep" % "iep-leader-dynamodb" % iep
+  val iepLeaderApi       = "com.netflix.iep" % "iep-leader-api" % iep
+  val iepLeaderDynamoDb  = "com.netflix.iep" % "iep-leader-dynamodb" % iep
   val iepModuleAdmin     = "com.netflix.iep" % "iep-module-admin" % iep
   val iepModuleAtlas     = "com.netflix.iep" % "iep-module-atlas" % iep
   val iepModuleAws2      = "com.netflix.iep" % "iep-module-aws2" % iep
@@ -79,6 +80,23 @@ object Dependencies {
   val spectatorM2        = "com.netflix.spectator" % "spectator-reg-metrics2" % spectator
   val spectatorSandbox   = "com.netflix.spectator" % "spectator-ext-sandbox" % spectator
   val typesafeConfig     = "com.typesafe" % "config" % "1.4.1"
+
+  def isBeforeJava16: Boolean = {
+    System.getProperty("java.specification.version").toDouble < 16
+  }
+
+  private def guiceDep(base: OrganizationArtifactName): ModuleID = {
+    base % (if (isBeforeJava16) "4.1.0" else guice)
+  }
+
+  def guiceCore: ModuleID = guiceDep(guiceCoreBase)
+
+  def guiceCoreAndMulti: Seq[ModuleID] = {
+    if (isBeforeJava16)
+      Seq(guiceDep(guiceCoreBase), guiceDep(guiceMultiBase))
+    else
+      Seq(guiceDep(guiceCoreBase))
+  }
 }
 
 // format: on

@@ -21,7 +21,7 @@ lazy val `iep-apps` = project.in(file("."))
 
 lazy val `atlas-aggregator` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Seq(
+  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++ Seq(
     Dependencies.atlasJson,
     Dependencies.atlasModuleAkka,
     Dependencies.atlasModuleEval,
@@ -40,7 +40,7 @@ lazy val `atlas-aggregator` = project
 
 lazy val `atlas-cloudwatch` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Seq(
+  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++ Seq(
     Dependencies.atlasCore,
     Dependencies.atlasJson,
     Dependencies.atlasModuleAkka,
@@ -64,7 +64,7 @@ lazy val `atlas-cloudwatch` = project
 
 lazy val `atlas-druid` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Seq(
+  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++Seq(
     Dependencies.atlasModuleAkka,
     Dependencies.atlasModuleWebApi,
     Dependencies.iepGuice,
@@ -76,7 +76,7 @@ lazy val `atlas-druid` = project
 lazy val `atlas-persistence` = project
   .configure(BuildSettings.profile)
   .settings(
-    libraryDependencies ++= Seq(
+    libraryDependencies ++= Dependencies.guiceCoreAndMulti ++Seq(
       Dependencies.atlasModuleAkka,
       Dependencies.atlasModuleWebApi,
       Dependencies.avro,
@@ -91,7 +91,7 @@ lazy val `atlas-persistence` = project
 
 lazy val `atlas-slotting` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Seq(
+  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++Seq(
       Dependencies.akkaHttpCaching,
       Dependencies.atlasModuleAkka,
       Dependencies.aws2AutoScaling,
@@ -113,7 +113,7 @@ lazy val `atlas-slotting` = project
 
 lazy val `atlas-stream` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Seq(
+  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++Seq(
     Dependencies.atlasModuleAkka,
     Dependencies.atlasModuleEval,
     Dependencies.iepGuice,
@@ -128,7 +128,7 @@ lazy val `atlas-stream` = project
 
 lazy val `iep-archaius` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Seq(
+  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++Seq(
     Dependencies.atlasModuleAkka,
     Dependencies.aws2DynamoDB,
     Dependencies.frigga,
@@ -147,7 +147,7 @@ lazy val `iep-archaius` = project
 
 lazy val `iep-atlas` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Seq(
+  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++Seq(
     Dependencies.atlasModuleAkka,
     Dependencies.atlasModuleWebApi,
     Dependencies.iepGuice,
@@ -161,7 +161,7 @@ lazy val `iep-atlas` = project
 
 lazy val `iep-clienttest` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Seq(
+  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++Seq(
     Dependencies.atlasModuleAkka,
     Dependencies.iepGuice,
     Dependencies.log4jApi,
@@ -173,7 +173,7 @@ lazy val `iep-clienttest` = project
 
 lazy val `iep-lwc-bridge` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Seq(
+  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++Seq(
     Dependencies.atlasCore,
     Dependencies.atlasModuleAkka,
     Dependencies.frigga,
@@ -195,7 +195,7 @@ lazy val `iep-lwc-cloudwatch-model` = project
 lazy val `iep-lwc-cloudwatch` = project
   .configure(BuildSettings.profile)
   .dependsOn(`iep-lwc-cloudwatch-model`)
-  .settings(libraryDependencies ++= Seq(
+  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++ Seq(
     Dependencies.atlasModuleAkka,
     Dependencies.atlasModuleEval,
     Dependencies.aws2CloudWatch,
@@ -216,7 +216,7 @@ lazy val `iep-lwc-cloudwatch` = project
 lazy val `iep-lwc-fwding-admin` = project
   .configure(BuildSettings.profile)
   .dependsOn(`iep-lwc-cloudwatch-model`)
-  .settings(libraryDependencies ++= Seq(
+  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++ Seq(
     Dependencies.atlasEval,
     Dependencies.atlasModuleAkka,
     Dependencies.atlasModuleEval,
@@ -238,7 +238,7 @@ lazy val `iep-lwc-fwding-admin` = project
 
 lazy val `iep-lwc-loadgen` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Seq(
+  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++ Seq(
     Dependencies.atlasModuleAkka,
     Dependencies.atlasModuleEval,
     Dependencies.iepGuice,
@@ -254,7 +254,7 @@ lazy val `iep-lwc-loadgen` = project
 
 lazy val `iep-ses-monitor` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Seq(
+  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++ Seq(
     Dependencies.atlasModuleAkka,
     Dependencies.aws2SQS,
     Dependencies.alpakkaSqs,
