@@ -427,13 +427,12 @@ object DruidDatabaseActor {
       val t = d.timestamp
       val i = ((t - context.start) / context.step).toInt
       if (i >= 0 && i < length) {
-        if(normalizeRates) {
+        if (normalizeRates) {
           // Assume all values are counters that are in a rate per step. To make it consistent
           // with Atlas conventions, the value should be reported as a rate per second. This
           // may need to be revisited in the future if other types are supported.
           array(i) = d.value / stepSeconds
-        }
-        else {
+        } else {
           array(i) = d.value
         }
       }
