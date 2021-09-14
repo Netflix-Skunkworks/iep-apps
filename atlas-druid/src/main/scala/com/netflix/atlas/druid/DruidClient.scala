@@ -217,7 +217,7 @@ object DruidClient {
   case class Datasource(dimensions: List[String], metrics: List[Metric])
 
   case class Metric(name: String, dataType: String) {
-    def isCounter: Boolean = dataType == "FLOAT" || dataType == "LONG"
+    def isCounter: Boolean = dataType == "DOUBLE" || dataType == "FLOAT" || dataType == "LONG"
     def isHistogram: Boolean = dataType == "netflixHistogram"
     def isSupported: Boolean = isCounter
   }
