@@ -69,6 +69,8 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
   private val datasourceFilter =
     PatternMatcher.compile(config.getString("atlas.druid.datasource-filter"))
 
+  private val normalizeRates = config.getBoolean("atlas.druid.normalize-rates")
+
   private var metadata: Metadata = Metadata(Nil)
 
   private val cancellable =
@@ -277,7 +279,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
     val druidQueries = toDruidQueries(metadata, fetchContext, expr).map {
       case (tags, groupByQuery) =>
         client.data(groupByQuery).map { result =>
-          val candidates = toTimeSeries(tags, fetchContext, result, maxDataSize)
+          val candidates = toTimeSeries(tags, fetchContext, result, maxDataSize, normalizeRates)
           // See behavior on multi-value dimensions:
           // http://druid.io/docs/latest/querying/groupbyquery.html
           //
@@ -412,7 +414,8 @@ object DruidDatabaseActor {
     commonTags: Map[String, String],
     context: EvalContext,
     data: List[GroupByDatapoint],
-    limit: Long
+    limit: Long,
+    normalizeRates: Boolean
   ): List[TimeSeries] = {
     val stepSeconds = context.step / 1000.0
     val arrays = scala.collection.mutable.AnyRefMap.empty[Map[String, String], Array[Double]]
@@ -424,10 +427,15 @@ object DruidDatabaseActor {
       val t = d.timestamp
       val i = ((t - context.start) / context.step).toInt
       if (i >= 0 && i < length) {
-        // Assume all values are counters that are in a rate per step. To make it consistent
-        // with Atlas conventions, the value should be reported as a rate per second. This
-        // may need to be revisited in the future if other types are supported.
-        array(i) = d.value / stepSeconds
+        if(normalizeRates) {
+          // Assume all values are counters that are in a rate per step. To make it consistent
+          // with Atlas conventions, the value should be reported as a rate per second. This
+          // may need to be revisited in the future if other types are supported.
+          array(i) = d.value / stepSeconds
+        }
+        else {
+          array(i) = d.value
+        }
       }
       // Stop early if data size is too large to avoid GC issues
       if (arrays.size * bytesPerTimeSeries > limit) {
