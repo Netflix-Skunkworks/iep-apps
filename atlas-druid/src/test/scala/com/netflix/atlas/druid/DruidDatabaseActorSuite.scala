@@ -295,4 +295,40 @@ class DruidDatabaseActorSuite extends AnyFunSuite {
     val expected = evalQuery("a,1,:eq")
     assert(simplifyExact(q) === expected)
   }
+
+  test("createValueMapper: normalize rates, sum") {
+    val expr = DataExpr.Sum(Query.Equal("a", "1"))
+    val mapper = createValueMapper(true, context, expr)
+    assert(mapper(1.0) === 1.0 / 60)
+  }
+
+  test("createValueMapper: normalize rates, max") {
+    val expr = DataExpr.Max(Query.Equal("a", "1"))
+    val mapper = createValueMapper(true, context, expr)
+    assert(mapper(1.0) === 1.0 / 60)
+  }
+
+  test("createValueMapper: avg consolidation") {
+    val expr = DataExpr.Sum(Query.Equal("a", "1"))
+    val mapper = createValueMapper(false, context.copy(step = 300000), expr)
+    assert(mapper(1.0) === 1.0 / 5)
+  }
+
+  test("createValueMapper: max consolidation") {
+    val expr = DataExpr.Max(Query.Equal("a", "1"))
+    val mapper = createValueMapper(false, context.copy(step = 300000), expr)
+    assert(mapper(1.0) === 1.0)
+  }
+
+  test("createValueMapper: min consolidation") {
+    val expr = DataExpr.Min(Query.Equal("a", "1"))
+    val mapper = createValueMapper(false, context.copy(step = 300000), expr)
+    assert(mapper(1.0) === 1.0)
+  }
+
+  test("createValueMapper: sum consolidation") {
+    val expr = DataExpr.Sum(Query.Equal("a", "1")).withConsolidation(ConsolidationFunction.Sum)
+    val mapper = createValueMapper(false, context.copy(step = 300000), expr)
+    assert(mapper(1.0) === 1.0)
+  }
 }

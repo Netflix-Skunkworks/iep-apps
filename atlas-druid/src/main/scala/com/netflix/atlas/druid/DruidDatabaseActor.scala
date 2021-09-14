@@ -26,7 +26,9 @@ import akka.stream.scaladsl.Source
 import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.core.index.TagQuery
 import com.netflix.atlas.core.model.ArrayTimeSeq
+import com.netflix.atlas.core.model.ConsolidationFunction
 import com.netflix.atlas.core.model.DataExpr
+import com.netflix.atlas.core.model.DefaultSettings
 import com.netflix.atlas.core.model.DsType
 import com.netflix.atlas.core.model.EvalContext
 import com.netflix.atlas.core.model.Query
@@ -68,6 +70,8 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
 
   private val datasourceFilter =
     PatternMatcher.compile(config.getString("atlas.druid.datasource-filter"))
+
+  private val normalizeRates = config.getBoolean("atlas.druid.normalize-rates")
 
   private var metadata: Metadata = Metadata(Nil)
 
@@ -274,10 +278,12 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
       }
     val query = expr.query
 
+    val valueMapper = createValueMapper(normalizeRates, fetchContext, expr)
+
     val druidQueries = toDruidQueries(metadata, fetchContext, expr).map {
       case (tags, groupByQuery) =>
         client.data(groupByQuery).map { result =>
-          val candidates = toTimeSeries(tags, fetchContext, result, maxDataSize)
+          val candidates = toTimeSeries(tags, fetchContext, result, maxDataSize, valueMapper)
           // See behavior on multi-value dimensions:
           // http://druid.io/docs/latest/querying/groupbyquery.html
           //
@@ -408,11 +414,39 @@ object DruidDatabaseActor {
     s"$start/$end"
   }
 
+  def createValueMapper(
+    normalizeRates: Boolean,
+    context: EvalContext,
+    expr: DataExpr
+  ): Double => Double = {
+
+    if (normalizeRates) {
+      // Assume all values are counters that are in a rate per step. To make it consistent
+      // with Atlas conventions, the value should be reported as a rate per second. This
+      // may need to be revisited in the future if other types are supported.
+      val stepSeconds = context.step / 1000.0
+      (v: Double) => v / stepSeconds
+    } else {
+      expr.cf match {
+        case ConsolidationFunction.Avg =>
+          // If consolidating using average, divide by the multiple to preserve the unit
+          // for the consolidated value.
+          val multiple = context.step / DefaultSettings.stepSize
+          (v: Double) => v / multiple
+        case _ =>
+          // For other consolidation functions like min, max, and sum, the value does not
+          // need to be modified.
+          (v: Double) => v
+      }
+    }
+  }
+
   def toTimeSeries(
     commonTags: Map[String, String],
     context: EvalContext,
     data: List[GroupByDatapoint],
-    limit: Long
+    limit: Long,
+    valueMapper: Double => Double
   ): List[TimeSeries] = {
     val stepSeconds = context.step / 1000.0
     val arrays = scala.collection.mutable.AnyRefMap.empty[Map[String, String], Array[Double]]
@@ -424,10 +458,7 @@ object DruidDatabaseActor {
       val t = d.timestamp
       val i = ((t - context.start) / context.step).toInt
       if (i >= 0 && i < length) {
-        // Assume all values are counters that are in a rate per step. To make it consistent
-        // with Atlas conventions, the value should be reported as a rate per second. This
-        // may need to be revisited in the future if other types are supported.
-        array(i) = d.value / stepSeconds
+        array(i) = valueMapper(d.value)
       }
       // Stop early if data size is too large to avoid GC issues
       if (arrays.size * bytesPerTimeSeries > limit) {
