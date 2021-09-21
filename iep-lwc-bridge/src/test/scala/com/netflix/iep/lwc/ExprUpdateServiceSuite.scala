@@ -28,8 +28,12 @@ import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfter
 import org.scalatest.funsuite.AnyFunSuite
 
+import java.io.ByteArrayOutputStream
+import java.nio.charset.StandardCharsets
+import java.util.zip.GZIPOutputStream
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.util.Using
 
 class ExprUpdateServiceSuite extends AnyFunSuite with BeforeAndAfter {
 
@@ -55,8 +59,16 @@ class ExprUpdateServiceSuite extends AnyFunSuite with BeforeAndAfter {
     evaluator.clear()
   }
 
-  private def doValidUpdate(): Unit = {
-    val json =
+  private def gzip(input: String): Array[Byte] = {
+    val baos = new ByteArrayOutputStream()
+    Using.resource(new GZIPOutputStream(baos)) { out =>
+      out.write(input.getBytes(StandardCharsets.UTF_8))
+    }
+    baos.toByteArray
+  }
+
+  private def doValidUpdate(compress: Boolean = false): Unit = {
+    val json = {
       """
         |{
         |  "expressions": [
@@ -73,7 +85,11 @@ class ExprUpdateServiceSuite extends AnyFunSuite with BeforeAndAfter {
         |  ]
         |}
       """.stripMargin
-    update(HttpResponse(StatusCodes.OK, entity = json))
+    }
+    if (compress)
+      update(HttpResponse(StatusCodes.OK, entity = gzip(json)))
+    else
+      update(HttpResponse(StatusCodes.OK, entity = json))
   }
 
   private def doInvalidUpdate(): Unit = {
@@ -104,6 +120,11 @@ class ExprUpdateServiceSuite extends AnyFunSuite with BeforeAndAfter {
     PolledMeter.update(registry)
     val age = registry.gauge("lwc.expressionsAge").value()
     assert(age === 0.0)
+  }
+
+  test("valid update compressed") {
+    doValidUpdate(true)
+    assert(1 === evaluator.index.findMatches(Id.create("cpu")).size)
   }
 
   test("invalid expression does not refresh age metric") {
