@@ -46,9 +46,12 @@ import com.netflix.spectator.atlas.impl.Subscriptions
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
+import java.io.InputStream
+import java.util.zip.GZIPInputStream
 import javax.inject.Inject
 import scala.concurrent.Future
 import scala.util.Success
+import scala.util.Using
 
 /**
   * Refresh the set of expressions from the LWC service.
@@ -133,15 +136,17 @@ class ExprUpdateService @Inject()(
     import scala.jdk.CollectionConverters._
     Future {
       try {
-        val exprs = Json
-          .decode[Subscriptions](new ByteStringInputStream(data))
-          .getExpressions
-          .asScala
-          .filter(_.getFrequency == 60000) // Limit to primary publish step size
-          .asJava
-        evaluator.sync(exprs)
-        syncPayloadExprs.record(exprs.size())
-        lastUpdateTime.set(registry.clock().wallTime())
+        Using.resource(ExprUpdateService.inputStream(data)) { in =>
+          val exprs = Json
+            .decode[Subscriptions](in)
+            .getExpressions
+            .asScala
+            .filter(_.getFrequency == 60000) // Limit to primary publish step size
+            .asJava
+          evaluator.sync(exprs)
+          syncPayloadExprs.record(exprs.size())
+          lastUpdateTime.set(registry.clock().wallTime())
+        }
       } catch {
         case e: Exception =>
           logger.error("failed to parse and sync expressions", e)
@@ -152,5 +157,26 @@ class ExprUpdateService @Inject()(
 
   override def stopImpl(): Unit = {
     if (killSwitch != null) killSwitch.shutdown()
+  }
+}
+
+object ExprUpdateService {
+
+  // Magic header to recognize GZIP compressed data
+  // http://www.zlib.org/rfc-gzip.html#file-format
+  private val gzipMagicHeader = ByteString(Array(0x1f.toByte, 0x8b.toByte))
+
+  /**
+    * Create an InputStream for reading the content of the ByteString. If the data is
+    * gzip compressed, then it will be wrapped in a GZIPInputStream to handle the
+    * decompression of the data. This can be handled at the server layer, but it may
+    * be preferable to decompress while parsing into the final object model to reduce
+    * the need to allocate an intermediate ByteString of the uncompressed data.
+    */
+  private def inputStream(bytes: ByteString): InputStream = {
+    if (bytes.startsWith(gzipMagicHeader))
+      new GZIPInputStream(new ByteStringInputStream(bytes))
+    else
+      new ByteStringInputStream(bytes)
   }
 }
