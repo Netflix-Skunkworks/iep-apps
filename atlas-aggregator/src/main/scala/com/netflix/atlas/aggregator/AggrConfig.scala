@@ -48,10 +48,10 @@ class AggrConfig(
     // since there are multiple registries per aggregator with the same start time.
     val random = new SecureRandom()
 
-    // To give it plenty of time, we give a 10% buffer after step boundary and spread out
-    // across the first half of the step.
-    val offset = stepSize / 10
-    val range = stepSize / 2 - offset
+    // To give it plenty of time, we give a 5% buffer after step boundary and 20% before
+    // the next step boundary.
+    val offset = stepSize / 20
+    val range = stepSize - 5 * offset
     val delay = (range * random.nextDouble()).toLong + offset
 
     // Check if the current delay is after the current time
