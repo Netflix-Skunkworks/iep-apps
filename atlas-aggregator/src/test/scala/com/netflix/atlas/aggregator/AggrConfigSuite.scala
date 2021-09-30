@@ -30,8 +30,8 @@ class AggrConfigSuite extends AnyFunSuite {
       clock.setWallTime(t)
       val delay = config.initialPollingDelay(clock, step)
       val stepOffset = (t + delay) % step
-      assert(stepOffset >= 6000)
-      assert(stepOffset <= 30000)
+      assert(stepOffset >= 3000)
+      assert(stepOffset <= 48000)
     }
   }
 }
