@@ -7,15 +7,15 @@ object Dependencies {
   object Versions {
     val akka       = "2.6.16"
     val akkaHttpV  = "10.2.6"
-    val atlas      = "1.7.0-SNAPSHOT"
-    val aws2       = "2.17.34"
-    val iep        = "3.0.5"
+    val atlas      = "1.7.0-rc.18"
+    val aws2       = "2.17.50"
+    val iep        = "3.0.7"
     val guice      = "5.0.1"
     val log4j      = "2.14.1"
     val scala      = "2.13.6"
     val servo      = "0.13.2"
     val slf4j      = "1.7.32"
-    val spectator  = "0.135.0"
+    val spectator  = "1.0.3"
     val avroV      = "1.10.2"
 
     val crossScala = Seq(scala)
@@ -67,7 +67,7 @@ object Dependencies {
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
   val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4"
   val scalaReflect       = "org.scala-lang" % "scala-reflect" % scala
-  val scalatest          = "org.scalatest" %% "scalatest" % "3.2.9"
+  val scalatest          = "org.scalatest" %% "scalatest" % "3.2.10"
   val servoCore          = "com.netflix.servo" % "servo-core" % servo
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
   val slf4jLog4j         = "org.slf4j" % "slf4j-log4j12" % slf4j
