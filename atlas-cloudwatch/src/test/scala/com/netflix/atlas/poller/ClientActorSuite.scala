@@ -26,7 +26,7 @@ import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.json.Json
 import com.netflix.atlas.poller.ClientActorSuite.TestClientActor
 import com.netflix.atlas.poller.Messages.MetricsPayload
-import com.netflix.atlas.webapi.PublishApi
+import com.netflix.atlas.webapi.PublishPayloads
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.ManualClock
 import com.netflix.spectator.api.Registry
@@ -157,7 +157,7 @@ object ClientActorSuite {
 
     override protected def post(data: Array[Byte]): Future[HttpResponse] = {
       val t = Try {
-        PublishApi.decodeBatch(Json.newSmileParser(data))
+        PublishPayloads.decodeBatch(Json.newSmileParser(data))
         response.get
       }
       Promise.fromTry(t).future

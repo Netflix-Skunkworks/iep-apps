@@ -29,14 +29,14 @@ import akka.stream.scaladsl.RestartFlow
 import akka.stream.scaladsl.Sink
 import com.netflix.atlas.akka.StreamOps
 import com.netflix.atlas.akka.StreamOps.SourceQueue
-import com.netflix.atlas.core.model.Datapoint
+import com.netflix.atlas.core.model.DatapointTuple
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
+
 import javax.inject.Inject
 import javax.inject.Singleton
-
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.Future
@@ -74,13 +74,13 @@ class LocalFilePersistService @Inject()(
     fileConfig.getInt("avro-syncInterval")
   )
 
-  private var queue: SourceQueue[List[Datapoint]] = _
+  private var queue: SourceQueue[List[DatapointTuple]] = _
   private var flowComplete: Future[Done] = _
 
   override def startImpl(): Unit = {
     logger.info("Starting service")
     val (q, f) = StreamOps
-      .blockingQueue[List[Datapoint]](registry, "LocalFilePersistService", queueSize)
+      .blockingQueue[List[DatapointTuple]](registry, "LocalFilePersistService", queueSize)
       .via(balancer(getRollingFileFlow, writeWorkerSize))
       .toMat(Sink.ignore)(Keep.both)
       .run()
@@ -98,7 +98,7 @@ class LocalFilePersistService @Inject()(
     Math.max(1, cores / 2)
   }
 
-  private def getRollingFileFlow(workerId: Int): Flow[List[Datapoint], NotUsed, NotUsed] = {
+  private def getRollingFileFlow(workerId: Int): Flow[List[DatapointTuple], NotUsed, NotUsed] = {
     import scala.concurrent.duration._
     RestartFlow.withBackoff(
       RestartSettings(
@@ -144,7 +144,7 @@ class LocalFilePersistService @Inject()(
     logger.info("Stopped service")
   }
 
-  def persist(dp: List[Datapoint]): Unit = {
+  def persist(dp: List[DatapointTuple]): Unit = {
     queue.offer(dp)
   }
 }

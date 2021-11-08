@@ -23,7 +23,9 @@ import com.netflix.atlas.akka.CustomDirectives._
 import com.netflix.atlas.akka.DiagnosticMessage
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.core.model.Datapoint
+import com.netflix.atlas.core.model.DatapointTuple
 import com.netflix.atlas.webapi.PublishApi
+import com.netflix.atlas.webapi.PublishPayloads
 
 class PersistenceApi(localFileService: LocalFilePersistService) extends WebApi {
 
@@ -41,9 +43,9 @@ class PersistenceApi(localFileService: LocalFilePersistService) extends WebApi {
   }
 
   private def handleReq: Route = {
-    parseEntity(customJson(p => PublishApi.decodeBatch(p))) {
+    parseEntity(customJson(p => PublishPayloads.decodeBatch(p))) {
       case Nil => complete(DiagnosticMessage.error(StatusCodes.BadRequest, "empty payload"))
-      case dps: List[Datapoint] =>
+      case dps: List[DatapointTuple] =>
         if (localFileService.isHealthy) {
           localFileService.persist(dps)
           complete(HttpResponse(StatusCodes.OK))
