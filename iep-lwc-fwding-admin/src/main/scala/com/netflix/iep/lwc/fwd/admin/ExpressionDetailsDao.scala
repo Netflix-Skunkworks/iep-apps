@@ -21,7 +21,6 @@ import com.netflix.iep.lwc.fwd.cw._
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
-import software.amazon.awssdk.core.SdkBytes
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest
@@ -29,7 +28,6 @@ import software.amazon.awssdk.services.dynamodb.model.GetItemRequest
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest
 
-import java.nio.ByteBuffer
 import javax.inject.Inject
 
 trait ExpressionDetailsDao {

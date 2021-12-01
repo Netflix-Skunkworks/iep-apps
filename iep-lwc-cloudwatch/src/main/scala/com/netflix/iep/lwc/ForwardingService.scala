@@ -42,7 +42,6 @@ import com.netflix.atlas.eval.model.TimeSeriesMessage
 import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.json.Json
 import com.netflix.atlas.json.JsonSupport
-import com.netflix.iep.NetflixEnvironment
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.lwc.fwd.cw._
 import com.netflix.iep.service.AbstractService

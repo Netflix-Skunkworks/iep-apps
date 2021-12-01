@@ -27,7 +27,6 @@ import akka.stream.stage.GraphStageLogic
 import akka.stream.stage.InHandler
 import akka.stream.stage.OutHandler
 import akka.stream.stage.TimerGraphStageLogic
-import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.core.model.DatapointTuple
 import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging

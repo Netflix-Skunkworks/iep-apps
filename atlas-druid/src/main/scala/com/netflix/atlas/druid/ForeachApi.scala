@@ -49,6 +49,7 @@ class ForeachApi(config: Config, implicit val actorRefFactory: ActorRefFactory) 
   private def evalGraph(expr: String): List[StyleExpr] = {
     interpreter.execute(expr).stack.map {
       case ModelExtractors.PresentationType(e) => e
+      case v                                   => throw new MatchError(v)
     }
   }
 
@@ -80,7 +81,7 @@ class ForeachApi(config: Config, implicit val actorRefFactory: ActorRefFactory) 
     val future = akka.pattern.ask(dbRef, ListValuesRequest(tq))(Timeout(10.seconds))
     Source
       .future(future)
-      .map {
+      .collect {
         case ValueListResponse(vs) => vs
       }
   }

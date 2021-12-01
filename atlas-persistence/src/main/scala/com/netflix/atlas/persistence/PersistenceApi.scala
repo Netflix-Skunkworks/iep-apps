@@ -22,9 +22,7 @@ import akka.http.scaladsl.server.Route
 import com.netflix.atlas.akka.CustomDirectives._
 import com.netflix.atlas.akka.DiagnosticMessage
 import com.netflix.atlas.akka.WebApi
-import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.core.model.DatapointTuple
-import com.netflix.atlas.webapi.PublishApi
 import com.netflix.atlas.webapi.PublishPayloads
 
 class PersistenceApi(localFileService: LocalFilePersistService) extends WebApi {
