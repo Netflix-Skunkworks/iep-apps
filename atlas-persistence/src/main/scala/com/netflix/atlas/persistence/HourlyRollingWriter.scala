@@ -19,7 +19,6 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
-import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.core.model.DatapointTuple
 import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging

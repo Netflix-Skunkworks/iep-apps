@@ -223,7 +223,9 @@ class SesMonitoringService @Inject()(
   private def getPath(obj: Map[String, Any], path: String*): Option[Any] = {
     // getOrElse defensively since notifications are an external input we don't control
     path.toList match {
-      case ks if ks.isEmpty || obj.isEmpty =>
+      case _ if obj.isEmpty =>
+        None
+      case Nil =>
         None
       case k :: Nil =>
         obj.get(k)

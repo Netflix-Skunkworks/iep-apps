@@ -44,6 +44,7 @@ class ExprInterpreter @Inject()(config: Config) {
   def doEval(expr: String): List[StyleExpr] = {
     interpreter.execute(expr).stack.map {
       case ModelExtractors.PresentationType(t) => t
+      case v                                   => throw new MatchError(v)
     }
   }
 

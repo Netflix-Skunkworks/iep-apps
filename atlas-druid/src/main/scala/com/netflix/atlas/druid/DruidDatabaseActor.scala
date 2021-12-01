@@ -448,7 +448,6 @@ object DruidDatabaseActor {
     limit: Long,
     valueMapper: Double => Double
   ): List[TimeSeries] = {
-    val stepSeconds = context.step / 1000.0
     val arrays = scala.collection.mutable.AnyRefMap.empty[Map[String, String], Array[Double]]
     val length = context.bufferSize
     val bytesPerTimeSeries = 8L * length
