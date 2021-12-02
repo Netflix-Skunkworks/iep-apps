@@ -33,8 +33,7 @@ import com.fasterxml.jackson.databind.JsonMappingException
 import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.json.Json
 import com.typesafe.config.ConfigFactory
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
@@ -43,7 +42,7 @@ import scala.util.Success
 import scala.util.Try
 import scala.util.Using
 
-class DruidClientSuite extends AnyFunSuite with BeforeAndAfterAll {
+class DruidClientSuite extends FunSuite {
 
   import DruidClient._
 
@@ -73,7 +72,7 @@ class DruidClientSuite extends AnyFunSuite with BeforeAndAfterAll {
     val client = newClient(Success(ok(List("a", "b", "c"))))
     val future = client.datasources.runWith(Sink.head)
     val result = Await.result(future, Duration.Inf)
-    assert(result === List("a", "b", "c"))
+    assertEquals(result, List("a", "b", "c"))
   }
 
   test("get datasources http error") {
@@ -119,7 +118,7 @@ class DruidClientSuite extends AnyFunSuite with BeforeAndAfterAll {
     val client = newClient(Success(ok(Datasource(Nil, Nil))))
     val future = client.datasource("abc").runWith(Sink.head)
     val result = Await.result(future, Duration.Inf)
-    assert(result === Datasource(Nil, Nil))
+    assertEquals(result, Datasource(Nil, Nil))
   }
 
   test("get datasource with data") {
@@ -127,7 +126,7 @@ class DruidClientSuite extends AnyFunSuite with BeforeAndAfterAll {
     val client = newClient(Success(ok(ds)))
     val future = client.datasource("abc").runWith(Sink.head)
     val result = Await.result(future, Duration.Inf)
-    assert(result === ds)
+    assertEquals(result, ds)
   }
 
   private def executeSegmentMetadataRequest: List[SegmentMetadataResult] = {
@@ -143,10 +142,10 @@ class DruidClientSuite extends AnyFunSuite with BeforeAndAfterAll {
 
   test("segmentMetadata columns") {
     val result = executeSegmentMetadataRequest
-    assert(result.size === 1)
+    assertEquals(result.size, 1)
 
     val columns = result.head.columns
-    assert(columns.size === 5)
+    assertEquals(columns.size, 5)
 
     val expected = Set(
       "__time",
@@ -155,27 +154,27 @@ class DruidClientSuite extends AnyFunSuite with BeforeAndAfterAll {
       "test.dim.2",
       "test.metric.histogram"
     )
-    assert(columns.keySet === expected)
+    assertEquals(columns.keySet, expected)
   }
 
   test("segmentMetadata column types") {
     val columns = executeSegmentMetadataRequest.head.columns
-    assert(columns("__time").`type` === "LONG")
-    assert(columns("test.metric.counter").`type` === "LONG")
-    assert(columns("test.metric.histogram").`type` === "netflixHistogram")
-    assert(columns("test.dim.1").`type` === "STRING")
-    assert(columns("test.dim.1").`type` === "STRING")
+    assertEquals(columns("__time").`type`, "LONG")
+    assertEquals(columns("test.metric.counter").`type`, "LONG")
+    assertEquals(columns("test.metric.histogram").`type`, "netflixHistogram")
+    assertEquals(columns("test.dim.1").`type`, "STRING")
+    assertEquals(columns("test.dim.1").`type`, "STRING")
   }
 
   test("segmentMetadata aggregators") {
     val aggregators = executeSegmentMetadataRequest.head.aggregators
-    assert(aggregators.size === 2)
+    assertEquals(aggregators.size, 2)
 
     val expected = Set(
       "test.metric.counter",
       "test.metric.histogram"
     )
-    assert(aggregators.keySet === expected)
+    assertEquals(aggregators.keySet, expected)
   }
 
   private def executeGroupByRequest: List[GroupByDatapoint] = {
@@ -192,7 +191,7 @@ class DruidClientSuite extends AnyFunSuite with BeforeAndAfterAll {
 
   test("groupBy filter out null dimensions") {
     val datapoints = executeGroupByRequest
-    assert(datapoints.count(_.tags.isEmpty) === 2)
-    assert(datapoints.count(_.tags.nonEmpty) === 5)
+    assertEquals(datapoints.count(_.tags.isEmpty), 2)
+    assertEquals(datapoints.count(_.tags.nonEmpty), 5)
   }
 }

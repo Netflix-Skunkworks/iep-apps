@@ -15,14 +15,12 @@
  */
 package com.netflix.atlas.persistence
 
-import org.scalatest.BeforeAndAfter
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
-class S3CopySinkSuite extends AnyFunSuite with BeforeAndAfter with BeforeAndAfterAll {
+class S3CopySinkSuite extends FunSuite {
   test("extractMinuteRange") {
-    assert(S3CopySink.extractMinuteRange("abc.tmp") === "61-61")
-    assert(S3CopySink.extractMinuteRange("abc.1200-1300") === "20-21")
-    assert(S3CopySink.extractMinuteRange("abc.0000-0123") === "00-02")
+    assertEquals(S3CopySink.extractMinuteRange("abc.tmp"), "61-61")
+    assertEquals(S3CopySink.extractMinuteRange("abc.1200-1300"), "20-21")
+    assertEquals(S3CopySink.extractMinuteRange("abc.0000-0123"), "00-02")
   }
 }

@@ -18,9 +18,9 @@ package com.netflix.atlas.druid
 import com.netflix.atlas.core.model.Query
 import com.netflix.atlas.core.model.QueryVocabulary
 import com.netflix.atlas.core.stacklang.Interpreter
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
-class DruidFilterSuite extends AnyFunSuite {
+class DruidFilterSuite extends FunSuite {
 
   private val interpreter = new Interpreter(QueryVocabulary.allWords)
 
@@ -34,31 +34,31 @@ class DruidFilterSuite extends AnyFunSuite {
   test("forQuery - nf.datasource :eq") {
     val actual = DruidFilter.forQuery(eval("nf.datasource,foo,:eq"))
     val expected = None
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("forQuery - nf.datasource :re") {
     val actual = DruidFilter.forQuery(eval("nf.datasource,foo,:re"))
     val expected = None
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("forQuery - nf.datasource :has") {
     val actual = DruidFilter.forQuery(eval("nf.datasource,:has"))
     val expected = None
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("forQuery - name :eq") {
     val actual = DruidFilter.forQuery(eval("name,foo,:eq"))
     val expected = None
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("forQuery - :true") {
     val actual = DruidFilter.forQuery(eval(":true"))
     val expected = None
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("toFilter - :true") {
@@ -76,13 +76,13 @@ class DruidFilterSuite extends AnyFunSuite {
   test("forQuery - :eq") {
     val actual = DruidFilter.forQuery(eval("country,US,:eq"))
     val expected = Some(DruidFilter.Equal("country", "US"))
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("forQuery - :re") {
     val actual = DruidFilter.forQuery(eval("country,US,:re"))
     val expected = Some(DruidFilter.Regex("country", "^US"))
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("forQuery - :reic") {
@@ -90,55 +90,55 @@ class DruidFilterSuite extends AnyFunSuite {
     val actual = DruidFilter.forQuery(eval("country,US,:reic"))
     val expected =
       Some(DruidFilter.Regex("country", "(?i)^US"))
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("forQuery - :has") {
     val actual = DruidFilter.forQuery(eval("country,:has"))
     val expected = Some(DruidFilter.Not(DruidFilter.Equal("country", "")))
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("forQuery - :in") {
     val actual = DruidFilter.forQuery(eval("country,(,US,CA,),:in"))
     val expected = Some(DruidFilter.In("country", List("US", "CA")))
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("forQuery - :gt") {
     val actual = DruidFilter.forQuery(eval("country,US,:gt"))
     val expected = Some(DruidFilter.JavaScript("country", "function(x) { return x > 'US'; }"))
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("forQuery - :ge") {
     val actual = DruidFilter.forQuery(eval("country,US,:ge"))
     val expected = Some(DruidFilter.JavaScript("country", "function(x) { return x >= 'US'; }"))
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("forQuery - :lt") {
     val actual = DruidFilter.forQuery(eval("country,US,:lt"))
     val expected = Some(DruidFilter.JavaScript("country", "function(x) { return x < 'US'; }"))
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("forQuery - :le") {
     val actual = DruidFilter.forQuery(eval("country,US,:le"))
     val expected = Some(DruidFilter.JavaScript("country", "function(x) { return x <= 'US'; }"))
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("forQuery - :le sanitize single quote") {
     val actual = DruidFilter.forQuery(eval("country,US',:le"))
     val expected = Some(DruidFilter.JavaScript("country", "function(x) { return x <= 'US_'; }"))
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("forQuery - :le sanitize double quote") {
     val actual = DruidFilter.forQuery(eval("country,US\",:le"))
     val expected = Some(DruidFilter.JavaScript("country", "function(x) { return x <= 'US_'; }"))
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("forQuery - :and") {
@@ -151,7 +151,7 @@ class DruidFilterSuite extends AnyFunSuite {
         )
       )
     )
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("forQuery - :or") {
@@ -164,12 +164,12 @@ class DruidFilterSuite extends AnyFunSuite {
         )
       )
     )
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("forQuery - :not") {
     val actual = DruidFilter.forQuery(eval("country,(,US,CA,),:in,:not"))
     val expected = Some(DruidFilter.Not(DruidFilter.In("country", List("US", "CA"))))
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 }

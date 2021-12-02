@@ -31,9 +31,9 @@ import com.netflix.spectator.api.ManualClock
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Tag
 import com.typesafe.config.ConfigFactory
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
-class UpdateApiSuite extends AnyFunSuite {
+class UpdateApiSuite extends FunSuite {
 
   private val system = ActorSystem("UpdateApiSuite")
   private val factory = new JsonFactory()
@@ -58,10 +58,10 @@ class UpdateApiSuite extends AnyFunSuite {
         |  42.0
         |]
       """.stripMargin)
-    assert(UpdateApi.processPayload(parser, service).status === StatusCodes.OK)
+    assertEquals(UpdateApi.processPayload(parser, service).status, StatusCodes.OK)
     clock.setWallTime(62000)
     val id = Id.create("cpu").withTag(aggrTag)
-    assert(service.lookup(id).counter(id).actualCount() === 42.0)
+    assertEquals(service.lookup(id).counter(id).actualCount(), 42.0)
   }
 
   test("payload with additional tags") {
@@ -82,13 +82,13 @@ class UpdateApiSuite extends AnyFunSuite {
         |  42.0
         |]
       """.stripMargin)
-    assert(UpdateApi.processPayload(parser, service).status === StatusCodes.OK)
+    assertEquals(UpdateApi.processPayload(parser, service).status, StatusCodes.OK)
     clock.setWallTime(62000)
     val id = Id
       .create("cpu")
       .withTags("app", "www", "zone", "1e")
       .withTag(aggrTag)
-    assert(service.lookup(id).counter(id).actualCount() === 42.0)
+    assertEquals(service.lookup(id).counter(id).actualCount(), 42.0)
   }
 
   test("payload with invalid characters") {
@@ -109,13 +109,13 @@ class UpdateApiSuite extends AnyFunSuite {
         |  42.0
         |]
       """.stripMargin)
-    assert(UpdateApi.processPayload(parser, service).status === StatusCodes.OK)
+    assertEquals(UpdateApi.processPayload(parser, service).status, StatusCodes.OK)
     clock.setWallTime(62000)
     val id = Id
       .create("cpu_user")
       .withTags("app", "www", "zone", "1e")
       .withTag(aggrTag)
-    assert(service.lookup(id).counter(id).actualCount() === 42.0)
+    assertEquals(service.lookup(id).counter(id).actualCount(), 42.0)
   }
 
   test("payload with invalid characters null") {
@@ -142,13 +142,13 @@ class UpdateApiSuite extends AnyFunSuite {
       )
     )
     val parser = factory.createParser(json)
-    assert(UpdateApi.processPayload(parser, service).status === StatusCodes.OK)
+    assertEquals(UpdateApi.processPayload(parser, service).status, StatusCodes.OK)
     clock.setWallTime(62000)
     val id = Id
       .create("cpu_user")
       .withTags("app", "www", "zone", "1e")
       .withTag(aggrTag)
-    assert(service.lookup(id).counter(id).actualCount() === 42.0)
+    assertEquals(service.lookup(id).counter(id).actualCount(), 42.0)
   }
 
   test("percentile node rollup") {
@@ -170,13 +170,13 @@ class UpdateApiSuite extends AnyFunSuite {
         |  42.0
         |]
       """.stripMargin)
-    assert(UpdateApi.processPayload(parser, service).status === StatusCodes.OK)
+    assertEquals(UpdateApi.processPayload(parser, service).status, StatusCodes.OK)
     clock.setWallTime(62000)
     val id = Id
       .create("latency")
       .withTag(aggrTag)
       .withTag("percentile", "T0000")
-    assert(service.lookup(id).counter(id).actualCount() === 42.0)
+    assertEquals(service.lookup(id).counter(id).actualCount(), 42.0)
   }
 
   private def createPayload(ts: List[TagMap], op: Int, value: Double): String = {
@@ -225,7 +225,7 @@ class UpdateApiSuite extends AnyFunSuite {
     val service = createAggrService(clock)
     val parser = factory.createParser(createPayload(ts, 0, 1.0))
     val response = UpdateApi.processPayload(parser, service)
-    assert(response.status === expectedStatus)
+    assertEquals(response.status, expectedStatus)
     assert(response.entity.isStrict())
     val strict = response.entity.asInstanceOf[HttpEntity.Strict]
     Json.decode[FailureMessage](new ByteStringInputStream(strict.data))
@@ -239,8 +239,8 @@ class UpdateApiSuite extends AnyFunSuite {
   test("validation: missing name") {
     val tags = SmallHashMap("foo" -> "bar")
     val msg = validationTest(tags, StatusCodes.BadRequest)
-    assert(msg.errorCount === 1)
-    assert(msg.message === List("missing key 'name' (tags={\"foo\":\"bar\"})"))
+    assertEquals(msg.errorCount, 1)
+    assertEquals(msg.message, List("missing key 'name' (tags={\"foo\":\"bar\"})"))
   }
 
   test("validation: too many user tags") {
@@ -248,7 +248,7 @@ class UpdateApiSuite extends AnyFunSuite {
         .map(v => Strings.zeroPad(v, 5))
         .map(v => v -> v)
     val msg = validationTest(SmallHashMap(tags), StatusCodes.BadRequest)
-    assert(msg.errorCount === 1)
+    assertEquals(msg.errorCount, 1)
     assert(msg.message.head.startsWith("too many user tags: 21 > 20 (tags={"))
   }
 
@@ -257,17 +257,18 @@ class UpdateApiSuite extends AnyFunSuite {
         .map(v => Strings.zeroPad(v, 5))
         .map(v => v -> v)
     val msg = validationTest(SmallHashMap(tags), StatusCodes.OK)
-    assert(msg.errorCount === 0)
+    assertEquals(msg.errorCount, 0)
   }
 
   test("validation: tag rule") {
     val tags = SmallHashMap("name" -> "test", "nf.foo" -> "bar")
     val msg = validationTest(tags, StatusCodes.BadRequest)
-    assert(msg.errorCount === 1)
-    assert(
-      msg.message === List(
-          "invalid key for reserved prefix 'nf.': nf.foo (tags={\"name\":\"test\",\"nf.foo\":\"bar\"})"
-        )
+    assertEquals(msg.errorCount, 1)
+    assertEquals(
+      msg.message,
+      List(
+        "invalid key for reserved prefix 'nf.': nf.foo (tags={\"name\":\"test\",\"nf.foo\":\"bar\"})"
+      )
     )
   }
 
@@ -277,11 +278,12 @@ class UpdateApiSuite extends AnyFunSuite {
       SmallHashMap("name" -> "test", "nf.app" -> "bar")
     )
     val msg = validationTest(ts, StatusCodes.Accepted)
-    assert(msg.errorCount === 1)
-    assert(
-      msg.message === List(
-          "invalid key for reserved prefix 'nf.': nf.foo (tags={\"name\":\"test\",\"nf.foo\":\"bar\"})"
-        )
+    assertEquals(msg.errorCount, 1)
+    assertEquals(
+      msg.message,
+      List(
+        "invalid key for reserved prefix 'nf.': nf.foo (tags={\"name\":\"test\",\"nf.foo\":\"bar\"})"
+      )
     )
   }
 
@@ -290,7 +292,7 @@ class UpdateApiSuite extends AnyFunSuite {
       SmallHashMap("name" -> i.toString, "nf.foo" -> "bar")
     }
     val msg = validationTest(ts, StatusCodes.BadRequest)
-    assert(msg.errorCount === 20)
-    assert(msg.message.size === 5)
+    assertEquals(msg.errorCount, 20)
+    assertEquals(msg.message.size, 5)
   }
 }

@@ -21,7 +21,7 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.stream.Materializer
 import akka.testkit.ImplicitSender
 import akka.testkit.TestActorRef
-import akka.testkit.TestKit
+import akka.testkit.TestKitBase
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.json.Json
 import com.netflix.atlas.poller.ClientActorSuite.TestClientActor
@@ -32,8 +32,7 @@ import com.netflix.spectator.api.ManualClock
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.funsuite.AnyFunSuiteLike
+import munit.FunSuite
 
 import scala.concurrent.Future
 import scala.concurrent.Promise
@@ -41,13 +40,11 @@ import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
 
-class ClientActorSuite
-    extends TestKit(ActorSystem())
-    with ImplicitSender
-    with AnyFunSuiteLike
-    with BeforeAndAfterAll {
+class ClientActorSuite extends FunSuite with TestKitBase with ImplicitSender {
 
   import scala.concurrent.duration._
+
+  implicit val system: ActorSystem = ActorSystem()
 
   private val clock = new ManualClock()
   private val registry = new DefaultRegistry(clock)
@@ -78,7 +75,7 @@ class ClientActorSuite
       waitForCompletion()
     }
 
-    assert(sent.count() === initSent + numSent)
+    assertEquals(sent.count(), initSent + numSent)
   }
 
   test("publish datapoints, exception") {

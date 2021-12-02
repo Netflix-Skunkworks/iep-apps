@@ -18,10 +18,10 @@ package com.netflix.atlas.cloudwatch
 import java.util.regex.PatternSyntaxException
 import com.typesafe.config.ConfigException
 import com.typesafe.config.ConfigFactory
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
 
-class DefaultTaggerSuite extends AnyFunSuite {
+class DefaultTaggerSuite extends FunSuite {
 
   private val dimensions = List(
     Dimension.builder().name("CloudWatch").value("abc").build(),
@@ -62,7 +62,7 @@ class DefaultTaggerSuite extends AnyFunSuite {
     )
 
     val tagger = new DefaultTagger(cfg)
-    assert(tagger(dimensions) === expected)
+    assertEquals(tagger(dimensions), expected)
   }
 
   test("apply key mappings") {
@@ -85,7 +85,7 @@ class DefaultTaggerSuite extends AnyFunSuite {
     )
 
     val tagger = new DefaultTagger(cfg)
-    assert(tagger(dimensions) === expected)
+    assertEquals(tagger(dimensions), expected)
   }
 
   test("extract value for configured keys") {
@@ -120,7 +120,7 @@ class DefaultTaggerSuite extends AnyFunSuite {
     )
 
     val tagger = new DefaultTagger(cfg)
-    assert(tagger(dimensions) === expected)
+    assertEquals(tagger(dimensions), expected)
   }
 
   test("syntax error in extractor pattern throws") {
@@ -189,7 +189,7 @@ class DefaultTaggerSuite extends AnyFunSuite {
     )
 
     val tagger = new DefaultTagger(cfg)
-    assert(tagger(dimensions) === expected)
+    assertEquals(tagger(dimensions), expected)
   }
 
   test("extract value and apply alias for configured keys") {
@@ -225,7 +225,7 @@ class DefaultTaggerSuite extends AnyFunSuite {
     )
 
     val tagger = new DefaultTagger(cfg)
-    assert(tagger(dimensions) === expected)
+    assertEquals(tagger(dimensions), expected)
   }
 
   test("mapping is ignored if extractor of the same name exists") {
@@ -258,7 +258,7 @@ class DefaultTaggerSuite extends AnyFunSuite {
     )
 
     val tagger = new DefaultTagger(cfg)
-    assert(tagger(dimensions) === expected)
+    assertEquals(tagger(dimensions), expected)
   }
 
   test("first extractor pattern has precedence") {
@@ -291,7 +291,7 @@ class DefaultTaggerSuite extends AnyFunSuite {
     )
 
     val tagger = new DefaultTagger(cfg)
-    assert(tagger(dimensions) === expected)
+    assertEquals(tagger(dimensions), expected)
   }
 
   test("dimensions override common tags") {
@@ -319,7 +319,7 @@ class DefaultTaggerSuite extends AnyFunSuite {
     )
 
     val tagger = new DefaultTagger(cfg)
-    assert(tagger(dimensions) === expected)
+    assertEquals(tagger(dimensions), expected)
   }
 
   test("aws.alb is assigned to LoadBalancer names starting with 'app' using production config") {
@@ -337,7 +337,7 @@ class DefaultTaggerSuite extends AnyFunSuite {
       )
     )
 
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("aws.nlb is assigned to LoadBalancer names starting with 'net' using production config") {
@@ -355,6 +355,6 @@ class DefaultTaggerSuite extends AnyFunSuite {
       )
     )
 
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 }

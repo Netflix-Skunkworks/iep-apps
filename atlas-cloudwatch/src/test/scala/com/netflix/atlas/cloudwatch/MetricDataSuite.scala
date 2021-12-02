@@ -19,11 +19,11 @@ import java.time.Duration
 import java.time.Instant
 import com.netflix.atlas.cloudwatch.CloudWatchPoller.MetricData
 import com.netflix.atlas.core.model.Query
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 import software.amazon.awssdk.services.cloudwatch.model.Datapoint
 import software.amazon.awssdk.services.cloudwatch.model.StandardUnit
 
-class MetricDataSuite extends AnyFunSuite {
+class MetricDataSuite extends FunSuite {
 
   private val definition =
     MetricDefinition("test", "alias", Conversions.fromName("sum"), false, Map.empty)
@@ -52,12 +52,12 @@ class MetricDataSuite extends AnyFunSuite {
 
   test("access datapoint with no current value") {
     val data = MetricData(metadata, None, None, None)
-    assert(data.datapoint().sum === 0.0)
+    assertEquals(data.datapoint().sum.doubleValue(), 0.0)
   }
 
   test("access datapoint with current value") {
     val data = MetricData(metadata, None, datapoint(1.0), None)
-    assert(data.datapoint().sum === 1.0)
+    assertEquals(data.datapoint().sum.doubleValue(), 1.0)
   }
 
   test("category with timeout, first datapoint not yet received") {
@@ -69,7 +69,7 @@ class MetricDataSuite extends AnyFunSuite {
   test("category with timeout, datapoint with current value and not timed out") {
     val now = Instant.now()
     val data = MetricData(metadataWithTimeout, None, datapoint(1.0), Some(now.minusSeconds(60)))
-    assert(data.datapoint(now).sum === 1.0)
+    assertEquals(data.datapoint(now).sum.doubleValue(), 1.0)
   }
 
   // current and timed out shouldn't be possible, but fail open by ensuring the current value is
@@ -77,14 +77,14 @@ class MetricDataSuite extends AnyFunSuite {
   test("category with timeout, datapoint with current value and timed out") {
     val now = Instant.now()
     val data = MetricData(metadataWithTimeout, None, datapoint(1.0), Some(now.minusSeconds(600)))
-    assert(data.datapoint(now).sum === 1.0)
+    assertEquals(data.datapoint(now).sum.doubleValue(), 1.0)
   }
 
   test("category with timeout, datapoint with current and previous value and not timed out") {
     val now = Instant.now()
     val data =
       MetricData(metadataWithTimeout, datapoint(2.0), datapoint(1.0), Some(now.minusSeconds(60)))
-    assert(data.datapoint(now).sum === 1.0)
+    assertEquals(data.datapoint(now).sum.doubleValue(), 1.0)
   }
 
   // current and timed out shouldn't be possible, but fail open by ensuring the current value is
@@ -93,13 +93,13 @@ class MetricDataSuite extends AnyFunSuite {
     val now = Instant.now()
     val data =
       MetricData(metadataWithTimeout, datapoint(2.0), datapoint(1.0), Some(now.minusSeconds(600)))
-    assert(data.datapoint(now).sum === 1.0)
+    assertEquals(data.datapoint(now).sum.doubleValue(), 1.0)
   }
 
   test("category with timeout, datapoint with only previous value and not timed out") {
     val now = Instant.now()
     val data = MetricData(metadataWithTimeout, datapoint(1.0), None, Some(now.minusSeconds(60)))
-    assert(data.datapoint(now).sum === 0.0)
+    assertEquals(data.datapoint(now).sum.doubleValue(), 0.0)
   }
 
   test("category with timeout, datapoint with only previous value and timed out") {
@@ -111,7 +111,7 @@ class MetricDataSuite extends AnyFunSuite {
   test("category with timeout, datapoint with no current or previous value and not timed out") {
     val now = Instant.now()
     val data = MetricData(metadataWithTimeout, None, None, Some(now.minusSeconds(60)))
-    assert(data.datapoint(now).sum === 0.0)
+    assertEquals(data.datapoint(now).sum.doubleValue(), 0.0)
   }
 
   test("category with timeout, datapoint with no current or previous value and timed out") {
@@ -137,21 +137,21 @@ class MetricDataSuite extends AnyFunSuite {
 
   test("access monotonic datapoint, current is larger") {
     val data = MetricData(monotonicMetadata, datapoint(1.0), datapoint(2.0), None)
-    assert(data.datapoint().sum === 1.0)
+    assertEquals(data.datapoint().sum.doubleValue(), 1.0)
   }
 
   test("access monotonic datapoint, previous is larger") {
     val data = MetricData(monotonicMetadata, datapoint(2.0), datapoint(1.0), None)
-    assert(data.datapoint().sum === 0.0)
+    assertEquals(data.datapoint().sum.doubleValue(), 0.0)
   }
 
   test("access monotonic datapoint, previous equals current") {
     val data = MetricData(monotonicMetadata, datapoint(1.0), datapoint(1.0), None)
-    assert(data.datapoint().sum === 0.0)
+    assertEquals(data.datapoint().sum.doubleValue(), 0.0)
   }
 
   test("access monotonic datapoint, current is larger, previous dup") {
     val data = MetricData(monotonicMetadata, datapoint(1.0, 3), datapoint(2.0), None)
-    assert(data.datapoint().sum === 1.0)
+    assertEquals(data.datapoint().sum.doubleValue(), 1.0)
   }
 }

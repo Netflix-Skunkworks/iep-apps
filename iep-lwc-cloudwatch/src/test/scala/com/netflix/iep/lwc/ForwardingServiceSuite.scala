@@ -34,7 +34,7 @@ import com.netflix.atlas.json.Json
 import com.netflix.iep.lwc.fwd.cw._
 import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
 import software.amazon.awssdk.services.cloudwatch.model.MetricDatum
 import software.amazon.awssdk.services.cloudwatch.model.PutMetricDataRequest
@@ -47,7 +47,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 import scala.util.Success
 
-class ForwardingServiceSuite extends AnyFunSuite {
+class ForwardingServiceSuite extends FunSuite {
 
   import ForwardingService._
 
@@ -106,9 +106,9 @@ class ForwardingServiceSuite extends AnyFunSuite {
     assert(msg.isUpdate)
     assert(!msg.isDone)
     assert(!msg.isHeartbeat)
-    assert(msg.cluster === "cluster")
+    assertEquals(msg.cluster, "cluster")
     assert(msg.response.isUpdate)
-    assert(msg.response === expectedResponse)
+    assertEquals(msg.response, expectedResponse)
   }
 
   test("parse delete response") {
@@ -118,9 +118,9 @@ class ForwardingServiceSuite extends AnyFunSuite {
 
     val expectedResponse = ConfigBinResponse.delete(ConfigBinVersion(1505226236957L, "2d4d"))
 
-    assert(msg.cluster === "cluster")
+    assertEquals(msg.cluster, "cluster")
     assert(msg.response.isDelete)
-    assert(msg.response === expectedResponse)
+    assertEquals(msg.response, expectedResponse)
   }
 
   test("parse heartbeat") {
@@ -133,7 +133,7 @@ class ForwardingServiceSuite extends AnyFunSuite {
     assert(!msg.isDone)
     assert(msg.isHeartbeat)
 
-    assert(msg.repoVersion === 1L)
+    assertEquals(msg.repoVersion, 1L)
   }
 
   test("parse heartbeat with no repo version") {
@@ -146,7 +146,7 @@ class ForwardingServiceSuite extends AnyFunSuite {
     assert(!msg.isDone)
     assert(msg.isHeartbeat)
 
-    assert(msg.repoVersion === -1L)
+    assertEquals(msg.repoVersion, -1L)
   }
 
   test("parse heartbeat with bad repo version type") {
@@ -159,7 +159,7 @@ class ForwardingServiceSuite extends AnyFunSuite {
     assert(!msg.isDone)
     assert(msg.isHeartbeat)
 
-    assert(msg.repoVersion === -1L)
+    assertEquals(msg.repoVersion, -1L)
   }
 
   test("parse done") {
@@ -201,27 +201,27 @@ class ForwardingServiceSuite extends AnyFunSuite {
   //
 
   test("truncate: NaN") {
-    assert(truncate(Double.NaN) === 0.0)
+    assertEquals(truncate(Double.NaN), 0.0)
   }
 
   test("truncate: Infinity") {
-    assert(truncate(Double.PositiveInfinity) === math.pow(2.0, 360))
+    assertEquals(truncate(Double.PositiveInfinity), math.pow(2.0, 360))
   }
 
   test("truncate: -Infinity") {
-    assert(truncate(Double.NegativeInfinity) === -math.pow(2.0, 360))
+    assertEquals(truncate(Double.NegativeInfinity), -math.pow(2.0, 360))
   }
 
   test("truncate: large value") {
-    assert(truncate(math.pow(2.0, 400)) === math.pow(2.0, 360))
+    assertEquals(truncate(math.pow(2.0, 400)), math.pow(2.0, 360))
   }
 
   test("truncate: negative large value") {
-    assert(truncate(-math.pow(2.0, 400)) === -math.pow(2.0, 360))
+    assertEquals(truncate(-math.pow(2.0, 400)), -math.pow(2.0, 360))
   }
 
   test("truncate: large negative exponent") {
-    assert(truncate(math.pow(2.0, -400)) === 0.0)
+    assertEquals(truncate(math.pow(2.0, -400)), 0.0)
   }
 
   //
@@ -263,9 +263,9 @@ class ForwardingServiceSuite extends AnyFunSuite {
     val env = new Evaluator.MessageEnvelope(id, msg)
     val actual = runToMetricDatum(env)
 
-    assert(actual.id === Json.decode[ExpressionId](id))
-    assert(actual.accountDatum.get.account === "1234567890")
-    assert(actual.accountDatum.get.datum.metricName() === "ssCpuUser")
+    assertEquals(actual.id, Json.decode[ExpressionId](id))
+    assertEquals(actual.accountDatum.get.account, "1234567890")
+    assertEquals(actual.accountDatum.get.datum.metricName(), "ssCpuUser")
   }
 
   test("toMetricDatum: filter out NaN values") {
@@ -294,7 +294,7 @@ class ForwardingServiceSuite extends AnyFunSuite {
       """.stripMargin
     val env = new Evaluator.MessageEnvelope(id, msg)
     val actual = runToMetricDatum(env).accountDatum
-    assert(actual === None)
+    assertEquals(actual, None)
   }
 
   //
@@ -363,7 +363,7 @@ class ForwardingServiceSuite extends AnyFunSuite {
           .build()
       )
     )
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("toCloudWatchPut: batching") {
@@ -380,7 +380,7 @@ class ForwardingServiceSuite extends AnyFunSuite {
           .build()
       )
     )
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("toCloudWatchPut: multiple batches") {
@@ -397,7 +397,7 @@ class ForwardingServiceSuite extends AnyFunSuite {
           .build()
       )
     }
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("toCloudWatchPut: skip put and pass the msg through for no data") {
@@ -410,7 +410,7 @@ class ForwardingServiceSuite extends AnyFunSuite {
     val (requests, msgsOut) = doRunCloudWatchPut("Netflix/Namespace", msgs)
 
     assert(requests.isEmpty)
-    assert(msgsOut.toList === msgs)
+    assertEquals(msgsOut.toList, msgs)
   }
 
   test("toCloudWatchPut: stream with metric and no data") {
@@ -437,8 +437,8 @@ class ForwardingServiceSuite extends AnyFunSuite {
       )
     )
 
-    assert(requests === expectedReqs)
-    assert(msgsOut.toSet === (noDataMsgsIn ++ dataMsgs).toSet)
+    assertEquals(requests, expectedReqs)
+    assertEquals(msgsOut.toSet, (noDataMsgsIn ++ dataMsgs).toSet)
   }
 
   def createMultiAccountDataSet(mod: Int, n: Int): List[AccountDatum] = {
@@ -469,16 +469,16 @@ class ForwardingServiceSuite extends AnyFunSuite {
             .build()
         )
     }
-    assert(actual.sortWith(_.account < _.account) === expected)
+    assertEquals(actual.sortWith(_.account < _.account), expected)
   }
 
   test("toCloudWatchPut: multiple accounts and batching") {
     val data = createMultiAccountDataSet(2, 47)
     val actual = runCloudWatchPut("Netflix/Namespace", data)
-    assert(actual.size === 4)
-    assert(actual.map(_.account).toSet === Set("0", "1"))
-    assert(actual.filter(_.account == "0").map(_.request.metricData.size()).sum === 24)
-    assert(actual.filter(_.account == "1").map(_.request.metricData.size()).sum === 23)
+    assertEquals(actual.size, 4)
+    assertEquals(actual.map(_.account).toSet, Set("0", "1"))
+    assertEquals(actual.filter(_.account == "0").map(_.request.metricData.size()).sum, 24)
+    assertEquals(actual.filter(_.account == "1").map(_.request.metricData.size()).sum, 23)
   }
 
   def createMultiRegionDataSet(mod: Int, n: Int): List[AccountDatum] = {
@@ -509,7 +509,7 @@ class ForwardingServiceSuite extends AnyFunSuite {
           .build()
       )
     }
-    assert(actual.sortWith(_.account < _.account) === expected)
+    assertEquals(actual.sortWith(_.account < _.account), expected)
   }
 
   //
@@ -556,8 +556,8 @@ class ForwardingServiceSuite extends AnyFunSuite {
       None
     )
 
-    assert(result === NotUsed)
-    assert(reqBody.copy(timestamp = 1L) === expectedReport)
+    assertEquals(result, NotUsed)
+    assertEquals(reqBody.copy(timestamp = 1L), expectedReport)
 
   }
 }

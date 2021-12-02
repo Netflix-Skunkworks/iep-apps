@@ -16,31 +16,27 @@
 package com.netflix.atlas.poller
 
 import java.lang.reflect.Type
-
 import akka.actor.ActorSystem
 import akka.testkit.ImplicitSender
 import akka.testkit.TestActorRef
-import akka.testkit.TestKit
+import akka.testkit.TestKitBase
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.iep.service.DefaultClassFactory
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.ManualClock
 import com.netflix.spectator.api.patterns.PolledMeter
 import com.typesafe.config.ConfigFactory
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.funsuite.AnyFunSuiteLike
+import munit.FunSuite
 
 import scala.concurrent.Await
 import scala.util.Failure
 import scala.util.Success
 
-class PollerManagerSuite
-    extends TestKit(ActorSystem())
-    with ImplicitSender
-    with AnyFunSuiteLike
-    with BeforeAndAfterAll {
+class PollerManagerSuite extends FunSuite with TestKitBase with ImplicitSender {
 
   import scala.concurrent.duration._
+
+  implicit val system: ActorSystem = ActorSystem()
 
   import scala.compat.java8.FunctionConverters._
   private val dataRef = new DataRef
@@ -71,14 +67,14 @@ class PollerManagerSuite
     dataRef.reset()
     dataRef.set(Success(Messages.MetricsPayload()))
     ref ! Messages.Tick
-    assert(dataValue === Messages.MetricsPayload())
+    assertEquals(dataValue, Messages.MetricsPayload())
 
     val payload =
       Messages.MetricsPayload(Map.empty, List(Datapoint(Map("name" -> "foo"), 0L, 42.0)))
 
     dataRef.set(Success(payload))
     ref ! Messages.Tick
-    assert(dataValue === payload)
+    assertEquals(dataValue, payload)
   }
 
   test("datapoints counter incremented") {
@@ -93,9 +89,9 @@ class PollerManagerSuite
 
     dataRef.set(Success(payload))
     ref ! Messages.Tick
-    assert(dataValue === payload)
+    assertEquals(dataValue, payload)
 
-    assert(counter.count() === init + datapoints.size)
+    assertEquals(counter.count(), init + datapoints.size)
   }
 
   test("restarts counter incremented") {
@@ -120,16 +116,16 @@ class PollerManagerSuite
     dataRef.set(Failure(e1))
     ref ! Messages.Tick
     waitForCompletion()
-    assert(c1.count() === init1 + 1)
-    assert(c2.count() === init2)
+    assertEquals(c1.count(), init1 + 1)
+    assertEquals(c2.count(), init2)
 
     // Update with IllegalArgumentException
     dataRef.reset()
     dataRef.set(Failure(e2))
     ref ! Messages.Tick
     waitForCompletion()
-    assert(c1.count() === init1 + 1)
-    assert(c2.count() === init2 + 1)
+    assertEquals(c1.count(), init1 + 1)
+    assertEquals(c2.count(), init2 + 1)
   }
 
   private def updateGauges(): Unit = {
@@ -144,14 +140,14 @@ class PollerManagerSuite
 
     val t = clock.wallTime()
     updateGauges()
-    assert(m.value() === 0.0)
+    assertEquals(m.value(), 0.0)
 
     clock.setWallTime(t + 60000L)
     dataRef.set(Success(payload))
     ref ! Messages.Tick
     waitForCompletion()
     updateGauges()
-    assert(m.value() === 0.0)
+    assertEquals(m.value(), 0.0)
 
   }
 
@@ -162,14 +158,14 @@ class PollerManagerSuite
 
     val t = clock.wallTime()
     updateGauges()
-    assert(m.value() === 0.0)
+    assertEquals(m.value(), 0.0)
 
     clock.setWallTime(t + 60000L)
     dataRef.set(Failure(e1))
     ref ! Messages.Tick
     waitForCompletion()
     updateGauges()
-    assert(m.value() === 60.0)
+    assertEquals(m.value(), 60.0)
 
   }
 

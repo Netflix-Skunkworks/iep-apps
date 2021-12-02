@@ -20,16 +20,14 @@ import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCode
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.testkit.RouteTestTimeout
-import akka.http.scaladsl.testkit.ScalatestRouteTest
 import com.netflix.atlas.akka.RequestHandler
+import com.netflix.atlas.akka.testkit.MUnitRouteSuite
 import com.netflix.atlas.json.Json
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.atlas.impl.Subscription
 import com.typesafe.config.ConfigFactory
-import org.scalatest.BeforeAndAfter
-import org.scalatest.funsuite.AnyFunSuite
 
-class StatsApiSuite extends AnyFunSuite with ScalatestRouteTest with BeforeAndAfter {
+class StatsApiSuite extends MUnitRouteSuite {
 
   import scala.jdk.CollectionConverters._
   import scala.concurrent.duration._
@@ -42,22 +40,22 @@ class StatsApiSuite extends AnyFunSuite with ScalatestRouteTest with BeforeAndAf
   private val routes = RequestHandler.standardOptions(endpoint.routes)
 
   private def assertJsonContentType(response: HttpResponse): Unit = {
-    assert(response.entity.contentType.mediaType === MediaTypes.`application/json`)
+    assertEquals(response.entity.contentType.mediaType, MediaTypes.`application/json`)
   }
 
   private def assertResponse(response: HttpResponse, expected: StatusCode): Unit = {
-    assert(response.status === expected)
+    assertEquals(response.status, expected)
     assertJsonContentType(response)
   }
 
-  before {
+  override def beforeEach(context: BeforeEach): Unit = {
     evaluator.clear()
   }
 
   test("empty") {
     Get("/api/v1/stats") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
-      assert(responseAs[String] === "[]")
+      assertEquals(responseAs[String], "[]")
     }
   }
 
@@ -84,8 +82,8 @@ class StatsApiSuite extends AnyFunSuite with ScalatestRouteTest with BeforeAndAf
     Get("/api/v1/stats") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val stats = Json.decode[List[ExpressionsEvaluator.SubscriptionStats]](responseAs[String])
-      assert(stats.length === 1)
-      assert(stats.head.updateCount.get() === 2)
+      assertEquals(stats.length, 1)
+      assertEquals(stats.head.updateCount.get(), 2L)
     }
   }
 }

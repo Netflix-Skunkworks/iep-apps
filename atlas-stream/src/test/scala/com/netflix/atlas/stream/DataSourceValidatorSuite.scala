@@ -16,9 +16,9 @@
 package com.netflix.atlas.stream
 
 import com.netflix.atlas.eval.stream.Evaluator.DataSource
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
-class DataSourceValidatorSuite extends AnyFunSuite {
+class DataSourceValidatorSuite extends FunSuite {
 
   private val validateNoop: DataSource => Unit = _ => ()
   private val validateException: DataSource => Unit = _ => { throw new Exception("validate error") }
@@ -28,7 +28,7 @@ class DataSourceValidatorSuite extends AnyFunSuite {
       """[{"id":"abc", "step": 10, "uri":"http://local-dev/api/v1/graph?q=name,jvm.gc.pause,:eq,:sum&step=10s"}]"""
     val validator = DataSourceValidator(10, validateNoop)
     validator.validate(stringValid) match {
-      case Right(dss) => assert(dss.getSources.size() === 1)
+      case Right(dss) => assertEquals(dss.getSources.size(), 1)
       case Left(_)    => fail("validation should have passed")
     }
   }
@@ -37,7 +37,7 @@ class DataSourceValidatorSuite extends AnyFunSuite {
     val stringValid = "[]"
     val validator = DataSourceValidator(10, validateNoop)
     validator.validate(stringValid) match {
-      case Right(dss) => assert(dss.getSources.size() === 0)
+      case Right(dss) => assertEquals(dss.getSources.size(), 0)
       case Left(_)    => fail("validation should have passed")
     }
   }
@@ -53,11 +53,11 @@ class DataSourceValidatorSuite extends AnyFunSuite {
       case Right(_) =>
         fail("validation should have failed")
       case Left(errors) =>
-        assert(errors.size === 2)
+        assertEquals(errors.size, 2)
         assert(errors.head.error.contains("validate error"))
-        assert(errors.head.id === "1")
+        assertEquals(errors.head.id, "1")
         assert(errors.last.error.contains("validate error"))
-        assert(errors.last.id === "2")
+        assertEquals(errors.last.id, "2")
     }
   }
 
@@ -68,7 +68,7 @@ class DataSourceValidatorSuite extends AnyFunSuite {
       case Right(_) =>
         fail("validation should have failed")
       case Left(errors) =>
-        assert(errors.size === 1)
+        assertEquals(errors.size, 1)
         assert(errors.head.error.startsWith("failed to parse input: "))
     }
   }
@@ -81,9 +81,9 @@ class DataSourceValidatorSuite extends AnyFunSuite {
       case Right(_) =>
         fail("validation should have failed")
       case Left(errors) =>
-        assert(errors.size === 1)
+        assertEquals(errors.size, 1)
         assert(errors.head.error.startsWith("id cannot be empty"))
-        assert(errors.head.id === "<empty_id>")
+        assertEquals(errors.head.id, "<empty_id>")
     }
   }
 
@@ -95,9 +95,9 @@ class DataSourceValidatorSuite extends AnyFunSuite {
       case Right(_) =>
         fail("validation should have failed")
       case Left(errors) =>
-        assert(errors.size === 1)
+        assertEquals(errors.size, 1)
         assert(errors.head.error.startsWith("id cannot be null"))
-        assert(errors.head.id === "<null_id>")
+        assertEquals(errors.head.id, "<null_id>")
     }
   }
 
@@ -112,9 +112,9 @@ class DataSourceValidatorSuite extends AnyFunSuite {
       case Right(_) =>
         fail("validation should have failed")
       case Left(errors) =>
-        assert(errors.size === 1)
-        assert(errors.head.error === "id cannot be duplicated")
-        assert(errors.head.id === "111")
+        assertEquals(errors.size, 1)
+        assertEquals(errors.head.error, "id cannot be duplicated")
+        assertEquals(errors.head.id, "111")
     }
   }
 
@@ -124,7 +124,7 @@ class DataSourceValidatorSuite extends AnyFunSuite {
     )
     val validator = DataSourceValidator(10, validateNoop)
     validator.validate(dsList) match {
-      case Right(dss) => assert(dss.getSources.size() === 1)
+      case Right(dss) => assertEquals(dss.getSources.size(), 1)
       case Left(_)    => fail("validation should have passed")
     }
   }
@@ -145,8 +145,8 @@ class DataSourceValidatorSuite extends AnyFunSuite {
       case Right(_) =>
         fail("validation should have passed")
       case Left(errors) =>
-        assert(errors.head.error === "id cannot be duplicated")
-        assert(errors.head.id === "111")
+        assertEquals(errors.head.error, "id cannot be duplicated")
+        assertEquals(errors.head.id, "111")
     }
   }
 
@@ -166,8 +166,8 @@ class DataSourceValidatorSuite extends AnyFunSuite {
       case Right(_) =>
         fail("validation should have passed")
       case Left(errors) =>
-        assert(errors.head.error === "number of DataSources cannot exceed 1")
-        assert(errors.head.id === "_")
+        assertEquals(errors.head.error, "number of DataSources cannot exceed 1")
+        assertEquals(errors.head.id, "_")
     }
   }
 

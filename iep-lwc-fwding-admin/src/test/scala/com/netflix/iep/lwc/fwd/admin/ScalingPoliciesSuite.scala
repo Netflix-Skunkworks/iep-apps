@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 package com.netflix.iep.lwc.fwd.admin
+
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.actor.Props
@@ -23,22 +24,22 @@ import akka.stream.scaladsl.Flow
 import akka.testkit.DefaultTimeout
 import akka.testkit.ImplicitSender
 import akka.testkit.TestActorRef
-import akka.testkit.TestKit
+import akka.testkit.TestKitBase
+import akka.util.Timeout
 import com.netflix.iep.lwc.fwd.admin.ScalingPolicies.GetCache
 import com.netflix.iep.lwc.fwd.admin.ScalingPolicies.GetScalingPolicy
 import com.netflix.iep.lwc.fwd.admin.ScalingPolicies.RefreshCache
 import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo
 import com.typesafe.config.ConfigFactory
-import org.scalatest.funsuite.AnyFunSuiteLike
+import munit.FunSuite
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-class ScalingPoliciesSuite
-    extends TestKit(ActorSystem())
-    with AnyFunSuiteLike
-    with DefaultTimeout
-    with ImplicitSender {
+class ScalingPoliciesSuite extends FunSuite with TestKitBase with ImplicitSender {
+
+  implicit val system: ActorSystem = ActorSystem()
+  implicit val timeout: Timeout = testKitSettings.DefaultTimeout
 
   private val config = ConfigFactory.load()
 
@@ -61,7 +62,7 @@ class ScalingPoliciesSuite
       )
     val actual = Await.result(future.mapTo[Option[ScalingPolicy]], Duration.Inf)
     val expected = Some(ec2Policy1)
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("Lookup Scaling policy") {
@@ -82,12 +83,12 @@ class ScalingPoliciesSuite
     val actual = Await.result(future.mapTo[Option[ScalingPolicy]], Duration.Inf)
 
     val expected = Some(ec2Policy1)
-    assert(actual === expected)
+    assertEquals(actual, expected)
 
     future = scalingPolicies ? GetCache
     val cachedScalingPolicies =
       Await.result(future.mapTo[Map[EddaEndpoint, List[ScalingPolicy]]], Duration.Inf)
-    assert(cachedScalingPolicies === data)
+    assertEquals(cachedScalingPolicies, data)
   }
 
   test("Timeout when dao fails to lookup Edda") {
@@ -109,7 +110,7 @@ class ScalingPoliciesSuite
         FwdMetricInfo("us-east-1", "123", "metric1", Map.empty[String, String])
       )
 
-    assertThrows[AskTimeoutException](
+    intercept[AskTimeoutException](
       Await.result(future.mapTo[Option[ScalingPolicy]], Duration.Inf)
     )
   }
@@ -138,7 +139,7 @@ class ScalingPoliciesSuite
     future = scalingPolicies ? GetCache
     val actual = Await.result(future.mapTo[Map[EddaEndpoint, List[ScalingPolicy]]], Duration.Inf)
 
-    assert(actual === data)
+    assertEquals(actual, data)
   }
 
   test("Dao failure during cache refresh") {
@@ -166,12 +167,14 @@ class ScalingPoliciesSuite
 
     future = scalingPolicies ? GetCache
     val actual = Await.result(future.mapTo[Map[EddaEndpoint, List[ScalingPolicy]]], Duration.Inf)
-    assert(actual === cache)
+    assertEquals(actual, cache)
   }
 
 }
 
-class ScalingPoliciesMethodsSuite extends TestKit(ActorSystem()) with AnyFunSuiteLike {
+class ScalingPoliciesMethodsSuite extends FunSuite with TestKitBase {
+
+  implicit val system: ActorSystem = ActorSystem()
 
   private val config = ConfigFactory.load()
 
@@ -186,7 +189,7 @@ class ScalingPoliciesMethodsSuite extends TestKit(ActorSystem()) with AnyFunSuit
 
     val expected = "local"
     val actual = scalingPolicies.underlyingActor.getEnv("123")
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("Get default env when a account is not mapped") {
@@ -200,6 +203,6 @@ class ScalingPoliciesMethodsSuite extends TestKit(ActorSystem()) with AnyFunSuit
 
     val expected = "test"
     val actual = scalingPolicies.underlyingActor.getEnv("456")
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 }

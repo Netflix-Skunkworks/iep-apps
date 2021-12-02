@@ -26,12 +26,12 @@ import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
 import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo
 import com.netflix.iep.lwc.fwd.cw.Report
 import com.typesafe.config.ConfigFactory
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-class MarkerServiceSuite extends AnyFunSuite {
+class MarkerServiceSuite extends FunSuite {
 
   import MarkerServiceImpl._
 
@@ -66,7 +66,7 @@ class MarkerServiceSuite extends AnyFunSuite {
       .via(readExprDetails(exprDetailsDao))
       .runWith(Sink.head)
     val actual = Await.result(future, Duration.Inf)
-    assert(actual === Some(data))
+    assertEquals(actual, Some(data))
   }
 
   test("Read errors should be filtered out from the stream") {
@@ -99,7 +99,7 @@ class MarkerServiceSuite extends AnyFunSuite {
       .runWith(Sink.seq)
     val actual = Await.result(future, Duration.Inf)
 
-    assert(actual === List(None))
+    assertEquals(actual, List(None))
   }
 
   test("Lookup scaling policy") {
@@ -133,7 +133,7 @@ class MarkerServiceSuite extends AnyFunSuite {
       false,
       Some(ScalingPolicy("ec2Policy1", ScalingPolicy.Ec2, "metric1", Nil))
     )
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("Unknown scaling policy for no data") {
@@ -163,7 +163,7 @@ class MarkerServiceSuite extends AnyFunSuite {
       .runWith(Sink.head)
     val actual = Await.result(future, Duration.Inf)
     val expected = ScalingPolicyStatus(true, None)
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("Unknown scaling policy for dao errors") {
@@ -199,7 +199,7 @@ class MarkerServiceSuite extends AnyFunSuite {
       .runWith(Sink.head)
     val actual = Await.result(future, Duration.Inf)
     val expected = ScalingPolicyStatus(true, None)
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("Save ExpressionDetails using a dedicated dispatcher") {
@@ -232,8 +232,8 @@ class MarkerServiceSuite extends AnyFunSuite {
       .runWith(Sink.head)
     val result = Await.result(future, Duration.Inf)
 
-    assert(result === NotUsed)
-    assert(saved.result() === List(exprDetails))
+    assertEquals(result, NotUsed)
+    assertEquals(saved.result(), List(exprDetails))
   }
 
   test("Save errors should be filtered out") {
@@ -264,6 +264,6 @@ class MarkerServiceSuite extends AnyFunSuite {
       .runWith(Sink.headOption)
     val result = Await.result(future, Duration.Inf)
 
-    assert(result === None)
+    assertEquals(result, None)
   }
 }

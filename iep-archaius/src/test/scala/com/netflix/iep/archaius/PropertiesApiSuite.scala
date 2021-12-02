@@ -17,21 +17,19 @@ package com.netflix.iep.archaius
 
 import java.io.StringReader
 import java.util.Properties
-
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCode
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers._
 import akka.http.scaladsl.testkit.RouteTestTimeout
-import akka.http.scaladsl.testkit.ScalatestRouteTest
 import com.netflix.atlas.akka.RequestHandler
+import com.netflix.atlas.akka.testkit.MUnitRouteSuite
 import com.netflix.atlas.json.Json
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.ManualClock
-import org.scalatest.funsuite.AnyFunSuite
 
-class PropertiesApiSuite extends AnyFunSuite with ScalatestRouteTest {
+class PropertiesApiSuite extends MUnitRouteSuite {
   import scala.concurrent.duration._
   implicit val routeTestTimeout = RouteTestTimeout(5.second)
 
@@ -42,17 +40,17 @@ class PropertiesApiSuite extends AnyFunSuite with ScalatestRouteTest {
   val routes = RequestHandler.standardOptions(endpoint.routes)
 
   private def assertJsonContentType(response: HttpResponse): Unit = {
-    assert(response.entity.contentType.mediaType === MediaTypes.`application/json`)
+    assertEquals(response.entity.contentType.mediaType, MediaTypes.`application/json`)
   }
 
   private def assertResponse(response: HttpResponse, expected: StatusCode): Unit = {
-    assert(response.status === expected)
+    assertEquals(response.status, expected)
     assertJsonContentType(response)
   }
 
   test("no asg") {
     Get("/api/v1/property") ~> routes ~> check {
-      assert(response.status === StatusCodes.BadRequest)
+      assertEquals(response.status, StatusCodes.BadRequest)
     }
   }
 
@@ -63,7 +61,7 @@ class PropertiesApiSuite extends AnyFunSuite with ScalatestRouteTest {
     routes ~>
     check {
       assertResponse(response, StatusCodes.OK)
-      assert(responseAs[String] === "[]")
+      assertEquals(responseAs[String], "[]")
     }
   }
 
@@ -76,12 +74,12 @@ class PropertiesApiSuite extends AnyFunSuite with ScalatestRouteTest {
       )
     )
     Get("/api/v1/property?asg=foo-main-v001") ~> routes ~> check {
-      assert(response.status === StatusCodes.OK)
+      assertEquals(response.status, StatusCodes.OK)
       val props = new Properties
       props.load(new StringReader(responseAs[String]))
-      assert(props.size === 2)
-      assert(props.getProperty("a") === "b")
-      assert(props.getProperty("1") === "2")
+      assertEquals(props.size, 2)
+      assertEquals(props.getProperty("a"), "b")
+      assertEquals(props.getProperty("1"), "2")
     }
   }
 
@@ -97,7 +95,7 @@ class PropertiesApiSuite extends AnyFunSuite with ScalatestRouteTest {
     check {
       assertResponse(response, StatusCodes.OK)
       val props = Json.decode[List[PropertiesApi.Property]](responseAs[String])
-      assert(props === List(PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L)))
+      assertEquals(props, List(PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L)))
     }
   }
 }

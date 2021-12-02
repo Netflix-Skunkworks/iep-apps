@@ -18,9 +18,9 @@ package com.netflix.atlas.aggregator
 import com.netflix.spectator.api.ManualClock
 import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
-class AggrConfigSuite extends AnyFunSuite {
+class AggrConfigSuite extends FunSuite {
 
   test("initial polling delay") {
     val step = 60000L

@@ -17,26 +17,26 @@ package com.netflix.iep.loadgen
 
 import java.time.Duration
 
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
-class LoadGenServiceSuite extends AnyFunSuite {
+class LoadGenServiceSuite extends FunSuite {
   test("extract step from uri") {
     val actual = LoadGenService.extractStep("/graph?q=name,foo,:eq&step=60s")
-    assert(actual === Some(Duration.ofSeconds(60)))
+    assertEquals(actual, Some(Duration.ofSeconds(60)))
   }
 
   test("extract step from uri, not present") {
     val actual = LoadGenService.extractStep("/graph?q=name,foo,:eq")
-    assert(actual === None)
+    assertEquals(actual, None)
   }
 
   test("extract step from uri, invalid uri") {
     val actual = LoadGenService.extractStep("/graph?q=name,{{ .SpinnakerApp }},:eq")
-    assert(actual === None)
+    assertEquals(actual, None)
   }
 
   test("extract step from uri, invalid step") {
     val actual = LoadGenService.extractStep("/graph?q=name,foo,:eq&step=bad")
-    assert(actual === None)
+    assertEquals(actual, None)
   }
 }

@@ -28,9 +28,9 @@ import com.netflix.spectator.atlas.AtlasConfig
 import com.netflix.spectator.atlas.AtlasRegistry
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
-class AppModuleSuite extends AnyFunSuite {
+class AppModuleSuite extends FunSuite {
 
   import AppModuleSuite._
 
@@ -57,7 +57,7 @@ class AppModuleSuite extends AnyFunSuite {
         |netflix.atlas.aggr.registry.atlas.uri = "test"
       """.stripMargin)
     val aggr = new AggrConfig(config, new NoopRegistry, null)
-    assert(aggr.uri() === "test")
+    assertEquals(aggr.uri(), "test")
   }
 
   test("aggr config should use default for missing props") {
@@ -65,7 +65,7 @@ class AppModuleSuite extends AnyFunSuite {
         |netflix.atlas.aggr.registry.atlas.uri = "test"
       """.stripMargin)
     val aggr = new AggrConfig(config, new NoopRegistry, null)
-    assert(aggr.batchSize() === 10000)
+    assertEquals(aggr.batchSize(), 10000)
   }
 }
 

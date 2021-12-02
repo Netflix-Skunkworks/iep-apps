@@ -15,7 +15,7 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import org.scalatest.Assertions
+import munit.Assertions
 
 trait TestAssertions extends Assertions {
 

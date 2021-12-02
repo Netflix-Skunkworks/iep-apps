@@ -23,7 +23,7 @@ import akka.stream.scaladsl.Source
 import com.netflix.atlas.akka.AccessLogger
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
 import scala.concurrent.Await
 import scala.concurrent.Future
@@ -32,7 +32,7 @@ import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
 
-class ScalingPoliciesDaoSuite extends AnyFunSuite {
+class ScalingPoliciesDaoSuite extends FunSuite {
   val config = ConfigFactory.load()
   private implicit val system = ActorSystem()
 
@@ -85,7 +85,7 @@ class ScalingPoliciesDaoSuite extends AnyFunSuite {
         List(MetricDimension("AutoScalingGroupName", "asg1"))
       )
     )
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("Lookup Titus scaling policies of type Target tracking") {
@@ -129,7 +129,7 @@ class ScalingPoliciesDaoSuite extends AnyFunSuite {
         List(MetricDimension("AutoScalingGroupName", "asg1"))
       )
     )
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("Lookup Titus scaling policies of type Step scaling") {
@@ -178,7 +178,7 @@ class ScalingPoliciesDaoSuite extends AnyFunSuite {
         List(MetricDimension("AutoScalingGroupName", "asg1"))
       )
     )
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("Fail when a downstream call fails") {
@@ -191,7 +191,7 @@ class ScalingPoliciesDaoSuite extends AnyFunSuite {
     val dao = new LocalScalingPoliciesDaoTestImpl(data, config, system)
     val future = getScalingPolicies(dao, EddaEndpoint("123", "us-east-1", "test"))
 
-    assertThrows[NoSuchElementException](Await.result(future, Duration.Inf))
+    intercept[NoSuchElementException](Await.result(future, Duration.Inf))
   }
 
   test("Fail when status is not ok") {
@@ -202,7 +202,7 @@ class ScalingPoliciesDaoSuite extends AnyFunSuite {
     }
     val future = getScalingPolicies(dao, EddaEndpoint("123", "us-east-1", "test"))
 
-    assertThrows[NoSuchElementException](Await.result(future, Duration.Inf))
+    intercept[NoSuchElementException](Await.result(future, Duration.Inf))
   }
 
   def getScalingPolicies(

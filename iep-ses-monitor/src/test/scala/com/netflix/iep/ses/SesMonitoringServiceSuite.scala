@@ -28,9 +28,7 @@ import com.netflix.spectator.api.Functions
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.ConfigFactory
-import org.scalatest.BeforeAndAfterEach
-import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.matchers.should.Matchers
+import munit.FunSuite
 import software.amazon.awssdk.core.exception.SdkClientException
 import software.amazon.awssdk.services.sqs.SqsAsyncClient
 import software.amazon.awssdk.services.sqs.model.GetQueueUrlResponse
@@ -39,7 +37,7 @@ import software.amazon.awssdk.services.sqs.model.Message
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAndAfterEach {
+class SesMonitoringServiceSuite extends FunSuite {
 
   private implicit val system: ActorSystem = ActorSystem()
 
@@ -52,7 +50,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
   private var sesMonitoringService: SesMonitoringService = _
   private var metricRegistry: Registry = _
 
-  override def beforeEach(): Unit = {
+  override def beforeEach(context: BeforeEach): Unit = {
     setup(new DefaultRegistry(), _ => ())
   }
 
@@ -79,7 +77,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
       10.seconds
     )
 
-    processed.getClass shouldEqual classOf[MessageAction.Delete]
+    assert(processed.getClass == classOf[MessageAction.Delete])
   }
 
   test(
@@ -97,7 +95,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
 
     val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-    counter.count() shouldEqual 0
+    assertEquals(counter.count(), 0L)
 
     Await.result(
       Source
@@ -107,7 +105,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
       2.seconds
     )
 
-    counter.count() shouldEqual 1
+    assertEquals(counter.count(), 1L)
   }
 
   test(
@@ -133,7 +131,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
 
     val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-    counter.count() shouldEqual 0
+    assertEquals(counter.count(), 0L)
 
     Await.result(
       Source
@@ -143,7 +141,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
       2.seconds
     )
 
-    counter.count() shouldEqual 1
+    assertEquals(counter.count(), 1L)
   }
 
   test(
@@ -169,7 +167,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
 
     val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-    counter.count() shouldEqual 0
+    assertEquals(counter.count(), 0L)
 
     Await.result(
       Source
@@ -179,7 +177,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
       2.seconds
     )
 
-    counter.count() shouldEqual 1
+    assertEquals(counter.count(), 1L)
   }
 
   test(
@@ -206,7 +204,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
 
     val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-    counter.count() shouldEqual 0
+    assertEquals(counter.count(), 0L)
 
     Await.result(
       Source
@@ -216,7 +214,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
       2.minutes
     )
 
-    counter.count() shouldEqual 1
+    assertEquals(counter.count(), 1L)
   }
 
   test(
@@ -246,8 +244,8 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
 
     val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-    engineerCounter.count() shouldEqual 0
-    managerCounter.count() shouldEqual 0
+    assertEquals(engineerCounter.count(), 0L)
+    assertEquals(managerCounter.count(), 0L)
 
     Await.result(
       Source
@@ -257,8 +255,8 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
       2.seconds
     )
 
-    engineerCounter.count() shouldEqual 1
-    managerCounter.count() shouldEqual 1
+    assertEquals(engineerCounter.count(), 1L)
+    assertEquals(managerCounter.count(), 1L)
   }
 
   test(
@@ -285,7 +283,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
 
     val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-    counter.count() shouldEqual 0
+    assertEquals(counter.count(), 0L)
 
     Await.result(
       Source(
@@ -301,7 +299,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
       2.seconds
     )
 
-    counter.count() shouldEqual 5
+    assertEquals(counter.count(), 5L)
   }
 
   test(
@@ -328,7 +326,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
 
     val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-    counter.count() shouldEqual 0
+    assertEquals(counter.count(), 0L)
 
     Await.result(
       Source
@@ -338,7 +336,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
       2.seconds
     )
 
-    counter.count() shouldEqual 1
+    assertEquals(counter.count(), 1L)
   }
 
   test(
@@ -364,7 +362,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
 
     val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-    counter.count() shouldEqual 0
+    assertEquals(counter.count(), 0L)
 
     Await.result(
       Source
@@ -374,7 +372,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
       2.seconds
     )
 
-    counter.count() shouldEqual 1
+    assertEquals(counter.count(), 1L)
   }
 
   test(
@@ -400,7 +398,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
 
     val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-    counter.count() shouldEqual 0
+    assertEquals(counter.count(), 0L)
 
     Await.result(
       Source(
@@ -414,7 +412,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
       2.seconds
     )
 
-    counter.count() shouldEqual 3
+    assertEquals(counter.count(), 3L)
   }
 
   test(
@@ -440,7 +438,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
 
     val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-    counter.count() shouldEqual 0
+    assertEquals(counter.count(), 0L)
 
     Await.result(
       Source
@@ -450,7 +448,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
       2.seconds
     )
 
-    counter.count() shouldEqual 1
+    assertEquals(counter.count(), 1L)
   }
 
   test(
@@ -475,7 +473,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
 
     val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-    counter.count() shouldEqual 0
+    assertEquals(counter.count(), 0L)
 
     Await.result(
       Source
@@ -485,7 +483,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
       2.seconds
     )
 
-    counter.count() shouldEqual 1
+    assertEquals(counter.count(), 1L)
   }
 
   test(
@@ -510,7 +508,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
 
     val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-    counter.count() shouldEqual 0
+    assertEquals(counter.count(), 0L)
 
     Await.result(
       Source(
@@ -527,7 +525,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
       2.seconds
     )
 
-    counter.count() shouldEqual 6
+    assertEquals(counter.count(), 6L)
   }
 
   test(
@@ -552,7 +550,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
 
     val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-    counter.count() shouldEqual 0
+    assertEquals(counter.count(), 0L)
 
     Await.result(
       Source
@@ -562,7 +560,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
       2.seconds
     )
 
-    counter.count() shouldEqual 1
+    assertEquals(counter.count(), 1L)
   }
 
   test("the raw notification message body should be logged") {
@@ -587,7 +585,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
 
     val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-    loggerCalled shouldEqual false
+    assertEquals(loggerCalled, false)
 
     Await.result(
       Source
@@ -597,8 +595,8 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
       2.seconds
     )
 
-    loggerCalled shouldEqual true
-    notificationBody shouldEqual bounceNotification
+    assertEquals(loggerCalled, true)
+    assertEquals(notificationBody, bounceNotification)
   }
 
   test(
@@ -622,7 +620,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
 
     val messageProcessingFlow = sesMonitoringService.createMessageProcessingFlow()
 
-    loggerCalled shouldEqual false
+    assertEquals(loggerCalled, false)
 
     Await.result(
       Source
@@ -632,7 +630,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
       2.seconds
     )
 
-    assert(loggerCalled === false, msg)
+    assertEquals(loggerCalled, false, msg)
   }
 
   test(
@@ -653,7 +651,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
         .createId("ses.monitor.deserializationFailure")
         .withTag("reason", "JsonEOFException")
     )
-    counter.count() shouldEqual 0
+    assertEquals(counter.count(), 0L)
 
     Await.result(
       Source
@@ -663,13 +661,13 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
       2.seconds
     )
 
-    counter.count() shouldEqual 1
+    assertEquals(counter.count(), 1L)
     val notificationLoggingFailureCount = metricRegistry
       .counters()
       .filter(Functions.nameEquals("ses.monitor.notificationLoggingFailure"))
       .mapToLong(_.count)
       .reduce(0L, (left: Long, right: Long) => left + right)
-    notificationLoggingFailureCount shouldEqual 0
+    assertEquals(notificationLoggingFailureCount, 0L)
 
   }
 
@@ -694,7 +692,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
         .createId("ses.monitor.notificationLoggingFailure")
         .withTag("reason", "EmptyJsonDocument")
     )
-    counter.count() shouldEqual 0
+    assertEquals(counter.count(), 0L)
 
     Await.result(
       Source
@@ -704,13 +702,13 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
       2.seconds
     )
 
-    counter.count() shouldEqual 1
+    assertEquals(counter.count(), 1L)
     val deserializationFailureCount = metricRegistry
       .counters()
       .filter(Functions.nameEquals("ses.monitor.deserializationFailure"))
       .mapToLong(_.count)
       .reduce(0L, (left: Long, right: Long) => left + right)
-    deserializationFailureCount shouldEqual 0
+    assertEquals(deserializationFailureCount, 0L)
   }
 
   test(
@@ -737,7 +735,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
         .createId("ses.monitor.notificationLoggingFailure")
         .withTag("reason", "IllegalStateException")
     )
-    counter.count() shouldEqual 0
+    assertEquals(counter.count(), 0L)
 
     Await.result(
       Source
@@ -747,7 +745,7 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
       2.seconds
     )
 
-    counter.count() shouldEqual 1
+    assertEquals(counter.count(), 1L)
   }
 
   test("sqs queue uri is returned on success") {
@@ -755,13 +753,13 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
     val queueUrl = "queueUrl"
     responseBuilder.queueUrl(queueUrl)
     val counter = metricRegistry.counter(metricRegistry.createId("ses.monitor.getQueueUrlFailure"))
-    counter.count() shouldEqual 0
+    assertEquals(counter.count(), 0L)
 
     val response = responseBuilder.build()
     val uriString = sesMonitoringService.getSqsQueueUrl(response, JTDuration.ofMillis(0))
 
-    counter.count() shouldEqual 0
-    uriString shouldEqual queueUrl
+    assertEquals(counter.count(), 0L)
+    assertEquals(uriString, queueUrl)
   }
 
   test(
@@ -788,13 +786,13 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
         .withTag("cause", "UnknownHostException")
     )
 
-    counter.count() shouldEqual 0
+    assertEquals(counter.count(), 0L)
 
     val uriString = sesMonitoringService.getSqsQueueUrl(getUrlSpy, JTDuration.ofMillis(10))
 
-    counter.count() shouldEqual 2
-    attempts shouldEqual 3
-    uriString shouldEqual queueUrl
+    assertEquals(counter.count(), 2L)
+    assertEquals(attempts, 3)
+    assertEquals(uriString, queueUrl)
   }
 
   test(
@@ -815,14 +813,14 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
         .withTag("cause", "NullPointerException")
     )
 
-    counter.count() shouldEqual 0
+    assertEquals(counter.count(), 0L)
 
     intercept[SdkClientException] {
       sesMonitoringService.getSqsQueueUrl(getUrlSpy, JTDuration.ofMillis(10))
     }
 
-    counter.count() shouldEqual 1
-    attempts shouldEqual 1
+    assertEquals(counter.count(), 1L)
+    assertEquals(attempts, 1)
   }
 
   test(
@@ -842,14 +840,14 @@ class SesMonitoringServiceSuite extends AnyFunSuite with Matchers with BeforeAnd
         .withTag("exception", "NullPointerException")
     )
 
-    counter.count() shouldEqual 0
+    assertEquals(counter.count(), 0L)
 
     intercept[NullPointerException] {
       sesMonitoringService.getSqsQueueUrl(getUrlSpy, JTDuration.ofMillis(10))
     }
 
-    counter.count() shouldEqual 1
-    attempts shouldEqual 1
+    assertEquals(counter.count(), 1L)
+    assertEquals(attempts, 1)
   }
 
   private def createNotificationMessage(messageBody: String): Message = {
