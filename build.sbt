@@ -35,7 +35,7 @@ lazy val `atlas-aggregator` = project
 
     Dependencies.akkaHttpTestkit % "test",
     Dependencies.akkaTestkit % "test",
-    Dependencies.scalatest % "test"
+    Dependencies.munit % "test"
   ))
 
 lazy val `atlas-cloudwatch` = project
@@ -59,7 +59,7 @@ lazy val `atlas-cloudwatch` = project
     Dependencies.atlasWebApi % "test",
     Dependencies.akkaHttpTestkit % "test",
     Dependencies.akkaTestkit % "test",
-    Dependencies.scalatest % "test"
+    Dependencies.munit % "test"
   ))
 
 lazy val `atlas-druid` = project
@@ -108,7 +108,8 @@ lazy val `atlas-slotting` = project
 
       Dependencies.akkaHttpTestkit % "test",
       Dependencies.akkaTestkit % "test",
-      Dependencies.scalatest % "test"
+      Dependencies.atlasAkkaTestkit % "test",
+      Dependencies.munit % "test"
   ))
 
 lazy val `atlas-stream` = project
@@ -123,7 +124,7 @@ lazy val `atlas-stream` = project
 
     Dependencies.akkaHttpTestkit % "test",
     Dependencies.akkaTestkit % "test",
-    Dependencies.scalatest % "test"
+    Dependencies.munit % "test"
   ))
 
 lazy val `iep-archaius` = project
@@ -142,7 +143,8 @@ lazy val `iep-archaius` = project
 
     Dependencies.akkaHttpTestkit % "test",
     Dependencies.akkaTestkit % "test",
-    Dependencies.scalatest % "test"
+    Dependencies.atlasAkkaTestkit % "test",
+    Dependencies.munit % "test"
   ))
 
 lazy val `iep-atlas` = project
@@ -186,7 +188,8 @@ lazy val `iep-lwc-bridge` = project
 
     Dependencies.akkaHttpTestkit % "test",
     Dependencies.akkaTestkit % "test",
-    Dependencies.scalatest % "test"
+    Dependencies.atlasAkkaTestkit % "test",
+    Dependencies.munit % "test"
   ))
 
 lazy val `iep-lwc-cloudwatch-model` = project
@@ -210,7 +213,7 @@ lazy val `iep-lwc-cloudwatch` = project
 
     Dependencies.akkaHttpTestkit % "test",
     Dependencies.akkaTestkit % "test",
-    Dependencies.scalatest % "test"
+    Dependencies.munit % "test"
   ))
 
 lazy val `iep-lwc-fwding-admin` = project
@@ -232,7 +235,8 @@ lazy val `iep-lwc-fwding-admin` = project
 
     Dependencies.akkaHttpTestkit % "test",
     Dependencies.akkaTestkit % "test",
-    Dependencies.scalatest % "test"
+    Dependencies.atlasAkkaTestkit % "test",
+    Dependencies.munit % "test"
   ))
 
 
@@ -249,7 +253,7 @@ lazy val `iep-lwc-loadgen` = project
 
     Dependencies.akkaHttpTestkit % "test",
     Dependencies.akkaTestkit % "test",
-    Dependencies.scalatest % "test"
+    Dependencies.munit % "test"
   ))
 
 lazy val `iep-ses-monitor` = project
@@ -268,6 +272,6 @@ lazy val `iep-ses-monitor` = project
 
     Dependencies.akkaHttpTestkit % "test",
     Dependencies.akkaTestkit % "test",
-    Dependencies.scalatest % "test"
+    Dependencies.munit % "test"
   ))
 

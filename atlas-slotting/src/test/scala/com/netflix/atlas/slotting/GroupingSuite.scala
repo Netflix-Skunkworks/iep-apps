@@ -17,7 +17,7 @@ package com.netflix.atlas.slotting
 
 import java.time.Instant
 import com.netflix.atlas.json.Json
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 import software.amazon.awssdk.services.autoscaling.model.AutoScalingGroup
 import software.amazon.awssdk.services.autoscaling.model.{Instance => AsgInstance}
 import software.amazon.awssdk.services.ec2.model.{Instance => Ec2Instance}
@@ -25,7 +25,7 @@ import software.amazon.awssdk.services.ec2.model.{Instance => Ec2Instance}
 import scala.jdk.CollectionConverters._
 import scala.io.Source
 
-class GroupingSuite extends AnyFunSuite with Grouping {
+class GroupingSuite extends FunSuite with Grouping {
 
   test("get app") {
     val res = List(
@@ -34,7 +34,7 @@ class GroupingSuite extends AnyFunSuite with Grouping {
       "atlas_app-main-all-v003"
     ).map(getApp)
 
-    assert(res === List("atlas_app", "atlas_app", "atlas_app"))
+    assertEquals(res, List("atlas_app", "atlas_app", "atlas_app"))
   }
 
   test("get cluster") {
@@ -44,7 +44,7 @@ class GroupingSuite extends AnyFunSuite with Grouping {
       "atlas_app-main-all-v003"
     ).map(getCluster)
 
-    assert(res === List("atlas_app", "atlas_app-main", "atlas_app-main-all"))
+    assertEquals(res, List("atlas_app", "atlas_app-main", "atlas_app-main-all"))
   }
 
   test("make asg details") {
@@ -81,12 +81,12 @@ class GroupingSuite extends AnyFunSuite with Grouping {
 
     val asgDetails = mkAsgDetails(asg)
 
-    assert(asgDetails.name === "atlas_app-main-all-v001")
-    assert(asgDetails.cluster === "atlas_app-main-all")
-    assert(asgDetails.desiredCapacity === 3)
-    assert(asgDetails.maxSize === 6)
-    assert(asgDetails.minSize === 0)
-    assert(asgDetails.instances.map(_.instanceId) === List("i-001", "i-002", "i-003"))
+    assertEquals(asgDetails.name, "atlas_app-main-all-v001")
+    assertEquals(asgDetails.cluster, "atlas_app-main-all")
+    assertEquals(asgDetails.desiredCapacity, 3)
+    assertEquals(asgDetails.maxSize, 6)
+    assertEquals(asgDetails.minSize, 0)
+    assertEquals(asgDetails.instances.map(_.instanceId), List("i-001", "i-002", "i-003"))
   }
 
   test("make ec2 instance details") {
@@ -101,9 +101,9 @@ class GroupingSuite extends AnyFunSuite with Grouping {
 
     val details = mkEc2InstanceDetails(instance)
 
-    assert(details.imageId === "ami-001")
-    assert(details.instanceType === "r4.large")
-    assert(details.privateIpAddress === "192.168.1.1")
+    assertEquals(details.imageId, "ami-001")
+    assertEquals(details.instanceType, "r4.large")
+    assertEquals(details.privateIpAddress, "192.168.1.1")
   }
 
   test("make slotted instance details") {
@@ -133,9 +133,9 @@ class GroupingSuite extends AnyFunSuite with Grouping {
 
     val slotted = mkSlottedInstanceDetailsList(asgDetails, instanceInfo)
 
-    assert(slotted.map(_.instanceId) === List("i-001", "i-002", "i-003"))
-    assert(slotted.map(_.privateIpAddress) === List("192.168.1.1", "192.168.1.2", "192.168.1.3"))
-    assert(slotted.map(_.slot) === List(-1, -1, -1))
+    assertEquals(slotted.map(_.instanceId), List("i-001", "i-002", "i-003"))
+    assertEquals(slotted.map(_.privateIpAddress), List("192.168.1.1", "192.168.1.2", "192.168.1.3"))
+    assertEquals(slotted.map(_.slot), List(-1, -1, -1))
   }
 
   test("slotted asg details - too many instances") {
@@ -157,7 +157,7 @@ class GroupingSuite extends AnyFunSuite with Grouping {
       )
     }
 
-    assert(caught.getMessage === "requirement failed: instances.size (3) > desiredCapacity (2)")
+    assertEquals(caught.getMessage, "requirement failed: instances.size (3) > desiredCapacity (2)")
   }
 
   test("assign slots") {
@@ -187,9 +187,9 @@ class GroupingSuite extends AnyFunSuite with Grouping {
 
     val slotted = assignSlots(asgDetails, instanceInfo)
 
-    assert(slotted.map(_.instanceId) === List("i-001", "i-002", "i-003"))
-    assert(slotted.map(_.privateIpAddress) === List("192.168.1.1", "192.168.1.2", "192.168.1.3"))
-    assert(slotted.map(_.slot) === List(0, 1, 2))
+    assertEquals(slotted.map(_.instanceId), List("i-001", "i-002", "i-003"))
+    assertEquals(slotted.map(_.privateIpAddress), List("192.168.1.1", "192.168.1.2", "192.168.1.3"))
+    assertEquals(slotted.map(_.slot), List(0, 1, 2))
   }
 
   private def loadSlottedInstanceDetails(resource: String): SlottedInstanceDetails = {
@@ -242,9 +242,9 @@ class GroupingSuite extends AnyFunSuite with Grouping {
 
     val merged = mergeSlots(oldAsgSlotted, newAsgDetails, instanceInfo)
 
-    assert(merged.map(_.instanceId) === List("i-001", "i-004", "i-003"))
-    assert(merged.map(_.privateIpAddress) === List("192.168.1.1", "192.168.1.4", "192.168.1.3"))
-    assert(merged.map(_.slot) === List(0, 1, 2))
+    assertEquals(merged.map(_.instanceId), List("i-001", "i-004", "i-003"))
+    assertEquals(merged.map(_.privateIpAddress), List("192.168.1.1", "192.168.1.4", "192.168.1.3"))
+    assertEquals(merged.map(_.slot), List(0, 1, 2))
   }
 
   test("merge slots - too many instances") {
@@ -294,7 +294,7 @@ class GroupingSuite extends AnyFunSuite with Grouping {
       mergeSlots(oldAsgSlotted, newAsgDetails, instanceInfo)
     }
 
-    assert(caught.getMessage === "key not found: i-005")
+    assertEquals(caught.getMessage, "key not found: i-005")
   }
 
   test("merge slots - too many instances, no entry in instanceInfo") {
@@ -341,8 +341,8 @@ class GroupingSuite extends AnyFunSuite with Grouping {
 
     val merged = mergeSlots(oldAsgSlotted, newAsgDetails, instanceInfo)
 
-    assert(merged.map(_.instanceId) === List("i-001", "i-004", "i-003"))
-    assert(merged.map(_.privateIpAddress) === List("192.168.1.1", "192.168.1.4", "192.168.1.3"))
-    assert(merged.map(_.slot) === List(0, 1, 2))
+    assertEquals(merged.map(_.instanceId), List("i-001", "i-004", "i-003"))
+    assertEquals(merged.map(_.privateIpAddress), List("192.168.1.1", "192.168.1.4", "192.168.1.3"))
+    assertEquals(merged.map(_.slot), List(0, 1, 2))
   }
 }

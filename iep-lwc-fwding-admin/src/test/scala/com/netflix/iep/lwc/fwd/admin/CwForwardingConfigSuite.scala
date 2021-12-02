@@ -20,9 +20,9 @@ import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
-class CwForwardingConfigSuite extends AnyFunSuite with CwForwardingTestConfig with StrictLogging {
+class CwForwardingConfigSuite extends FunSuite with CwForwardingTestConfig with StrictLogging {
 
   private val config = ConfigFactory.load()
   private val system = ActorSystem()

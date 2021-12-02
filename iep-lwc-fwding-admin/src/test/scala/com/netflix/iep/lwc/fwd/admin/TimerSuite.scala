@@ -17,9 +17,10 @@ package com.netflix.iep.lwc.fwd.admin
 
 import com.netflix.iep.lwc.fwd.admin.Timer._
 import com.netflix.spectator.api.ManualClock
-import org.scalatest.funsuite.AnyFunSuiteLike
+import munit.FunSuite
 
-class TimerSuite extends AnyFunSuiteLike {
+class TimerSuite extends FunSuite {
+
   test("Measure time for calls that succeed") {
     val clock = new ManualClock()
     clock.setMonotonicTime(1)
@@ -50,11 +51,11 @@ class TimerSuite extends AnyFunSuiteLike {
 
     val timer = new TestTimer()
 
-    assertThrows[RuntimeException](
+    intercept[RuntimeException](
       measure(work(), "workTimer", clock, timer.record)
     )
     assert(timer.name == "workTimer")
-    assert(timer.tags === List("exception", "RuntimeException"))
+    assertEquals(timer.tags, List("exception", "RuntimeException"))
     assert(timer.duration == 1)
 
   }

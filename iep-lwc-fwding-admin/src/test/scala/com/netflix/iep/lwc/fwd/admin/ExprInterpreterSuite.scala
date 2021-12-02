@@ -16,9 +16,9 @@
 package com.netflix.iep.lwc.fwd.admin
 
 import com.typesafe.config.ConfigFactory
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
-class ExprInterpreterSuite extends AnyFunSuite {
+class ExprInterpreterSuite extends FunSuite {
   val interpreter = new ExprInterpreter(ConfigFactory.load())
 
   test("Should be able to parse a valid expression") {

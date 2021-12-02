@@ -16,7 +16,6 @@
 package com.netflix.iep.lwc.fwd.admin
 
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.Sink
 import com.netflix.atlas.akka.StreamOps.SourceQueue
@@ -33,15 +32,11 @@ import com.typesafe.scalalogging.StrictLogging
 import ExpressionDetails._
 import akka.Done
 import akka.stream.Materializer
-import org.scalatest.funsuite.AnyFunSuite
+import com.netflix.atlas.akka.testkit.MUnitRouteSuite
 
 import scala.concurrent.Future
 
-class ApiSuite
-    extends AnyFunSuite
-    with ScalatestRouteTest
-    with CwForwardingTestConfig
-    with StrictLogging {
+class ApiSuite extends MUnitRouteSuite with CwForwardingTestConfig with StrictLogging {
 
   private val config = ConfigFactory.load()
 
@@ -79,7 +74,7 @@ class ApiSuite
     )
 
     postRequest ~> routes ~> check {
-      assert(response.status === StatusCodes.OK)
+      assertEquals(response.status, StatusCodes.OK)
     }
   }
 
@@ -101,7 +96,7 @@ class ApiSuite
     )
 
     postRequest ~> routes ~> check {
-      assert(response.status === StatusCodes.BadRequest)
+      assertEquals(response.status, StatusCodes.BadRequest)
       assert(
         entityAs[String]
           .contains(
@@ -130,8 +125,8 @@ class ApiSuite
     )
 
     postRequest ~> routes ~> check {
-      assert(response.status === StatusCodes.OK)
-      assert(markerService.result.result() === reports)
+      assertEquals(response.status, StatusCodes.OK)
+      assertEquals(markerService.result.result(), reports)
     }
   }
 
@@ -142,8 +137,8 @@ class ApiSuite
     )
 
     getRequest ~> routes ~> check {
-      assert(response.status === StatusCodes.OK)
-      assert(responseAs[String] === "[]")
+      assertEquals(response.status, StatusCodes.OK)
+      assertEquals(responseAs[String], "[]")
     }
   }
 
@@ -157,7 +152,7 @@ class ApiSuite
     )
 
     delRequest ~> routes ~> check {
-      assert(response.status === StatusCodes.OK)
+      assertEquals(response.status, StatusCodes.OK)
     }
   }
 

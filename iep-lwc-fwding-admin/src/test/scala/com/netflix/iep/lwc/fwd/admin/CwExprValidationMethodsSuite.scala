@@ -23,10 +23,10 @@ import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
 import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
 class CwExprValidationMethodsSuite
-    extends AnyFunSuite
+    extends FunSuite
     with TestAssertions
     with CwForwardingTestConfig
     with StrictLogging {

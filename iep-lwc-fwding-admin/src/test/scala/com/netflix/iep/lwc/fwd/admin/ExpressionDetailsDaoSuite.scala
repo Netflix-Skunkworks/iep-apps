@@ -22,15 +22,14 @@ import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo
 import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
-import org.scalatest.BeforeAndAfter
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 
 import java.net.URI
 import scala.concurrent.duration._
 
-class ExpressionDetailsDaoSuite extends AnyFunSuite with BeforeAndAfter with StrictLogging {
+class ExpressionDetailsDaoSuite extends FunSuite with StrictLogging {
 
   val dao = new ExpressionDetailsDaoImpl(
     ConfigFactory.load(),
@@ -54,7 +53,7 @@ class ExpressionDetailsDaoSuite extends AnyFunSuite with BeforeAndAfter with Str
     }
   }
 
-  after {
+  override def afterEach(context: AfterEach): Unit = {
     dao.scan().foreach(dao.delete)
   }
 
@@ -101,7 +100,7 @@ class ExpressionDetailsDaoSuite extends AnyFunSuite with BeforeAndAfter with Str
 
     dao.save(exprDetails)
     val actual = dao.read(id)
-    assert(actual === Some(exprDetails))
+    assertEquals(actual, Some(exprDetails))
 
   }
 
@@ -133,19 +132,19 @@ class ExpressionDetailsDaoSuite extends AnyFunSuite with BeforeAndAfter with Str
     exprDetailsList.foreach(dao.save)
     val actual = dao.queryPurgeEligible(timestampThen, List(NoDataFoundEvent))
 
-    assert(actual === List(id.copy(key = "config3")))
+    assertEquals(actual, List(id.copy(key = "config3")))
   }
 
   localTest("Fail querying purge eligible for unknown event markers") {
-    assertThrows[IllegalArgumentException](dao.queryPurgeEligible(0L, List("foo")))
+    intercept[IllegalArgumentException](dao.queryPurgeEligible(0L, List("foo")))
   }
 
   localTest("Fail querying purge eligible for no event markers") {
-    assertThrows[IllegalArgumentException](dao.queryPurgeEligible(0L, Nil))
+    intercept[IllegalArgumentException](dao.queryPurgeEligible(0L, Nil))
   }
 }
 
-class ExpressionDetailsSuite extends AnyFunSuite with StrictLogging {
+class ExpressionDetailsSuite extends FunSuite with StrictLogging {
   test("Purge eligible expression") {
     val reportTs = 1551820461000L
     val timestampThen = reportTs + 11.minutes.toMillis

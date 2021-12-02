@@ -25,8 +25,7 @@ import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.ManualClock
 import com.netflix.spectator.api.patterns.PolledMeter
 import com.typesafe.config.ConfigFactory
-import org.scalatest.BeforeAndAfter
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
 import java.io.ByteArrayOutputStream
 import java.nio.charset.StandardCharsets
@@ -35,7 +34,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.util.Using
 
-class ExprUpdateServiceSuite extends AnyFunSuite with BeforeAndAfter {
+class ExprUpdateServiceSuite extends FunSuite {
 
   private implicit val system = ActorSystem()
 
@@ -54,7 +53,7 @@ class ExprUpdateServiceSuite extends AnyFunSuite with BeforeAndAfter {
     Await.ready(future, Duration.Inf)
   }
 
-  before {
+  override def beforeEach(context: BeforeEach): Unit = {
     clock.setWallTime(0)
     evaluator.clear()
   }
@@ -110,7 +109,7 @@ class ExprUpdateServiceSuite extends AnyFunSuite with BeforeAndAfter {
 
   test("valid update rebuilds index") {
     doValidUpdate()
-    assert(1 === evaluator.index.findMatches(Id.create("cpu")).size)
+    assertEquals(1, evaluator.index.findMatches(Id.create("cpu")).size)
   }
 
   test("valid update refreshes age metric") {
@@ -119,12 +118,12 @@ class ExprUpdateServiceSuite extends AnyFunSuite with BeforeAndAfter {
     doValidUpdate()
     PolledMeter.update(registry)
     val age = registry.gauge("lwc.expressionsAge").value()
-    assert(age === 0.0)
+    assertEquals(age, 0.0)
   }
 
   test("valid update compressed") {
     doValidUpdate(true)
-    assert(1 === evaluator.index.findMatches(Id.create("cpu")).size)
+    assertEquals(1, evaluator.index.findMatches(Id.create("cpu")).size)
   }
 
   test("invalid expression does not refresh age metric") {
@@ -133,6 +132,6 @@ class ExprUpdateServiceSuite extends AnyFunSuite with BeforeAndAfter {
     doInvalidUpdate()
     PolledMeter.update(registry)
     val age = registry.gauge("lwc.expressionsAge").value()
-    assert(age === 60.0)
+    assertEquals(age, 60.0)
   }
 }

@@ -20,9 +20,9 @@ import java.time.Duration
 import com.netflix.atlas.core.model.Query
 import com.typesafe.config.ConfigException
 import com.typesafe.config.ConfigFactory
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
-class MetricCategorySuite extends AnyFunSuite {
+class MetricCategorySuite extends FunSuite {
   test("bad config") {
     val cfg = ConfigFactory.empty()
     intercept[ConfigException] {
@@ -59,7 +59,7 @@ class MetricCategorySuite extends AnyFunSuite {
       """.stripMargin)
 
     val category = MetricCategory.fromConfig(cfg)
-    assert(category.namespace === "AWS/Lambda")
+    assertEquals(category.namespace, "AWS/Lambda")
     assert(category.dimensions.isEmpty)
   }
 
@@ -114,10 +114,10 @@ class MetricCategorySuite extends AnyFunSuite {
       """.stripMargin)
 
     val category = MetricCategory.fromConfig(cfg)
-    assert(category.namespace === "AWS/ELB")
-    assert(category.period === 60)
-    assert(category.toListRequests.size === 2)
-    assert(category.filter === Query.True)
+    assertEquals(category.namespace, "AWS/ELB")
+    assertEquals(category.period, 60)
+    assertEquals(category.toListRequests.size, 2)
+    assertEquals(category.filter, Query.True)
   }
 
   test("category without timeout") {
@@ -143,7 +143,7 @@ class MetricCategorySuite extends AnyFunSuite {
 
     val category = MetricCategory.fromConfig(cfg)
     assert(category.timeout.nonEmpty)
-    assert(category.timeout.get === Duration.ofDays(1))
+    assertEquals(category.timeout.get, Duration.ofDays(1))
   }
 
   test("config with filter") {
@@ -162,7 +162,7 @@ class MetricCategorySuite extends AnyFunSuite {
       """.stripMargin)
 
     val category = MetricCategory.fromConfig(cfg)
-    assert(category.filter === Query.Equal("name", "RequestCount"))
+    assertEquals(category.filter, Query.Equal("name", "RequestCount"))
   }
 
   test("config with invalid filter") {

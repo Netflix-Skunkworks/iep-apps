@@ -18,9 +18,9 @@ package com.netflix.iep.lwc.fwd.admin
 import com.netflix.atlas.core.model.StyleExpr
 import com.netflix.iep.lwc.fwd.cw.ForwardingDimension
 import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
-class ValidationSuite extends AnyFunSuite with TestAssertions with CwForwardingTestConfig {
+class ValidationSuite extends FunSuite with TestAssertions with CwForwardingTestConfig {
   test("Perform a required validation") {
 
     val validation = Validation(

@@ -24,12 +24,12 @@ import com.netflix.atlas.eval.stream.Evaluator.DataSources
 import com.netflix.atlas.eval.stream.Evaluator.MessageEnvelope
 import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
-class EvalFlowSuite extends AnyFunSuite {
+class EvalFlowSuite extends FunSuite {
   private implicit val system = ActorSystem(getClass.getSimpleName)
   private val config = ConfigFactory.load
   private val registry = new NoopRegistry()
@@ -58,6 +58,6 @@ class EvalFlowSuite extends AnyFunSuite {
       .runWith(Sink.head)
     val messageEnvelope = Await.result(future, Duration.Inf)
 
-    assert(messageEnvelope.getId === "mockId")
+    assertEquals(messageEnvelope.getId, "mockId")
   }
 }

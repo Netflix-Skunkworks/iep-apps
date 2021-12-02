@@ -22,10 +22,10 @@ import com.netflix.atlas.json.Json
 import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
 class CwExprValidationsSuite
-    extends AnyFunSuite
+    extends FunSuite
     with TestAssertions
     with CwForwardingTestConfig
     with StrictLogging {

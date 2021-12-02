@@ -17,10 +17,10 @@ package com.netflix.atlas.cloudwatch
 
 import com.typesafe.config.ConfigException
 import com.typesafe.config.ConfigFactory
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
 
-class NetflixTaggerSuite extends AnyFunSuite {
+class NetflixTaggerSuite extends FunSuite {
 
   private val dimensions = List(
     Dimension.builder().name("AutoScalingGroupName").value("app_name-stack-detail-v001").build(),
@@ -37,8 +37,8 @@ class NetflixTaggerSuite extends AnyFunSuite {
         Dimension.builder().name("LinkedAccount").value("12345").build()
       )
     )
-    assert(tagged.getOrElse("aTag", "fail") === "aValue")
-    assert(tagged.getOrElse("aws.account", "fail") === "12345")
+    assertEquals(tagged.getOrElse("aTag", "fail"), "aValue")
+    assertEquals(tagged.getOrElse("aws.account", "fail"), "12345")
   }
 
   test("bad config") {
@@ -70,7 +70,7 @@ class NetflixTaggerSuite extends AnyFunSuite {
     )
 
     val tagger = new NetflixTagger(cfg)
-    assert(tagger(dimensions) === expected)
+    assertEquals(tagger(dimensions), expected)
   }
 
 }

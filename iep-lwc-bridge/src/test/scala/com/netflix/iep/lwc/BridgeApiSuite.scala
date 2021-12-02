@@ -17,15 +17,13 @@ package com.netflix.iep.lwc
 
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.testkit.RouteTestTimeout
-import akka.http.scaladsl.testkit.ScalatestRouteTest
 import com.netflix.atlas.akka.RequestHandler
+import com.netflix.atlas.akka.testkit.MUnitRouteSuite
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
-import org.scalatest.BeforeAndAfter
-import org.scalatest.funsuite.AnyFunSuite
 
-class BridgeApiSuite extends AnyFunSuite with ScalatestRouteTest with BeforeAndAfter {
+class BridgeApiSuite extends MUnitRouteSuite {
 
   import scala.concurrent.duration._
   private implicit val routeTestTimeout = RouteTestTimeout(5.second)
@@ -35,21 +33,21 @@ class BridgeApiSuite extends AnyFunSuite with ScalatestRouteTest with BeforeAndA
   private val endpoint = new BridgeApi(config, new NoopRegistry, evaluator, system)
   private val routes = RequestHandler.standardOptions(endpoint.routes)
 
-  before {
+  override def beforeEach(context: BeforeEach): Unit = {
     evaluator.clear()
   }
 
   test("publish no content") {
     Post("/api/v1/publish") ~> routes ~> check {
-      assert(response.status === StatusCodes.OK)
-      assert(responseAs[String] === "")
+      assertEquals(response.status, StatusCodes.OK)
+      assertEquals(responseAs[String], "")
     }
   }
 
   test("publish empty object") {
     Post("/api/v1/publish", "{}") ~> routes ~> check {
-      assert(response.status === StatusCodes.OK)
-      assert(responseAs[String] === "")
+      assertEquals(response.status, StatusCodes.OK)
+      assertEquals(responseAs[String], "")
     }
   }
 
@@ -68,8 +66,11 @@ class BridgeApiSuite extends AnyFunSuite with ScalatestRouteTest with BeforeAndA
         ]
       }"""
     val datapoints = BridgeApi.decodeBatch(json)
-    assert(datapoints.size === 1)
-    assert(datapoints.head.id === Id.create("cpuUser").withTags("cluster", "foo", "node", "i-123"))
+    assertEquals(datapoints.size, 1)
+    assertEquals(
+      datapoints.head.id,
+      Id.create("cpuUser").withTags("cluster", "foo", "node", "i-123")
+    )
   }
 
   test("publish simple batch") {
@@ -87,19 +88,19 @@ class BridgeApiSuite extends AnyFunSuite with ScalatestRouteTest with BeforeAndA
         ]
       }"""
     Post("/api/v1/publish", json) ~> routes ~> check {
-      assert(response.status === StatusCodes.OK)
+      assertEquals(response.status, StatusCodes.OK)
     }
   }
 
   test("publish bad json") {
     Post("/api/v1/publish", "fubar") ~> routes ~> check {
-      assert(response.status === StatusCodes.BadRequest)
+      assertEquals(response.status, StatusCodes.BadRequest)
     }
   }
 
   test("publish invalid object") {
     Post("/api/v1/publish", "{\"foo\":\"bar\"}") ~> routes ~> check {
-      assert(response.status === StatusCodes.BadRequest)
+      assertEquals(response.status, StatusCodes.BadRequest)
     }
   }
 
@@ -128,7 +129,7 @@ class BridgeApiSuite extends AnyFunSuite with ScalatestRouteTest with BeforeAndA
         ]
       }"""
     Post("/api/v1/publish", json) ~> routes ~> check {
-      assert(response.status === StatusCodes.OK)
+      assertEquals(response.status, StatusCodes.OK)
     }
   }
 
@@ -143,7 +144,7 @@ class BridgeApiSuite extends AnyFunSuite with ScalatestRouteTest with BeforeAndA
         ]
       }"""
     Post("/api/v1/publish", json) ~> routes ~> check {
-      assert(response.status === StatusCodes.OK)
+      assertEquals(response.status, StatusCodes.OK)
     }
   }
 
@@ -173,7 +174,7 @@ class BridgeApiSuite extends AnyFunSuite with ScalatestRouteTest with BeforeAndA
         ]
       }"""
     val datapoints = BridgeApi.decodeBatch(json)
-    assert(datapoints.head.id === Id.create("foo").withTag("no-name", "cpuUser"))
+    assertEquals(datapoints.head.id, Id.create("foo").withTag("no-name", "cpuUser"))
   }
 
   test("parse conflicting names") {
@@ -188,7 +189,7 @@ class BridgeApiSuite extends AnyFunSuite with ScalatestRouteTest with BeforeAndA
         ]
       }"""
     val datapoints = BridgeApi.decodeBatch(json)
-    assert(datapoints.head.id === Id.create("bar").withTags("a", "b", "c", "d"))
+    assertEquals(datapoints.head.id, Id.create("bar").withTags("a", "b", "c", "d"))
   }
 
   test("publish too many tags") {
@@ -204,7 +205,7 @@ class BridgeApiSuite extends AnyFunSuite with ScalatestRouteTest with BeforeAndA
         ]
       }"""
     Post("/api/v1/publish", json) ~> routes ~> check {
-      assert(response.status === StatusCodes.OK)
+      assertEquals(response.status, StatusCodes.OK)
     }
   }
 
@@ -225,6 +226,6 @@ class BridgeApiSuite extends AnyFunSuite with ScalatestRouteTest with BeforeAndA
     val datapoints = BridgeApi.decodeBatch(json)
     val id = datapoints.head.id
     val normalizedId = Id.create(id.name()).withTags(id.tags())
-    assert(normalizedId === Id.create("cpuUser").withTags(tags.asJava))
+    assertEquals(normalizedId, Id.create("cpuUser").withTags(tags.asJava))
   }
 }

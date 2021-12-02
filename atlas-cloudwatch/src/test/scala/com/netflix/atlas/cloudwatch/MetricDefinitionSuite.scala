@@ -18,14 +18,13 @@ package com.netflix.atlas.cloudwatch
 import com.netflix.atlas.core.model.Query
 import com.typesafe.config.ConfigException
 import com.typesafe.config.ConfigFactory
-import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.matchers.should.Matchers
+import munit.FunSuite
 import software.amazon.awssdk.services.cloudwatch.model.Datapoint
 import software.amazon.awssdk.services.cloudwatch.model.StandardUnit
 
 import java.time.Instant
 
-class MetricDefinitionSuite extends AnyFunSuite with Matchers {
+class MetricDefinitionSuite extends FunSuite {
 
   private val meta = MetricMetadata(
     MetricCategory("AWS/ELB", 60, 1, 5, None, Nil, Nil, Query.True),
@@ -48,9 +47,9 @@ class MetricDefinitionSuite extends AnyFunSuite with Matchers {
       """.stripMargin)
 
     val definitions = MetricDefinition.fromConfig(cfg)
-    assert(definitions.size === 1)
-    assert(definitions.head.name === "RequestCount")
-    assert(definitions.head.alias === "aws.elb.requests")
+    assertEquals(definitions.size, 1)
+    assertEquals(definitions.head.name, "RequestCount")
+    assertEquals(definitions.head.alias, "aws.elb.requests")
   }
 
   test("config with dsytpe rate") {
@@ -61,8 +60,8 @@ class MetricDefinitionSuite extends AnyFunSuite with Matchers {
       """.stripMargin)
 
     val definitions = MetricDefinition.fromConfig(cfg)
-    assert(definitions.size === 1)
-    assert(definitions.head.tags === Map("atlas.dstype" -> "rate"))
+    assertEquals(definitions.size, 1)
+    assertEquals(definitions.head.tags, Map("atlas.dstype" -> "rate"))
   }
 
   test("config with dsytpe gauge") {
@@ -73,8 +72,8 @@ class MetricDefinitionSuite extends AnyFunSuite with Matchers {
       """.stripMargin)
 
     val definitions = MetricDefinition.fromConfig(cfg)
-    assert(definitions.size === 1)
-    assert(definitions.head.tags === Map("atlas.dstype" -> "gauge"))
+    assertEquals(definitions.size, 1)
+    assertEquals(definitions.head.tags, Map("atlas.dstype" -> "gauge"))
   }
 
   test("config for timer") {
@@ -85,8 +84,8 @@ class MetricDefinitionSuite extends AnyFunSuite with Matchers {
       """.stripMargin)
 
     val definitions = MetricDefinition.fromConfig(cfg)
-    assert(definitions.size === 3)
-    assert(definitions.map(_.tags("statistic")).toSet === Set("totalTime", "count", "max"))
+    assertEquals(definitions.size, 3)
+    assertEquals(definitions.map(_.tags("statistic")).toSet, Set("totalTime", "count", "max"))
 
     val dp = Datapoint
       .builder()
@@ -100,17 +99,17 @@ class MetricDefinitionSuite extends AnyFunSuite with Matchers {
 
     definitions.find(_.tags("statistic") == "totalTime").foreach { d =>
       val m = meta.copy(definition = d)
-      assert(m.convert(dp) === 10.0)
+      assertEquals(m.convert(dp), 10.0)
     }
 
     definitions.find(_.tags("statistic") == "count").foreach { d =>
       val m = meta.copy(definition = d)
-      assert(m.convert(dp) === 1000.0 / 60.0)
+      assertEquals(m.convert(dp), 1000.0 / 60.0)
     }
 
     definitions.find(_.tags("statistic") == "max").foreach { d =>
       val m = meta.copy(definition = d)
-      assert(m.convert(dp) === 6.0)
+      assertEquals(m.convert(dp), 6.0)
     }
   }
 
@@ -122,8 +121,8 @@ class MetricDefinitionSuite extends AnyFunSuite with Matchers {
       """.stripMargin)
 
     val definitions = MetricDefinition.fromConfig(cfg)
-    assert(definitions.size === 3)
-    assert(definitions.map(_.tags("statistic")).toSet === Set("totalTime", "count", "max"))
+    assertEquals(definitions.size, 3)
+    assertEquals(definitions.map(_.tags("statistic")).toSet, Set("totalTime", "count", "max"))
 
     val dp = Datapoint
       .builder()
@@ -137,17 +136,17 @@ class MetricDefinitionSuite extends AnyFunSuite with Matchers {
 
     definitions.find(_.tags("statistic") == "totalTime").foreach { d =>
       val m = meta.copy(definition = d)
-      assert(m.convert(dp) === 10.0 / 1000.0)
+      assertEquals(m.convert(dp), 10.0 / 1000.0)
     }
 
     definitions.find(_.tags("statistic") == "count").foreach { d =>
       val m = meta.copy(definition = d)
-      assert(m.convert(dp) === 1000.0 / 60.0)
+      assertEquals(m.convert(dp), 1000.0 / 60.0)
     }
 
     definitions.find(_.tags("statistic") == "max").foreach { d =>
       val m = meta.copy(definition = d)
-      assert(m.convert(dp) === 6.0 / 1000.0)
+      assertEquals(m.convert(dp), 6.0 / 1000.0)
     }
   }
 
@@ -159,8 +158,8 @@ class MetricDefinitionSuite extends AnyFunSuite with Matchers {
       """.stripMargin)
 
     val definitions = MetricDefinition.fromConfig(cfg)
-    assert(definitions.size === 3)
-    assert(definitions.map(_.tags("statistic")).toSet === Set("totalTime", "count", "max"))
+    assertEquals(definitions.size, 3)
+    assertEquals(definitions.map(_.tags("statistic")).toSet, Set("totalTime", "count", "max"))
 
     val dp = Datapoint
       .builder()
@@ -174,17 +173,17 @@ class MetricDefinitionSuite extends AnyFunSuite with Matchers {
 
     definitions.find(_.tags("statistic") == "totalTime").foreach { d =>
       val m = meta.copy(definition = d)
-      assert(m.convert(dp) === 10.0 / 1000.0)
+      assertEquals(m.convert(dp), 10.0 / 1000.0)
     }
 
     definitions.find(_.tags("statistic") == "count").foreach { d =>
       val m = meta.copy(definition = d)
-      assert(m.convert(dp) === 1000.0 / 60.0)
+      assertEquals(m.convert(dp), 1000.0 / 60.0)
     }
 
     definitions.find(_.tags("statistic") == "max").foreach { d =>
       val m = meta.copy(definition = d)
-      assert(m.convert(dp) === 6.0 / 1000.0)
+      assertEquals(m.convert(dp), 6.0 / 1000.0)
     }
   }
 
@@ -196,8 +195,8 @@ class MetricDefinitionSuite extends AnyFunSuite with Matchers {
       """.stripMargin)
 
     val definitions = MetricDefinition.fromConfig(cfg)
-    assert(definitions.size === 3)
-    assert(definitions.map(_.tags("statistic")).toSet === Set("totalAmount", "count", "max"))
+    assertEquals(definitions.size, 3)
+    assertEquals(definitions.map(_.tags("statistic")).toSet, Set("totalAmount", "count", "max"))
 
     val dp = Datapoint
       .builder()
@@ -211,17 +210,17 @@ class MetricDefinitionSuite extends AnyFunSuite with Matchers {
 
     definitions.find(_.tags("statistic") == "totalAmount").foreach { d =>
       val m = meta.copy(definition = d)
-      assert(m.convert(dp) === 10.0)
+      assertEquals(m.convert(dp), 10.0)
     }
 
     definitions.find(_.tags("statistic") == "count").foreach { d =>
       val m = meta.copy(definition = d)
-      assert(m.convert(dp) === 1000.0 / 60.0)
+      assertEquals(m.convert(dp), 1000.0 / 60.0)
     }
 
     definitions.find(_.tags("statistic") == "max").foreach { d =>
       val m = meta.copy(definition = d)
-      assert(m.convert(dp) === 6.0)
+      assertEquals(m.convert(dp), 6.0)
     }
   }
 
@@ -233,10 +232,10 @@ class MetricDefinitionSuite extends AnyFunSuite with Matchers {
       """.stripMargin)
 
     val definitions = MetricDefinition.fromConfig(cfg)
-    assert(definitions.size === 1)
+    assertEquals(definitions.size, 1)
 
     val definition = definitions.head
-    assert(definition.tags === Map("atlas.dstype" -> "gauge"))
+    assertEquals(definition.tags, Map("atlas.dstype" -> "gauge"))
 
     val dp = Datapoint
       .builder()
@@ -254,6 +253,6 @@ class MetricDefinitionSuite extends AnyFunSuite with Matchers {
       Nil
     )
 
-    metadata.convert(dp) shouldEqual 15.867 / 1000.0 +- 1e-7
+    assertEqualsDouble(metadata.convert(dp), 15.867 / 1000.0, 1e-7)
   }
 }

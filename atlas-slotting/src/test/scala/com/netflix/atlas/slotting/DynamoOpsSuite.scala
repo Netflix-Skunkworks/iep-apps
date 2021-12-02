@@ -19,9 +19,9 @@ import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
 import java.time.Duration
 
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
-class DynamoOpsSuite extends AnyFunSuite with DynamoOps {
+class DynamoOpsSuite extends FunSuite with DynamoOps {
 
   def mkByteBuffer(s: String): ByteBuffer = {
     ByteBuffer.wrap(s.getBytes(StandardCharsets.UTF_8))
@@ -30,21 +30,21 @@ class DynamoOpsSuite extends AnyFunSuite with DynamoOps {
   test("compress and decompress") {
     val input = "Atlas Slotting Service"
     val compressed = Util.compress(input)
-    assert(input === Util.decompress(compressed))
+    assertEquals(input, Util.decompress(compressed))
   }
 
   test("active items spec") {
     val scanSpec = activeItemsScanRequest("test")
-    assert(scanSpec.filterExpression === "#a = :v1")
-    assert(scanSpec.expressionAttributeNames.toString === s"{#a=$Active}")
-    assert(scanSpec.expressionAttributeValues.toString === "{:v1=AttributeValue(BOOL=true)}")
+    assertEquals(scanSpec.filterExpression, "#a = :v1")
+    assertEquals(scanSpec.expressionAttributeNames.toString, s"{#a=$Active}")
+    assertEquals(scanSpec.expressionAttributeValues.toString, "{:v1=AttributeValue(BOOL=true)}")
   }
 
   test("old items spec") {
     val scanSpec = oldItemsScanRequest("test", Duration.ofDays(1))
-    assert(scanSpec.filterExpression === "#t < :v1")
-    assert(scanSpec.projectionExpression === "#n")
-    assert(scanSpec.expressionAttributeNames.toString === s"{#n=$Name, #t=$Timestamp}")
+    assertEquals(scanSpec.filterExpression, "#t < :v1")
+    assertEquals(scanSpec.projectionExpression, "#n")
+    assertEquals(scanSpec.expressionAttributeNames.toString, s"{#n=$Name, #t=$Timestamp}")
   }
 
   test("new asg item") {
@@ -60,22 +60,25 @@ class DynamoOpsSuite extends AnyFunSuite with DynamoOps {
     val oldData = mkByteBuffer("""{"name": "atlas_app-main-all-v001", "desiredCapacity": 3}""")
     val newData = mkByteBuffer("""{"name": "atlas_app-main-all-v001", "desiredCapacity": 6}""")
     val updateSpec = updateAsgItemRequest("test", "atlas_app-main-all-v001", oldData, newData)
-    assert(updateSpec.conditionExpression === "#d = :v1")
-    assert(updateSpec.updateExpression === s"set #d = :v2, #a = :v3, #t = :v4")
-    assert(updateSpec.expressionAttributeNames.toString === s"{#a=$Active, #d=data, #t=$Timestamp}")
+    assertEquals(updateSpec.conditionExpression, "#d = :v1")
+    assertEquals(updateSpec.updateExpression, s"set #d = :v2, #a = :v3, #t = :v4")
+    assertEquals(
+      updateSpec.expressionAttributeNames.toString,
+      s"{#a=$Active, #d=data, #t=$Timestamp}"
+    )
   }
 
   test("update timestamp spec") {
     val updateSpec = updateTimestampItemRequest("test", "atlas_app-main-all-v001", 1556568270713L)
-    assert(updateSpec.conditionExpression === "#t = :v1")
-    assert(updateSpec.updateExpression === s"set #a = :v2, #t = :v3")
-    assert(updateSpec.expressionAttributeNames.toString === s"{#a=$Active, #t=$Timestamp}")
+    assertEquals(updateSpec.conditionExpression, "#t = :v1")
+    assertEquals(updateSpec.updateExpression, s"set #a = :v2, #t = :v3")
+    assertEquals(updateSpec.expressionAttributeNames.toString, s"{#a=$Active, #t=$Timestamp}")
   }
 
   test("deactivate asg spec") {
     val updateSpec = deactivateAsgItemRequest("test", "atlas_app-main-all-v001")
-    assert(updateSpec.conditionExpression === "#a = :v1")
-    assert(updateSpec.updateExpression === s"set #a = :v2, #t = :v3")
-    assert(updateSpec.expressionAttributeNames.toString === s"{#a=$Active, #t=$Timestamp}")
+    assertEquals(updateSpec.conditionExpression, "#a = :v1")
+    assertEquals(updateSpec.updateExpression, s"set #a = :v2, #t = :v3")
+    assertEquals(updateSpec.expressionAttributeNames.toString, s"{#a=$Active, #t=$Timestamp}")
   }
 }

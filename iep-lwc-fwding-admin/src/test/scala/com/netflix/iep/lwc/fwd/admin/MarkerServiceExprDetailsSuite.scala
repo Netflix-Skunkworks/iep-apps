@@ -22,11 +22,11 @@ import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
 import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo
 import com.netflix.iep.lwc.fwd.cw.Report
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
 import scala.concurrent.duration._
 
-class MarkerServiceExprDetailsSuite extends AnyFunSuite {
+class MarkerServiceExprDetailsSuite extends FunSuite {
 
   import ExpressionDetails._
   import MarkerServiceImpl._
@@ -85,7 +85,7 @@ class MarkerServiceExprDetailsSuite extends AnyFunSuite {
       now.toEpochMilli
     )
 
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("NoDataFoundEvent: Report[data=yes]") {
@@ -97,14 +97,14 @@ class MarkerServiceExprDetailsSuite extends AnyFunSuite {
     val expected = Map(NoDataFoundEvent -> report.timestamp)
     val actual = toNoDataFoundEvent(report.copy(metric = None), None)
 
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("NoDataFoundEvent: Report[data=no] Saved[data=yes]") {
     val expected = Map(NoDataFoundEvent -> report.timestamp)
     val actual = toNoDataFoundEvent(report.copy(metric = None), Some(prevExprDetails))
 
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("NoDataFoundEvent: Report[data=no] Saved[data=no]") {
@@ -114,7 +114,7 @@ class MarkerServiceExprDetailsSuite extends AnyFunSuite {
       Some(prevExprDetails.copy(events = Map(NoDataFoundEvent -> prevExprDetails.timestamp)))
     )
 
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("NoScalingPolicyFoundEvent: Report[sp=unknown]") {
@@ -131,7 +131,7 @@ class MarkerServiceExprDetailsSuite extends AnyFunSuite {
     val actual = toNoScalingPolicyFoundEvent(report, ScalingPolicyStatus(false, None), None)
     val expected = Map(NoScalingPolicyFoundEvent -> report.timestamp)
 
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("NoScalingPolicyFoundEvent: Report[sp=no] Saved[sp=yes]") {
@@ -143,7 +143,7 @@ class MarkerServiceExprDetailsSuite extends AnyFunSuite {
       )
     val expected = Map(NoScalingPolicyFoundEvent -> report.timestamp)
 
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("NoScalingPolicyFoundEvent: Report[sp=no] Saved[sp=no]") {
@@ -159,7 +159,7 @@ class MarkerServiceExprDetailsSuite extends AnyFunSuite {
       )
     val expected = Map(NoScalingPolicyFoundEvent -> prevExprDetails.timestamp)
 
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("Make Forwarded Metrics: Report[data=yes] Saved[None]") {
@@ -171,7 +171,7 @@ class MarkerServiceExprDetailsSuite extends AnyFunSuite {
       now.toEpochMilli
     )
 
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("Make Forwarded Metrics: Report[data=yes] Saved[data=yes]") {
@@ -192,7 +192,7 @@ class MarkerServiceExprDetailsSuite extends AnyFunSuite {
       now.toEpochMilli
     )
 
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("Make Forwarded Metrics: Purge old data") {
@@ -221,7 +221,7 @@ class MarkerServiceExprDetailsSuite extends AnyFunSuite {
       now.toEpochMilli
     )
 
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("Make Forwarded Metrics: Report[data=no] Saved[None]") {
@@ -243,7 +243,7 @@ class MarkerServiceExprDetailsSuite extends AnyFunSuite {
       List(metricInfo)
     )
 
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("Make Scaling Policies: Report[sp=yes] Saved[sp=yes]") {
@@ -267,7 +267,7 @@ class MarkerServiceExprDetailsSuite extends AnyFunSuite {
       List(metric1, metric2)
     )
 
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("Make Scaling Policies: Purge old data") {
@@ -286,6 +286,6 @@ class MarkerServiceExprDetailsSuite extends AnyFunSuite {
       List(metric1)
     )
 
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 }

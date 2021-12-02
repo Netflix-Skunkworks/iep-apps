@@ -17,9 +17,9 @@ package com.netflix.iep.lwc.fwd.admin
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.netflix.atlas.json.Json
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
-class SchemaValidationSuite extends AnyFunSuite with TestAssertions with CwForwardingTestConfig {
+class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardingTestConfig {
 
   val schemaValidation = new SchemaValidation
 

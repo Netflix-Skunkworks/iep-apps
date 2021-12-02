@@ -25,23 +25,21 @@ import org.apache.avro.file.DataFileReader
 import org.apache.avro.generic.GenericDatumReader
 import org.apache.avro.generic.GenericRecord
 import org.apache.avro.util.Utf8
-import org.scalatest.BeforeAndAfter
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
 import scala.collection.mutable.ListBuffer
 
-class RollingFileWriterSuite extends AnyFunSuite with BeforeAndAfter with BeforeAndAfterAll {
+class RollingFileWriterSuite extends FunSuite {
 
   private val outputDir = "./target/unitTestAvroOutput"
   private val registry = new NoopRegistry
 
-  before {
+  override def beforeEach(context: BeforeEach): Unit = {
     listFilesSorted(outputDir).foreach(_.delete()) // Clean up files if exits
     Files.createDirectories(Paths.get(outputDir))
   }
 
-  after {
+  override def afterEach(context: AfterEach): Unit = {
     listFilesSorted(outputDir).foreach(_.delete())
     Files.deleteIfExists(Paths.get(outputDir))
   }

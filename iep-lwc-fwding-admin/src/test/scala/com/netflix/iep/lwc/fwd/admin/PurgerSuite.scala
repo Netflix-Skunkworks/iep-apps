@@ -27,14 +27,14 @@ import com.netflix.atlas.json.Json
 import com.netflix.iep.lwc.fwd.cw.ClusterConfig
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
-import org.scalatest.funsuite.AnyFunSuite
+import munit.FunSuite
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.concurrent.duration._
 import scala.util.Success
 
-class PurgerSuite extends AnyFunSuite {
+class PurgerSuite extends FunSuite {
 
   import ExpressionDetails._
   import PurgerImpl._
@@ -82,7 +82,7 @@ class PurgerSuite extends AnyFunSuite {
     val actual = Await.result(future, Duration.Inf)
     val expected = data.filter(_.expressionId.key == "cluster1").groupBy(_.expressionId.key).toSeq
 
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("Read cluster config") {
@@ -111,7 +111,7 @@ class PurgerSuite extends AnyFunSuite {
 
     val actual = Await.result(future, Duration.Inf)
 
-    assert(actual === cfgPayload)
+    assertEquals(actual, cfgPayload)
   }
 
   test("Read cluster config that is not found") {
@@ -133,7 +133,7 @@ class PurgerSuite extends AnyFunSuite {
 
     val actual = Await.result(future, Duration.Inf)
 
-    assert(actual === None)
+    assertEquals(actual, None)
   }
 
   test("Update cluster config") {
@@ -161,7 +161,7 @@ class PurgerSuite extends AnyFunSuite {
 
     val expected = ClusterConfig("", expressions.filterNot(_.atlasUri == "uri1"))
 
-    assert(actual === expected)
+    assertEquals(actual, expected)
   }
 
   test("Send out POST req for purging expr in cluster config") {
@@ -189,8 +189,8 @@ class PurgerSuite extends AnyFunSuite {
 
     val result = Await.result(future, Duration.Inf)
 
-    assert(result === NotUsed)
-    assert(requests.result() === List(expected))
+    assertEquals(result, NotUsed)
+    assertEquals(requests.result(), List(expected))
   }
 
   test("Remove expression details") {
@@ -211,7 +211,7 @@ class PurgerSuite extends AnyFunSuite {
       .runWith(Sink.head)
 
     val actual = Await.result(future, Duration.Inf)
-    assert(actual === NotUsed)
+    assertEquals(actual, NotUsed)
   }
 
 }

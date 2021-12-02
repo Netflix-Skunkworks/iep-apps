@@ -18,23 +18,21 @@ package com.netflix.iep.archaius
 import akka.actor.ActorSystem
 import akka.testkit.ImplicitSender
 import akka.testkit.TestActorRef
-import akka.testkit.TestKit
+import akka.testkit.TestKitBase
 import com.netflix.atlas.json.Json
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.ManualClock
+import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
-import org.scalatest.BeforeAndAfterAll
-import org.scalatest.funsuite.AnyFunSuiteLike
+import munit.FunSuite
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import software.amazon.awssdk.services.dynamodb.model.ScanResponse
 
-class PropertiesLoaderSuite
-    extends TestKit(ActorSystem())
-    with ImplicitSender
-    with AnyFunSuiteLike
-    with BeforeAndAfterAll {
+class PropertiesLoaderSuite extends FunSuite with TestKitBase with ImplicitSender {
 
-  val config = ConfigFactory.parseString("""
+  implicit val system: ActorSystem = ActorSystem()
+
+  val config: Config = ConfigFactory.parseString("""
       |netflix.iep.archaius.table = "test"
     """.stripMargin)
 
@@ -67,12 +65,13 @@ class PropertiesLoaderSuite
   test("init") {
     waitForUpdate()
     assert(propContext.initialized)
-    assert(
-      propContext.getAll === List(
-          PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L),
-          PropertiesApi.Property("foo-main::1", "foo-main", "1", "2", 12345L),
-          PropertiesApi.Property("bar-main::c", "bar-main", "c", "d", 12345L)
-        )
+    assertEquals(
+      propContext.getAll,
+      List(
+        PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L),
+        PropertiesApi.Property("foo-main::1", "foo-main", "1", "2", 12345L),
+        PropertiesApi.Property("bar-main::c", "bar-main", "c", "d", 12345L)
+      )
     )
   }
 
@@ -83,11 +82,12 @@ class PropertiesLoaderSuite
 
     waitForUpdate()
 
-    assert(
-      propContext.getAll === List(
-          PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L),
-          PropertiesApi.Property("bar-main::c", "bar-main", "c", "d", 12345L)
-        )
+    assertEquals(
+      propContext.getAll,
+      List(
+        PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L),
+        PropertiesApi.Property("bar-main::c", "bar-main", "c", "d", 12345L)
+      )
     )
   }
 
