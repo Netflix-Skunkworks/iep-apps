@@ -15,11 +15,12 @@
  */
 package com.netflix.atlas.persistence
 
+import com.netflix.atlas.core.model.Datapoint
+
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
-import com.netflix.atlas.core.model.DatapointTuple
 import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.avro.file.CodecFactory
@@ -81,11 +82,11 @@ class HourlyRollingWriter(
     writer
   }
 
-  def write(dps: List[DatapointTuple]): Unit = {
+  def write(dps: List[Datapoint]): Unit = {
     dps.foreach(writeDp)
   }
 
-  private def writeDp(dp: DatapointTuple): Unit = {
+  private def writeDp(dp: Datapoint): Unit = {
     val now = System.currentTimeMillis()
     checkHourRollover(now)
     checkPrevHourExpiration(now)

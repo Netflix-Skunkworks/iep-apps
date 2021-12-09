@@ -27,7 +27,7 @@ import akka.stream.stage.GraphStageLogic
 import akka.stream.stage.InHandler
 import akka.stream.stage.OutHandler
 import akka.stream.stage.TimerGraphStageLogic
-import com.netflix.atlas.core.model.DatapointTuple
+import com.netflix.atlas.core.model.Datapoint
 import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
 
@@ -38,12 +38,12 @@ class RollingFileFlow(
   val rollingConf: RollingConfig,
   val registry: Registry,
   val id: Int
-) extends GraphStage[FlowShape[List[DatapointTuple], NotUsed]]
+) extends GraphStage[FlowShape[List[Datapoint], NotUsed]]
     with StrictLogging {
 
-  private val in = Inlet[List[DatapointTuple]]("RollingFileSink.in")
+  private val in = Inlet[List[Datapoint]]("RollingFileSink.in")
   private val out = Outlet[NotUsed]("RollingFileSink.out")
-  override val shape = FlowShape[List[DatapointTuple], NotUsed](in, out)
+  override val shape = FlowShape[List[Datapoint], NotUsed](in, out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
 
