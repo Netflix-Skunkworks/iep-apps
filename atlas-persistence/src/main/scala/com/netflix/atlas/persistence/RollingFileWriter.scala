@@ -20,7 +20,6 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import com.netflix.atlas.core.model.Datapoint
-import com.netflix.atlas.core.model.DatapointTuple
 import com.netflix.atlas.core.util.SmallHashMap
 import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
@@ -62,11 +61,11 @@ class RollingFileWriter(
 
   def initialize(): Unit = newWriter()
 
-  def shouldAccept(dp: DatapointTuple): Boolean = {
+  def shouldAccept(dp: Datapoint): Boolean = {
     dp.timestamp >= startTime && dp.timestamp < endTime
   }
 
-  def write(dp: DatapointTuple): Unit = {
+  def write(dp: Datapoint): Unit = {
     if (shouldRollOver) {
       rollOver()
       newWriter()
@@ -107,7 +106,7 @@ class RollingFileWriter(
     currEndTimeSeen = startTime
   }
 
-  private def writeImpl(dp: DatapointTuple): Unit = {
+  private def writeImpl(dp: Datapoint): Unit = {
     try {
       currWriter.append(toAvro(dp))
       avroWriteCount.increment()
@@ -188,7 +187,7 @@ class RollingFileWriter(
     Random.alphanumeric.take(6).mkString
   }
 
-  private def toAvro(dp: DatapointTuple): GenericRecord = {
+  private def toAvro(dp: Datapoint): GenericRecord = {
     import scala.jdk.CollectionConverters._
     // Use custom wrapper for SmallHashMap if possible as it avoids allocations when
     // iterating across the entries.
@@ -207,8 +206,8 @@ class RollingFileWriter(
 object RollingFileWriter {
   val TmpFileSuffix: String = ".tmp"
   // A special Datapoint used solely for triggering rollover check
-  val RolloverCheckDatapoint: DatapointTuple = Datapoint(Map.empty, 0, 0).toTuple
-  val RolloverCheckDatapointList: List[DatapointTuple] = List(RolloverCheckDatapoint)
+  val RolloverCheckDatapoint: Datapoint = Datapoint(Map.empty, 0, 0)
+  val RolloverCheckDatapointList: List[Datapoint] = List(RolloverCheckDatapoint)
 
   val AvroSchema: Schema =
     new Parser().parse(Using.resource(Source.fromResource("datapoint.avsc"))(_.mkString))

@@ -21,7 +21,6 @@ import akka.actor.Props
 import akka.pattern.AskTimeoutException
 import akka.pattern.ask
 import akka.stream.scaladsl.Flow
-import akka.testkit.DefaultTimeout
 import akka.testkit.ImplicitSender
 import akka.testkit.TestActorRef
 import akka.testkit.TestKitBase

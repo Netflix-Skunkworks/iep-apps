@@ -19,7 +19,6 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
 import com.netflix.atlas.core.model.Datapoint
-import com.netflix.atlas.core.model.DatapointTuple
 import com.netflix.spectator.api.NoopRegistry
 import org.apache.avro.file.DataFileReader
 import org.apache.avro.generic.GenericDatumReader
@@ -70,7 +69,7 @@ class RollingFileWriterSuite extends FunSuite {
         )
       writer.initialize()
       createData(hourStart, 0, 1, 2).foreach(writer.write)
-      writer.write(Datapoint(Map.empty, hourEnd, 3).toTuple) // out of range, should be ignored
+      writer.write(Datapoint(Map.empty, hourEnd, 3)) // out of range, should be ignored
       writer.close()
 
       // Check num of files
@@ -97,14 +96,14 @@ class RollingFileWriterSuite extends FunSuite {
     }
   }
 
-  private def createData(startTime: Long, values: Double*): List[DatapointTuple] = {
+  private def createData(startTime: Long, values: Double*): List[Datapoint] = {
     values.toList.zipWithIndex.map {
       case (v, i) =>
         val tags = Map(
           "name" -> "cpu",
           "node" -> s"$i"
         )
-        Datapoint(tags, startTime + i * 1000, v, 60000).toTuple
+        Datapoint(tags, startTime + i * 1000, v, 60000)
     }
   }
 
