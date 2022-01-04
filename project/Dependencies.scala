@@ -5,17 +5,17 @@ import sbt.librarymanagement.DependencyBuilders.OrganizationArtifactName
 
 object Dependencies {
   object Versions {
-    val akka       = "2.6.17"
+    val akka       = "2.6.18"
     val akkaHttpV  = "10.2.7"
     val atlas      = "1.7.0-SNAPSHOT"
-    val aws2       = "2.17.72"
-    val iep        = "3.0.7"
+    val aws2       = "2.17.102"
+    val iep        = "3.0.10"
     val guice      = "5.0.1"
-    val log4j      = "2.15.0"
+    val log4j      = "2.17.1"
     val scala      = "2.13.7"
     val servo      = "0.13.2"
     val slf4j      = "1.7.32"
-    val spectator  = "1.0.4"
+    val spectator  = "1.0.13"
     val avroV      = "1.11.0"
 
     val crossScala = Seq(scala)
@@ -29,7 +29,7 @@ object Dependencies {
   val akkaHttpTestkit    = "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV
   val akkaSlf4j          = "com.typesafe.akka" %% "akka-slf4j" % akka
   val akkaTestkit        = "com.typesafe.akka" %% "akka-testkit" % akka
-  val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % "3.0.3"
+  val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % "3.0.4"
   val atlasAkkaTestkit   = "com.netflix.atlas_v1" %% "atlas-akka-testkit" % atlas
   val atlasCore          = "com.netflix.atlas_v1" %% "atlas-core" % atlas
   val atlasEval          = "com.netflix.atlas_v1" %% "atlas-eval" % atlas
