@@ -8,14 +8,14 @@ object Dependencies {
     val akka       = "2.6.18"
     val akkaHttpV  = "10.2.7"
     val atlas      = "1.7.0-SNAPSHOT"
-    val aws2       = "2.17.102"
-    val iep        = "3.0.10"
-    val guice      = "5.0.1"
+    val aws2       = "2.17.121"
+    val iep        = "3.0.13"
+    val guice      = "5.1.0"
     val log4j      = "2.17.1"
-    val scala      = "2.13.7"
+    val scala      = "2.13.8"
     val servo      = "0.13.2"
-    val slf4j      = "1.7.32"
-    val spectator  = "1.0.13"
+    val slf4j      = "1.7.36"
+    val spectator  = "1.1.1"
     val avroV      = "1.11.0"
 
     val crossScala = Seq(scala)
@@ -80,7 +80,7 @@ object Dependencies {
   val spectatorLog4j     = "com.netflix.spectator" % "spectator-ext-log4j2" % spectator
   val spectatorM2        = "com.netflix.spectator" % "spectator-reg-metrics2" % spectator
   val spectatorSandbox   = "com.netflix.spectator" % "spectator-ext-sandbox" % spectator
-  val typesafeConfig     = "com.typesafe" % "config" % "1.4.1"
+  val typesafeConfig     = "com.typesafe" % "config" % "1.4.2"
 
   def isBeforeJava16: Boolean = {
     System.getProperty("java.specification.version").toDouble < 16
