@@ -80,7 +80,7 @@ object Dependencies {
   val spectatorLog4j     = "com.netflix.spectator" % "spectator-ext-log4j2" % spectator
   val spectatorM2        = "com.netflix.spectator" % "spectator-reg-metrics2" % spectator
   val spectatorSandbox   = "com.netflix.spectator" % "spectator-ext-sandbox" % spectator
-  val typesafeConfig     = "com.typesafe" % "config" % "1.4.1"
+  val typesafeConfig     = "com.typesafe" % "config" % "1.4.2"
 
   def isBeforeJava16: Boolean = {
     System.getProperty("java.specification.version").toDouble < 16
