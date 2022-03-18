@@ -66,6 +66,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
 
   private val maxDataSize = config.getBytes("atlas.druid.max-data-size")
 
+  private val metadataInterval = config.getDuration("atlas.druid.metadata-interval")
   private val tagsInterval = config.getDuration("atlas.druid.tags-interval")
 
   private val datasourceFilter =
@@ -96,7 +97,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
           .filter(datasourceFilter.matches)
           .map { d =>
             client
-              .segmentMetadata(SegmentMetadataQuery(d, List(tagsQueryInterval)))
+              .segmentMetadata(SegmentMetadataQuery(d, List(queryIntervalString(metadataInterval))))
               .filter(_.nonEmpty)
               .map { rs =>
                 DatasourceMetadata(d, rs.head.toDatasource)
@@ -204,7 +205,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
               ds.name
             },
             dimension = toDimensionSpec(DefaultDimensionSpec(k, "value"), dimensionFilterMatches),
-            intervals = List(tagsQueryInterval),
+            intervals = List(queryIntervalString(tagsInterval)),
             filter = DruidFilter.forQuery(query),
             threshold = if (tq.limit < Int.MaxValue) tq.limit else 1000
           )
@@ -226,9 +227,9 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
     }
   }
 
-  private def tagsQueryInterval: String = {
+  private def queryIntervalString(duration: java.time.Duration): String = {
     val now = Instant.now()
-    s"${now.minus(tagsInterval)}/$now"
+    s"${now.minus(duration)}/$now"
   }
 
   private def explain(ref: ActorRef, request: DataRequest): Unit = {
