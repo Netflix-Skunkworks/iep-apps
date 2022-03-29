@@ -35,13 +35,15 @@ import akka.util.ByteString
 import com.fasterxml.jackson.databind.JsonNode
 import com.netflix.atlas.core.util.Strings
 import com.netflix.atlas.eval.stream.Evaluator
+import com.netflix.atlas.eval.stream.Evaluator.DataSource
 import com.netflix.atlas.json.Json
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
-import javax.inject.Inject
 
+import javax.inject.Inject
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Success
@@ -63,6 +65,7 @@ class LoadGenWsService @Inject()(
   private var killSwitch: KillSwitch = _
 
   private val atlasStreamWsUri = config.getString("iep.lwc.loadgen.atlasStreamWsUri")
+  private val maxDataSources = config.getInt("iep.lwc.loadgen.maxDataSources")
   private val uriStart = config.getInt("iep.lwc.loadgen.uri.start")
   private val uriEnd = config.getInt("iep.lwc.loadgen.uri.end")
   private val numMsgsCounter = registry.counter("loadgen.numMessages")
@@ -107,12 +110,31 @@ class LoadGenWsService @Inject()(
   private def evalSourceWsFlow: Flow[Evaluator.DataSources, String, NotUsed] = {
     Flow[Evaluator.DataSources]
       .map(dss => {
-        TextMessage(Json.encode(dss.getSources))
+        logger.info(s"${dss.getSources.size()} expressions loaded.")
+        val requests = new ArrayBuffer[TextMessage]
+        var count = 0
+        val newDss = new ArrayBuffer[DataSource]
+        dss.getSources.forEach(ds => {
+          newDss += ds
+          count += 1
+          if (count >= maxDataSources) {
+            requests += TextMessage(Json.encode(newDss))
+            newDss.clear()
+            count = 0
+          }
+        })
+        logger.info(s"Emitting ${requests.size} batches for websocket requests.")
+        requests
       })
-      .via(
+      .mapConcat(identity)
+      .via {
         Http.get(system).webSocketClientFlow(WebSocketRequest(atlasStreamWsUri))
-      )
+      }
       .flatMapConcat {
+        // For future debugging.
+        //case msg: TextMessage.Strict =>
+        //  logger.debug(msg.text)
+        //  Source.single(ByteString.fromString(msg.text))
         case msg: TextMessage =>
           msg.textStream.fold("")(_ + _).map(ByteString(_))
         case _: BinaryMessage =>
