@@ -88,13 +88,11 @@ class BridgeApi(
     * to the LWC service.
     */
   private def process(values: List[BridgeDatapoint]): Unit = {
-    val now = registry.clock().wallTime()
-    values.foreach { v =>
-      numReceivedCounter.record(now - v.timestamp)
-    }
-
     if (values.nonEmpty) {
       val timestamp = fixTimestamp(values.head.timestamp)
+      val now = registry.clock().wallTime()
+      numReceivedCounter.increment(now - timestamp, values.size)
+
       val payload = evaluator.eval(timestamp, values)
       if (!payload.getMetrics.isEmpty || !payload.getMessages.isEmpty) {
         val entity = HttpEntity(MediaTypes.`application/json`, Json.encode(payload))
