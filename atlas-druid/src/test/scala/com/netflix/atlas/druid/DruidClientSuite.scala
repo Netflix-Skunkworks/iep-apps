@@ -18,7 +18,6 @@ package com.netflix.atlas.druid
 import java.io.IOException
 import java.net.ConnectException
 import java.nio.charset.StandardCharsets
-
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.model.HttpRequest
@@ -30,6 +29,7 @@ import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.fasterxml.jackson.databind.JsonMappingException
+import com.fasterxml.jackson.module.scala.JavaTypeable
 import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.json.Json
 import com.typesafe.config.ConfigFactory
@@ -58,7 +58,7 @@ class DruidClientSuite extends FunSuite {
     new DruidClient(config, system, client)
   }
 
-  private def ok[T: Manifest](data: T): HttpResponse = {
+  private def ok[T: JavaTypeable](data: T): HttpResponse = {
     val json = Json.encode(data).getBytes(StandardCharsets.UTF_8)
     HttpResponse(StatusCodes.OK, entity = json)
   }
