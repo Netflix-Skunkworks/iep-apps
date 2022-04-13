@@ -5,17 +5,17 @@ import sbt.librarymanagement.DependencyBuilders.OrganizationArtifactName
 
 object Dependencies {
   object Versions {
-    val akka       = "2.6.18"
+    val akka       = "2.6.19"
     val akkaHttpV  = "10.2.9"
     val atlas      = "1.7.0-SNAPSHOT"
-    val aws2       = "2.17.144"
-    val iep        = "3.0.14"
+    val aws2       = "2.17.165"
+    val iep        = "3.0.16"
     val guice      = "5.1.0"
     val log4j      = "2.17.2"
     val scala      = "2.13.8"
     val servo      = "0.13.2"
     val slf4j      = "1.7.36"
-    val spectator  = "1.2.2"
+    val spectator  = "1.3.0"
     val avroV      = "1.11.0"
 
     val crossScala = Seq(scala)

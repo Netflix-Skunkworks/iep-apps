@@ -138,7 +138,7 @@ class ExpressionsEvaluator @Inject()(config: Config, registry: Registry) extends
 
   /** Clear all internal state for this evaluator. */
   def clear(): Unit = synchronized {
-    subscriptions.foreach(s => index.remove(s))
+    subscriptions.foreach(s => index.remove(s.dataExpr().query(), s))
     subscriptions = Set.empty[Subscription]
     statsMap.clear()
   }
