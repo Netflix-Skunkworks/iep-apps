@@ -38,6 +38,7 @@ import akka.util.ByteString
 import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.akka.ByteStringInputStream
 import com.netflix.atlas.json.Json
+import com.netflix.iep.lwc.BridgeApi.lwcApiUri
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Functions
 import com.netflix.spectator.api.Registry
@@ -67,7 +68,7 @@ class ExprUpdateService @Inject()(
   import scala.concurrent.duration._
   import com.netflix.atlas.akka.OpportunisticEC._
 
-  private val configUri = Uri(config.getString("netflix.iep.lwc.bridge.config-uri"))
+  private val configUri = lwcApiUri(config, "netflix.iep.lwc.bridge.config-uri")
 
   private val lastUpdateTime = PolledMeter
     .using(registry)

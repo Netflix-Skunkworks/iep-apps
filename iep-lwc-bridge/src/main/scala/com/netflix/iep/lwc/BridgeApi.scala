@@ -16,7 +16,6 @@
 package com.netflix.iep.lwc
 
 import java.util.concurrent.TimeUnit
-
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.HttpEntity
@@ -35,6 +34,7 @@ import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.core.model.DefaultSettings
 import com.netflix.atlas.json.Json
 import com.netflix.atlas.json.JsonParserHelper._
+import com.netflix.iep.lwc.BridgeApi.lwcApiUri
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.histogram.BucketCounter
 import com.netflix.spectator.api.histogram.BucketFunctions
@@ -65,7 +65,7 @@ class BridgeApi(
     }
   }
 
-  private val evalUri = Uri(config.getString("netflix.iep.lwc.bridge.eval-uri"))
+  private val evalUri = lwcApiUri(config, "netflix.iep.lwc.bridge.eval-uri")
 
   private val step = DefaultSettings.stepSize
 
@@ -190,6 +190,25 @@ object BridgeApi {
         m.merge(commonName, commonTags, i)
         m.name != null
       }
+    }
+  }
+
+  /**
+    * Replaces the NETFLIX_REGION in the URI if the NETFLIX_DETAIL environment
+    * variable is configured. This is used while we migrate to global LWC stacks as
+    * the app config is unable to account for the detail setting.
+    * @param config The config to pull from.
+    * @param key The non-null config key to fetch.
+    * @return A URI to use for accessing the LWC API cluster.
+    */
+  def lwcApiUri(config: Config, key: String): Uri = {
+    val detail = System.getenv("NETFLIX_DETAIL")
+    val uri = config.getString(key)
+    if (detail == null) {
+      Uri(uri)
+    } else {
+      val region = System.getenv("NETFLIX_REGION")
+      Uri(uri.replaceFirst(region, detail))
     }
   }
 
