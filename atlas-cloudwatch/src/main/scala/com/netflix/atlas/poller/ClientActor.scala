@@ -25,6 +25,7 @@ import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.headers._
 import akka.stream.Materializer
+import akka.util.ByteString
 import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.akka.CustomMediaTypes
 import com.netflix.atlas.core.model.Datapoint
@@ -106,11 +107,12 @@ class ClientActor(registry: Registry, config: Config, implicit val materializer:
     * easier testing.
     */
   protected def post(data: Array[Byte]): Future[HttpResponse] = {
+    val bytes = ByteString.fromArrayUnsafe(data)
     val request = HttpRequest(
       HttpMethods.POST,
       uri = uri,
       headers = ClientActor.headers,
-      entity = HttpEntity(CustomMediaTypes.`application/x-jackson-smile`, data)
+      entity = HttpEntity(CustomMediaTypes.`application/x-jackson-smile`, bytes)
     )
     val accessLogger = AccessLogger.newClientLogger("atlas_publish", request)
     Http()(context.system).singleRequest(request).andThen { case t => accessLogger.complete(t) }
