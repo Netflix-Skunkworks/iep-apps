@@ -35,6 +35,10 @@ import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
+import java.nio.file.attribute.FileTime
+import java.nio.file.Files
+import java.nio.file.Paths
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import scala.concurrent.Await
@@ -79,6 +83,28 @@ class LocalFilePersistService @Inject()(
 
   override def startImpl(): Unit = {
     logger.info("Starting service")
+    try {
+      // make sure we have permission to write to the configured directory or stop the app from
+      // starting.
+      Files.createDirectories(Paths.get(dataDir))
+      val touchFile = Paths.get(dataDir, "permissionTest")
+      if (!Files.exists(touchFile)) {
+        Files.createFile(touchFile)
+      }
+      Files.setLastModifiedTime(
+        touchFile,
+        FileTime.from(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
+      )
+      Files.delete(touchFile)
+    } catch {
+      case e: Exception =>
+        logger.error(s"Failed to start ${this.getClass}", e)
+        // TODO - there may be a Guicey way to do this but I haven't found it after a decent amount
+        // of searching. Even if we don't inherit AbstractService, guice will still instantiate this
+        // and keep trying over and over.
+        System.exit(1)
+    }
+
     val (q, f) = StreamOps
       .blockingQueue[List[Datapoint]](registry, "LocalFilePersistService", queueSize)
       .via(balancer(getRollingFileFlow, writeWorkerSize))
