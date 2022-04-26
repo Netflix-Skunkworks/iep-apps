@@ -35,6 +35,10 @@ import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
+import java.nio.file.attribute.FileTime
+import java.nio.file.Files
+import java.nio.file.Paths
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import scala.concurrent.Await
@@ -79,6 +83,20 @@ class LocalFilePersistService @Inject()(
 
   override def startImpl(): Unit = {
     logger.info("Starting service")
+
+    // Make sure we have permission to write to the configured directory or propagate
+    // the IOException
+    Files.createDirectories(Paths.get(dataDir))
+    val touchFile = Paths.get(dataDir, "permissionTest")
+    if (!Files.exists(touchFile)) {
+      Files.createFile(touchFile)
+    }
+    Files.setLastModifiedTime(
+      touchFile,
+      FileTime.from(System.currentTimeMillis(), TimeUnit.MILLISECONDS)
+    )
+    Files.delete(touchFile)
+
     val (q, f) = StreamOps
       .blockingQueue[List[Datapoint]](registry, "LocalFilePersistService", queueSize)
       .via(balancer(getRollingFileFlow, writeWorkerSize))
