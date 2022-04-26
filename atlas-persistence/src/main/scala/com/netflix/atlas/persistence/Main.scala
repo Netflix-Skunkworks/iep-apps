@@ -18,7 +18,6 @@ package com.netflix.atlas.persistence
 import com.google.inject.AbstractModule
 import com.google.inject.Module
 import com.netflix.iep.guice.GuiceHelper
-import com.netflix.iep.service.ServiceManager
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
@@ -27,7 +26,7 @@ import com.typesafe.scalalogging.StrictLogging
 
 object Main extends StrictLogging {
 
-  private def getBaseModules: java.util.List[Module] = {
+  private def getBaseModules: Array[Module] = {
     val modules = GuiceHelper.getModulesUsingServiceLoader
     if (!sys.env.contains("NETFLIX_ENVIRONMENT")) {
       // If we are running in a local environment provide simple version of the config
@@ -40,20 +39,10 @@ object Main extends StrictLogging {
         }
       })
     }
-    modules
+    modules.toArray(new Array[Module](0))
   }
 
   def main(args: Array[String]): Unit = {
-    try {
-      val modules = getBaseModules
-      modules.add(new AppModule)
-      val guice = new GuiceHelper
-      guice.start(modules)
-      guice.getInjector.getInstance(classOf[ServiceManager])
-      guice.addShutdownHook()
-    } catch {
-      // Send exceptions to main log file instead of wherever STDERR is sent for the process
-      case t: Throwable => logger.error("fatal error on startup", t)
-    }
+    com.netflix.iep.guice.Main.run(args, getBaseModules: _*)
   }
 }
