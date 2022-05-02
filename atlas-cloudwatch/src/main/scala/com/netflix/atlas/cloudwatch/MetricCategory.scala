@@ -24,6 +24,7 @@ import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import software.amazon.awssdk.services.cloudwatch.model.DimensionFilter
 import software.amazon.awssdk.services.cloudwatch.model.ListMetricsRequest
+import software.amazon.awssdk.services.cloudwatch.model.RecentlyActive
 
 /**
   * Category of metrics to fetch from CloudWatch. This will typically correspond with
@@ -85,12 +86,19 @@ case class MetricCategory(
   def toListRequests: List[(MetricDefinition, ListMetricsRequest)] = {
     import scala.jdk.CollectionConverters._
     metrics.map { m =>
-      m -> ListMetricsRequest
+      val reqBuilder = ListMetricsRequest
         .builder()
         .namespace(namespace)
         .metricName(m.name)
         .dimensions(dimensions.map(d => DimensionFilter.builder().name(d).build()).asJava)
-        .build()
+      // Limit the listing to recent data for most metrics. CloudWatch only supports a
+      // value of 3h for this setting. If the period is more than an hour, then do not
+      // restrict it to recent data as it could be related to the data flow rather than
+      // actually being inactivity.
+      if (period < 3600)
+        reqBuilder.recentlyActive(RecentlyActive.PT3_H)
+
+      m -> reqBuilder.build()
     }
   }
 }
