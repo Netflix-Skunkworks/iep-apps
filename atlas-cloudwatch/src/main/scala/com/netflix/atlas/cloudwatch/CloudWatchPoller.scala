@@ -15,7 +15,6 @@
  */
 package com.netflix.atlas.cloudwatch
 
-import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
@@ -194,9 +193,14 @@ class CloudWatchPoller(
     if (pendingList) {
       logger.debug(s"list already in progress, skipping")
     } else {
-      logger.info(s"refreshing list of cloudwatch metrics for ${categories.size} categories")
-      pendingList = true
-      metricsListRef ! ListMetrics(categories)
+      val listAge = registry.clock().wallTime() - listUpdateTime.get()
+      if (listSize.get() > 0 && listAge < cacheTTL.toMillis) {
+        logger.debug(s"list data within cache TTL (age=$listAge ms), skipping")
+      } else {
+        logger.info(s"refreshing list of cloudwatch metrics for ${categories.size} categories")
+        pendingList = true
+        metricsListRef ! ListMetrics(categories)
+      }
     }
   }
 
@@ -405,7 +409,7 @@ object CloudWatchPoller {
           // with expressions that use wildcards for the resource selector.
           val reportNaN = meta.category.timeout.exists { timeout =>
             lastReportedTimestamp.fold(true) { timestamp =>
-              Duration.between(timestamp, now).compareTo(timeout) > 0
+              java.time.Duration.between(timestamp, now).compareTo(timeout) > 0
             }
           }
 
