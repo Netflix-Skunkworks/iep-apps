@@ -15,8 +15,7 @@ lazy val `iep-apps` = project.in(file("."))
     `iep-lwc-cloudwatch-model`,
     `iep-lwc-cloudwatch`,
     `iep-lwc-fwding-admin`,
-    `iep-lwc-loadgen`,
-    `iep-ses-monitor`)
+    `iep-lwc-loadgen`)
   .settings(BuildSettings.noPackaging: _*)
 
 lazy val `atlas-aggregator` = project
@@ -250,25 +249,6 @@ lazy val `iep-lwc-loadgen` = project
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,
-
-    Dependencies.akkaHttpTestkit % "test",
-    Dependencies.akkaTestkit % "test",
-    Dependencies.munit % "test"
-  ))
-
-lazy val `iep-ses-monitor` = project
-  .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++ Seq(
-    Dependencies.atlasModuleAkka,
-    Dependencies.aws2SQS,
-    Dependencies.alpakkaSqs,
-    Dependencies.iepGuice,
-    Dependencies.iepModuleAtlas,
-    Dependencies.iepModuleAws2,
-    Dependencies.log4jApi,
-    Dependencies.log4jCore,
-    Dependencies.log4jSlf4j,
-    Dependencies.spectatorAws2,
 
     Dependencies.akkaHttpTestkit % "test",
     Dependencies.akkaTestkit % "test",
