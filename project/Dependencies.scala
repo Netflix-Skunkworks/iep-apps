@@ -8,14 +8,14 @@ object Dependencies {
     val akka       = "2.6.19"
     val akkaHttpV  = "10.2.9"
     val atlas      = "1.7.0-SNAPSHOT"
-    val aws2       = "2.17.165"
-    val iep        = "3.0.16"
+    val aws2       = "2.17.211"
+    val iep        = "3.0.19"
     val guice      = "5.1.0"
     val log4j      = "2.17.2"
     val scala      = "2.13.8"
     val servo      = "0.13.2"
     val slf4j      = "1.7.36"
-    val spectator  = "1.3.0"
+    val spectator  = "1.3.5"
     val avroV      = "1.11.0"
 
     val crossScala = Seq(scala)
@@ -67,7 +67,7 @@ object Dependencies {
   val munit              = "org.scalameta" %% "munit" % "0.7.29"
   val scalaCompiler      = "org.scala-lang" % "scala-compiler" % scala
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
-  val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4"
+  val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
   val scalaReflect       = "org.scala-lang" % "scala-reflect" % scala
   val servoCore          = "com.netflix.servo" % "servo-core" % servo
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
