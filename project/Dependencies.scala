@@ -67,7 +67,7 @@ object Dependencies {
   val munit              = "org.scalameta" %% "munit" % "0.7.29"
   val scalaCompiler      = "org.scala-lang" % "scala-compiler" % scala
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
-  val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.4"
+  val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
   val scalaReflect       = "org.scala-lang" % "scala-reflect" % scala
   val servoCore          = "com.netflix.servo" % "servo-core" % servo
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
