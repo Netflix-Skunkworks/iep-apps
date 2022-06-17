@@ -145,14 +145,15 @@ class DruidClientSuite extends FunSuite {
     assertEquals(result.size, 1)
 
     val columns = result.head.columns
-    assertEquals(columns.size, 5)
 
     val expected = Set(
       "__time",
       "test.metric.counter",
       "test.dim.1",
       "test.dim.2",
-      "test.metric.histogram"
+      "test.metric.histogram.dist.1",
+      "test.metric.histogram.dist.2",
+      "test.metric.histogram.timer"
     )
     assertEquals(columns.keySet, expected)
   }
@@ -161,9 +162,24 @@ class DruidClientSuite extends FunSuite {
     val columns = executeSegmentMetadataRequest.head.columns
     assertEquals(columns("__time").`type`, "LONG")
     assertEquals(columns("test.metric.counter").`type`, "LONG")
-    assertEquals(columns("test.metric.histogram").`type`, "netflixHistogram")
+    assertEquals(columns("test.metric.histogram.dist.1").`type`, "spectatorHistogram")
+    assertEquals(columns("test.metric.histogram.dist.2").`type`, "spectatorHistogramDistribution")
+    assertEquals(columns("test.metric.histogram.timer").`type`, "spectatorHistogramTimer")
     assertEquals(columns("test.dim.1").`type`, "STRING")
     assertEquals(columns("test.dim.1").`type`, "STRING")
+  }
+
+  test("segmentMetadata metrics") {
+    val ds = executeSegmentMetadataRequest.head.toDatasource
+    ds.metrics.foreach { m =>
+      m.name match {
+        case "test.metric.counter"          => assert(m.isCounter)
+        case "test.metric.histogram.dist.1" => assert(m.isDistSummary)
+        case "test.metric.histogram.dist.2" => assert(m.isDistSummary)
+        case "test.metric.histogram.timer"  => assert(m.isTimer)
+        case name                           => throw new MatchError(name)
+      }
+    }
   }
 
   test("segmentMetadata aggregators") {
@@ -193,5 +209,44 @@ class DruidClientSuite extends FunSuite {
     val datapoints = executeGroupByRequest
     assertEquals(datapoints.count(_.tags.isEmpty), 2)
     assertEquals(datapoints.count(_.tags.nonEmpty), 5)
+  }
+
+  private def executeGroupByHistogramRequest: List[GroupByDatapoint] = {
+    import com.netflix.atlas.core.util.Streams._
+    val file = "groupByResponseHisto.json"
+    val payload = Using.resource(resource(file))(byteArray)
+    val response = HttpResponse(StatusCodes.OK, entity = payload)
+    val client = newClient(Success(response))
+    val query =
+      GroupByQuery("test", Nil, Nil, List(Aggregation.timer("value")))
+    val future = client.groupBy(query).runWith(Sink.head)
+    Await.result(future, Duration.Inf)
+  }
+
+  test("groupBy with histogram aggregation type") {
+    val expected = executeGroupByRequest.filter(_.tags.nonEmpty)
+    val actual = executeGroupByHistogramRequest
+    assertEquals(actual, expected)
+  }
+
+  test("aggregation encode, timer type") {
+    val aggr = Aggregation.timer("foo")
+    val json = Json.encode(aggr)
+    assert(json.contains("spectatorHistogram"))
+    assert(!json.contains("aggrType"))
+  }
+
+  test("aggregation encode, dist summary type") {
+    val aggr = Aggregation.distSummary("foo")
+    val json = Json.encode(aggr)
+    assert(json.contains("spectatorHistogram"))
+    assert(!json.contains("aggrType"))
+  }
+
+  test("aggregation encode, doubleSum type") {
+    val aggr = Aggregation.sum("foo")
+    val json = Json.encode(aggr)
+    assert(json.contains("doubleSum"))
+    assert(!json.contains("aggrType"))
   }
 }

@@ -32,15 +32,20 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.core.JsonToken
 import com.fasterxml.jackson.module.scala.JavaTypeable
 import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.akka.ByteStringInputStream
+import com.netflix.atlas.core.model.TagKey
+import com.netflix.atlas.core.util.Strings
 import com.netflix.atlas.json.Json
+import com.netflix.atlas.json.JsonParserHelper
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
 import java.io.InputStream
+import java.util.Locale
 import java.util.zip.GZIPInputStream
 import scala.util.Failure
 import scala.util.Success
@@ -156,10 +161,11 @@ class DruidClient(
 
   def groupBy(query: GroupByQuery): Source[List[GroupByDatapoint], NotUsed] = {
     val dimensions = query.dimensions.map(_.outputName)
+    val timer = query.aggregations.exists(_.aggrType == "timer")
     Source
       .single(mkRequest(query))
       .via(loggingClient)
-      .map(data => parseResult(dimensions, data))
+      .map(data => parseResult(dimensions, timer, data))
   }
 
   def timeseries(query: TimeseriesQuery): Source[List[GroupByDatapoint], NotUsed] = {
@@ -181,7 +187,11 @@ class DruidClient(
     }
   }
 
-  private def parseResult(dimensions: List[String], data: ByteString): List[GroupByDatapoint] = {
+  private def parseResult(
+    dimensions: List[String],
+    timer: Boolean,
+    data: ByteString
+  ): List[GroupByDatapoint] = {
     Using.resource(Json.newJsonParser(inputStream(data))) { parser =>
       import com.netflix.atlas.json.JsonParserHelper._
       val builder = List.newBuilder[GroupByDatapoint]
@@ -201,13 +211,35 @@ class DruidClient(
           .filterNot(t => isNullOrEmpty(t._2))
           .toMap
 
-        val value = nextDouble(parser)
+        val valueToken = parser.nextToken()
+        if (valueToken == JsonToken.START_OBJECT) {
+          // Histogram type: {"bucketIndex": count, ...}
+          foreachField(parser) { idx =>
+            val key = toPercentileBucket(idx, timer)
+            val datapointTags = tags + (TagKey.percentile -> key)
+            builder += GroupByDatapoint(timestamp, datapointTags, nextLong(parser).toDouble)
+          }
+        } else if (valueToken != JsonToken.VALUE_NULL) {
+          // Floating point value. In some cases histogram can be null, ignore those entries.
+          import com.fasterxml.jackson.core.JsonToken._
+          val value = valueToken match {
+            case VALUE_NUMBER_INT   => parser.getValueAsLong.toDouble
+            case VALUE_NUMBER_FLOAT => parser.getValueAsDouble
+            case VALUE_STRING       => java.lang.Double.parseDouble(parser.getText)
+            case t                  => JsonParserHelper.fail(parser, s"expected VALUE_NUMBER_FLOAT but received $t")
+          }
+          builder += GroupByDatapoint(timestamp, tags, value)
+        }
         parser.nextToken() // skip end array token
-
-        builder += GroupByDatapoint(timestamp, tags, value)
       }
       builder.result()
     }
+  }
+
+  private def toPercentileBucket(s: String, timer: Boolean): String = {
+    val hex = Integer.toHexString(Integer.parseInt(s)).toUpperCase(Locale.US)
+    val prefix = if (timer) "T" else "D"
+    s"$prefix${Strings.zeroPad(hex, 4)}"
   }
 
   private def isNullOrEmpty(v: String): Boolean = v == null || v.isEmpty
@@ -217,10 +249,20 @@ object DruidClient {
 
   case class Datasource(dimensions: List[String], metrics: List[Metric])
 
-  case class Metric(name: String, dataType: String) {
+  case class Metric(name: String, dataType: String = "DOUBLE") {
     def isCounter: Boolean = dataType == "DOUBLE" || dataType == "FLOAT" || dataType == "LONG"
-    def isHistogram: Boolean = dataType == "netflixHistogram"
-    def isSupported: Boolean = isCounter
+
+    def isTimer: Boolean = {
+      dataType == "spectatorHistogramTimer"
+    }
+
+    def isDistSummary: Boolean = {
+      dataType == "spectatorHistogram" || dataType == "spectatorHistogramDistribution"
+    }
+
+    def isHistogram: Boolean = isTimer || isDistSummary
+
+    def isSupported: Boolean = isCounter || isHistogram
   }
 
   // http://druid.io/docs/latest/querying/segmentmetadataquery.html
@@ -426,7 +468,17 @@ object DruidClient {
     override def outputName: String = delegate.outputName
   }
 
-  case class Aggregation(`type`: String, fieldName: String) {
+  @JsonIgnoreProperties(Array("aggrType"))
+  case class Aggregation(aggrType: String, fieldName: String) {
+
+    // Type to encode for Druid request. Internally we need to distinguish between timers
+    // and distribution summaries, but the Druid aggregation type is the same for both.
+    val `type`: String = aggrType match {
+      case "timer"        => "spectatorHistogram"
+      case "dist-summary" => "spectatorHistogram"
+      case _              => aggrType
+    }
+
     val name: String = "value"
   }
 
@@ -435,6 +487,8 @@ object DruidClient {
     def sum(fieldName: String): Aggregation = Aggregation("doubleSum", fieldName)
     def min(fieldName: String): Aggregation = Aggregation("doubleMin", fieldName)
     def max(fieldName: String): Aggregation = Aggregation("doubleMax", fieldName)
+    def timer(fieldName: String): Aggregation = Aggregation("timer", fieldName)
+    def distSummary(fieldName: String): Aggregation = Aggregation("dist-summary", fieldName)
   }
 
   /**

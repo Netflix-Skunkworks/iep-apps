@@ -36,6 +36,7 @@ import com.netflix.atlas.core.model.Query.KeyQuery
 import com.netflix.atlas.core.model.Query.KeyValueQuery
 import com.netflix.atlas.core.model.Query.PatternQuery
 import com.netflix.atlas.core.model.Tag
+import com.netflix.atlas.core.model.TagKey
 import com.netflix.atlas.core.model.TimeSeries
 import com.netflix.atlas.core.util.ArrayHelper
 import com.netflix.atlas.core.util.ListHelper
@@ -124,7 +125,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
     val query = tq.query.getOrElse(Query.True)
     val vs = metadata.datasources
       .filter { ds =>
-        ds.metrics.exists(query.couldMatch)
+        ds.metricTags.exists(query.couldMatch)
       }
       .flatMap { ds =>
         "nf.datasource" :: "name" :: ds.datasource.dimensions
@@ -163,7 +164,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
   private def listNames(callback: ListCallback, tq: TagQuery): Unit = {
     val query = getListQuery(tq)
     val vs = metadata.datasources
-      .flatMap(_.metrics)
+      .flatMap(_.metricTags)
       .filter(query.couldMatch)
       .map(m => m("name"))
       .distinct
@@ -175,7 +176,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
   private def listDatasources(callback: ListCallback, tq: TagQuery): Unit = {
     val query = getListQuery(tq)
     val vs = metadata.datasources
-      .flatMap(_.metrics)
+      .flatMap(_.metricTags)
       .filter(query.couldMatch)
       .map(m => m("nf.datasource"))
       .distinct
@@ -189,7 +190,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
     tq.key match {
       case Some(k) =>
         val datasources = metadata.datasources.filter { ds =>
-          ds.datasource.dimensions.contains(k) && ds.metrics.exists(query.couldMatch)
+          ds.datasource.dimensions.contains(k) && ds.metricTags.exists(query.couldMatch)
         }
 
         if (datasources.nonEmpty) {
@@ -330,12 +331,16 @@ object DruidDatabaseActor {
 
   case class DatasourceMetadata(name: String, datasource: Datasource) {
 
-    val metrics: List[Map[String, String]] = datasource.metrics.map { metric =>
-      Map("name" -> metric.name, "nf.datasource" -> name)
+    val metrics: List[MetricMetadata] = datasource.metrics.map { metric =>
+      MetricMetadata(metric, Map("name" -> metric.name, "nf.datasource" -> name))
     }
+
+    val metricTags: List[Map[String, String]] = metrics.map(_.tags)
 
     def nonEmpty: Boolean = datasource.metrics.nonEmpty
   }
+
+  case class MetricMetadata(metric: DruidClient.Metric, tags: Map[String, String])
 
   def isSpecial(k: String): Boolean = {
     k == "name" || k == "nf.datasource"
@@ -397,15 +402,25 @@ object DruidDatabaseActor {
   }
 
   @scala.annotation.tailrec
-  def toAggregation(name: String, expr: DataExpr): Aggregation = {
+  def toAggregation(metric: DruidClient.Metric, expr: DataExpr): Aggregation = {
     expr match {
-      case _: DataExpr.All              => throw new UnsupportedOperationException(":all")
-      case DataExpr.GroupBy(e, _)       => toAggregation(name, e)
-      case DataExpr.Consolidation(e, _) => toAggregation(name, e)
-      case _: DataExpr.Sum              => Aggregation.sum(name)
-      case _: DataExpr.Max              => Aggregation.max(name)
-      case _: DataExpr.Min              => Aggregation.min(name)
-      case _: DataExpr.Count            => Aggregation.count(name)
+      case _: DataExpr.All                      => throw new UnsupportedOperationException(":all")
+      case Histogram(_) if metric.isTimer       => Aggregation.timer(metric.name)
+      case Histogram(_) if metric.isDistSummary => Aggregation.distSummary(metric.name)
+      case DataExpr.GroupBy(e, _)               => toAggregation(metric, e)
+      case DataExpr.Consolidation(e, _)         => toAggregation(metric, e)
+      case _: DataExpr.Sum                      => Aggregation.sum(metric.name)
+      case _: DataExpr.Max                      => Aggregation.max(metric.name)
+      case _: DataExpr.Min                      => Aggregation.min(metric.name)
+      case _: DataExpr.Count                    => Aggregation.count(metric.name)
+    }
+  }
+
+  case object Histogram {
+
+    def unapply(value: Any): Option[List[String]] = value match {
+      case DataExpr.GroupBy(_: DataExpr.Sum, ks) if ks.contains("percentile") => Some(ks)
+      case _                                                                  => None
     }
   }
 
@@ -479,7 +494,7 @@ object DruidDatabaseActor {
   ): List[(Map[String, String], DataQuery)] = {
     val query = expr.query
     val metrics = metadata.datasources.flatMap { ds =>
-      ds.metrics.filter(query.couldMatch).map { m =>
+      ds.metrics.filter(m => query.couldMatch(m.tags)).map { m =>
         m -> ds.datasource.dimensions
       }
     }
@@ -487,19 +502,20 @@ object DruidDatabaseActor {
 
     metrics.flatMap {
       case (m, ds) =>
-        val name = m("name")
-        val datasource = m("nf.datasource")
+        val name = m.tags("name")
+        val datasource = m.tags("nf.datasource")
 
         // Common tags should be extracted for the simplified query rather than the raw
         // query. The simplified query may have additional exact matches due to simplified
         // OR clauses that need to be maintained for correct processing in the eval step.
         val simpleQuery = simplify(query, ds)
         val commonTags = exactTags(simpleQuery)
-        val tags = commonTags ++ m
+        val tags = commonTags ++ m.tags
 
         // Add has key checks for all keys within the group by. This allows druid to remove
         // some of the results earlier on in the historical nodes.
         val finalQuery = expr.finalGrouping
+          .filter(k => !m.metric.isHistogram || k != TagKey.percentile)
           .filterNot(isSpecial)
           .map(k => Query.HasKey(k))
           .foldLeft(simpleQuery) { (q1, q2) =>
@@ -509,23 +525,28 @@ object DruidDatabaseActor {
         if (simpleQuery == Query.False) {
           None
         } else {
-          val dimensions = getDimensions(simpleQuery, expr.finalGrouping)
+          val dimensions = getDimensions(simpleQuery, expr.finalGrouping, m.metric.isHistogram)
 
           // Add to the filter to remove rows that don't include the metric we're aggregating.
-          // This reduces what needs to be merged and passed back to the broker, improving query performance.
+          // This reduces what needs to be merged and passed back to the broker, improving query
+          // performance. This filter cannot be used with the spectatorHistogram type in druid.
           val metricValueFilter = Query.Not(Query.Equal(name, "0")).and(Query.HasKey(name))
-          val finalQueryWithFilter = finalQuery.and(metricValueFilter)
+          val finalQueryWithFilter =
+            if (m.metric.isHistogram) finalQuery else finalQuery.and(metricValueFilter)
 
           val groupByQuery = GroupByQuery(
             dataSource = datasource,
             dimensions = dimensions,
             intervals = intervals,
-            aggregations = List(toAggregation(name, expr)),
+            aggregations = List(toAggregation(m.metric, expr)),
             filter = DruidFilter.forQuery(finalQueryWithFilter),
             granularity = Granularity.millis(context.step)
           )
           val druidQuery =
-            if (groupByQuery.dimensions.isEmpty) groupByQuery.toTimeseriesQuery else groupByQuery
+            if (groupByQuery.dimensions.isEmpty && !m.metric.isHistogram)
+              groupByQuery.toTimeseriesQuery
+            else
+              groupByQuery
           Some(tags -> druidQuery)
         }
     }
@@ -543,8 +564,15 @@ object DruidDatabaseActor {
     getDimensions(expr.query, expr.finalGrouping)
   }
 
-  def getDimensions(query: Query, groupByKeys: List[String]): List[DimensionSpec] = {
-    groupByKeys.filterNot(isSpecial).map(k => toDimensionSpec(k, query))
+  def getDimensions(
+    query: Query,
+    groupByKeys: List[String],
+    histogram: Boolean = false
+  ): List[DimensionSpec] = {
+    groupByKeys
+      .filter(k => !histogram || k != TagKey.percentile)
+      .filterNot(isSpecial)
+      .map(k => toDimensionSpec(k, query))
   }
 
   /**
