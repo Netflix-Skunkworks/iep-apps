@@ -233,17 +233,20 @@ class DruidClientSuite extends FunSuite {
     val aggr = Aggregation.timer("foo")
     val json = Json.encode(aggr)
     assert(json.contains("spectatorHistogram"))
+    assert(!json.contains("aggrType"))
   }
 
   test("aggregation encode, dist summary type") {
     val aggr = Aggregation.distSummary("foo")
     val json = Json.encode(aggr)
     assert(json.contains("spectatorHistogram"))
+    assert(!json.contains("aggrType"))
   }
 
   test("aggregation encode, doubleSum type") {
     val aggr = Aggregation.sum("foo")
     val json = Json.encode(aggr)
     assert(json.contains("doubleSum"))
+    assert(!json.contains("aggrType"))
   }
 }

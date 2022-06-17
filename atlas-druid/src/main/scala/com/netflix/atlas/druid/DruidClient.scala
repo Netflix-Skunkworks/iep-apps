@@ -32,7 +32,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.core.JsonToken
 import com.fasterxml.jackson.module.scala.JavaTypeable
 import com.netflix.atlas.akka.AccessLogger
@@ -468,7 +468,8 @@ object DruidClient {
     override def outputName: String = delegate.outputName
   }
 
-  case class Aggregation(@JsonIgnore aggrType: String, fieldName: String) {
+  @JsonIgnoreProperties(Array("aggrType"))
+  case class Aggregation(aggrType: String, fieldName: String) {
 
     // Type to encode for Druid request. Internally we need to distinguish between timers
     // and distribution summaries, but the Druid aggregation type is the same for both.
