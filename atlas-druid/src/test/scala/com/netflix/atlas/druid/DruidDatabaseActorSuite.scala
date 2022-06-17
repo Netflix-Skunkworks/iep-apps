@@ -110,37 +110,37 @@ class DruidDatabaseActorSuite extends FunSuite {
 
   test("toAggregation: sum") {
     val expr = DataExpr.Sum(Query.Equal("a", "1"))
-    val aggr = toAggregation("test", expr)
+    val aggr = toAggregation(DruidClient.Metric("test"), expr)
     assertEquals(aggr, Aggregation.sum("test"))
   }
 
   test("toAggregation: count") {
     val expr = DataExpr.Count(Query.Equal("a", "1"))
-    val aggr = toAggregation("test", expr)
+    val aggr = toAggregation(DruidClient.Metric("test"), expr)
     assertEquals(aggr, Aggregation.count("test"))
   }
 
   test("toAggregation: min") {
     val expr = DataExpr.Min(Query.Equal("a", "1"))
-    val aggr = toAggregation("test", expr)
+    val aggr = toAggregation(DruidClient.Metric("test"), expr)
     assertEquals(aggr, Aggregation.min("test"))
   }
 
   test("toAggregation: max") {
     val expr = DataExpr.Max(Query.Equal("a", "1"))
-    val aggr = toAggregation("test", expr)
+    val aggr = toAggregation(DruidClient.Metric("test"), expr)
     assertEquals(aggr, Aggregation.max("test"))
   }
 
   test("toAggregation: sum grouped") {
     val expr = DataExpr.GroupBy(DataExpr.Sum(Query.Equal("a", "1")), List("a"))
-    val aggr = toAggregation("test", expr)
+    val aggr = toAggregation(DruidClient.Metric("test"), expr)
     assertEquals(aggr, Aggregation.sum("test"))
   }
 
   test("toAggregation: max grouped") {
     val expr = DataExpr.GroupBy(DataExpr.Max(Query.Equal("a", "1")), List("a"))
-    val aggr = toAggregation("test", expr)
+    val aggr = toAggregation(DruidClient.Metric("test"), expr)
     assertEquals(aggr, Aggregation.max("test"))
   }
 
@@ -149,14 +149,14 @@ class DruidDatabaseActorSuite extends FunSuite {
       DataExpr.Consolidation(DataExpr.Sum(Query.Equal("a", "1")), ConsolidationFunction.Max),
       List("a")
     )
-    val aggr = toAggregation("test", expr)
+    val aggr = toAggregation(DruidClient.Metric("test"), expr)
     assertEquals(aggr, Aggregation.sum("test"))
   }
 
   test("toAggregation: all") {
     intercept[UnsupportedOperationException] {
       val expr = DataExpr.All(Query.Equal("a", "1"))
-      toAggregation("test", expr)
+      toAggregation(DruidClient.Metric("test"), expr)
     }
   }
 

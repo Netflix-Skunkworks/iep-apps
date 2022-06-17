@@ -39,8 +39,26 @@
         "maxValue": null,
         "errorMessage": null
       },
-      "test.metric.histogram": {
-        "type": "netflixHistogram",
+      "test.metric.histogram.dist.1": {
+        "type": "spectatorHistogram",
+        "hasMultipleValues": false,
+        "size": 0,
+        "cardinality": null,
+        "minValue": null,
+        "maxValue": null,
+        "errorMessage": null
+      },
+      "test.metric.histogram.dist.2": {
+        "type": "spectatorHistogramDistribution",
+        "hasMultipleValues": false,
+        "size": 0,
+        "cardinality": null,
+        "minValue": null,
+        "maxValue": null,
+        "errorMessage": null
+      },
+      "test.metric.histogram.timer": {
+        "type": "spectatorHistogramTimer",
         "hasMultipleValues": false,
         "size": 0,
         "cardinality": null,
