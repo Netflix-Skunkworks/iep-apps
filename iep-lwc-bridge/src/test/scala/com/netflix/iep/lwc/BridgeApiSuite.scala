@@ -210,6 +210,44 @@ class BridgeApiSuite extends MUnitRouteSuite {
     )
   }
 
+  test("parse conflicting apps, tag entry set no duplicates") {
+    import scala.jdk.CollectionConverters._
+    val json = s"""{
+        "tags": {"nf.app": "foo", "c": "d"},
+        "metrics": [
+          {
+            "tags": {"name": "cpu", "nf.app": "bar", "a": "b"},
+            "timestamp": ${System.currentTimeMillis()},
+            "value": 42.0
+          }
+        ]
+      }"""
+    val datapoints = BridgeApi.decodeBatch(json)
+    val entrySet = datapoints.head.tagsMap.entrySet()
+    val apps = entrySet
+      .iterator()
+      .asScala
+      .filter(_.getKey == "nf.app")
+      .toList
+      .map(_.getValue)
+    assertEquals(apps, List("bar"))
+  }
+
+  test("parse conflicting apps, tag map get missing") {
+    val json = s"""{
+        "tags": {"nf.app": "foo", "c": "d"},
+        "metrics": [
+          {
+            "tags": {"name": "cpu", "nf.app": "bar", "a": "b"},
+            "timestamp": ${System.currentTimeMillis()},
+            "value": 42.0
+          }
+        ]
+      }"""
+    val datapoints = BridgeApi.decodeBatch(json)
+    assert(datapoints.head.tagsMap.get("missing") == null)
+  }
+
   test("publish too many tags") {
     val tags = (0 until 20).map(i => s""""$i":"$i"""").mkString(",")
     val json = s"""{
