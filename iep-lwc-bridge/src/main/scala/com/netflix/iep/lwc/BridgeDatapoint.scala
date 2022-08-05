@@ -25,26 +25,30 @@ class BridgeDatapoint(
   val value: Double
 ) {
 
-  def id: Id = Id.unsafeCreate(name, tags, n)
+  private var cachedId: Id = _
+
+  def id: Id = {
+    if (cachedId == null) {
+      cachedId = Id.unsafeCreate(name, tags, n)
+    }
+    cachedId
+  }
 
   def tagsMap: java.util.Map[String, String] = {
-    val self = this
+    val tagSet = id
     new java.util.AbstractMap[String, String] {
 
       /** Overridden to search the array. */
       override def get(k: AnyRef): String = {
-        if (k == "name") {
-          self.name
-        } else {
-          var i = 0
-          while (i < self.n) {
-            if (k == self.tags(i)) {
-              return self.tags(i + 1)
-            }
-            i += 2
+        var i = 0
+        val size = tagSet.size()
+        while (i < size) {
+          if (k == tagSet.getKey(i)) {
+            return tagSet.getValue(i)
           }
-          null
+          i += 1
         }
+        null
       }
 
       /** Overridden to search the array. */
@@ -55,23 +59,23 @@ class BridgeDatapoint(
         */
       override def entrySet(): java.util.Set[java.util.Map.Entry[String, String]] = {
         new java.util.AbstractSet[java.util.Map.Entry[String, String]] {
-          override def size(): Int = self.n
+          override def size(): Int = tagSet.size()
 
           override def iterator(): java.util.Iterator[java.util.Map.Entry[String, String]] = {
             new java.util.Iterator[java.util.Map.Entry[String, String]]
             with java.util.Map.Entry[String, String] {
-              private[this] var i = 0
+              private[this] var i = -1
 
-              override def hasNext: Boolean = i < self.n
+              override def hasNext: Boolean = i < tagSet.size() - 1
 
               override def next(): java.util.Map.Entry[String, String] = {
-                i += 2
+                i += 1
                 this
               }
 
-              override def getKey: String = self.tags(i - 2)
+              override def getKey: String = tagSet.getKey(i)
 
-              override def getValue: String = self.tags(i - 1)
+              override def getValue: String = tagSet.getValue(i)
 
               override def setValue(value: String): String = {
                 throw new UnsupportedOperationException("setValue")
@@ -94,6 +98,9 @@ class BridgeDatapoint(
       System.arraycopy(tags, 0, tagsArray, length, n)
       tags = tagsArray
       n += length
+
+      // Force it to be recomputed if there is a change
+      cachedId = null
     }
   }
 
