@@ -87,17 +87,13 @@ class BridgeDatapoint(
     if (name == null)
       name = commonName
     if (length > 0) {
-      if (tags.length >= n + length) {
-        System.arraycopy(commonTags, 0, tags, n, length)
-        n += length
-      } else {
-        // expand array if needed for merge
-        val tagsArray = new Array[String](n + length)
-        System.arraycopy(tags, 0, tagsArray, 0, n)
-        System.arraycopy(commonTags, 0, tagsArray, n, length)
-        tags = tagsArray
-        n += length
-      }
+      // Common tags must come first for deduping to give precedence to the tags on the
+      // local metric.
+      val tagsArray = new Array[String](n + length)
+      System.arraycopy(commonTags, 0, tagsArray, 0, length)
+      System.arraycopy(tags, 0, tagsArray, length, n)
+      tags = tagsArray
+      n += length
     }
   }
 

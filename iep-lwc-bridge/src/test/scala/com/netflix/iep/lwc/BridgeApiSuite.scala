@@ -192,6 +192,24 @@ class BridgeApiSuite extends MUnitRouteSuite {
     assertEquals(datapoints.head.id, Id.create("bar").withTags("a", "b", "c", "d"))
   }
 
+  test("parse conflicting apps") {
+    val json = s"""{
+        "tags": {"nf.app": "foo", "c": "d"},
+        "metrics": [
+          {
+            "tags": {"name": "cpu", "nf.app": "bar", "a": "b"},
+            "timestamp": ${System.currentTimeMillis()},
+            "value": 42.0
+          }
+        ]
+      }"""
+    val datapoints = BridgeApi.decodeBatch(json)
+    assertEquals(
+      datapoints.head.id,
+      Id.create("cpu").withTags("a", "b", "c", "d", "nf.app", "bar")
+    )
+  }
+
   test("publish too many tags") {
     val tags = (0 until 20).map(i => s""""$i":"$i"""").mkString(",")
     val json = s"""{
