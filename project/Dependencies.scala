@@ -7,15 +7,15 @@ object Dependencies {
   object Versions {
     val akka       = "2.6.19"
     val akkaHttpV  = "10.2.9"
-    val atlas      = "1.7.0-rc.26"
+    val atlas      = "1.7.0-SNAPSHOT"
     val aws2       = "2.17.243"
-    val iep        = "3.0.21"
-    val guice      = "5.1.0"
+    val iep        = "4.0.0-SNAPSHOT"
     val log4j      = "2.18.0"
     val scala      = "2.13.8"
     val servo      = "0.13.2"
     val slf4j      = "1.7.36"
     val spectator  = "1.3.6"
+    val spring     = "5.3.22"
     val avroV      = "1.11.1"
 
     val crossScala = Seq(scala)
@@ -34,9 +34,9 @@ object Dependencies {
   val atlasCore          = "com.netflix.atlas_v1" %% "atlas-core" % atlas
   val atlasEval          = "com.netflix.atlas_v1" %% "atlas-eval" % atlas
   val atlasJson          = "com.netflix.atlas_v1" %% "atlas-json" % atlas
-  val atlasModuleAkka    = "com.netflix.atlas_v1" %% "atlas-module-akka" % atlas
-  val atlasModuleEval    = "com.netflix.atlas_v1" %% "atlas-module-eval" % atlas
-  val atlasModuleWebApi  = "com.netflix.atlas_v1" %% "atlas-module-webapi" % atlas
+  val atlasSpringAkka    = "com.netflix.atlas_v1" %% "atlas-spring-akka" % atlas
+  val atlasSpringEval    = "com.netflix.atlas_v1" %% "atlas-spring-eval" % atlas
+  val atlasSpringWebApi  = "com.netflix.atlas_v1" %% "atlas-spring-webapi" % atlas
   val atlasWebApi        = "com.netflix.atlas_v1" %% "atlas-webapi" % atlas
   val aws2AutoScaling    = "software.amazon.awssdk" % "autoscaling" % aws2
   val aws2CloudWatch     = "software.amazon.awssdk" % "cloudwatch" % aws2
@@ -45,18 +45,16 @@ object Dependencies {
   val aws2S3             = "software.amazon.awssdk" % "s3" % aws2
   val aws2SQS            = "software.amazon.awssdk" % "sqs" % aws2
   val frigga             = "com.netflix.frigga" % "frigga" % "0.25.0"
-  val guiceCoreBase      = "com.google.inject" % "guice"
-  val guiceMultiBase     = "com.google.inject.extensions" % "guice-multibindings"
-  val iepGuice           = "com.netflix.iep" % "iep-guice" % iep
   val iepLeaderApi       = "com.netflix.iep" % "iep-leader-api" % iep
-  val iepLeaderDynamoDb  = "com.netflix.iep" % "iep-leader-dynamodb" % iep
-  val iepModuleAdmin     = "com.netflix.iep" % "iep-module-admin" % iep
-  val iepModuleAtlas     = "com.netflix.iep" % "iep-module-atlas" % iep
-  val iepModuleAws2      = "com.netflix.iep" % "iep-module-aws2" % iep
-  val iepModuleJmx       = "com.netflix.iep" % "iep-module-jmxport" % iep
-  val iepModuleLeader   = "com.netflix.iep" % "iep-module-leader" % iep
   val iepNflxEnv         = "com.netflix.iep" % "iep-nflxenv" % iep
   val iepService         = "com.netflix.iep" % "iep-service" % iep
+  val iepSpring          = "com.netflix.iep" % "iep-spring" % iep
+  val iepSpringLeaderDDb = "com.netflix.iep" % "iep-spring-leader-dynamodb" % iep
+  val iepSpringAdmin     = "com.netflix.iep" % "iep-spring-admin" % iep
+  val iepSpringAtlas     = "com.netflix.iep" % "iep-spring-atlas" % iep
+  val iepSpringAws2      = "com.netflix.iep" % "iep-spring-aws2" % iep
+  val iepSpringJmx       = "com.netflix.iep" % "iep-spring-jmxport" % iep
+  val iepSpringLeader    = "com.netflix.iep" % "iep-spring-leader" % iep
   val jsonSchema         = "com.github.java-json-tools" % "json-schema-validator" % "2.2.14"
   val jsr305             = "com.google.code.findbugs" % "jsr305" % "3.0.2"
   val log4jApi           = "org.apache.logging.log4j" % "log4j-api" % log4j
@@ -80,24 +78,8 @@ object Dependencies {
   val spectatorLog4j     = "com.netflix.spectator" % "spectator-ext-log4j2" % spectator
   val spectatorM2        = "com.netflix.spectator" % "spectator-reg-metrics2" % spectator
   val spectatorSandbox   = "com.netflix.spectator" % "spectator-ext-sandbox" % spectator
+  val springContext      = "org.springframework" % "spring-context" % spring
   val typesafeConfig     = "com.typesafe" % "config" % "1.4.2"
-
-  def isBeforeJava16: Boolean = {
-    System.getProperty("java.specification.version").toDouble < 16
-  }
-
-  private def guiceDep(base: OrganizationArtifactName): ModuleID = {
-    base % (if (isBeforeJava16) "4.1.0" else guice)
-  }
-
-  def guiceCore: ModuleID = guiceDep(guiceCoreBase)
-
-  def guiceCoreAndMulti: Seq[ModuleID] = {
-    if (isBeforeJava16)
-      Seq(guiceDep(guiceCoreBase), guiceDep(guiceMultiBase))
-    else
-      Seq(guiceDep(guiceCoreBase))
-  }
 }
 
 // format: on

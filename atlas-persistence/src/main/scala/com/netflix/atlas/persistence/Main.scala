@@ -15,34 +15,9 @@
  */
 package com.netflix.atlas.persistence
 
-import com.google.inject.AbstractModule
-import com.google.inject.Module
-import com.netflix.iep.guice.GuiceHelper
-import com.netflix.spectator.api.NoopRegistry
-import com.netflix.spectator.api.Registry
-import com.typesafe.config.Config
-import com.typesafe.config.ConfigFactory
-import com.typesafe.scalalogging.StrictLogging
-
-object Main extends StrictLogging {
-
-  private def getBaseModules: Array[Module] = {
-    val modules = GuiceHelper.getModulesUsingServiceLoader
-    if (!sys.env.contains("NETFLIX_ENVIRONMENT")) {
-      // If we are running in a local environment provide simple version of the config
-      // binding. These bindings are normally provided by the final package
-      // config for the app in the production setup.
-      modules.add(new AbstractModule {
-        override def configure(): Unit = {
-          bind(classOf[Config]).toInstance(ConfigFactory.load())
-          bind(classOf[Registry]).toInstance(new NoopRegistry)
-        }
-      })
-    }
-    modules.toArray(new Array[Module](0))
-  }
+object Main {
 
   def main(args: Array[String]): Unit = {
-    com.netflix.iep.guice.Main.run(args, getBaseModules: _*)
+    com.netflix.iep.spring.Main.main(args)
   }
 }

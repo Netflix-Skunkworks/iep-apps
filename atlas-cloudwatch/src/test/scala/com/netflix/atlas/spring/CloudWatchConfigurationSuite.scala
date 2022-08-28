@@ -13,17 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.atlas.aggregator
+package com.netflix.atlas.spring
 
-import com.google.inject.AbstractModule
-import com.google.inject.multibindings.Multibinder
-import com.netflix.iep.service.Service
-import com.netflix.spectator.api.Clock
+import com.netflix.atlas.akka.ActorService
+import com.netflix.iep.spring.Main
+import munit.FunSuite
 
-class AppModule extends AbstractModule {
-  override def configure(): Unit = {
-    bind(classOf[Clock]).toInstance(Clock.SYSTEM)
-    val serviceBinder = Multibinder.newSetBinder(binder(), classOf[Service])
-    serviceBinder.addBinding().to(classOf[AtlasAggregatorService])
+import scala.util.Using
+
+class CloudWatchConfigurationSuite extends FunSuite {
+
+  test("load module") {
+    System.setProperty(
+      "netflix.iep.spring.scanPackages",
+      "com.netflix.iep.aws2,com.netflix.iep.spring,com.netflix.atlas"
+    )
+    Using.resource(Main.run(Array.empty)) { m =>
+      val service = m.getContext.getBean(classOf[ActorService])
+      assert(service.isHealthy)
+    }
   }
 }
