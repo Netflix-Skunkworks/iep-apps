@@ -15,38 +15,9 @@
  */
 package com.netflix.iep.archaius
 
-import com.google.inject.Provides
-import com.google.inject.multibindings.Multibinder
-import com.netflix.iep.aws2.AwsClientFactory
-import com.netflix.iep.config.ConfigManager
-import com.netflix.iep.guice.BaseModule
-import com.netflix.iep.service.Service
-import com.typesafe.config.Config
-import software.amazon.awssdk.services.dynamodb.DynamoDbClient
-
-import javax.inject.Singleton
-
 object Main {
 
   def main(args: Array[String]): Unit = {
-    com.netflix.iep.guice.Main.run(args, new ServerModule)
-  }
-
-  class ServerModule extends BaseModule {
-    override def configure(): Unit = {
-      bind(classOf[Config]).toInstance(ConfigManager.get())
-
-      val serviceBinder = Multibinder.newSetBinder(binder(), classOf[Service])
-      serviceBinder.addBinding().toConstructor(getConstructor(classOf[DynamoService]))
-      bind(classOf[DynamoService])
-      bind(classOf[PropertiesContext])
-    }
-
-    // Visibility of protected to avoid unused method warning from scala compiler
-    @Provides
-    @Singleton
-    protected def providesDynamoDbClient(factory: AwsClientFactory): DynamoDbClient = {
-      factory.getInstance(classOf[DynamoDbClient])
-    }
+    com.netflix.iep.spring.Main.run(args)
   }
 }

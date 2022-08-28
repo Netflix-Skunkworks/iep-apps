@@ -78,8 +78,13 @@ class PollerManager(registry: Registry, classFactory: ClassFactory, config: Conf
   }
 
   private def createPollerActors(): Map[String, AtomicLong] = {
+    import scala.compat.java8.FunctionConverters._
+    val bindings = Map[Type, AnyRef](
+      classOf[Config]   -> config,
+      classOf[Registry] -> registry
+    ).withDefaultValue(null)
     val updateTimes = pollers.map { p =>
-      context.actorOf(Props(classFactory.newInstance[Actor](p.cls)), p.name)
+      context.actorOf(Props(classFactory.newInstance[Actor](p.cls, bindings.asJava)), p.name)
       val updateTime = new AtomicLong(registry.clock().wallTime())
       PolledMeter
         .using(registry)
@@ -95,7 +100,8 @@ class PollerManager(registry: Registry, classFactory: ClassFactory, config: Conf
     import scala.compat.java8.FunctionConverters._
     val cfg = config.getConfig("atlas.poller.sink")
     val cls = cfg.getString("class")
-    val overrides = Map[Type, AnyRef](classOf[Config] -> cfg).withDefaultValue(null)
+    val overrides = Map[Type, AnyRef](classOf[Config] -> cfg, classOf[Registry] -> registry)
+      .withDefaultValue(null)
     context.actorOf(
       Props(classFactory.newInstance[Actor](cls, overrides.asJava)),
       PollerManager.SinkName

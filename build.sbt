@@ -10,7 +10,6 @@ lazy val `iep-apps` = project.in(file("."))
     `atlas-stream`,
     `iep-archaius`,
     `iep-atlas`,
-    `iep-clienttest`,
     `iep-lwc-bridge`,
     `iep-lwc-cloudwatch-model`,
     `iep-lwc-cloudwatch`,
@@ -20,13 +19,13 @@ lazy val `iep-apps` = project.in(file("."))
 
 lazy val `atlas-aggregator` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++ Seq(
+  .settings(libraryDependencies ++= Seq(
     Dependencies.atlasJson,
-    Dependencies.atlasModuleAkka,
-    Dependencies.atlasModuleEval,
-    Dependencies.iepGuice,
-    Dependencies.iepModuleAdmin,
+    Dependencies.atlasSpringAkka,
+    Dependencies.atlasSpringEval,
     Dependencies.iepNflxEnv,
+    Dependencies.iepSpring,
+    Dependencies.iepSpringAdmin,
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,
@@ -39,17 +38,17 @@ lazy val `atlas-aggregator` = project
 
 lazy val `atlas-cloudwatch` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++ Seq(
+  .settings(libraryDependencies ++= Seq(
     Dependencies.atlasCore,
     Dependencies.atlasJson,
-    Dependencies.atlasModuleAkka,
+    Dependencies.atlasSpringAkka,
     Dependencies.aws2CloudWatch,
     Dependencies.frigga,
-    Dependencies.iepGuice,
-    Dependencies.iepLeaderDynamoDb,
-    Dependencies.iepModuleAws2,
-    Dependencies.iepModuleLeader,
     Dependencies.iepNflxEnv,
+    Dependencies.iepSpring,
+    Dependencies.iepSpringAws2,
+    Dependencies.iepSpringLeader,
+    Dependencies.iepSpringLeaderDDb,
     Dependencies.iepService,
     Dependencies.log4jApi,
     Dependencies.log4jCore,
@@ -63,10 +62,10 @@ lazy val `atlas-cloudwatch` = project
 
 lazy val `atlas-druid` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++Seq(
-    Dependencies.atlasModuleAkka,
-    Dependencies.atlasModuleWebApi,
-    Dependencies.iepGuice,
+  .settings(libraryDependencies ++= Seq(
+    Dependencies.atlasSpringAkka,
+    Dependencies.atlasSpringWebApi,
+    Dependencies.iepSpring,
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j
@@ -75,12 +74,12 @@ lazy val `atlas-druid` = project
 lazy val `atlas-persistence` = project
   .configure(BuildSettings.profile)
   .settings(
-    libraryDependencies ++= Dependencies.guiceCoreAndMulti ++Seq(
-      Dependencies.atlasModuleAkka,
-      Dependencies.atlasModuleWebApi,
+    libraryDependencies ++= Seq(
+      Dependencies.atlasSpringAkka,
+      Dependencies.atlasSpringWebApi,
       Dependencies.avro,
       Dependencies.aws2S3,
-      Dependencies.iepGuice,
+      Dependencies.iepSpring,
       Dependencies.log4jApi,
       Dependencies.log4jCore,
       Dependencies.log4jSlf4j,
@@ -90,15 +89,15 @@ lazy val `atlas-persistence` = project
 
 lazy val `atlas-slotting` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++Seq(
+  .settings(libraryDependencies ++= Seq(
       Dependencies.akkaHttpCaching,
-      Dependencies.atlasModuleAkka,
+      Dependencies.atlasSpringAkka,
       Dependencies.aws2AutoScaling,
       Dependencies.aws2DynamoDB,
       Dependencies.aws2EC2,
-      Dependencies.iepGuice,
-      Dependencies.iepModuleAdmin,
-      Dependencies.iepModuleAws2,
+      Dependencies.iepSpring,
+      Dependencies.iepSpringAdmin,
+      Dependencies.iepSpringAws2,
       Dependencies.iepNflxEnv,
       Dependencies.log4jApi,
       Dependencies.log4jCore,
@@ -113,10 +112,10 @@ lazy val `atlas-slotting` = project
 
 lazy val `atlas-stream` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++Seq(
-    Dependencies.atlasModuleAkka,
-    Dependencies.atlasModuleEval,
-    Dependencies.iepGuice,
+  .settings(libraryDependencies ++= Seq(
+    Dependencies.atlasSpringAkka,
+    Dependencies.atlasSpringEval,
+    Dependencies.iepSpring,
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,
@@ -128,13 +127,13 @@ lazy val `atlas-stream` = project
 
 lazy val `iep-archaius` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++Seq(
-    Dependencies.atlasModuleAkka,
+  .settings(libraryDependencies ++= Seq(
+    Dependencies.atlasSpringAkka,
     Dependencies.aws2DynamoDB,
     Dependencies.frigga,
-    Dependencies.iepGuice,
-    Dependencies.iepModuleAws2,
     Dependencies.iepNflxEnv,
+    Dependencies.iepSpring,
+    Dependencies.iepSpringAws2,
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,
@@ -148,38 +147,25 @@ lazy val `iep-archaius` = project
 
 lazy val `iep-atlas` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++Seq(
-    Dependencies.atlasModuleAkka,
-    Dependencies.atlasModuleWebApi,
-    Dependencies.iepGuice,
-    Dependencies.iepModuleAdmin,
-    Dependencies.iepModuleAtlas,
-    Dependencies.iepModuleJmx,
+  .settings(libraryDependencies ++= Seq(
+    Dependencies.atlasSpringAkka,
+    Dependencies.atlasSpringWebApi,
+    Dependencies.iepSpring,
+    Dependencies.iepSpringAdmin,
+    Dependencies.iepSpringAtlas,
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j
   ))
 
-lazy val `iep-clienttest` = project
-  .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++Seq(
-    Dependencies.atlasModuleAkka,
-    Dependencies.iepGuice,
-    Dependencies.log4jApi,
-    Dependencies.log4jCore,
-    Dependencies.log4jSlf4j,
-    Dependencies.servoCore,
-    Dependencies.spectatorApi
-  ))
-
 lazy val `iep-lwc-bridge` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++Seq(
+  .settings(libraryDependencies ++= Seq(
     Dependencies.atlasCore,
-    Dependencies.atlasModuleAkka,
+    Dependencies.atlasSpringAkka,
     Dependencies.frigga,
-    Dependencies.iepGuice,
-    Dependencies.iepModuleAtlas,
+    Dependencies.iepSpring,
+    Dependencies.iepSpringAtlas,
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,
@@ -197,14 +183,14 @@ lazy val `iep-lwc-cloudwatch-model` = project
 lazy val `iep-lwc-cloudwatch` = project
   .configure(BuildSettings.profile)
   .dependsOn(`iep-lwc-cloudwatch-model`)
-  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++ Seq(
-    Dependencies.atlasModuleAkka,
-    Dependencies.atlasModuleEval,
+  .settings(libraryDependencies ++= Seq(
+    Dependencies.atlasSpringAkka,
+    Dependencies.atlasSpringEval,
     Dependencies.aws2CloudWatch,
-    Dependencies.iepGuice,
-    Dependencies.iepModuleAtlas,
-    Dependencies.iepModuleAws2,
     Dependencies.iepNflxEnv,
+    Dependencies.iepSpring,
+    Dependencies.iepSpringAtlas,
+    Dependencies.iepSpringAws2,
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,
@@ -218,14 +204,14 @@ lazy val `iep-lwc-cloudwatch` = project
 lazy val `iep-lwc-fwding-admin` = project
   .configure(BuildSettings.profile)
   .dependsOn(`iep-lwc-cloudwatch-model`)
-  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++ Seq(
+  .settings(libraryDependencies ++= Seq(
     Dependencies.atlasEval,
-    Dependencies.atlasModuleAkka,
-    Dependencies.atlasModuleEval,
+    Dependencies.atlasSpringAkka,
+    Dependencies.atlasSpringEval,
     Dependencies.aws2DynamoDB,
-    Dependencies.iepGuice,
-    Dependencies.iepModuleAtlas,
-    Dependencies.iepModuleAws2,
+    Dependencies.iepSpring,
+    Dependencies.iepSpringAtlas,
+    Dependencies.iepSpringAws2,
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,
@@ -241,11 +227,11 @@ lazy val `iep-lwc-fwding-admin` = project
 
 lazy val `iep-lwc-loadgen` = project
   .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Dependencies.guiceCoreAndMulti ++ Seq(
-    Dependencies.atlasModuleAkka,
-    Dependencies.atlasModuleEval,
-    Dependencies.iepGuice,
-    Dependencies.iepModuleAtlas,
+  .settings(libraryDependencies ++= Seq(
+    Dependencies.atlasSpringAkka,
+    Dependencies.atlasSpringEval,
+    Dependencies.iepSpring,
+    Dependencies.iepSpringAtlas,
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,

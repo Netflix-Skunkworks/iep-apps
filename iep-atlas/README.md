@@ -4,10 +4,9 @@
 Example for running [Atlas](https://github.com/Netflix/atlas/) and:
 
 * Report metrics to itself using
-    [iep-module-atlas](https://github.com/Netflix/iep/tree/master/iep-module-atlas).
+    [iep-spring-atlas](https://github.com/Netflix/iep/tree/main/iep-spring-atlas).
 * Configure for debugging using
-    [iep-module-jmxport](https://github.com/Netflix/iep/tree/master/iep-module-jmxport) and
-    [iep-module-admin](https://github.com/Netflix/iep/tree/master/iep-module-admin).
+    [iep-spring-admin](https://github.com/Netflix/iep/tree/main/iep-spring-admin).
 * Package the application for debian. These steps can be generalized for other
     systems.
 
