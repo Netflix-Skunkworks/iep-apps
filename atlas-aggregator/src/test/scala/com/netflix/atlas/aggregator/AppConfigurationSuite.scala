@@ -15,41 +15,22 @@
  */
 package com.netflix.atlas.aggregator
 
-import akka.actor.ActorSystem
-
-import javax.inject.Singleton
-import com.google.inject.AbstractModule
-import com.google.inject.Guice
-import com.google.inject.Provider
-import com.netflix.spectator.api.Clock
 import com.netflix.spectator.api.NoopRegistry
-import com.netflix.spectator.api.Registry
-import com.netflix.spectator.atlas.AtlasConfig
-import com.netflix.spectator.atlas.AtlasRegistry
-import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import munit.FunSuite
+import org.springframework.context.annotation.AnnotationConfigApplicationContext
 
-class AppModuleSuite extends FunSuite {
+import scala.util.Using
 
-  import AppModuleSuite._
-
-  private val config = ConfigFactory.load()
+class AppConfigurationSuite extends FunSuite {
 
   test("aggr service") {
-    val injector = Guice.createInjector(
-      new AppModule,
-      new AbstractModule {
-        override def configure(): Unit = {
-          bind(classOf[Config]).toInstance(config)
-          bind(classOf[Registry]).toProvider(classOf[RegistryProvider])
-          bind(classOf[ActorSystem]).toInstance(ActorSystem("AppModuleSuite"))
-        }
-      }
-    )
-
-    val aggr = injector.getInstance(classOf[AtlasAggregatorService])
-    assert(aggr != null)
+    Using.resource(new AnnotationConfigApplicationContext()) { context =>
+      context.scan("com.netflix")
+      context.refresh()
+      context.start()
+      assert(context.getBean(classOf[AtlasAggregatorService]) != null)
+    }
   }
 
   test("aggr config should use prefix") {
@@ -66,18 +47,5 @@ class AppModuleSuite extends FunSuite {
       """.stripMargin)
     val aggr = new AggrConfig(config, new NoopRegistry, null)
     assertEquals(aggr.batchSize(), 10000)
-  }
-}
-
-object AppModuleSuite {
-
-  @Singleton
-  class RegistryProvider extends Provider[Registry] {
-    override def get(): Registry = {
-      val cfg = new AtlasConfig {
-        override def get(k: String): String = null
-      }
-      new AtlasRegistry(Clock.SYSTEM, cfg)
-    }
   }
 }

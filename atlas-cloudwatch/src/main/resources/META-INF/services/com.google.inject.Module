@@ -1,1 +1,1 @@
-com.netflix.atlas.guice.CloudWatchModule
+com.netflix.atlas.spring.CloudWatchConfiguration

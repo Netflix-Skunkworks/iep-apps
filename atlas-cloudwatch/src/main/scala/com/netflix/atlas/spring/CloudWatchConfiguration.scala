@@ -13,16 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.netflix.iep.loadgen
+package com.netflix.atlas.spring
 
-import com.google.inject.AbstractModule
-import com.google.inject.multibindings.Multibinder
-import com.netflix.iep.service.Service
+import com.netflix.iep.aws2.AwsClientFactory
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
+import software.amazon.awssdk.services.cloudwatch.CloudWatchClient
 
-class AppModule extends AbstractModule {
-  override def configure(): Unit = {
-    val serviceBinder = Multibinder.newSetBinder(binder(), classOf[Service])
-//    serviceBinder.addBinding().to(classOf[LoadGenService])
-    serviceBinder.addBinding().to(classOf[LoadGenWsService])
+/**
+  * Configures the binding for the cloudwatch client and poller.
+  */
+@Configuration
+class CloudWatchConfiguration {
+
+  @Bean
+  def cloudWatchClient(factory: AwsClientFactory): CloudWatchClient = {
+    factory.newInstance(classOf[CloudWatchClient])
   }
 }
