@@ -24,8 +24,6 @@ import scala.util.Using
 
 class AppConfigurationSuite extends FunSuite {
 
-  private val config = ConfigFactory.load()
-
   test("aggr service") {
     Using.resource(new AnnotationConfigApplicationContext()) { context =>
       context.scan("com.netflix")

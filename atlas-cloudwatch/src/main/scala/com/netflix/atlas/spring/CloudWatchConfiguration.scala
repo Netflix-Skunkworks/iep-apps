@@ -15,7 +15,6 @@
  */
 package com.netflix.atlas.spring
 
-import javax.inject.Singleton
 import com.netflix.iep.aws2.AwsClientFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
