@@ -49,8 +49,20 @@ class DruidFilterSuite extends FunSuite {
     assertEquals(actual, expected)
   }
 
+  test("forQuery - nf.datasource :not") {
+    val actual = DruidFilter.forQuery(eval("nf.datasource,foo,:eq,:not"))
+    val expected = None
+    assertEquals(actual, expected)
+  }
+
   test("forQuery - name :eq") {
     val actual = DruidFilter.forQuery(eval("name,foo,:eq"))
+    val expected = None
+    assertEquals(actual, expected)
+  }
+
+  test("forQuery - name :not") {
+    val actual = DruidFilter.forQuery(eval("name,foo,:eq,:not"))
     val expected = None
     assertEquals(actual, expected)
   }

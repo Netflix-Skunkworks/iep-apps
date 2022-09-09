@@ -62,7 +62,7 @@ object DruidFilter {
       case kq: KeyQuery if kq.k == "nf.datasource" => Query.True
       case kq: KeyQuery if kq.k == "name"          => Query.True
     }
-    Query.simplify(newQuery.asInstanceOf[Query])
+    Query.simplify(newQuery.asInstanceOf[Query], true)
   }
 
   private def js(k: String, op: String, v: String): JavaScript = {
