@@ -20,7 +20,6 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import com.netflix.atlas.core.model.Datapoint
-import com.netflix.atlas.core.util.SmallHashMap
 import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.avro.Schema
@@ -188,19 +187,33 @@ class RollingFileWriter(
   }
 
   private def toAvro(dp: Datapoint): GenericRecord = {
-    import scala.jdk.CollectionConverters._
     // Use custom wrapper for SmallHashMap if possible as it avoids allocations when
     // iterating across the entries.
-    val tags = dp.tags match {
-      case m: SmallHashMap[String, String] => m.asJavaMap
-      case m                               => m.asJava
-    }
+    val tags = toCompressedJavaMap(dp.tags)
     val record = new GenericData.Record(RollingFileWriter.AvroSchema)
     record.put("tags", tags)
     record.put("timestamp", dp.timestamp)
     record.put("value", dp.value)
     record
   }
+
+  private def compressStr(str: String): String = rollingConf.commonStrings.get(str) match {
+    case Some(idx) =>
+      val cp = (idx + 128).asInstanceOf[Char]
+      Character.toString(cp)
+    case None => str
+  }
+
+  private def toCompressedJavaMap(tags: Map[String, String]): java.util.Map[String, String] = {
+    val res = new java.util.HashMap[String, String](tags.size)
+    for { (k, v) <- tags } {
+      val compressedK = compressStr(k)
+      val compressedV = compressStr(v)
+      res.put(compressedK, compressedV)
+    }
+    res
+  }
+
 }
 
 object RollingFileWriter {
@@ -211,4 +224,5 @@ object RollingFileWriter {
 
   val AvroSchema: Schema =
     new Parser().parse(Using.resource(Source.fromResource("datapoint.avsc"))(_.mkString))
+
 }

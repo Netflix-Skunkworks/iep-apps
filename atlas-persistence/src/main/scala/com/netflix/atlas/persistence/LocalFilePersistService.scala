@@ -30,6 +30,7 @@ import akka.stream.scaladsl.Sink
 import com.netflix.atlas.akka.StreamOps
 import com.netflix.atlas.akka.StreamOps.SourceQueue
 import com.netflix.atlas.core.model.Datapoint
+import com.netflix.atlas.json.Json
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
@@ -45,6 +46,7 @@ import scala.concurrent.Await
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
+import scala.util.Using
 
 @Singleton
 class LocalFilePersistService @Inject()(
@@ -68,6 +70,11 @@ class LocalFilePersistService @Inject()(
 
   private val fileConfig = config.getConfig("atlas.persistence.local-file")
   private val dataDir = fileConfig.getString("data-dir")
+  private val commonStrings: Map[String, Int] = {
+    val is = getClass.getClassLoader.getResourceAsStream("common-strings.json")
+    if (is == null) Map.empty
+    else Using.resource(is)(is => Json.decode[Map[String, Int]](is))
+  }
 
   private val rollingConf = RollingConfig(
     fileConfig.getLong("max-records"),
@@ -75,7 +82,8 @@ class LocalFilePersistService @Inject()(
     fileConfig.getDuration("max-late-duration").toMillis,
     fileConfig.getString("avro-codec"),
     fileConfig.getInt("avro-deflate-compressionLevel"),
-    fileConfig.getInt("avro-syncInterval")
+    fileConfig.getInt("avro-syncInterval"),
+    commonStrings
   )
 
   private var queue: SourceQueue[List[Datapoint]] = _

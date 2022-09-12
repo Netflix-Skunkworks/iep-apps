@@ -151,7 +151,8 @@ case class RollingConfig(
   maxLateDurationMs: Long,
   codec: String,
   compressionLevel: Int,
-  syncInterval: Int
+  syncInterval: Int,
+  commonStrings: Map[String, Int]
 ) {
   // Doing config checks here to fail early for invalid values
   require(maxRecords > 0)

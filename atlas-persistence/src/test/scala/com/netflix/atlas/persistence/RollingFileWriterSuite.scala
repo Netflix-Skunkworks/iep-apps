@@ -32,6 +32,7 @@ class RollingFileWriterSuite extends FunSuite {
 
   private val outputDir = "./target/unitTestAvroOutput"
   private val registry = new NoopRegistry
+  private val commonStrings = Map("name" -> 0, "node" -> 1)
 
   override def beforeEach(context: BeforeEach): Unit = {
     listFilesSorted(outputDir).foreach(_.delete()) // Clean up files if exits
@@ -55,7 +56,7 @@ class RollingFileWriterSuite extends FunSuite {
   // Write 3 datapoints, first 2 is written in file 1, rollover, and 3rd one is written in file 2
   private def testWriterWithCodec(codec: String): Unit = {
     test(s"avro writer rollover by max records - codec=$codec") {
-      val rollingConf = RollingConfig(2, 12000, 12000, codec, 9, 64000)
+      val rollingConf = RollingConfig(2, 12000, 12000, codec, 9, 64000, commonStrings)
       val hourStart = 3600000
       val hourEnd = 7200000
       val writer =
@@ -80,19 +81,19 @@ class RollingFileWriterSuite extends FunSuite {
       val file1 = files.head
       assert(file1.getName.endsWith(".0000-0001"))
       val dpArray1 = readAvro(file1)
-      assert(dpArray1.size == 2)
+      assert(dpArray1.length == 2)
       assert(dpArray1(0).value == 0)
-      assert(dpArray1(0).tags.get("node").get == "0")
+      assert(dpArray1(0).tags("\u0081") == "0")
       assert(dpArray1(1).value == 1)
-      assert(dpArray1(1).tags.get("node").get == "1")
+      assert(dpArray1(1).tags("\u0081") == "1")
 
       // Check file 2 records
       val file2 = files.last
       assert(file2.getName.endsWith(".0002-0002"))
       val dpArray2 = readAvro(file2)
-      assert(dpArray2.size == 1)
+      assert(dpArray2.length == 1)
       assert(dpArray2(0).value == 2)
-      assert(dpArray2(0).tags.get("node").get == "2")
+      assert(dpArray2(0).tags("\u0081") == "2")
     }
   }
 
