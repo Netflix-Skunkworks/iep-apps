@@ -28,12 +28,8 @@ import com.netflix.iep.lwc.fwd.cw.ClusterConfig
 import com.netflix.iep.lwc.fwd.cw.ForwardingDimension
 import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
 import com.typesafe.scalalogging.StrictLogging
-import javax.inject.Inject
 
-class CwExprValidations @Inject()(
-  interpreter: ExprInterpreter,
-  evaluator: Evaluator
-) extends StrictLogging {
+class CwExprValidations(interpreter: ExprInterpreter, evaluator: Evaluator) extends StrictLogging {
 
   private val validations = List(
     Validation("SingleExpression", true, singleExpression),
