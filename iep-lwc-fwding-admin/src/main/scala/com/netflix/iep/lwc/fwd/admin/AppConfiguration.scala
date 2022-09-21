@@ -16,6 +16,7 @@
 package com.netflix.iep.lwc.fwd.admin
 
 import akka.actor.ActorSystem
+import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
@@ -75,5 +76,20 @@ class AppConfiguration {
     val c = config.orElseGet(() => ConfigFactory.load())
     val r = registry.orElseGet(() => new NoopRegistry)
     new MarkerServiceImpl(c, r, expressionDetailsDao, system)
+  }
+
+  @Bean
+  def schemaValidation(): SchemaValidation = {
+    new SchemaValidation
+  }
+
+  @Bean
+  def exprInterpreter(config: Config): ExprInterpreter = {
+    new ExprInterpreter(config)
+  }
+
+  @Bean
+  def cwExprValidations(interpreter: ExprInterpreter, evaluator: Evaluator): CwExprValidations = {
+    new CwExprValidations(interpreter, evaluator)
   }
 }
