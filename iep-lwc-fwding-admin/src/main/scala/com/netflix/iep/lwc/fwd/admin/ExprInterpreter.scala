@@ -21,9 +21,8 @@ import com.netflix.atlas.core.model.ModelExtractors
 import com.netflix.atlas.core.model.StyleExpr
 import com.netflix.atlas.core.stacklang.Interpreter
 import com.typesafe.config.Config
-import javax.inject.Inject
 
-class ExprInterpreter @Inject()(config: Config) {
+class ExprInterpreter(config: Config) {
 
   private val interpreter = Interpreter(new CustomVocabulary(config).allWords)
 
@@ -47,5 +46,4 @@ class ExprInterpreter @Inject()(config: Config) {
       case v                                   => throw new MatchError(v)
     }
   }
-
 }
