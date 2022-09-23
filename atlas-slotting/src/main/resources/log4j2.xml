@@ -20,6 +20,7 @@
     <Logger name="com.netflix.atlas.slotting" level="debug"/>
     <Logger name="com.netflix.iep" level="warn"/>
     <Logger name="com.netflix.spectator" level="debug"/>
+    <Logger name="com.netflix.spectator.ipc.IpcLogger" level="info"/>
 
     <Root level="info">
       <AppenderRef ref="STDERR"/>
