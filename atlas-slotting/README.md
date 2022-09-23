@@ -176,8 +176,11 @@ export NETFLIX_STACK="local"
 
 ```
 sbt "project atlas-slotting" clean compile test
-sbt "project atlas-slotting" run
 ```
+
+Using `sbt` to `run` the project no longer works for version > 1.5.6, due to [sbt/issues/6767](https://github.com/sbt/sbt/issues/6767).
+
+Run the project from an IDE, setting env vars as needed.
 
 ```
 curl http://localhost:7101
