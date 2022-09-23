@@ -19,6 +19,7 @@ import java.time.Instant
 import com.netflix.atlas.json.Json
 import munit.FunSuite
 import software.amazon.awssdk.services.autoscaling.model.AutoScalingGroup
+import software.amazon.awssdk.services.autoscaling.model.SuspendedProcess
 import software.amazon.awssdk.services.autoscaling.model.{Instance => AsgInstance}
 import software.amazon.awssdk.services.ec2.model.{Instance => Ec2Instance}
 
@@ -89,6 +90,22 @@ class GroupingSuite extends FunSuite with Grouping {
     assertEquals(asgDetails.instances.map(_.instanceId), List("i-001", "i-002", "i-003"))
   }
 
+  test("make isDisabled flag") {
+    val asgNoSuspended = AutoScalingGroup
+      .builder()
+      .build()
+
+    val asgLaunchSuspended = AutoScalingGroup
+      .builder()
+      .suspendedProcesses(
+        SuspendedProcess.builder().processName("Launch").build()
+      )
+      .build()
+
+    assertEquals(mkIsDisabled(asgNoSuspended), false)
+    assertEquals(mkIsDisabled(asgLaunchSuspended), true)
+  }
+
   test("make ec2 instance details") {
     val instance = Ec2Instance
       .builder()
@@ -122,6 +139,7 @@ class GroupingSuite extends FunSuite with Grouping {
       3,
       6,
       0,
+      isDisabled = false,
       asgInstances
     )
 
@@ -153,6 +171,7 @@ class GroupingSuite extends FunSuite with Grouping {
         2,
         4,
         0,
+        isDisabled = false,
         instances
       )
     }
@@ -176,6 +195,7 @@ class GroupingSuite extends FunSuite with Grouping {
       3,
       6,
       0,
+      isDisabled = false,
       asgInstances
     )
 
@@ -215,6 +235,7 @@ class GroupingSuite extends FunSuite with Grouping {
       3,
       6,
       0,
+      isDisabled = false,
       oldAsgInstances
     )
 
@@ -231,6 +252,7 @@ class GroupingSuite extends FunSuite with Grouping {
       3,
       6,
       0,
+      isDisabled = false,
       newAsgInstances
     )
 
@@ -263,6 +285,7 @@ class GroupingSuite extends FunSuite with Grouping {
       3,
       6,
       0,
+      isDisabled = false,
       oldAsgInstances
     )
 
@@ -280,6 +303,7 @@ class GroupingSuite extends FunSuite with Grouping {
       3,
       6,
       0,
+      isDisabled = false,
       newAsgInstances
     )
 
@@ -313,6 +337,7 @@ class GroupingSuite extends FunSuite with Grouping {
       3,
       6,
       0,
+      isDisabled = false,
       oldAsgInstances
     )
 
@@ -330,6 +355,7 @@ class GroupingSuite extends FunSuite with Grouping {
       3,
       6,
       0,
+      isDisabled = false,
       newAsgInstances
     )
 

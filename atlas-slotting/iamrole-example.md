@@ -109,6 +109,10 @@ aws --profile $PROFILE_NAME iam get-role-policy --role-name $ROLE_NAME --policy-
 
 Allow the instance to use EC2 DescribeInstances calls for any instance in the account.
 
+```bash
+aws --profile $PROFILE_NAME iam get-role-policy --role-name $ROLE_NAME --policy-name EC2
+```
+
 ```json
 {
   "RoleName": "$ROLE_NAME",

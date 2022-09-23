@@ -15,8 +15,6 @@
  */
 package com.netflix.atlas.slotting
 
-import java.nio.ByteBuffer
-import java.time.Instant
 import com.netflix.atlas.json.Json
 import com.netflix.spectator.api.Counter
 import com.netflix.spectator.ipc.ServerGroup
@@ -25,6 +23,8 @@ import software.amazon.awssdk.services.autoscaling.model.AutoScalingGroup
 import software.amazon.awssdk.services.autoscaling.model.{Instance => AsgInstance}
 import software.amazon.awssdk.services.ec2.model.{Instance => Ec2Instance}
 
+import java.nio.ByteBuffer
+import java.time.Instant
 import scala.jdk.CollectionConverters._
 
 case class AsgDetails(
@@ -34,6 +34,7 @@ case class AsgDetails(
   desiredCapacity: Int,
   maxSize: Int,
   minSize: Int,
+  isDisabled: Boolean,
   instances: List[AsgInstanceDetails]
 )
 
@@ -59,6 +60,7 @@ case class SlottedAsgDetails(
   desiredCapacity: Int,
   maxSize: Int,
   minSize: Int,
+  isDisabled: Boolean,
   instances: List[SlottedInstanceDetails]
 ) {
   require(
@@ -123,6 +125,7 @@ trait Grouping extends StrictLogging {
       asg.desiredCapacity,
       asg.maxSize,
       asg.minSize,
+      mkIsDisabled(asg),
       mkAsgInstanceDetailsList(asg.instances)
     )
   }
@@ -143,6 +146,20 @@ trait Grouping extends StrictLogging {
           i.lifecycleState.toString
         )
       }
+  }
+
+  /** Whether or not the ASG is disabled, per Netflix standards.
+    *
+    * @param asg
+    *     An AWS AutoScalingGroup.
+    * @return
+    *     The disabled state of the ASG.
+    */
+  def mkIsDisabled(asg: AutoScalingGroup): Boolean = {
+    asg
+      .suspendedProcesses()
+      .asScala
+      .exists(_.processName == "Launch")
   }
 
   /** Make a case class with details from an instance of an EC2 Model Instance.
@@ -253,6 +270,7 @@ trait Grouping extends StrictLogging {
           newAsgDetails.desiredCapacity,
           newAsgDetails.maxSize,
           newAsgDetails.minSize,
+          newAsgDetails.isDisabled,
           assignSlots(newAsgDetails, instanceInfo)
         )
       )
@@ -360,6 +378,7 @@ trait Grouping extends StrictLogging {
             newAsgDetails.desiredCapacity,
             newAsgDetails.maxSize,
             newAsgDetails.minSize,
+            newAsgDetails.isDisabled,
             mergeSlots(oldAsgDetails, newAsgDetails, instanceInfo)
           )
         )
