@@ -40,23 +40,37 @@ class ConfigManager
     new GraphStageLogic(shape) with InHandler with OutHandler {
 
       private val configs = scala.collection.mutable.AnyRefMap.empty[String, ClusterConfig]
+      private var changed = false
 
       override def onPush(): Unit = {
         val msg = grab(in)
-        if (msg.response.isUpdate) {
-          val cluster = msg.cluster
-          try {
-            configs += cluster -> msg.response.clusterConfig
-            logger.info(s"updated configuration for cluster $cluster")
-          } catch {
-            case e: Exception =>
-              logger.warn(s"invalid config for cluster $cluster", e)
+        if (msg.isUpdate) {
+          if (msg.response.isUpdate) {
+            val cluster = msg.cluster
+            try {
+              configs += cluster -> msg.response.clusterConfig
+              logger.info(s"updated configuration for cluster $cluster")
+              changed = true
+            } catch {
+              case e: Exception =>
+                logger.warn(s"invalid config for cluster $cluster", e)
+            }
+          } else {
+            configs -= msg.cluster
+            logger.info(s"deleted configuration for cluster ${msg.cluster}")
+            changed = true
           }
-        } else {
-          configs -= msg.cluster
-          logger.info(s"deleted configuration for cluster ${msg.cluster}")
         }
-        push(out, configs.toMap)
+
+        // When performing a sync there will be many expression updates quickly, to avoid
+        // a high cost down stream for processing the combined data sources we only do a push
+        // when it is a done message or heartbeat.
+        if ((msg.isDone || msg.isHeartbeat) && changed) {
+          changed = false
+          push(out, configs.toMap)
+        } else {
+          pull(in)
+        }
       }
 
       override def onPull(): Unit = {
