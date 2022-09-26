@@ -233,8 +233,8 @@ object ForwardingService extends StrictLogging {
       .via(Framing.delimiter(ByteString("\n"), MaxFrameLength, allowTruncation = true))
       .map(_.decodeString(StandardCharsets.UTF_8))
       .filter(s => s.trim.nonEmpty)
-      .map(s => Message(s))
-      .filter { msg =>
+      .map { s =>
+        val msg = Message(s)
         logger.debug(s"message [${msg.str}]")
 
         msg match {
@@ -248,7 +248,7 @@ object ForwardingService extends StrictLogging {
           case _                =>
         }
 
-        msg.isUpdate
+        msg
       }
       .via(new ConfigManager)
   }
