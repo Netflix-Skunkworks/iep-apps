@@ -23,6 +23,7 @@ import com.typesafe.config.ConfigFactory
 import munit.FunSuite
 
 class MetricCategorySuite extends FunSuite {
+
   test("bad config") {
     val cfg = ConfigFactory.empty()
     intercept[ConfigException] {

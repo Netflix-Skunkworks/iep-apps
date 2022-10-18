@@ -323,6 +323,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
 }
 
 object DruidDatabaseActor {
+
   import DruidClient._
 
   case object Tick

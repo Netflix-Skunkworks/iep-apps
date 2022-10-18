@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 package com.netflix.iep.lwc.fwd.admin
+
 import com.netflix.iep.lwc.fwd.admin.ExpressionDetails._
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.ForwardingDimension
@@ -145,6 +146,7 @@ class ExpressionDetailsDaoSuite extends FunSuite with StrictLogging {
 }
 
 class ExpressionDetailsSuite extends FunSuite with StrictLogging {
+
   test("Purge eligible expression") {
     val reportTs = 1551820461000L
     val timestampThen = reportTs + 11.minutes.toMillis

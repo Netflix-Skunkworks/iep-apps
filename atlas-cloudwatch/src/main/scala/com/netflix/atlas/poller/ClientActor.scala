@@ -157,6 +157,7 @@ class ClientActor(registry: Registry, config: Config, implicit val materializer:
 }
 
 object ClientActor {
+
   private val gzip = HttpEncodingRange(HttpEncodings.gzip)
   private val headers = List(`Accept-Encoding`(gzip), Accept(MediaTypes.`application/json`))
 }

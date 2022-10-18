@@ -33,6 +33,7 @@ case class ForwardingExpression(
   metricName: String,
   dimensions: List[ForwardingDimension] = Nil
 ) {
+
   require(atlasUri != null, "atlasUri cannot be null")
   require(account != null, "account cannot be null")
   require(metricName != null, "metricName cannot be null")

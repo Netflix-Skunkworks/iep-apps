@@ -32,7 +32,7 @@ import com.typesafe.scalalogging.StrictLogging
   * into a separate call to the storage layer.
   */
 @Singleton
-class PropertiesContext @Inject()(registry: Registry) extends StrictLogging {
+class PropertiesContext @Inject() (registry: Registry) extends StrictLogging {
 
   private val clock = registry.clock()
 

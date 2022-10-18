@@ -63,6 +63,7 @@ case class SlottedAsgDetails(
   isDisabled: Boolean,
   instances: List[SlottedInstanceDetails]
 ) {
+
   require(
     instances.size <= desiredCapacity,
     s"instances.size (${instances.size}) > desiredCapacity ($desiredCapacity)"
@@ -324,8 +325,8 @@ trait Grouping extends StrictLogging {
     val addedInstances = newInstances.filterNot(i => oldSlotMap.contains(i.instanceId))
     val unusedSlots = (0 until newAsgDetails.desiredCapacity).toSet -- oldSlotMap.values
     val newSlotMap = oldSlotMap ++ addedInstances.zip(unusedSlots).map {
-        case (i, slot) => i.instanceId -> slot
-      }
+      case (i, slot) => i.instanceId -> slot
+    }
 
     // update slots for the new instances and fail if the instances.size > desiredCapacity
     newInstances

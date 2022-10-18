@@ -33,6 +33,7 @@ import scala.io.Source
 case class Message(message: String)
 
 class SlottingApiSuite extends MUnitRouteSuite {
+
   implicit val routeTestTimeout: RouteTestTimeout = RouteTestTimeout(5.second)
 
   val slottingCache = new SlottingCache()

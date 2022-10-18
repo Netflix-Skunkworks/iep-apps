@@ -57,8 +57,8 @@ class ScalingPoliciesSuite extends FunSuite with TestKitBase with ImplicitSender
     )
 
     val future = scalingPolicies ? GetScalingPolicy(
-        FwdMetricInfo("us-east-1", "123", "metric1", Map.empty[String, String])
-      )
+      FwdMetricInfo("us-east-1", "123", "metric1", Map.empty[String, String])
+    )
     val actual = Await.result(future.mapTo[Option[ScalingPolicy]], Duration.Inf)
     val expected = Some(ec2Policy1)
     assertEquals(actual, expected)
@@ -77,8 +77,8 @@ class ScalingPoliciesSuite extends FunSuite with TestKitBase with ImplicitSender
     )
 
     var future = scalingPolicies ? GetScalingPolicy(
-        FwdMetricInfo("us-east-1", "123", "metric1", Map.empty[String, String])
-      )
+      FwdMetricInfo("us-east-1", "123", "metric1", Map.empty[String, String])
+    )
     val actual = Await.result(future.mapTo[Option[ScalingPolicy]], Duration.Inf)
 
     val expected = Some(ec2Policy1)
@@ -106,8 +106,8 @@ class ScalingPoliciesSuite extends FunSuite with TestKitBase with ImplicitSender
       )
     )
     val future = scalingPolicies ? GetScalingPolicy(
-        FwdMetricInfo("us-east-1", "123", "metric1", Map.empty[String, String])
-      )
+      FwdMetricInfo("us-east-1", "123", "metric1", Map.empty[String, String])
+    )
 
     intercept[AskTimeoutException](
       Await.result(future.mapTo[Option[ScalingPolicy]], Duration.Inf)
@@ -120,7 +120,7 @@ class ScalingPoliciesSuite extends FunSuite with TestKitBase with ImplicitSender
 
     val eddaEndpoint = EddaEndpoint("123", "us-east-1", "local")
     val cache = Map(eddaEndpoint -> List(ec2Policy1))
-    val data = Map(eddaEndpoint  -> List(ec2Policy1, ec2Policy2))
+    val data = Map(eddaEndpoint -> List(ec2Policy1, ec2Policy2))
 
     val scalingPolicies = system.actorOf(
       Props[ScalingPoliciesTestImpl](

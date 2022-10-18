@@ -39,6 +39,7 @@ class ScalingPolicies(config: Config, dao: ScalingPoliciesDao)
   private implicit val mat = Materializer(context.system)
 
   protected var scalingPolicies = Map.empty[EddaEndpoint, List[ScalingPolicy]]
+
   private val accountEnvMapping =
     config.getObject("iep.lwc.fwding-admin.accountEnvMapping").toConfig
 
@@ -139,6 +140,7 @@ class ScalingPolicies(config: Config, dao: ScalingPoliciesDao)
 }
 
 object ScalingPolicies {
+
   case class GetScalingPolicy(metricInfo: FwdMetricInfo)
   case object GetCache
 

@@ -106,7 +106,7 @@ class CwExprValidationMethodsSuite
     assertFailure(
       validations.asgGrouping(expr, List.empty[StyleExpr]),
       "Only `AutoScalingGroupName` dimension allowed by " +
-      "default and should use nf.asg grouping for value"
+        "default and should use nf.asg grouping for value"
     )
   }
 
@@ -121,7 +121,7 @@ class CwExprValidationMethodsSuite
     assertFailure(
       validations.asgGrouping(expr, List.empty[StyleExpr]),
       "Only `AutoScalingGroupName` dimension allowed by " +
-      "default and should use nf.asg grouping for value"
+        "default and should use nf.asg grouping for value"
     )
   }
 
@@ -136,7 +136,7 @@ class CwExprValidationMethodsSuite
     assertFailure(
       validations.asgGrouping(expr, List.empty[StyleExpr]),
       "Only `AutoScalingGroupName` dimension allowed by " +
-      "default and should use nf.asg grouping for value"
+        "default and should use nf.asg grouping for value"
     )
   }
 
@@ -158,7 +158,7 @@ class CwExprValidationMethodsSuite
     assertFailure(
       validations.asgGrouping(expr, styleExpr),
       "Only `AutoScalingGroupName` dimension allowed by " +
-      "default and should use nf.asg grouping for value"
+        "default and should use nf.asg grouping for value"
     )
   }
 
@@ -320,7 +320,7 @@ class CwExprValidationMethodsSuite
     assertFailure(
       validations.variablesSubstitution(expr, styleExpr),
       "Variables not found in exact match or in grouping " +
-      "keys [nf.zone]"
+        "keys [nf.zone]"
     )
   }
 
@@ -354,7 +354,7 @@ class CwExprValidationMethodsSuite
     assertFailure(
       validations.defaultGrouping(expr, styleExpr),
       s"By default allowing only grouping by " +
-      s"${validations.defaultGroupingKeys}"
+        s"${validations.defaultGroupingKeys}"
     )
   }
 

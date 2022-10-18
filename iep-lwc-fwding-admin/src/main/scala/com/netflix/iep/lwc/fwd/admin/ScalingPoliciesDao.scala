@@ -41,7 +41,7 @@ trait ScalingPoliciesDao {
   def getScalingPolicies: Flow[EddaEndpoint, List[ScalingPolicy], NotUsed]
 }
 
-class ScalingPoliciesDaoImpl @Inject()(
+class ScalingPoliciesDaoImpl @Inject() (
   config: Config,
   implicit val system: ActorSystem
 ) extends ScalingPoliciesDao
@@ -161,12 +161,11 @@ class ScalingPoliciesDaoImpl @Inject()(
 
   def doGet(): Flow[Uri, String, NotUsed] = {
     Flow[Uri]
-      .map(
-        uri =>
-          HttpRequest(HttpMethods.GET, uri).withHeaders(
-            `Accept-Encoding`(HttpEncodings.gzip),
-            Accept(MediaTypes.`application/json`)
-          )
+      .map(uri =>
+        HttpRequest(HttpMethods.GET, uri).withHeaders(
+          `Accept-Encoding`(HttpEncodings.gzip),
+          Accept(MediaTypes.`application/json`)
+        )
       )
       .map(r => r -> AccessLogger.newClientLogger("edda", r))
       .via(client)
@@ -214,6 +213,7 @@ case class ScalingPolicy(
 case class MetricDimension(name: String, value: String)
 
 object ScalingPolicy {
+
   val Titus = "titus"
   val Ec2 = "ec2"
 }
@@ -226,6 +226,7 @@ case class Ec2ScalingPolicy(policyName: String, alarms: List[CwAlarm]) {
 case class CwAlarm(alarmName: String, metricName: String, dimensions: List[MetricDimension])
 
 case class TitusScalingPolicy(jobId: String, id: Id, scalingPolicy: ScalingPolicyDetails) {
+
   def getPolicyId: String = id.id
 
   def isTargetPolicy: Boolean = {

@@ -43,8 +43,9 @@ class PropertiesLoaderSuite extends FunSuite with TestKitBase with ImplicitSende
   val ddb = new MockDynamoDB
   val service = new DynamoService(ddb.client, config)
 
-  val items = newItems("foo-main", Map("a"  -> "b", "1" -> "2"))
+  val items = newItems("foo-main", Map("a" -> "b", "1" -> "2"))
   items.addAll(newItems("bar-main", Map("c" -> "d")))
+
   ddb.scanResponse = ScanResponse
     .builder()
     .items(items)
@@ -76,7 +77,7 @@ class PropertiesLoaderSuite extends FunSuite with TestKitBase with ImplicitSende
   }
 
   test("update") {
-    val items = newItems("foo-main", Map("a"  -> "b"))
+    val items = newItems("foo-main", Map("a" -> "b"))
     items.addAll(newItems("bar-main", Map("c" -> "d")))
     ddb.scanResponse = ScanResponse.builder().items(items).build()
 

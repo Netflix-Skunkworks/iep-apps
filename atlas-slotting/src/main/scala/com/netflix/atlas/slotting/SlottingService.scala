@@ -40,7 +40,7 @@ import scala.jdk.StreamConverters._
 import scala.collection.immutable.SortedMap
 
 @Singleton
-class SlottingService @Inject()(
+class SlottingService @Inject() (
   config: Config,
   registry: Registry,
   asgClient: AutoScalingClient,
@@ -214,17 +214,17 @@ class SlottingService @Inject()(
   private def updateCacheTask(): Unit = {
     val request = activeItemsScanRequest(tableName)
     val updatedAsgs = SortedMap.empty[String, SlottedAsgDetails] ++ ddbClient
-        .scanPaginator(request)
-        .items()
-        .stream()
-        .map { item =>
-          val name = item.get(Name).s()
-          val data =
-            Json.decode[SlottedAsgDetails](Util.decompress(item.get(Data).b().asByteBuffer()))
-          name -> data
-        }
-        .toScala(List)
-        .toMap
+      .scanPaginator(request)
+      .items()
+      .stream()
+      .map { item =>
+        val name = item.get(Name).s()
+        val data =
+          Json.decode[SlottedAsgDetails](Util.decompress(item.get(Data).b().asByteBuffer()))
+        name -> data
+      }
+      .toScala(List)
+      .toMap
 
     logger.info(s"replace cache with ${updatedAsgs.size} active asgs")
     slottingCache.asgs = updatedAsgs

@@ -20,6 +20,7 @@ import java.time.Duration
 import munit.FunSuite
 
 class LoadGenServiceSuite extends FunSuite {
+
   test("extract step from uri") {
     val actual = LoadGenService.extractStep("/graph?q=name,foo,:eq&step=60s")
     assertEquals(actual, Some(Duration.ofSeconds(60)))

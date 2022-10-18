@@ -63,7 +63,7 @@ class BridgeDatapoint(
 
           override def iterator(): java.util.Iterator[java.util.Map.Entry[String, String]] = {
             new java.util.Iterator[java.util.Map.Entry[String, String]]
-            with java.util.Map.Entry[String, String] {
+              with java.util.Map.Entry[String, String] {
               private[this] var i = -1
 
               override def hasNext: Boolean = i < tagSet.size() - 1

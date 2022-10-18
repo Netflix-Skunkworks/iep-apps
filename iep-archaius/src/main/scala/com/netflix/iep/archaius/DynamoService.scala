@@ -37,9 +37,10 @@ import scala.concurrent.Future
   * ```
   */
 @Singleton
-class DynamoService @Inject()(client: DynamoDbClient, config: Config) extends AbstractService {
+class DynamoService @Inject() (client: DynamoDbClient, config: Config) extends AbstractService {
 
   private val nextId = new AtomicLong()
+
   private val pool = Executors.newFixedThreadPool(
     Runtime.getRuntime.availableProcessors(),
     (r: Runnable) => {

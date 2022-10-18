@@ -21,6 +21,7 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue
   * Helper types for working with properties.
   */
 package object archaius {
+
   type AttrMap = java.util.Map[String, AttributeValue]
   type Items = java.util.List[AttrMap]
   type PropList = List[PropertiesApi.Property]

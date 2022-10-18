@@ -22,6 +22,7 @@ import software.amazon.awssdk.services.cloudwatch.model.Dimension
   * Helper types used in this package.
   */
 package object cloudwatch {
+
   type Tags = Map[String, String]
 
   /**

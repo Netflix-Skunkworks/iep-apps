@@ -276,7 +276,7 @@ trait DynamoOps extends StrictLogging {
 
       logger.info(
         s"update capacity region=${NetflixEnvironment.region()} " +
-        s"tableName=$tableName read=$desiredRead write=$desiredWrite"
+          s"tableName=$tableName read=$desiredRead write=$desiredWrite"
       )
 
       ddbClient.updateTable(request)
@@ -319,7 +319,7 @@ trait DynamoOps extends StrictLogging {
 
     logger.info(
       s"create table region=${NetflixEnvironment.region()} " +
-      s"tableName=$tableName read=$desiredRead write=$desiredWrite"
+        s"tableName=$tableName read=$desiredRead write=$desiredWrite"
     )
 
     ddbClient.createTable(request)

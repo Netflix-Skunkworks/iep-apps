@@ -50,8 +50,8 @@ class RollingFileWriterSuite extends FunSuite {
 
   // ########### Below codec's require additional library ############
   testWriterWithCodec("snappy")
-  //testWriterWithCodec("xz")  // Higher ratio and slower than bzip2
-  //testWriterWithCodec("zstandard")  // Seems similar to snappy
+  // testWriterWithCodec("xz")  // Higher ratio and slower than bzip2
+  // testWriterWithCodec("zstandard")  // Seems similar to snappy
 
   // Write 3 datapoints, first 2 is written in file 1, rollover, and 3rd one is written in file 2
   private def testWriterWithCodec(codec: String): Unit = {

@@ -121,8 +121,8 @@ class ClientActorSuite extends FunSuite with TestKitBase with ImplicitSender {
   test("publish datapoints, partial failure, cannot parse response") {
     ref ! Success(HttpResponse(StatusCodes.Accepted))
     val datapoints = Datapoint(Map("name" -> s"invalid name!!"), 0L, 1.0) :: (0 until 10)
-        .map(i => Datapoint(Map("name" -> s"foo_$i"), 0L, i.toDouble))
-        .toList
+      .map(i => Datapoint(Map("name" -> s"foo_$i"), 0L, i.toDouble))
+      .toList
     testSend(datapoints, 11, 11)
   }
 

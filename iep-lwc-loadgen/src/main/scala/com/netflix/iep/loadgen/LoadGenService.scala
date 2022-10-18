@@ -44,7 +44,7 @@ import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
 
-class LoadGenService @Inject()(
+class LoadGenService @Inject() (
   config: Config,
   registry: Registry,
   evaluator: Evaluator,

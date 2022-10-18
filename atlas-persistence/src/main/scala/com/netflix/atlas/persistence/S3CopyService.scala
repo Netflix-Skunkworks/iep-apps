@@ -36,7 +36,7 @@ import scala.concurrent.duration._
 import scala.util.Using
 
 @Singleton
-class S3CopyService @Inject()(
+class S3CopyService @Inject() (
   val config: Config,
   val registry: Registry,
   implicit val system: ActorSystem
@@ -50,6 +50,7 @@ class S3CopyService @Inject()(
 
   private val cleanupTimeoutMs = s3Config.getDuration("cleanup-timeout").toMillis
   private val maxInactiveMs = s3Config.getDuration("max-inactive-duration").toMillis
+
   private val maxFileDurationMs =
     config.getDuration("atlas.persistence.local-file.max-duration").toMillis
 
