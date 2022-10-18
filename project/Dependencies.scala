@@ -16,7 +16,7 @@ object Dependencies {
     val alpakka    = "4.0.0"
 
     val atlas      = "1.7.0-SNAPSHOT"
-    val aws2       = "2.17.243"
+    val aws2       = "2.17.289"
     val iep        = "4.0.1"
     val log4j      = "2.19.0"
     val scala      = "2.13.10"
