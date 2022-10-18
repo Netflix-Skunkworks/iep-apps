@@ -21,6 +21,7 @@ import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
 import munit.FunSuite
 
 class ValidationSuite extends FunSuite with TestAssertions with CwForwardingTestConfig {
+
   test("Perform a required validation") {
 
     val validation = Validation(

@@ -154,7 +154,10 @@ class RollingFileWriter(
     try {
       val filePath = new File(currFile).getCanonicalPath
       val rangeSuffix = s".${secOfHour(currStartTimeSeen)}-${secOfHour(currEndTimeSeen)}"
-      val newPath = filePath.substring(0, filePath.length - RollingFileWriter.TmpFileSuffix.length) + rangeSuffix
+      val newPath = filePath.substring(
+        0,
+        filePath.length - RollingFileWriter.TmpFileSuffix.length
+      ) + rangeSuffix
       Files.move(
         Paths.get(filePath),
         Paths.get(newPath),
@@ -217,6 +220,7 @@ class RollingFileWriter(
 }
 
 object RollingFileWriter {
+
   val TmpFileSuffix: String = ".tmp"
   // A special Datapoint used solely for triggering rollover check
   val RolloverCheckDatapoint: Datapoint = Datapoint(Map.empty, 0, 0)

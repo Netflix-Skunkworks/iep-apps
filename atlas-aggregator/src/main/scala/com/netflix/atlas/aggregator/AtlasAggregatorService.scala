@@ -27,7 +27,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class AtlasAggregatorService @Inject()(
+class AtlasAggregatorService @Inject() (
   config: Config,
   clock: Clock,
   registry: Registry,
@@ -37,6 +37,7 @@ class AtlasAggregatorService @Inject()(
 
   private val n = math.max(1, Runtime.getRuntime.availableProcessors() / 2)
   private val aggrCfg = new AggrConfig(config, registry, system)
+
   private val registries = (0 until n)
     .map(_ => new AtlasRegistry(clock, aggrCfg))
     .toArray

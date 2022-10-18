@@ -36,6 +36,7 @@ class MarkerServiceExprDetailsSuite extends FunSuite {
   private val now = Instant.ofEpochSecond(1551820461L)
 
   private val metricInfo = FwdMetricInfo("us-east-1", "123", "cpuUsage", Map.empty[String, String])
+
   private val report = Report(
     now.toEpochMilli,
     ExpressionId(

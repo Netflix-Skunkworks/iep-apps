@@ -49,7 +49,7 @@ import scala.concurrent.duration.Duration
 import scala.util.Using
 
 @Singleton
-class LocalFilePersistService @Inject()(
+class LocalFilePersistService @Inject() (
   val config: Config,
   val registry: Registry,
   // S3CopyService is actually NOT used by this service, it is here just to guarantee that the
@@ -58,6 +58,7 @@ class LocalFilePersistService @Inject()(
   implicit val system: ActorSystem
 ) extends AbstractService
     with StrictLogging {
+
   implicit val ec: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
 
   private val queueSize = config.getInt("atlas.persistence.queue-size")
@@ -70,6 +71,7 @@ class LocalFilePersistService @Inject()(
 
   private val fileConfig = config.getConfig("atlas.persistence.local-file")
   private val dataDir = fileConfig.getString("data-dir")
+
   private val commonStrings: Map[String, Int] = {
     val is = getClass.getClassLoader.getResourceAsStream("common-strings.json")
     if (is == null) Map.empty

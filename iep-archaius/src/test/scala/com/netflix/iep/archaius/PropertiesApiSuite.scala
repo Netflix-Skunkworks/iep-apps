@@ -30,6 +30,7 @@ import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.ManualClock
 
 class PropertiesApiSuite extends MUnitRouteSuite {
+
   import scala.concurrent.duration._
   implicit val routeTestTimeout = RouteTestTimeout(5.second)
 
@@ -57,12 +58,12 @@ class PropertiesApiSuite extends MUnitRouteSuite {
   test("empty") {
     propContext.update(Nil)
     Get("/api/v1/property?asg=foo-main-v001") ~>
-    addHeader(Accept(MediaTypes.`application/json`)) ~>
-    routes ~>
-    check {
-      assertResponse(response, StatusCodes.OK)
-      assertEquals(responseAs[String], "[]")
-    }
+      addHeader(Accept(MediaTypes.`application/json`)) ~>
+      routes ~>
+      check {
+        assertResponse(response, StatusCodes.OK)
+        assertEquals(responseAs[String], "[]")
+      }
   }
 
   test("properties response") {
@@ -90,12 +91,15 @@ class PropertiesApiSuite extends MUnitRouteSuite {
       )
     )
     Get("/api/v1/property?asg=foo-main-v001") ~>
-    addHeader(Accept(MediaTypes.`application/json`)) ~>
-    routes ~>
-    check {
-      assertResponse(response, StatusCodes.OK)
-      val props = Json.decode[List[PropertiesApi.Property]](responseAs[String])
-      assertEquals(props, List(PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L)))
-    }
+      addHeader(Accept(MediaTypes.`application/json`)) ~>
+      routes ~>
+      check {
+        assertResponse(response, StatusCodes.OK)
+        val props = Json.decode[List[PropertiesApi.Property]](responseAs[String])
+        assertEquals(
+          props,
+          List(PropertiesApi.Property("foo-main::a", "foo-main", "a", "b", 12345L))
+        )
+      }
   }
 }

@@ -31,6 +31,7 @@ import software.amazon.awssdk.services.dynamodb.model.ScanRequest
 import javax.inject.Inject
 
 trait ExpressionDetailsDao {
+
   def save(exprDetails: ExpressionDetails): Unit
   def read(id: ExpressionId): Option[ExpressionDetails]
   def scan(): List[ExpressionId]
@@ -39,12 +40,13 @@ trait ExpressionDetailsDao {
   def isPurgeEligible(ed: ExpressionDetails, now: Long): Boolean
 }
 
-class ExpressionDetailsDaoImpl @Inject()(
+class ExpressionDetailsDaoImpl @Inject() (
   config: Config,
   dynamoDBClient: DynamoDbClient,
   registry: Registry
 ) extends ExpressionDetailsDao
     with StrictLogging {
+
   import ExpressionDetails._
 
   import scala.jdk.CollectionConverters._
@@ -194,6 +196,7 @@ case class ExpressionDetails(
   events: Map[String, Long],
   scalingPolicies: List[ScalingPolicy]
 ) {
+
   import ExpressionDetails._
 
   def isPurgeEligible(now: Long, ageLimitMillis: Long): Boolean = {
@@ -210,6 +213,7 @@ case class ScalingPolicyStatus(
 )
 
 object ExpressionDetails {
+
   val TableName = "iep.lwc.fwd.cw.ExpressionDetails"
 
   val ExpressionIdAttr = "ExpressionId"

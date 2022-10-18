@@ -110,7 +110,7 @@ class CwExprValidations(interpreter: ExprInterpreter, evaluator: Evaluator) exte
     if (!valid) {
       throw new IllegalArgumentException(
         "Only `AutoScalingGroupName` dimension allowed by default and should " +
-        "use nf.asg grouping for value"
+          "use nf.asg grouping for value"
       )
     }
 
@@ -158,7 +158,7 @@ class CwExprValidations(interpreter: ExprInterpreter, evaluator: Evaluator) exte
     if (missing.nonEmpty) {
       throw new IllegalArgumentException(
         "Variable mapping missing for grouping " +
-        missing.mkString("[", ",", "]")
+          missing.mkString("[", ",", "]")
       )
     }
   }
@@ -178,20 +178,19 @@ class CwExprValidations(interpreter: ExprInterpreter, evaluator: Evaluator) exte
 
     val missing = (
       expr.dimensions.map(_.value) :+
-      expr.account :+
-      expr.metricName :+
-      expr.region.getOrElse("")
+        expr.account :+
+        expr.metricName :+
+        expr.region.getOrElse("")
     ).flatMap { value =>
-        for (m <- varPattern.findAllMatchIn(value)) yield m.group(1)
-      }
-      .filter(_.nonEmpty)
+      for (m <- varPattern.findAllMatchIn(value)) yield m.group(1)
+    }.filter(_.nonEmpty)
       .filterNot(_ == "nf.region")
       .filterNot(allKeys.contains(_))
 
     if (missing.nonEmpty) {
       throw new IllegalArgumentException(
         "Variables not found in exact match or in grouping keys " +
-        missing.mkString("[", ",", "]")
+          missing.mkString("[", ",", "]")
       )
     }
   }

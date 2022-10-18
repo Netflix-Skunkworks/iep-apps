@@ -24,6 +24,7 @@ class ScalingPoliciesTestImpl(
   dao: ScalingPoliciesDao,
   policies: Map[EddaEndpoint, List[ScalingPolicy]] = Map.empty[EddaEndpoint, List[ScalingPolicy]]
 ) extends ScalingPolicies(config, dao) {
+
   scalingPolicies = policies
   override def startPeriodicTimer(): Unit = {}
 }
@@ -31,6 +32,7 @@ class ScalingPoliciesTestImpl(
 class ScalingPoliciesDaoTestImpl(
   policies: Map[EddaEndpoint, List[ScalingPolicy]]
 ) extends ScalingPoliciesDao {
+
   protected implicit val ec = scala.concurrent.ExecutionContext.global
 
   override def getScalingPolicies: Flow[EddaEndpoint, List[ScalingPolicy], NotUsed] = {

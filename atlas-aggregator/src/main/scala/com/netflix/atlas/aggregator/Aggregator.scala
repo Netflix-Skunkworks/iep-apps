@@ -18,6 +18,7 @@ package com.netflix.atlas.aggregator
 import com.netflix.spectator.api.Id
 
 trait Aggregator {
+
   def add(id: Id, value: Double): Unit
   def max(id: Id, value: Double): Unit
 }

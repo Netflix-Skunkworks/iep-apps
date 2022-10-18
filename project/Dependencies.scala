@@ -10,19 +10,17 @@ object Dependencies {
     // - https://www.lightbend.com/blog/why-we-are-changing-the-license-for-akka
     // - https://github.com/akka/akka/pull/31561
     // - https://github.com/akka/akka-http/pull/4155
-    // - https://github.com/akka/alpakka/pull/2903
     val akka       = "2.6.20"
     val akkaHttpV  = "10.2.10"
-    val alpakka    = "4.0.0"
 
     val atlas      = "1.7.0-SNAPSHOT"
-    val aws2       = "2.17.243"
-    val iep        = "4.0.0-SNAPSHOT"
-    val log4j      = "2.18.0"
-    val scala      = "2.13.8"
+    val aws2       = "2.17.289"
+    val iep        = "4.0.1"
+    val log4j      = "2.19.0"
+    val scala      = "2.13.10"
     val servo      = "0.13.2"
     val slf4j      = "1.7.36"
-    val spectator  = "1.3.6"
+    val spectator  = "1.3.9"
     val spring     = "5.3.22"
     val avroV      = "1.11.1"
 
@@ -37,7 +35,6 @@ object Dependencies {
   val akkaHttpTestkit    = "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV
   val akkaSlf4j          = "com.typesafe.akka" %% "akka-slf4j" % akka
   val akkaTestkit        = "com.typesafe.akka" %% "akka-testkit" % akka
-  val alpakkaSqs         = "com.lightbend.akka" %% "akka-stream-alpakka-sqs" % alpakka
   val atlasAkkaTestkit   = "com.netflix.atlas_v1" %% "atlas-akka-testkit" % atlas
   val atlasCore          = "com.netflix.atlas_v1" %% "atlas-core" % atlas
   val atlasEval          = "com.netflix.atlas_v1" %% "atlas-eval" % atlas

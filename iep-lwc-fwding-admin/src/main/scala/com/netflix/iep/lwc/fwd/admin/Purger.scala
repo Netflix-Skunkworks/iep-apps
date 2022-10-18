@@ -45,12 +45,13 @@ trait Purger {
   def purge(expressions: List[ExpressionId]): Future[Done]
 }
 
-class PurgerImpl @Inject()(
+class PurgerImpl @Inject() (
   config: Config,
   expressionDetailsDao: ExpressionDetailsDao,
   implicit val system: ActorSystem
 ) extends Purger
     with StrictLogging {
+
   import PurgerImpl._
 
   private val user = encodeUriParam(config.getString("iep.lwc.fwding-admin.user"))

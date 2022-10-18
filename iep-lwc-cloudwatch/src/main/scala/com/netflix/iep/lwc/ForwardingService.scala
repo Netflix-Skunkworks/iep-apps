@@ -68,7 +68,7 @@ import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
 
-class ForwardingService @Inject()(
+class ForwardingService @Inject() (
   config: Config,
   registry: Registry,
   evaluator: Evaluator,
@@ -84,6 +84,7 @@ class ForwardingService @Inject()(
   private implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.global
 
   private val clock = registry.clock()
+
   private val lastSuccessfulPutTime = PolledMeter
     .using(registry)
     .withName("forwarding.timeSinceLastPut")
@@ -141,7 +142,9 @@ object ForwardingService extends StrictLogging {
 
   // Pool for CloudWatch requests
   private val executor = Executors.newCachedThreadPool(new ThreadFactory {
+
     private val nextId = new AtomicInteger()
+
     override def newThread(runnable: Runnable): Thread = {
       new Thread(runnable, s"aws-publisher-${nextId.getAndIncrement()}")
     }
@@ -448,14 +451,13 @@ object ForwardingService extends StrictLogging {
     Report(
       System.currentTimeMillis(),
       msg.id,
-      msg.accountDatum.map(
-        a =>
-          FwdMetricInfo(
-            a.region,
-            a.account,
-            a.datum.metricName(),
-            a.datum.dimensions().asScala.map(d => (d.name(), d.value())).toMap
-          )
+      msg.accountDatum.map(a =>
+        FwdMetricInfo(
+          a.region,
+          a.account,
+          a.datum.metricName(),
+          a.datum.dimensions().asScala.map(d => (d.name(), d.value())).toMap
+        )
       ),
       msg.error
     )
@@ -507,6 +509,7 @@ object ForwardingService extends StrictLogging {
   )
 
   case class ConfigBinResponse(version: ConfigBinVersion, payload: JsonNode) {
+
     def isUpdate: Boolean = !isDelete
     def isDelete: Boolean = payload.isTextual && payload.asText().isEmpty
 
