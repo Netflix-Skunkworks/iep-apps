@@ -30,6 +30,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 class EvalFlowSuite extends FunSuite {
+
   private implicit val system = ActorSystem(getClass.getSimpleName)
   private val config = ConfigFactory.load
   private val registry = new NoopRegistry()
@@ -54,7 +55,7 @@ class EvalFlowSuite extends FunSuite {
     val future = Source
       .single(dataSourceStr)
       .via(evalFlow)
-      .filter(envelope => envelope.getId != "_") //filter out heartbeat
+      .filter(envelope => envelope.getId != "_") // filter out heartbeat
       .runWith(Sink.head)
     val messageEnvelope = Await.result(future, Duration.Inf)
 

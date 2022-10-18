@@ -18,6 +18,7 @@ package com.netflix.atlas.persistence
 import munit.FunSuite
 
 class S3CopySinkSuite extends FunSuite {
+
   test("extractMinuteRange") {
     assertEquals(S3CopySink.extractMinuteRange("abc.tmp"), "61-61")
     assertEquals(S3CopySink.extractMinuteRange("abc.1200-1300"), "20-21")

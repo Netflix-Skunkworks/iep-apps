@@ -27,6 +27,7 @@ import software.amazon.awssdk.services.cloudwatch.model.Metric
   * calls to the Amazon SDK, it should be run in a dedicated dispatcher.
   */
 class ListMetricsActor(client: CloudWatchClient, tagger: Tagger) extends Actor with StrictLogging {
+
   import CloudWatchPoller._
 
   def receive: Receive = {

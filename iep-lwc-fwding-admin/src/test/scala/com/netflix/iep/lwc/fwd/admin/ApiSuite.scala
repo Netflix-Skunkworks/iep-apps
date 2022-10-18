@@ -101,7 +101,7 @@ class ApiSuite extends MUnitRouteSuite with CwForwardingTestConfig with StrictLo
         entityAs[String]
           .contains(
             s"IllegalArgumentException: By default allowing only grouping by " +
-            s"${validations.defaultGroupingKeys}"
+              s"${validations.defaultGroupingKeys}"
           )
       )
     }
@@ -158,8 +158,8 @@ class ApiSuite extends MUnitRouteSuite with CwForwardingTestConfig with StrictLo
 
 }
 
-class MarkerServiceTest(
-  implicit val mat: Materializer
+class MarkerServiceTest(implicit
+  val mat: Materializer
 ) extends MarkerService {
 
   var result = List.newBuilder[Report]

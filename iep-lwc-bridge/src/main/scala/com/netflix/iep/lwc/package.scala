@@ -19,6 +19,7 @@ import com.netflix.spectator.atlas.impl.EvalPayload
 import com.netflix.spectator.atlas.impl.Subscription
 
 package object lwc {
+
   type SubscriptionList = java.util.List[Subscription]
   type JMap = java.util.Map[String, String]
 

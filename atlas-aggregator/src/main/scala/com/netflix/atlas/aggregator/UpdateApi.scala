@@ -30,7 +30,7 @@ import com.netflix.atlas.core.validation.ValidationResult
 import com.netflix.atlas.eval.stream.Evaluator
 import com.typesafe.scalalogging.StrictLogging
 
-class UpdateApi @Inject()(
+class UpdateApi @Inject() (
   evaluator: Evaluator,
   aggrService: AtlasAggregatorService
 ) extends WebApi
@@ -52,6 +52,7 @@ class UpdateApi @Inject()(
 }
 
 object UpdateApi {
+
   private val decoder = PayloadDecoder.default
 
   private[aggregator] def processPayload(

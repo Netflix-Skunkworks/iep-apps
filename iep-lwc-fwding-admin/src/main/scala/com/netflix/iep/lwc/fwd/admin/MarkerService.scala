@@ -50,7 +50,7 @@ trait MarkerService {
   var queue: SourceQueue[Report]
 }
 
-class MarkerServiceImpl @Inject()(
+class MarkerServiceImpl @Inject() (
   config: Config,
   registry: Registry,
   expressionDetailsDao: ExpressionDetailsDao,
@@ -163,7 +163,7 @@ object MarkerServiceImpl extends StrictLogging {
 
     val events = {
       toNoDataFoundEvent(report, prevExprDetails) ++
-      toNoScalingPolicyFoundEvent(report, scalingPolicyStatus, prevExprDetails)
+        toNoScalingPolicyFoundEvent(report, scalingPolicyStatus, prevExprDetails)
     }
 
     val metrics = toForwardedMetrics(report, prevExprDetails, purgeLimitMillis, now)

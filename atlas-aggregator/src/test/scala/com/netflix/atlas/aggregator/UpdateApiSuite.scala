@@ -245,8 +245,8 @@ class UpdateApiSuite extends FunSuite {
 
   test("validation: too many user tags") {
     val tags = Map("name" -> "foo") ++ (0 until 20)
-        .map(v => Strings.zeroPad(v, 5))
-        .map(v => v -> v)
+      .map(v => Strings.zeroPad(v, 5))
+      .map(v => v -> v)
     val msg = validationTest(SmallHashMap(tags), StatusCodes.BadRequest)
     assertEquals(msg.errorCount, 1)
     assert(msg.message.head.startsWith("too many user tags: 21 > 20 (tags={"))
@@ -254,8 +254,8 @@ class UpdateApiSuite extends FunSuite {
 
   test("validation: user tags, ignore restricted") {
     val tags = Map("name" -> "foo", "nf.app" -> "www") ++ (0 until 19)
-        .map(v => Strings.zeroPad(v, 5))
-        .map(v => v -> v)
+      .map(v => Strings.zeroPad(v, 5))
+      .map(v => v -> v)
     val msg = validationTest(SmallHashMap(tags), StatusCodes.OK)
     assertEquals(msg.errorCount, 0)
   }

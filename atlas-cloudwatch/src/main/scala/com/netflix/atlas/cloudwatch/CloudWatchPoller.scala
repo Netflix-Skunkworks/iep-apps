@@ -110,7 +110,8 @@ class CloudWatchPoller(
       {
         case Status.Success(s: CompletionStrategy) => s
         case Status.Success(_)                     => CompletionStrategy.draining
-      }: PartialFunction[Any, CompletionStrategy], {
+      }: PartialFunction[Any, CompletionStrategy],
+      {
         case Status.Failure(t) => t
       }: PartialFunction[Any, Throwable],
       config.getInt("atlas.cloudwatch.metrics-get-buffer-size"),

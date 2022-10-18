@@ -226,7 +226,7 @@ class DruidClient(
             case VALUE_NUMBER_INT   => parser.getValueAsLong.toDouble
             case VALUE_NUMBER_FLOAT => parser.getValueAsDouble
             case VALUE_STRING       => java.lang.Double.parseDouble(parser.getText)
-            case t                  => JsonParserHelper.fail(parser, s"expected VALUE_NUMBER_FLOAT but received $t")
+            case t => JsonParserHelper.fail(parser, s"expected VALUE_NUMBER_FLOAT but received $t")
           }
           builder += GroupByDatapoint(timestamp, tags, value)
         }
@@ -250,6 +250,7 @@ object DruidClient {
   case class Datasource(dimensions: List[String], metrics: List[Metric])
 
   case class Metric(name: String, dataType: String = "DOUBLE") {
+
     def isCounter: Boolean = dataType == "DOUBLE" || dataType == "FLOAT" || dataType == "LONG"
 
     def isTimer: Boolean = {
@@ -280,6 +281,7 @@ object DruidClient {
   case class ToInclude(`type`: String, columns: List[String] = Nil)
 
   object ToInclude {
+
     def all: ToInclude = ToInclude("all")
     def none: ToInclude = ToInclude("none")
     def list(columns: List[String]): ToInclude = ToInclude("list", columns)
@@ -318,6 +320,7 @@ object DruidClient {
     size: Long,
     cardinality: Long
   ) {
+
     def isDimension: Boolean = `type` == "STRING"
     def isMetric: Boolean = !isDimension
   }
@@ -338,6 +341,7 @@ object DruidClient {
     granularity: String = "all",
     limit: Int = 1000
   ) {
+
     val queryType: String = "search"
     // Use a union of the datasource(s) to send 1 query to Druid
     // The Druid broker will handle sending the query to each datasource
@@ -369,6 +373,7 @@ object DruidClient {
     metric: TopNMetricSpec = TopNMetricSpec.Dimension,
     threshold: Int = 1000
   ) {
+
     val queryType: String = "topN"
     val dataSource: UnionDatasource = UnionDatasource(dataSources)
   }
@@ -376,7 +381,9 @@ object DruidClient {
   trait TopNMetricSpec
 
   object TopNMetricSpec {
+
     case object Dimension extends TopNMetricSpec {
+
       val `type`: String = "dimension"
       val ordering: DruidSort = DruidSort.Lexicographic
       val previousStop: Option[String] = None
@@ -416,6 +423,7 @@ object DruidClient {
     having: Option[HavingSpec] = None,
     granularity: Granularity = Granularity.millis(60000)
   ) extends DataQuery {
+
     val queryType: String = "groupBy"
 
     // https://druid.apache.org/docs/latest/querying/groupbyquery.html#array-based-result-rows
@@ -445,6 +453,7 @@ object DruidClient {
   }
 
   case class DefaultDimensionSpec(dimension: String, outputName: String) extends DimensionSpec {
+
     val `type`: String = "default"
     val outputType: String = "STRING"
   }
@@ -454,6 +463,7 @@ object DruidClient {
     values: List[String],
     isWhitelist: Boolean = true
   ) extends DimensionSpec {
+
     val `type`: String = "listFiltered"
 
     override def outputName: String = delegate.outputName
@@ -463,6 +473,7 @@ object DruidClient {
     delegate: DimensionSpec,
     pattern: String
   ) extends DimensionSpec {
+
     val `type`: String = "regexFiltered"
 
     override def outputName: String = delegate.outputName
@@ -483,6 +494,7 @@ object DruidClient {
   }
 
   case object Aggregation {
+
     def count(fieldName: String): Aggregation = Aggregation("count", fieldName)
     def sum(fieldName: String): Aggregation = Aggregation("doubleSum", fieldName)
     def min(fieldName: String): Aggregation = Aggregation("doubleMin", fieldName)
@@ -504,6 +516,7 @@ object DruidClient {
   }
 
   case object Granularity {
+
     def millis(amount: Long): Granularity = Granularity(amount)
     def fromDuration(dur: Duration): Granularity = Granularity(dur.toMillis)
   }
@@ -522,7 +535,7 @@ object DruidClient {
 
   // Magic header to recognize GZIP compressed data
   // http://www.zlib.org/rfc-gzip.html#file-format
-  private val gzipMagicHeader = ByteString(Array(0x1f.toByte, 0x8b.toByte))
+  private val gzipMagicHeader = ByteString(Array(0x1F.toByte, 0x8B.toByte))
 
   /**
     * Create an InputStream for reading the content of the ByteString. If the data is

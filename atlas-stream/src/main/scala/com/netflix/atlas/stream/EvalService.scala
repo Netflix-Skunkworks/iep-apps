@@ -44,7 +44,7 @@ import scala.jdk.CollectionConverters._
 import scala.util.Failure
 import scala.util.Success
 
-class EvalService @Inject()(
+class EvalService @Inject() (
   val config: Config,
   val registry: Registry,
   val evaluator: Evaluator,
@@ -169,10 +169,9 @@ class EvalService @Inject()(
     streamInfo.dataSources = Some(
       new DataSources(
         dataSources.getSources.asScala
-          .map(
-            ds =>
-              // Prefix DataSource id with streamId+"|", for mapping MessageEnvelope to stream later
-              new DataSource(s"$streamId|${ds.getId}", ds.getStep, ds.getUri)
+          .map(ds =>
+            // Prefix DataSource id with streamId+"|", for mapping MessageEnvelope to stream later
+            new DataSource(s"$streamId|${ds.getId}", ds.getStep, ds.getUri)
           )
           .asJava
       )

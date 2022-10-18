@@ -65,6 +65,7 @@ class S3CopySink(
   private val threadPoolSize = s3Config.getInt("thread-pool-size")
 
   private val globalEc = ExecutionContext.global
+
   private val s3Ec =
     ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(threadPoolSize))
 

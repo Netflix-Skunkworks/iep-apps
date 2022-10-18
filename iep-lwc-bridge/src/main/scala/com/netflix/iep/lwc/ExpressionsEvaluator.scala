@@ -38,7 +38,8 @@ import javax.inject.Singleton
   * query index from Atlas so it can scale to a much larger set of expressions.
   */
 @Singleton
-class ExpressionsEvaluator @Inject()(config: Config, registry: Registry) extends StrictLogging {
+class ExpressionsEvaluator @Inject() (config: Config, registry: Registry) extends StrictLogging {
+
   import ExpressionsEvaluator._
 
   private val subIdsToLog = {
@@ -145,6 +146,7 @@ class ExpressionsEvaluator @Inject()(config: Config, registry: Registry) extends
 }
 
 object ExpressionsEvaluator {
+
   private val OneHour = 60 * 60 * 1000
 
   case class SubscriptionStats(

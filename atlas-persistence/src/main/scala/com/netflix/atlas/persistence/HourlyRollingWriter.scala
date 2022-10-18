@@ -92,7 +92,7 @@ class HourlyRollingWriter(
     checkPrevHourExpiration(now)
 
     if (RollingFileWriter.RolloverCheckDatapoint eq dp) {
-      //check rollover for both writers
+      // check rollover for both writers
       currWriter.write(dp)
       if (prevWriter != null) prevWriter.write(dp)
     } else {
@@ -141,6 +141,7 @@ class HourlyRollingWriter(
 }
 
 object HourlyRollingWriter {
+
   val HourFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH'00'")
   val HourStringLen: Int = 15
 }
@@ -154,6 +155,7 @@ case class RollingConfig(
   syncInterval: Int,
   commonStrings: Map[String, Int]
 ) {
+
   // Doing config checks here to fail early for invalid values
   require(maxRecords > 0)
   require(maxDurationMs > 0)

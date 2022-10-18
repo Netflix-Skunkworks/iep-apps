@@ -40,7 +40,7 @@ import javax.inject.Inject
 
 import scala.util.matching.Regex
 
-class SlottingApi @Inject()(system: ActorSystem, slottingCache: SlottingCache)
+class SlottingApi @Inject() (system: ActorSystem, slottingCache: SlottingCache)
     extends WebApi
     with StrictLogging {
 

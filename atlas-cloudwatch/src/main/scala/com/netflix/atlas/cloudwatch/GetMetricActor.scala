@@ -38,6 +38,7 @@ class GetMetricActor(
   bucketCounterCache: Map[Id, BucketCounter]
 ) extends Actor
     with StrictLogging {
+
   import CloudWatchPoller._
 
   private val basePeriodLagId = registry.createId(PeriodLagIdName)

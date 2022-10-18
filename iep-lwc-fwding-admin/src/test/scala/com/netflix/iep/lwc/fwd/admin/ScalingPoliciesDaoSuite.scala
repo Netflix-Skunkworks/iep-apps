@@ -33,6 +33,7 @@ import scala.util.Success
 import scala.util.Try
 
 class ScalingPoliciesDaoSuite extends FunSuite {
+
   val config = ConfigFactory.load()
   private implicit val system = ActorSystem()
 
@@ -43,7 +44,7 @@ class ScalingPoliciesDaoSuite extends FunSuite {
   test("Lookup all EC2 scaling policies") {
     val data = Map(
       Uri(ec2PoliciesUri) ->
-      """
+        """
           |[
           |  {
           |    "alarms": [
@@ -56,7 +57,7 @@ class ScalingPoliciesDaoSuite extends FunSuite {
           |]
         """.stripMargin,
       Uri(cwAlarmsUri) ->
-      """
+        """
           |[
           |  {
           |    "alarmName": "alarm1",
@@ -93,7 +94,7 @@ class ScalingPoliciesDaoSuite extends FunSuite {
       Uri(ec2PoliciesUri) -> "[]",
       Uri(cwAlarmsUri)    -> "[]",
       Uri(titusPoliciesUri) ->
-      """
+        """
           |[
           |  {
           |    "id": {
@@ -136,7 +137,7 @@ class ScalingPoliciesDaoSuite extends FunSuite {
     val data = Map(
       Uri(ec2PoliciesUri) -> "[]",
       Uri(cwAlarmsUri) ->
-      """
+        """
           |[
           |  {
           |    "alarmName": "job1/titusPolicy1",
@@ -151,7 +152,7 @@ class ScalingPoliciesDaoSuite extends FunSuite {
           |]
         """.stripMargin,
       Uri(titusPoliciesUri) ->
-      """
+        """
         |[
         |  {
         |    "jobId": "job1",
@@ -221,6 +222,7 @@ class LocalScalingPoliciesDaoTestImpl(
   config: Config,
   override implicit val system: ActorSystem
 ) extends ScalingPoliciesDaoImpl(config, system) {
+
   override protected val client = Flow[(HttpRequest, AccessLogger)]
     .map {
       case (request, accessLogger) =>

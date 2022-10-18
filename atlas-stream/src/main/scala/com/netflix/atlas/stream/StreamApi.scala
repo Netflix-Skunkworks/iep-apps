@@ -93,7 +93,7 @@ class StreamApi(
         parseEntity(json[List[DataSource]]) { dsList =>
           val dsListWithDefaultStep = dsList.map { ds =>
             if (ds.getStep == null) {
-              //this will extract step from uri or else take default value
+              // this will extract step from uri or else take default value
               new DataSource(ds.getId, ds.getUri)
             } else {
               ds

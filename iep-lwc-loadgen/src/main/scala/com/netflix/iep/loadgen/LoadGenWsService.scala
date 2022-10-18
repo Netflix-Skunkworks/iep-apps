@@ -46,7 +46,7 @@ import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Success
 
-class LoadGenWsService @Inject()(
+class LoadGenWsService @Inject() (
   config: Config,
   registry: Registry,
   evaluator: Evaluator,
@@ -160,9 +160,9 @@ class LoadGenWsService @Inject()(
       }
 
       dataNode.get("message") match {
-        case node: JsonNode if (node.has("data")) => record("timeseries")
-        case node: JsonNode if (node.has("type")) => record(node.get("type").asText)
-        case _                                    => record("unknown")
+        case node: JsonNode if node.has("data") => record("timeseries")
+        case node: JsonNode if node.has("type") => record(node.get("type").asText)
+        case _                                  => record("unknown")
       }
     } catch {
       case e: Exception => logger.error("error processing message: " + envelope, e)
