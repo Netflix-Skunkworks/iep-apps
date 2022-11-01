@@ -1,4 +1,13 @@
 
+## Configuring Dimensions
+
+The common dimensions specified must exist on each CloudWatch metric that is queried, or else
+they will not be loaded. The dimensions may be verified in documentation or by checking the
+groupings in the AWS Console. Within some AWS metrics namespaces, the different metrics have
+different common dimensions, so you may need to break up the definition of metrics.
+
+See [route53.conf](src/main/resources/route53.conf) as an example.
+
 ## Configuring Conversions
 
 See [Conversions](src/main/scala/com/netflix/atlas/cloudwatch/Conversions.scala) and
