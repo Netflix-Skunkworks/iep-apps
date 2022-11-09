@@ -14,13 +14,13 @@ object Dependencies {
     val akkaHttpV  = "10.2.10"
 
     val atlas      = "1.7.0-SNAPSHOT"
-    val aws2       = "2.17.289"
-    val iep        = "4.0.1"
+    val aws2       = "2.18.10"
+    val iep        = "4.0.2"
     val log4j      = "2.19.0"
     val scala      = "2.13.10"
     val servo      = "0.13.2"
     val slf4j      = "1.7.36"
-    val spectator  = "1.3.9"
+    val spectator  = "1.3.10"
     val spring     = "5.3.22"
     val avroV      = "1.11.1"
 
