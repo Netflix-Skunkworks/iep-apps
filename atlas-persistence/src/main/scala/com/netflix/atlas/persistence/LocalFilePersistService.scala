@@ -40,16 +40,13 @@ import java.nio.file.attribute.FileTime
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
-import javax.inject.Inject
-import javax.inject.Singleton
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 import scala.util.Using
 
-@Singleton
-class LocalFilePersistService @Inject() (
+class LocalFilePersistService(
   val config: Config,
   val registry: Registry,
   // S3CopyService is actually NOT used by this service, it is here just to guarantee that the

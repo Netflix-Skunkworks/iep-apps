@@ -16,7 +16,6 @@
 package com.netflix.iep.loadgen
 
 import akka.NotUsed
-import javax.inject.Inject
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.Uri
 import akka.stream.AbruptTerminationException
@@ -44,7 +43,7 @@ import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
 
-class LoadGenService @Inject() (
+class LoadGenService(
   config: Config,
   registry: Registry,
   evaluator: Evaluator,

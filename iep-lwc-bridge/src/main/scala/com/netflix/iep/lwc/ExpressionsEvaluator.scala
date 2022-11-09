@@ -29,16 +29,12 @@ import com.netflix.spectator.atlas.impl.TagsValuePair
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
-import javax.inject.Inject
-import javax.inject.Singleton
-
 /**
   * Evaluate a set of data expressions from the LWC API service. This performs the same
   * basic role as the Evaluator class from the Spectator Atlas registry, but leverages the
   * query index from Atlas so it can scale to a much larger set of expressions.
   */
-@Singleton
-class ExpressionsEvaluator @Inject() (config: Config, registry: Registry) extends StrictLogging {
+class ExpressionsEvaluator(config: Config, registry: Registry) extends StrictLogging {
 
   import ExpressionsEvaluator._
 

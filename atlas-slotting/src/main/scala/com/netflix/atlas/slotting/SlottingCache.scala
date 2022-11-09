@@ -15,11 +15,8 @@
  */
 package com.netflix.atlas.slotting
 
-import javax.inject.Singleton
-
 import scala.collection.immutable.SortedMap
 
-@Singleton
 class SlottingCache() {
 
   @volatile

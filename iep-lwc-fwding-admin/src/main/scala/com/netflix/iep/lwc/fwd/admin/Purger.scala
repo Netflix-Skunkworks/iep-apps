@@ -34,7 +34,6 @@ import com.netflix.atlas.json.Json
 import com.netflix.iep.lwc.fwd.cw._
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
-import javax.inject.Inject
 
 import scala.concurrent.Future
 import scala.util.Failure
@@ -45,7 +44,7 @@ trait Purger {
   def purge(expressions: List[ExpressionId]): Future[Done]
 }
 
-class PurgerImpl @Inject() (
+class PurgerImpl(
   config: Config,
   expressionDetailsDao: ExpressionDetailsDao,
   implicit val system: ActorSystem
