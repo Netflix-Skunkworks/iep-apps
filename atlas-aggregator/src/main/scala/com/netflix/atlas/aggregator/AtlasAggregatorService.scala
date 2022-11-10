@@ -23,11 +23,7 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spectator.atlas.AtlasRegistry
 import com.typesafe.config.Config
 
-import javax.inject.Inject
-import javax.inject.Singleton
-
-@Singleton
-class AtlasAggregatorService @Inject() (
+class AtlasAggregatorService(
   config: Config,
   clock: Clock,
   registry: Registry,

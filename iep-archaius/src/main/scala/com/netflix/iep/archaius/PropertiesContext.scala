@@ -18,8 +18,6 @@ package com.netflix.iep.archaius
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
-import javax.inject.Inject
-import javax.inject.Singleton
 
 import com.netflix.spectator.api.Functions
 import com.netflix.spectator.api.Registry
@@ -31,8 +29,7 @@ import com.typesafe.scalalogging.StrictLogging
   * asynchronously updated so that local access to properties does not need to result
   * into a separate call to the storage layer.
   */
-@Singleton
-class PropertiesContext @Inject() (registry: Registry) extends StrictLogging {
+class PropertiesContext(registry: Registry) extends StrictLogging {
 
   private val clock = registry.clock()
 

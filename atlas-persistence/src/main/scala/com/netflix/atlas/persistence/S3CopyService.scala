@@ -29,14 +29,11 @@ import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
-import javax.inject.Inject
-import javax.inject.Singleton
 
 import scala.concurrent.duration._
 import scala.util.Using
 
-@Singleton
-class S3CopyService @Inject() (
+class S3CopyService(
   val config: Config,
   val registry: Registry,
   implicit val system: ActorSystem

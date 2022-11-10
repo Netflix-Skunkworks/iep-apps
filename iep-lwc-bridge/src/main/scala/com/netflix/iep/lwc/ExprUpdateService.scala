@@ -48,7 +48,6 @@ import com.typesafe.scalalogging.StrictLogging
 
 import java.io.InputStream
 import java.util.zip.GZIPInputStream
-import javax.inject.Inject
 import scala.concurrent.Future
 import scala.util.Success
 import scala.util.Using
@@ -56,7 +55,7 @@ import scala.util.Using
 /**
   * Refresh the set of expressions from the LWC service.
   */
-class ExprUpdateService @Inject() (
+class ExprUpdateService(
   config: Config,
   registry: Registry,
   evaluator: ExpressionsEvaluator,

@@ -60,7 +60,6 @@ import java.time.Instant
 import java.util.concurrent.Executors
 import java.util.concurrent.ThreadFactory
 import java.util.concurrent.atomic.AtomicInteger
-import javax.inject.Inject
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -68,7 +67,7 @@ import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
 
-class ForwardingService @Inject() (
+class ForwardingService(
   config: Config,
   registry: Registry,
   evaluator: Evaluator,

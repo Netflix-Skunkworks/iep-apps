@@ -36,11 +36,10 @@ import com.netflix.atlas.akka.CustomDirectives._
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.json.Json
 import com.typesafe.scalalogging.StrictLogging
-import javax.inject.Inject
 
 import scala.util.matching.Regex
 
-class SlottingApi @Inject() (system: ActorSystem, slottingCache: SlottingCache)
+class SlottingApi(system: ActorSystem, slottingCache: SlottingCache)
     extends WebApi
     with StrictLogging {
 

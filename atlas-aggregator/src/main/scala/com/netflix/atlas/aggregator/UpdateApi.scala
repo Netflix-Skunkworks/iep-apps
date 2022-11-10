@@ -15,7 +15,6 @@
  */
 package com.netflix.atlas.aggregator
 
-import javax.inject.Inject
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.model.HttpResponse
@@ -30,7 +29,7 @@ import com.netflix.atlas.core.validation.ValidationResult
 import com.netflix.atlas.eval.stream.Evaluator
 import com.typesafe.scalalogging.StrictLogging
 
-class UpdateApi @Inject() (
+class UpdateApi(
   evaluator: Evaluator,
   aggrService: AtlasAggregatorService
 ) extends WebApi
