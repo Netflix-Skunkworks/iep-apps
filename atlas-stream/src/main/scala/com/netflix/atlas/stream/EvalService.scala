@@ -36,7 +36,6 @@ import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
-import javax.inject.Inject
 import org.reactivestreams.Publisher
 
 import scala.concurrent.duration._
@@ -44,7 +43,7 @@ import scala.jdk.CollectionConverters._
 import scala.util.Failure
 import scala.util.Success
 
-class EvalService @Inject() (
+class EvalService(
   val config: Config,
   val registry: Registry,
   val evaluator: Evaluator,

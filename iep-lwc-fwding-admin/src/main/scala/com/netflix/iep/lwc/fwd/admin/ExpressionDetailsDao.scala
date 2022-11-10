@@ -28,8 +28,6 @@ import software.amazon.awssdk.services.dynamodb.model.GetItemRequest
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest
 
-import javax.inject.Inject
-
 trait ExpressionDetailsDao {
 
   def save(exprDetails: ExpressionDetails): Unit
@@ -40,7 +38,7 @@ trait ExpressionDetailsDao {
   def isPurgeEligible(ed: ExpressionDetails, now: Long): Boolean
 }
 
-class ExpressionDetailsDaoImpl @Inject() (
+class ExpressionDetailsDaoImpl(
   config: Config,
   dynamoDBClient: DynamoDbClient,
   registry: Registry

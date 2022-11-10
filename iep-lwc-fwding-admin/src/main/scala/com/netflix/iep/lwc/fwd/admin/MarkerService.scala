@@ -34,7 +34,6 @@ import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
-import javax.inject.Inject
 
 import scala.util.Failure
 import scala.util.Success
@@ -50,7 +49,7 @@ trait MarkerService {
   var queue: SourceQueue[Report]
 }
 
-class MarkerServiceImpl @Inject() (
+class MarkerServiceImpl(
   config: Config,
   registry: Registry,
   expressionDetailsDao: ExpressionDetailsDao,

@@ -33,14 +33,11 @@ import software.amazon.awssdk.services.ec2.Ec2Client
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest
 import software.amazon.awssdk.services.ec2.model.InstanceStateName
 
-import javax.inject.Inject
-import javax.inject.Singleton
 import scala.jdk.CollectionConverters._
 import scala.jdk.StreamConverters._
 import scala.collection.immutable.SortedMap
 
-@Singleton
-class SlottingService @Inject() (
+class SlottingService(
   config: Config,
   registry: Registry,
   asgClient: AutoScalingClient,

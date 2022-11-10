@@ -32,7 +32,6 @@ import com.netflix.atlas.json.Json
 import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
-import javax.inject.Inject
 
 import scala.util.Failure
 import scala.util.Success
@@ -41,7 +40,7 @@ trait ScalingPoliciesDao {
   def getScalingPolicies: Flow[EddaEndpoint, List[ScalingPolicy], NotUsed]
 }
 
-class ScalingPoliciesDaoImpl @Inject() (
+class ScalingPoliciesDaoImpl(
   config: Config,
   implicit val system: ActorSystem
 ) extends ScalingPoliciesDao
