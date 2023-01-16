@@ -411,9 +411,15 @@ object DruidClient {
 
   case class TopNDimensionValue(value: String)
 
-  sealed trait DataQuery
+  sealed trait DataQuery {
+
+    /** Returns a new query with the additional context merged in. */
+    def withAdditionalContext(ctxt: Map[String, Any]): DataQuery
+  }
 
   // http://druid.io/docs/latest/querying/groupbyquery.html
+  // https://druid.apache.org/docs/latest/querying/groupbyquery.html#array-based-result-rows
+  // https://github.com/apache/druid/issues/8118
   case class GroupByQuery(
     dataSource: String,
     dimensions: List[DimensionSpec],
@@ -421,18 +427,19 @@ object DruidClient {
     aggregations: List[Aggregation],
     filter: Option[DruidFilter] = None,
     having: Option[HavingSpec] = None,
-    granularity: Granularity = Granularity.millis(60000)
+    granularity: Granularity = Granularity.millis(60000),
+    context: Map[String, Any] = Map("resultAsArray" -> true)
   ) extends DataQuery {
 
     val queryType: String = "groupBy"
 
-    // https://druid.apache.org/docs/latest/querying/groupbyquery.html#array-based-result-rows
-    // https://github.com/apache/druid/issues/8118
-    val context: Map[String, Boolean] = Map("resultAsArray" -> true)
-
     def toTimeseriesQuery: TimeseriesQuery = {
       require(dimensions.isEmpty)
       TimeseriesQuery(dataSource, intervals, aggregations, filter, having, granularity)
+    }
+
+    override def withAdditionalContext(ctxt: Map[String, Any]): GroupByQuery = {
+      copy(context = context ++ ctxt)
     }
   }
 
@@ -443,9 +450,15 @@ object DruidClient {
     aggregations: List[Aggregation],
     filter: Option[DruidFilter] = None,
     having: Option[HavingSpec] = None,
-    granularity: Granularity = Granularity.millis(60000)
+    granularity: Granularity = Granularity.millis(60000),
+    context: Map[String, Any] = Map.empty
   ) extends DataQuery {
+
     val queryType: String = "timeseries"
+
+    override def withAdditionalContext(ctxt: Map[String, Any]): TimeseriesQuery = {
+      copy(context = context ++ ctxt)
+    }
   }
 
   sealed trait DimensionSpec {
