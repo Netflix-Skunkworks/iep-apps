@@ -230,7 +230,7 @@ class DruidDatabaseActorSuite extends FunSuite {
 
   test("toDruidQueries: simple sum") {
     val expr = DataExpr.Sum(Query.Equal("a", "1"))
-    val queries = toDruidQueries(metadata, context, expr)
+    val queries = toDruidQueries(metadata, "test", context, expr)
 
     assertEquals(queries.size, 4)
     assertEquals(queries.map(_._1("name")).toSet, Set("m1", "m2", "m3"))
@@ -239,7 +239,7 @@ class DruidDatabaseActorSuite extends FunSuite {
 
   test("toDruidQueries: unknown dimensions") {
     val expr = DataExpr.Sum(Query.HasKey("c"))
-    val queries = toDruidQueries(metadata, context, expr)
+    val queries = toDruidQueries(metadata, "test", context, expr)
 
     assertEquals(queries.size, 2)
     assertEquals(queries.map(_._1("name")).toSet, Set("m1", "m3"))
@@ -248,7 +248,7 @@ class DruidDatabaseActorSuite extends FunSuite {
 
   test("toDruidQueries: unknown dimensions missing") {
     val expr = DataExpr.Sum(Query.Not(Query.HasKey("c")))
-    val queries = toDruidQueries(metadata, context, expr)
+    val queries = toDruidQueries(metadata, "test", context, expr)
 
     assertEquals(queries.size, 4)
     assertEquals(queries.map(_._1("name")).toSet, Set("m1", "m2", "m3"))
@@ -257,7 +257,7 @@ class DruidDatabaseActorSuite extends FunSuite {
 
   test("toDruidQueries: or with one missing dimension") {
     val expr = DataExpr.Sum(Query.Or(Query.Equal("a", "1"), Query.Equal("d", "2")))
-    val queries = toDruidQueries(metadata, context, expr)
+    val queries = toDruidQueries(metadata, "test", context, expr)
     assert(queries.forall(_._1.contains("a")))
   }
 
