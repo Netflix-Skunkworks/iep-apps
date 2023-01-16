@@ -234,6 +234,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
   }
 
   private def explain(ref: ActorRef, request: DataRequest): Unit = {
+    val id = request.config.map(_.id).getOrElse("unknown")
     val context = request.context
     val explanation = request.exprs
       .flatMap { expr =>
@@ -244,7 +245,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
             context.copy(context.start - offset, context.end - offset)
           }
         val exprStr = expr.toString()
-        toDruidQueries(metadata, fetchContext, expr)
+        toDruidQueries(metadata, id, fetchContext, expr)
           .map {
             case (tags, q) => Map("data-expr" -> exprStr, "tags" -> tags, "druid-query" -> q)
           }
@@ -256,8 +257,9 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
   }
 
   private def fetchData(ref: ActorRef, request: DataRequest): Unit = {
+    val id = request.config.map(_.id).getOrElse("unknown")
     val druidQueries = request.exprs.map { expr =>
-      fetchData(request.context, expr).map(ts => expr -> ts)
+      fetchData(id, request.context, expr).map(ts => expr -> ts)
     }
     Source(druidQueries)
       .flatMapMerge(Int.MaxValue, v => v)
@@ -271,7 +273,11 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
       }
   }
 
-  private def fetchData(context: EvalContext, expr: DataExpr): Source[List[TimeSeries], NotUsed] = {
+  private def fetchData(
+    id: String,
+    context: EvalContext,
+    expr: DataExpr
+  ): Source[List[TimeSeries], NotUsed] = {
     val offset = expr.offset.toMillis
     val fetchContext =
       if (offset == 0L) context
@@ -282,7 +288,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
 
     val valueMapper = createValueMapper(normalizeRates, fetchContext, expr)
 
-    val druidQueries = toDruidQueries(metadata, fetchContext, expr).map {
+    val druidQueries = toDruidQueries(metadata, id, fetchContext, expr).map {
       case (tags, groupByQuery) =>
         client.data(groupByQuery).map { result =>
           val candidates = toTimeSeries(tags, fetchContext, result, maxDataSize, valueMapper)
@@ -490,6 +496,7 @@ object DruidDatabaseActor {
 
   def toDruidQueries(
     metadata: Metadata,
+    id: String,
     context: EvalContext,
     expr: DataExpr
   ): List[(Map[String, String], DataQuery)] = {
@@ -548,7 +555,7 @@ object DruidDatabaseActor {
               groupByQuery.toTimeseriesQuery
             else
               groupByQuery
-          Some(tags -> druidQuery)
+          Some(tags -> druidQuery.withAdditionalContext(Map("atlasQuerySource" -> id)))
         }
     }
   }
