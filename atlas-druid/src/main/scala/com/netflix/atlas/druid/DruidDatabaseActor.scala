@@ -128,7 +128,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
         ds.metricTags.exists(query.couldMatch)
       }
       .flatMap { ds =>
-        "nf.datasource" :: "name" :: ds.datasource.dimensions
+        ds.metricTags.flatMap(_.keys) ::: ds.datasource.dimensions
       }
       .distinct
       .sorted
@@ -149,6 +149,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
     tq.key.getOrElse("name") match {
       case "name"          => listNames(callback, tq)
       case "nf.datasource" => listDatasources(callback, tq)
+      case "statistic"     => listStatistics(callback, tq)
       case _               => listDimension(callback, tq)
     }
   }
@@ -183,6 +184,18 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
       .sorted
       .take(tq.limit)
     callback("nf.datasource", vs)
+  }
+
+  private def listStatistics(callback: ListCallback, tq: TagQuery): Unit = {
+    val query = getListQuery(tq)
+    val vs = metadata.datasources
+      .flatMap(_.metricTags)
+      .filter(query.couldMatch)
+      .flatMap(_.get("statistic"))
+      .distinct
+      .sorted
+      .take(tq.limit)
+    callback("statistic", vs)
   }
 
   private def listDimension(callback: ListCallback, tq: TagQuery): Unit = {
@@ -339,7 +352,13 @@ object DruidDatabaseActor {
   case class DatasourceMetadata(name: String, datasource: Datasource) {
 
     val metrics: List[MetricMetadata] = datasource.metrics.map { metric =>
-      MetricMetadata(metric, Map("name" -> metric.name, "nf.datasource" -> name))
+      val baseTags = Map("name" -> metric.name, "nf.datasource" -> name)
+      val tags =
+        if (metric.isHistogram)
+          baseTags + ("statistic" -> "percentile")
+        else
+          baseTags
+      MetricMetadata(metric, tags)
     }
 
     val metricTags: List[Map[String, String]] = metrics.map(_.tags)
@@ -350,7 +369,10 @@ object DruidDatabaseActor {
   case class MetricMetadata(metric: DruidClient.Metric, tags: Map[String, String])
 
   def isSpecial(k: String): Boolean = {
-    k == "name" || k == "nf.datasource"
+    // statistic is included to support adding a percentile dimension for histogram
+    // types. This will need to be refactored if we need to support explicit uses
+    // in the future.
+    k == "name" || k == "nf.datasource" || k == "statistic"
   }
 
   def toDimensionSpec(key: String, query: Query): DimensionSpec = {
@@ -589,13 +611,14 @@ object DruidDatabaseActor {
     */
   private def simplify(query: Query, ds: List[String]): Query = {
     val simpleQuery = query match {
-      case Query.And(q1, q2)               => Query.And(simplify(q1, ds), simplify(q2, ds))
-      case Query.Or(q1, q2)                => Query.Or(simplify(q1, ds), simplify(q2, ds))
-      case Query.Not(q)                    => Query.Not(simplify(q, ds))
-      case q: KeyQuery if isSpecial(q.k)   => q
-      case q: KeyQuery if ds.contains(q.k) => q
-      case _: KeyQuery                     => Query.False
-      case q: Query                        => q
+      case Query.And(q1, q2)                 => Query.And(simplify(q1, ds), simplify(q2, ds))
+      case Query.Or(q1, q2)                  => Query.Or(simplify(q1, ds), simplify(q2, ds))
+      case Query.Not(q)                      => Query.Not(simplify(q, ds))
+      case q: KeyQuery if q.k == "statistic" => Query.True
+      case q: KeyQuery if isSpecial(q.k)     => q
+      case q: KeyQuery if ds.contains(q.k)   => q
+      case _: KeyQuery                       => Query.False
+      case q: Query                          => q
     }
     Query.simplify(simpleQuery)
   }
