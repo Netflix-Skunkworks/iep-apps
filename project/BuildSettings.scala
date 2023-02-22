@@ -62,11 +62,7 @@ object BuildSettings {
     Dependencies.typesafeConfig,
     Dependencies.munit % "test")
 
-  val resolvers = Seq(
-    Resolver.mavenLocal,
-    Resolver.mavenCentral,
-    Resolver.sonatypeRepo("snapshots")
-  )
+  val resolvers = Seq(Resolver.mavenLocal, Resolver.mavenCentral) ++ Resolver.sonatypeOssRepos("snapshots")
 
   // Don't create root.jar, from:
   // http://stackoverflow.com/questions/20747296/producing-no-artifact-for-root-project-with-package-under-multi-project-build-in
