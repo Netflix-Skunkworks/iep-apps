@@ -31,32 +31,27 @@ class AtlasAggregatorService(
 ) extends AbstractService
     with Aggregator {
 
-  private val n = math.max(1, Runtime.getRuntime.availableProcessors() / 2)
   private val aggrCfg = new AggrConfig(config, registry, system)
 
-  private val registries = (0 until n)
-    .map(_ => new AtlasRegistry(clock, aggrCfg))
-    .toArray
+  private val aggrRegistry = new AtlasRegistry(clock, aggrCfg)
 
   override def startImpl(): Unit = {
-    registries.foreach(_.start())
+    aggrRegistry.start()
   }
 
   override def stopImpl(): Unit = {
-    registries.foreach(_.stop())
+    aggrRegistry.stop()
   }
 
   def lookup(id: Id): AtlasRegistry = {
-    // Max is needed because for Integer.MIN_VALUE the abs value will be negative
-    val i = math.max(math.abs(id.hashCode()), 0) % n
-    registries(i)
+    aggrRegistry
   }
 
   override def add(id: Id, value: Double): Unit = {
-    lookup(id).counter(id).add(value)
+    aggrRegistry.counter(id).add(value)
   }
 
   override def max(id: Id, value: Double): Unit = {
-    lookup(id).maxGauge(id).set(value)
+    aggrRegistry.maxGauge(id).set(value)
   }
 }
