@@ -65,7 +65,7 @@ object BuildSettings {
   val resolvers = Seq(
     Resolver.mavenLocal,
     Resolver.mavenCentral,
-    Resolver.sonatypeRepo("snapshots")
+    Resolver.sonatypeOssRepos("snapshots")
   )
 
   // Don't create root.jar, from:
