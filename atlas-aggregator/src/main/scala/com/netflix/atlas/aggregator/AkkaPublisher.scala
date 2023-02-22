@@ -29,6 +29,7 @@ import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.RestartFlow
 import akka.stream.scaladsl.Sink
+import akka.util.ByteString
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.core.StreamReadFeature
 import com.fasterxml.jackson.core.StreamWriteFeature
@@ -36,7 +37,9 @@ import com.fasterxml.jackson.dataformat.smile.SmileFactory
 import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.akka.CustomMediaTypes
 import com.netflix.atlas.akka.StreamOps
+import com.netflix.atlas.akka.ThreadPools
 import com.netflix.spectator.api.Measurement
+import com.netflix.spectator.api.Registry
 import com.netflix.spectator.atlas.Publisher
 import com.netflix.spectator.atlas.impl.EvalPayload
 import com.netflix.spectator.atlas.impl.PublishPayload
@@ -60,21 +63,23 @@ import scala.util.Using
   * URLConnection class built into the JDK. This helps reduce the number of threads
   * needed overall.
   */
-class AkkaPublisher(config: AggrConfig, implicit val system: ActorSystem) extends Publisher {
+class AkkaPublisher(registry: Registry, config: AggrConfig, implicit val system: ActorSystem)
+    extends Publisher {
 
   import AkkaPublisher._
-
-  private implicit val ec: ExecutionContext = system.dispatcher
 
   private val atlasUri = Uri(config.uri())
   private val evalUri = Uri(config.evalUri())
 
   private val encodingParallelism = math.max(2, Runtime.getRuntime.availableProcessors() / 2)
 
+  private val ec: ExecutionContext =
+    ThreadPools.fixedSize(registry, "PublishEncoding", encodingParallelism)
+
   private val client = {
     val flow = Flow[RequestTuple]
       .mapAsync(encodingParallelism) { t =>
-        Future(t.mkRequest() -> t)
+        Future(t.mkRequest() -> t)(ec)
       }
       .via(Http().superPool[RequestTuple]())
       .map {
@@ -168,7 +173,7 @@ object AkkaPublisher {
   }
 
   /** Encode publish payload to a byte array. */
-  private def encode(payload: AnyRef): Array[Byte] = {
+  private def encode(payload: AnyRef): ByteString = {
     val baos = getOrCreateStream
     Using.resource(new GzipLevelOutputStream(baos)) { out =>
       Using.resource(factory.createGenerator(out)) { gen =>
@@ -180,7 +185,7 @@ object AkkaPublisher {
         }
       }
     }
-    baos.toByteArray
+    ByteString.fromArrayUnsafe(baos.toByteArray)
   }
 
   private def encode(gen: JsonGenerator, payload: PublishPayload): Unit = {
