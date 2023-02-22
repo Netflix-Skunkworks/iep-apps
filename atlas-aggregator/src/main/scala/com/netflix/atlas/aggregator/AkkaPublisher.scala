@@ -76,7 +76,10 @@ class AkkaPublisher(registry: Registry, config: AggrConfig, implicit val system:
   private val ec: ExecutionContext =
     ThreadPools.fixedSize(registry, "PublishEncoding", encodingParallelism)
 
-  private val client = {
+  private val atlasClient = createClient("publisher-atlas")
+  private val lwcClient = createClient("publisher-lwc")
+
+  private def createClient(name: String): StreamOps.SourceQueue[RequestTuple] = {
     val flow = Flow[RequestTuple]
       .mapAsync(encodingParallelism) { t =>
         Future(t.mkRequest() -> t)(ec)
@@ -93,7 +96,7 @@ class AkkaPublisher(registry: Registry, config: AggrConfig, implicit val system:
       flow
     }
     StreamOps
-      .blockingQueue[RequestTuple](config.debugRegistry(), "publisher", 1000)
+      .blockingQueue[RequestTuple](config.debugRegistry(), name, 1000)
       .via(restartFlow)
       .toMat(Sink.ignore)(Keep.left)
       .run()
@@ -101,22 +104,21 @@ class AkkaPublisher(registry: Registry, config: AggrConfig, implicit val system:
 
   override def init(): Unit = {}
 
-  private def doPost(uri: Uri, id: String, payload: AnyRef): CompletableFuture[Void] = {
-    val t = new RequestTuple(uri, id, payload)
-    client.offer(t)
+  override def publish(payload: PublishPayload): CompletableFuture[Void] = {
+    val t = new RequestTuple(atlasUri, "publisher-atlas", payload)
+    atlasClient.offer(t)
     t.future
   }
 
-  override def publish(payload: PublishPayload): CompletableFuture[Void] = {
-    doPost(atlasUri, "publisher-atlas", payload)
-  }
-
   override def publish(payload: EvalPayload): CompletableFuture[Void] = {
-    doPost(evalUri, "publisher-lwc", payload)
+    val t = new RequestTuple(evalUri, "publisher-lwc", payload)
+    lwcClient.offer(t)
+    t.future
   }
 
   override def close(): Unit = {
-    client.complete()
+    atlasClient.complete()
+    lwcClient.complete()
   }
 }
 
