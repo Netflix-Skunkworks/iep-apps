@@ -71,6 +71,6 @@ class AggrConfig(
   override def validTagCharacters(): String = null
 
   override def publisher(): Publisher = {
-    new AkkaPublisher(this, system)
+    new AkkaPublisher(registry, this, system)
   }
 }
