@@ -130,6 +130,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
       .flatMap { ds =>
         ds.metricTags.flatMap(_.keys) ::: ds.datasource.dimensions
       }
+      .filter(_ > tq.offset)
       .distinct
       .sorted
     ref ! KeyListResponse(vs)
