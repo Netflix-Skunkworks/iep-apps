@@ -49,7 +49,7 @@ object Dependencies {
   val aws2EC2            = "software.amazon.awssdk" % "ec2" % aws2
   val aws2S3             = "software.amazon.awssdk" % "s3" % aws2
   val aws2SQS            = "software.amazon.awssdk" % "sqs" % aws2
-  val frigga             = "com.netflix.frigga" % "frigga" % "0.25.0"
+  val frigga             = "com.netflix.frigga" % "frigga" % "0.26.0"
   val iepLeaderApi       = "com.netflix.iep" % "iep-leader-api" % iep
   val iepNflxEnv         = "com.netflix.iep" % "iep-nflxenv" % iep
   val iepService         = "com.netflix.iep" % "iep-service" % iep
