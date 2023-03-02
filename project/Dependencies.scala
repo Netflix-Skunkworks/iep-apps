@@ -13,15 +13,15 @@ object Dependencies {
     val akka       = "2.6.20"
     val akkaHttpV  = "10.2.10"
 
-    val atlas      = "1.7.0-SNAPSHOT"
+    val atlas      = "1.8.0-SNAPSHOT"
     val aws2       = "2.20.13"
-    val iep        = "4.2.0"
+    val iep        = "5.0.0"
     val log4j      = "2.20.0"
     val scala      = "2.13.10"
     val servo      = "0.13.2"
     val slf4j      = "1.7.36"
     val spectator  = "1.5.4"
-    val spring     = "5.3.22"
+    val spring     = "6.0.5"
     val avroV      = "1.11.1"
 
     val crossScala = Seq(scala)
@@ -50,8 +50,8 @@ object Dependencies {
   val aws2S3             = "software.amazon.awssdk" % "s3" % aws2
   val aws2SQS            = "software.amazon.awssdk" % "sqs" % aws2
   val frigga             = "com.netflix.frigga" % "frigga" % "0.26.0"
+  val iepDynConfig       = "com.netflix.iep" % "iep-dynconfig" % iep
   val iepLeaderApi       = "com.netflix.iep" % "iep-leader-api" % iep
-  val iepNflxEnv         = "com.netflix.iep" % "iep-nflxenv" % iep
   val iepService         = "com.netflix.iep" % "iep-service" % iep
   val iepSpring          = "com.netflix.iep" % "iep-spring" % iep
   val iepSpringLeaderDDb = "com.netflix.iep" % "iep-spring-leader-dynamodb" % iep

@@ -21,7 +21,7 @@ import akka.actor.Timers
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
-import com.netflix.iep.NetflixEnvironment._
+import com.netflix.iep.config.NetflixEnvironment._
 import com.netflix.iep.lwc.fwd.admin.ScalingPolicies._
 import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo
 import com.typesafe.config.Config
