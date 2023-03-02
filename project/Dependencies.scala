@@ -14,13 +14,13 @@ object Dependencies {
     val akkaHttpV  = "10.2.10"
 
     val atlas      = "1.7.0-SNAPSHOT"
-    val aws2       = "2.18.10"
-    val iep        = "4.0.2"
-    val log4j      = "2.19.0"
+    val aws2       = "2.20.13"
+    val iep        = "4.2.0"
+    val log4j      = "2.20.0"
     val scala      = "2.13.10"
     val servo      = "0.13.2"
     val slf4j      = "1.7.36"
-    val spectator  = "1.3.10"
+    val spectator  = "1.5.4"
     val spring     = "5.3.22"
     val avroV      = "1.11.1"
 
@@ -49,7 +49,7 @@ object Dependencies {
   val aws2EC2            = "software.amazon.awssdk" % "ec2" % aws2
   val aws2S3             = "software.amazon.awssdk" % "s3" % aws2
   val aws2SQS            = "software.amazon.awssdk" % "sqs" % aws2
-  val frigga             = "com.netflix.frigga" % "frigga" % "0.25.0"
+  val frigga             = "com.netflix.frigga" % "frigga" % "0.26.0"
   val iepLeaderApi       = "com.netflix.iep" % "iep-leader-api" % iep
   val iepNflxEnv         = "com.netflix.iep" % "iep-nflxenv" % iep
   val iepService         = "com.netflix.iep" % "iep-service" % iep
@@ -76,7 +76,7 @@ object Dependencies {
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
   val slf4jLog4j         = "org.slf4j" % "slf4j-log4j12" % slf4j
   val slf4jSimple        = "org.slf4j" % "slf4j-simple" % slf4j
-  val snappy             = "org.xerial.snappy" % "snappy-java" % "1.1.8.4"
+  val snappy             = "org.xerial.snappy" % "snappy-java" % "1.1.9.1"
   val spectatorApi       = "com.netflix.spectator" % "spectator-api" % spectator
   val spectatorAws2      = "com.netflix.spectator" % "spectator-ext-aws2" % spectator
   val spectatorAtlas     = "com.netflix.spectator" % "spectator-reg-atlas" % spectator
