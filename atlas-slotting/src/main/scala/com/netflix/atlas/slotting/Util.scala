@@ -19,7 +19,7 @@ import java.nio.ByteBuffer
 import java.time.Duration
 import java.util.concurrent.ScheduledFuture
 
-import com.netflix.iep.NetflixEnvironment
+import com.netflix.iep.config.NetflixEnvironment
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.impl.Scheduler
 import com.typesafe.config.Config

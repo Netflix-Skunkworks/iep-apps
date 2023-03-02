@@ -17,7 +17,7 @@ package com.netflix.atlas.slotting
 
 import java.nio.ByteBuffer
 import java.time.Duration
-import com.netflix.iep.NetflixEnvironment
+import com.netflix.iep.config.NetflixEnvironment
 import com.netflix.spectator.api.Counter
 import com.typesafe.scalalogging.StrictLogging
 import software.amazon.awssdk.core.SdkBytes
