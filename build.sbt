@@ -23,6 +23,7 @@ lazy val `atlas-aggregator` = project
     Dependencies.atlasJson,
     Dependencies.atlasSpringAkka,
     Dependencies.atlasSpringEval,
+    Dependencies.caffeine,
     Dependencies.iepDynConfig,
     Dependencies.iepSpring,
     Dependencies.iepSpringAdmin,

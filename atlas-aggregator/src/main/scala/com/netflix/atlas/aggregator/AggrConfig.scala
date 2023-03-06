@@ -22,13 +22,17 @@ import com.netflix.spectator.api.Clock
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.atlas.AtlasConfig
 import com.netflix.spectator.atlas.Publisher
+import com.netflix.spectator.atlas.impl.EvaluatorConfig
+import com.netflix.spectator.atlas.impl.QueryIndex
+import com.netflix.spectator.impl.Cache
 import com.typesafe.config.Config
 
 class AggrConfig(
   config: Config,
   registry: Registry,
   system: ActorSystem
-) extends AtlasConfig {
+) extends AtlasConfig
+    with EvaluatorConfig {
 
   private val maxMeters = super.maxNumberOfMeters()
 
@@ -72,5 +76,17 @@ class AggrConfig(
 
   override def publisher(): Publisher = {
     new AkkaPublisher(registry, this, system)
+  }
+
+  override def evaluatorStepSize(): Long = {
+    lwcStep().toMillis
+  }
+
+  override def parallelMeasurementPolling(): Boolean = {
+    true
+  }
+
+  override def indexCacheSupplier[T](): QueryIndex.CacheSupplier[T] = { () =>
+    new CaffeineCache[T].asInstanceOf[Cache[String, java.util.List[QueryIndex[T]]]]
   }
 }
