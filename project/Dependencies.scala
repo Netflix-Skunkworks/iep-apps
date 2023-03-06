@@ -20,7 +20,7 @@ object Dependencies {
     val scala      = "2.13.10"
     val servo      = "0.13.2"
     val slf4j      = "1.7.36"
-    val spectator  = "1.5.4"
+    val spectator  = "1.6.0-SNAPSHOT"
     val spring     = "6.0.5"
     val avroV      = "1.11.1"
 
@@ -49,6 +49,7 @@ object Dependencies {
   val aws2EC2            = "software.amazon.awssdk" % "ec2" % aws2
   val aws2S3             = "software.amazon.awssdk" % "s3" % aws2
   val aws2SQS            = "software.amazon.awssdk" % "sqs" % aws2
+  val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "3.1.4"
   val frigga             = "com.netflix.frigga" % "frigga" % "0.26.0"
   val iepDynConfig       = "com.netflix.iep" % "iep-dynconfig" % iep
   val iepLeaderApi       = "com.netflix.iep" % "iep-leader-api" % iep
