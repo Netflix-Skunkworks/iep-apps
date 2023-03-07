@@ -42,7 +42,10 @@ object Messages {
     * @param metrics
     *     Metrics collected by the poller.
     */
-  case class MetricsPayload(tags: Map[String, String] = Map.empty, metrics: List[Datapoint] = Nil)
+  case class MetricsPayload(
+    tags: Map[String, String] = Map.empty,
+    metrics: Iterable[Datapoint] = Nil
+  )
 
   /**
     * Represents a failure response message from the publish endpoint.
