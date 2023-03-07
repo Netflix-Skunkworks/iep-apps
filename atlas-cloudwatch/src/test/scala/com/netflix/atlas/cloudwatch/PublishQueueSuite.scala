@@ -47,7 +47,9 @@ import org.mockito.captor.ArgCaptor
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import scala.concurrent.Await
 import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
 
 class PublishQueueSuite extends FunSuite with TestKitBase {
 
@@ -72,14 +74,16 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     mockResponse(StatusCodes.OK)
     val queue =
       new PublishQueue(config, registry, "main", "http://localhost", httpClient, scheduler)
-    queue.publish(
-      Seq(
-        Datapoint(Map("k1" -> "v1"), timestamp, 42.5),
-        Datapoint(Map("k2" -> "v2"), timestamp, 24.1)
-      )
+    Await.ready(
+      queue.publish(
+        Seq(
+          Datapoint(Map("k1" -> "v1"), timestamp, 42.5),
+          Datapoint(Map("k2" -> "v2"), timestamp, 24.1)
+        )
+      ),
+      1.seconds
     )
 
-    Thread.sleep(threadSleep)
     assertCounters(2)
     verify(httpClient, times(1)).singleRequest(httpCaptor)
     assertEquals(
@@ -92,15 +96,17 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     mockResponse(StatusCodes.Accepted, Json.encode(FailureMessage("foo", 1, List("Err"))))
     val queue =
       new PublishQueue(config, registry, "main", "http://localhost", httpClient, scheduler)
-    queue.publish(
-      Seq(
-        Datapoint(Map("k1" -> "v1"), timestamp, 42.5),
-        Datapoint(Map("k2" -> "v2"), timestamp, 24.1)
-      )
+    Await.ready(
+      queue.publish(
+        Seq(
+          Datapoint(Map("k1" -> "v1"), timestamp, 42.5),
+          Datapoint(Map("k2" -> "v2"), timestamp, 24.1)
+        )
+      ),
+      1.seconds
     )
 
-    Thread.sleep(threadSleep)
-    assertCounters(2, droppedPartial = 1)
+    assertCounters(2, dropped = Map("partialFailure" -> 1))
     verify(httpClient, times(1)).singleRequest(httpCaptor)
     assertEquals(
       CustomMediaTypes.`application/x-jackson-smile`.toContentType.asInstanceOf[ContentType],
@@ -112,15 +118,17 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     mockResponse(StatusCodes.BadRequest, Json.encode(FailureMessage("foo", 2, List("Err"))))
     val queue =
       new PublishQueue(config, registry, "main", "http://localhost", httpClient, scheduler)
-    queue.publish(
-      Seq(
-        Datapoint(Map("k1" -> "v1"), timestamp, 42.5),
-        Datapoint(Map("k2" -> "v2"), timestamp, 24.1)
-      )
+    Await.ready(
+      queue.publish(
+        Seq(
+          Datapoint(Map("k1" -> "v1"), timestamp, 42.5),
+          Datapoint(Map("k2" -> "v2"), timestamp, 24.1)
+        )
+      ),
+      1.seconds
     )
 
-    Thread.sleep(threadSleep)
-    assertCounters(2, droppedComplete = 2)
+    assertCounters(2, dropped = Map("completeFailure" -> 2))
     verify(httpClient, times(1)).singleRequest(httpCaptor)
     assertEquals(
       CustomMediaTypes.`application/x-jackson-smile`.toContentType.asInstanceOf[ContentType],
@@ -132,15 +140,17 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     mockResponse(StatusCodes.InternalServerError)
     val queue =
       new PublishQueue(config, registry, "main", "http://localhost", httpClient, scheduler)
-    queue.publish(
-      Seq(
-        Datapoint(Map("k1" -> "v1"), timestamp, 42.5),
-        Datapoint(Map("k2" -> "v2"), timestamp, 24.1)
-      )
+    Await.ready(
+      queue.publish(
+        Seq(
+          Datapoint(Map("k1" -> "v1"), timestamp, 42.5),
+          Datapoint(Map("k2" -> "v2"), timestamp, 24.1)
+        )
+      ),
+      1.seconds
     )
 
-    Thread.sleep(threadSleep)
-    assertCounters(2, dropped500 = 2)
+    assertCounters(2, dropped = Map("status_500" -> 2))
     verify(httpClient, times(1)).singleRequest(httpCaptor)
     assertEquals(
       CustomMediaTypes.`application/x-jackson-smile`.toContentType.asInstanceOf[ContentType],
@@ -152,14 +162,16 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     mockResponse(StatusCodes.TooManyRequests)
     val queue =
       new PublishQueue(config, registry, "main", "http://localhost", httpClient, scheduler)
-    queue.publish(
-      Seq(
-        Datapoint(Map("k1" -> "v1"), timestamp, 42.5),
-        Datapoint(Map("k2" -> "v2"), timestamp, 24.1)
-      )
+    Await.ready(
+      queue.publish(
+        Seq(
+          Datapoint(Map("k1" -> "v1"), timestamp, 42.5),
+          Datapoint(Map("k2" -> "v2"), timestamp, 24.1)
+        )
+      ),
+      1.seconds
     )
 
-    Thread.sleep(threadSleep)
     assertCounters(2, retries = 1)
     verify(httpClient, times(1)).singleRequest(httpCaptor)
     assertEquals(
@@ -182,10 +194,9 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
         )
       )
     )
-    queue.publish(payload, 1, 2)
+    Await.ready(queue.publish(payload, 1, 2), 1.seconds)
 
-    Thread.sleep(threadSleep)
-    assertCounters(droppedRetries = 2)
+    assertCounters(dropped = Map("maxRetries" -> 2))
     verify(httpClient, times(1)).singleRequest(httpCaptor)
     assertEquals(
       CustomMediaTypes.`application/x-jackson-smile`.toContentType.asInstanceOf[ContentType],
@@ -198,15 +209,17 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     mockResponse(StatusCodes.OK, t = new UTException("UT"))
     val queue =
       new PublishQueue(config, registry, "main", "http://localhost", httpClient, scheduler)
-    queue.publish(
-      Seq(
-        Datapoint(Map("k1" -> "v1"), timestamp, 42.5),
-        Datapoint(Map("k2" -> "v2"), timestamp, 24.1)
-      )
+    Await.ready(
+      queue.publish(
+        Seq(
+          Datapoint(Map("k1" -> "v1"), timestamp, 42.5),
+          Datapoint(Map("k2" -> "v2"), timestamp, 24.1)
+        )
+      ),
+      1.seconds
     )
 
-    Thread.sleep(threadSleep)
-    assertCounters(2, exceptions = 1, retries = 1)
+    assertCounters(2, retries = 1)
     verify(httpClient, times(1)).singleRequest(httpCaptor)
     assertEquals(
       CustomMediaTypes.`application/x-jackson-smile`.toContentType.asInstanceOf[ContentType],
@@ -218,51 +231,20 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
   def assertCounters(
     sent: Long = 0,
     retries: Long = 0,
-    droppedPartial: Long = 0,
-    droppedComplete: Long = 0,
-    dropped500: Long = 0,
-    droppedQueueFull: Long = 0,
-    droppedRetries: Long = 0,
+    dropped: Map[String, Long] = Map.empty,
     exceptions: Long = 0
   ): Unit = {
     assertEquals(registry.counter("atlas.cloudwatch.queue.dps.sent", "stack", "main").count, sent)
     assertEquals(registry.counter("atlas.cloudwatch.queue.retries", "stack", "main").count, retries)
-    assertEquals(
-      registry
-        .counter("atlas.cloudwatch.queue.dps.dropped", "stack", "main", "reason", "partialFailure")
-        .count,
-      droppedPartial
-    )
-    assertEquals(
-      registry
-        .counter("atlas.cloudwatch.queue.dps.dropped", "stack", "main", "reason", "completeFailure")
-        .count,
-      droppedComplete
-    )
-    assertEquals(
-      registry
-        .counter("atlas.cloudwatch.queue.dps.dropped", "stack", "main", "reason", "status_500")
-        .count,
-      dropped500
-    )
-    assertEquals(
-      registry
-        .counter("atlas.cloudwatch.queue.dps.dropped", "stack", "main", "reason", "queueFull")
-        .count,
-      droppedQueueFull
-    )
-    assertEquals(
-      registry
-        .counter("atlas.cloudwatch.queue.dps.dropped", "stack", "main", "reason", "maxRetries")
-        .count,
-      droppedRetries
-    )
-    assertEquals(
-      registry
-        .counter("atlas.cloudwatch.queue.exception", "stack", "main", "ex", "UTException")
-        .count,
-      exceptions
-    )
+    List("partialFailure", "completeFailure", "status_500", "maxRetries").foreach { reason =>
+      assertEquals(
+        registry
+          .counter("atlas.cloudwatch.queue.dps.dropped", "stack", "main", "reason", reason)
+          .count,
+        dropped.getOrElse(reason, 0L),
+        s"Count differs for ${reason}"
+      )
+    }
   }
 
   def mockResponse(statusCode: StatusCode, content: String = null, t: Throwable = null): Unit = {

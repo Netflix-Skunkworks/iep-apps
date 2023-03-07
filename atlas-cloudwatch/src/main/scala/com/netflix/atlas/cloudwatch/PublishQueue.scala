@@ -37,9 +37,12 @@ import com.typesafe.scalalogging.StrictLogging
 import java.time.Duration
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
+import scala.concurrent.Future
+import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Failure
 import scala.util.Success
+import scala.util.Try
 
 /**
   * Simple queue for batching data points to be sent to publish proxy. Retries occur only on 429s, 504s or exceptions
@@ -61,7 +64,6 @@ class PublishQueue(
     registry.createId("atlas.cloudwatch.queue.dps.dropped", "stack", stack)
   private val datapointsSent = registry.counter("atlas.cloudwatch.queue.dps.sent", "stack", stack)
   private val retryAttempts = registry.counter("atlas.cloudwatch.queue.retries", "stack", stack)
-  private val droppedFull = registry.counter(datapointsDropped.withTags("reason", "queueFull"))
   private val droppedRetries = registry.counter(datapointsDropped.withTags("reason", "maxRetries"))
 
   private val maxRetries = getSetting("maxRetries")
@@ -71,7 +73,7 @@ class PublishQueue(
 
   private[cloudwatch] val publishQueue = StreamOps
     .blockingQueue[AtlasDatapoint](registry, s"${stack}PubQueue", queueSize)
-    .groupedWithin(batchSize, FiniteDuration.apply(batchTimeout.getSeconds, TimeUnit.SECONDS))
+    .groupedWithin(batchSize, FiniteDuration(batchTimeout.toNanos, TimeUnit.NANOSECONDS))
     .map(publish)
     .toMat(Sink.ignore)(Keep.left)
     .run()
@@ -82,20 +84,16 @@ class PublishQueue(
     * @param datapoint
     *     The non-null data point to enqueue.
     */
-  def enqueue(datapoint: AtlasDatapoint): Unit = {
-    if (!publishQueue.offer(datapoint)) {
-      droppedFull.increment()
-    }
-  }
+  def enqueue(datapoint: AtlasDatapoint): Unit = publishQueue.offer(datapoint)
 
-  private[cloudwatch] def publish(datapoints: Seq[AtlasDatapoint]): Unit = {
+  private[cloudwatch] def publish(datapoints: Seq[AtlasDatapoint]): Future[Unit] = {
     val size = datapoints.size
     val payload = Json.smileEncode(MetricsPayload(Map.empty, datapoints))
     datapointsSent.increment(size)
     publish(payload, 0, size)
   }
 
-  private[cloudwatch] def publish(payload: Array[Byte], retries: Int, size: Int): Unit = {
+  private[cloudwatch] def publish(payload: Array[Byte], retries: Int, size: Int): Future[Unit] = {
     val request = HttpRequest(
       HttpMethods.POST,
       uri = uri,
@@ -104,33 +102,44 @@ class PublishQueue(
         ByteString.fromArrayUnsafe(payload)
       )
     )
+    val promise = Promise[Unit]()
     httpClient.singleRequest(request).onComplete {
       case Success(response) =>
         response.status.intValue() match {
           case 200 => // All is well
             response.discardEntityBytes()
+            promise.complete(Try(null))
           case 202 | 206 => // Partial failure
             val id = datapointsDropped.withTag("reason", "partialFailure")
-            incrementFailureCount(id, response, size)
+            incrementFailureCount(id, response, size, promise)
           case 400 => // Bad message, all data dropped
             val id = datapointsDropped.withTag("reason", "completeFailure")
-            incrementFailureCount(id, response, size)
-          case 429 | 504 => // backoff
+            incrementFailureCount(id, response, size, promise)
+          case 429 => // backoff
             retry(payload, retries, size)
-          case v => // Unexpected, assume all dropped
             response.discardEntityBytes()
+            promise.complete(Try(null))
+          case v => // Unexpected, assume all dropped
             val id = datapointsDropped.withTag("reason", s"status_$v")
             registry.counter(id).increment(size)
+            response.discardEntityBytes()
+            promise.complete(Try(null))
         }
 
       case Failure(ex) =>
         logger.error(s"Failed publishing to ${uri} for ${stack}", ex)
-        incrementException(ex)
         retry(payload, retries, size)
+        promise.complete(Try(null))
     }
+    promise.future
   }
 
-  private def incrementFailureCount(id: Id, response: HttpResponse, size: Int): Unit = {
+  private def incrementFailureCount(
+    id: Id,
+    response: HttpResponse,
+    size: Int,
+    promise: Promise[Unit]
+  ): Unit = {
     response.entity.dataBytes.runReduce(_ ++ _).onComplete {
       case Success(bs) =>
         try {
@@ -139,19 +148,16 @@ class PublishQueue(
             logger.warn("failed to validate some datapoints, first reason: {}", reason)
           }
           registry.counter(id).increment(msg.errorCount)
+          promise.complete(Try(null))
         } catch {
           case ex: Throwable =>
             logger.warn("Failed to pub proxy response", ex)
+            promise.complete(Try(null))
         }
       case Failure(_) =>
         registry.counter(id).increment(size)
+        promise.complete(Try(null))
     }
-  }
-
-  private def incrementException(t: Throwable): Unit = {
-    registry
-      .counter("atlas.cloudwatch.queue.exception", "stack", stack, "ex", t.getClass.getSimpleName)
-      .increment()
   }
 
   private def getSetting(setting: String): Int = {
