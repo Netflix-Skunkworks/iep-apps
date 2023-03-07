@@ -28,7 +28,7 @@ import com.netflix.spectator.impl.Cache
 import com.typesafe.config.Config
 
 class AggrConfig(
-  config: Config,
+  val config: Config,
   registry: Registry,
   system: ActorSystem
 ) extends AtlasConfig

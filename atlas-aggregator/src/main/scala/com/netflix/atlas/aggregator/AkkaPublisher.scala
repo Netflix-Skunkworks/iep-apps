@@ -76,6 +76,9 @@ class AkkaPublisher(registry: Registry, config: AggrConfig, implicit val system:
   private val ec: ExecutionContext =
     ThreadPools.fixedSize(registry, "PublishEncoding", encodingParallelism)
 
+  private val pubConfig = config.config.getConfig("atlas.aggregator.publisher")
+  private val queueSize = pubConfig.getInt("queue-size")
+
   private val atlasClient = createClient("publisher-atlas")
   private val lwcClient = createClient("publisher-lwc")
 
@@ -96,7 +99,7 @@ class AkkaPublisher(registry: Registry, config: AggrConfig, implicit val system:
       flow
     }
     StreamOps
-      .blockingQueue[RequestTuple](config.debugRegistry(), name, 1000)
+      .blockingQueue[RequestTuple](config.debugRegistry(), name, queueSize)
       .via(restartFlow)
       .toMat(Sink.ignore)(Keep.left)
       .run()
@@ -106,14 +109,18 @@ class AkkaPublisher(registry: Registry, config: AggrConfig, implicit val system:
 
   override def publish(payload: PublishPayload): CompletableFuture[Void] = {
     val t = new RequestTuple(atlasUri, "publisher-atlas", payload)
-    atlasClient.offer(t)
-    t.future
+    if (atlasClient.offer(t))
+      CompletableFuture.completedFuture(VoidInstance)
+    else
+      CompletableFuture.failedFuture(new IllegalStateException("failed to enqueue atlas request"))
   }
 
   override def publish(payload: EvalPayload): CompletableFuture[Void] = {
     val t = new RequestTuple(evalUri, "publisher-lwc", payload)
-    lwcClient.offer(t)
-    t.future
+    if (lwcClient.offer(t))
+      CompletableFuture.completedFuture(VoidInstance)
+    else
+      CompletableFuture.failedFuture(new IllegalStateException("failed to enqueue lwc request"))
   }
 
   override def close(): Unit = {
