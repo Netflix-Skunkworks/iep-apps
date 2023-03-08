@@ -15,6 +15,7 @@
  */
 package com.netflix.atlas.cloudwatch
 
+import com.netflix.atlas.core.model.Datapoint
 import com.typesafe.config.ConfigException
 import com.typesafe.config.ConfigFactory
 import munit.FunSuite
@@ -59,6 +60,8 @@ class NetflixTaggerSuite extends FunSuite {
         |]
         |common-tags = []
         |netflix-keys = ["nf.asg"]
+        |valid-tag-characters = "-._A-Za-z0-9"
+        |valid-tag-value-characters = []
       """.stripMargin)
 
     val expected = Map(
@@ -73,4 +76,30 @@ class NetflixTaggerSuite extends FunSuite {
     assertEquals(tagger(dimensions), expected)
   }
 
+  test("fix tags") {
+    val cfg = ConfigFactory.parseResources("reference.conf").resolve()
+    val tagger = CloudWatchPoller.getTagger(cfg)
+
+    val original = Datapoint(
+      Map(
+        "name"        -> "fix spaces and! but keep-this.and_that42",
+        "nf.cluster"  -> "carets^and~",
+        "nf.asg"      -> "carets^and~",
+        "not.allowed" -> "carets^and~"
+      ),
+      1677628800000L,
+      42.5
+    )
+    val expected = Datapoint(
+      Map(
+        "name"        -> "fix_spaces_and__but_keep-this.and_that42",
+        "nf.cluster"  -> "carets^and~",
+        "nf.asg"      -> "carets^and~",
+        "not.allowed" -> "carets_and_"
+      ),
+      1677628800000L,
+      42.5
+    )
+    assertEquals(tagger.fixTags(original), expected)
+  }
 }
