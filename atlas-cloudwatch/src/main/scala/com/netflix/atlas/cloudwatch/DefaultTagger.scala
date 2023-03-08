@@ -15,6 +15,8 @@
  */
 package com.netflix.atlas.cloudwatch
 
+import com.netflix.atlas.core.model.Datapoint
+import com.netflix.spectator.impl.AsciiSet
 import com.typesafe.config.Config
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
 
@@ -29,6 +31,19 @@ import scala.util.matching.Regex
 class DefaultTagger(config: Config) extends Tagger {
 
   import scala.jdk.CollectionConverters._
+
+  private val validTagChars = AsciiSet.fromPattern(config.getString("valid-tag-characters"))
+
+  private val validTagValueChars = {
+    import scala.jdk.CollectionConverters._
+    config
+      .getConfigList("valid-tag-value-characters")
+      .asScala
+      .map { cfg =>
+        cfg.getString("key") -> AsciiSet.fromPattern(cfg.getString("value"))
+      }
+      .toMap
+  }
 
   private val extractors: Map[String, List[(Regex, String)]] = config
     .getConfigList("extractors")
@@ -71,6 +86,16 @@ class DefaultTagger(config: Config) extends Tagger {
         }
       }
       .getOrElse(mappings.getOrElse(cwName, cwName) -> cwValue)
+  }
+
+  override def fixTags(d: Datapoint): Datapoint = {
+    val tags = d.tags.map {
+      case (k, v) =>
+        val nk = validTagChars.replaceNonMembers(k, '_')
+        val nv = validTagValueChars.getOrElse(nk, validTagChars).replaceNonMembers(v, '_')
+        nk -> nv
+    }
+    d.copy(tags = tags)
   }
 
   override def apply(dimensions: List[Dimension]): Map[String, String] = {
