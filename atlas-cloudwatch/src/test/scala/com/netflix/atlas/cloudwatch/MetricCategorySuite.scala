@@ -225,6 +225,26 @@ class MetricCategorySuite extends FunSuite {
     )
   }
 
+  test("dimensionsMatch true ignore nf.*") {
+    val cfg = ConfigFactory.parseString("""
+        |namespace = "AWS/ELB"
+        |period = 1 m
+        |dimensions = ["LoadBalancerName"]
+        |metrics = []
+        """.stripMargin)
+
+    val category = MetricCategory.fromConfig(cfg)
+    assert(
+      category.dimensionsMatch(
+        List(
+          Dimension.builder().name("LoadBalancerName").value("UT").build(),
+          Dimension.builder().name("nf.region").value("us-west-2").build(),
+          Dimension.builder().name("nf.account").value("1234").build()
+        )
+      )
+    )
+  }
+
   test("dimensionsMatch too few") {
     val cfg = ConfigFactory.parseString("""
         |namespace = "AWS/ELB"
