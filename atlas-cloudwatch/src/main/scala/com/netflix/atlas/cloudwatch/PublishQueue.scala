@@ -15,6 +15,7 @@
  */
 package com.netflix.atlas.cloudwatch
 
+import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.model.HttpMethods
@@ -86,14 +87,18 @@ class PublishQueue(
     */
   def enqueue(datapoint: AtlasDatapoint): Unit = publishQueue.offer(datapoint)
 
-  private[cloudwatch] def publish(datapoints: Seq[AtlasDatapoint]): Future[Unit] = {
+  private[cloudwatch] def publish(datapoints: Seq[AtlasDatapoint]): Future[NotUsed] = {
     val size = datapoints.size
     val payload = Json.smileEncode(MetricsPayload(Map.empty, datapoints))
     datapointsSent.increment(size)
     publish(payload, 0, size)
   }
 
-  private[cloudwatch] def publish(payload: Array[Byte], retries: Int, size: Int): Future[Unit] = {
+  private[cloudwatch] def publish(
+    payload: Array[Byte],
+    retries: Int,
+    size: Int
+  ): Future[NotUsed] = {
     val request = HttpRequest(
       HttpMethods.POST,
       uri = uri,
@@ -102,13 +107,13 @@ class PublishQueue(
         ByteString.fromArrayUnsafe(payload)
       )
     )
-    val promise = Promise[Unit]()
+    val promise = Promise[NotUsed]()
     httpClient.singleRequest(request).onComplete {
       case Success(response) =>
         response.status.intValue() match {
           case 200 => // All is well
             response.discardEntityBytes()
-            promise.complete(Try(null))
+            promise.complete(Try(NotUsed))
           case 202 | 206 => // Partial failure
             val id = datapointsDropped.withTag("reason", "partialFailure")
             incrementFailureCount(id, response, size, promise)
@@ -118,18 +123,18 @@ class PublishQueue(
           case 429 => // backoff
             retry(payload, retries, size)
             response.discardEntityBytes()
-            promise.complete(Try(null))
+            promise.complete(Try(NotUsed))
           case v => // Unexpected, assume all dropped
             val id = datapointsDropped.withTag("reason", s"status_$v")
             registry.counter(id).increment(size)
             response.discardEntityBytes()
-            promise.complete(Try(null))
+            promise.complete(Try(NotUsed))
         }
 
       case Failure(ex) =>
         logger.error(s"Failed publishing to ${uri} for ${stack}", ex)
         retry(payload, retries, size)
-        promise.complete(Try(null))
+        promise.complete(Try(NotUsed))
     }
     promise.future
   }
@@ -138,7 +143,7 @@ class PublishQueue(
     id: Id,
     response: HttpResponse,
     size: Int,
-    promise: Promise[Unit]
+    promise: Promise[NotUsed]
   ): Unit = {
     response.entity.dataBytes.runReduce(_ ++ _).onComplete {
       case Success(bs) =>
@@ -148,15 +153,15 @@ class PublishQueue(
             logger.warn("failed to validate some datapoints, first reason: {}", reason)
           }
           registry.counter(id).increment(msg.errorCount)
-          promise.complete(Try(null))
+          promise.complete(Try(NotUsed))
         } catch {
           case ex: Throwable =>
             logger.warn("Failed to pub proxy response", ex)
-            promise.complete(Try(null))
+            promise.complete(Try(NotUsed))
         }
       case Failure(_) =>
         registry.counter(id).increment(size)
-        promise.complete(Try(null))
+        promise.complete(Try(NotUsed))
     }
   }
 
