@@ -59,6 +59,8 @@ lazy val `atlas-cloudwatch` = project
     Dependencies.atlasWebApi % "test",
     Dependencies.akkaHttpTestkit % "test",
     Dependencies.akkaTestkit % "test",
+    Dependencies.mockitoCore % "test",
+    Dependencies.mockitoScala % "test",
     Dependencies.munit % "test"
   ))
 
