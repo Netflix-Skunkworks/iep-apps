@@ -22,6 +22,7 @@ import com.netflix.atlas.core.model.QueryVocabulary
 import com.netflix.atlas.core.stacklang.Interpreter
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
+import software.amazon.awssdk.services.cloudwatch.model.Dimension
 import software.amazon.awssdk.services.cloudwatch.model.DimensionFilter
 import software.amazon.awssdk.services.cloudwatch.model.ListMetricsRequest
 import software.amazon.awssdk.services.cloudwatch.model.RecentlyActive
@@ -78,6 +79,11 @@ case class MetricCategory(
 ) {
 
   /**
+    * Whether or not the configuration has one or more monotonic counters.
+    */
+  val hasMonotonic = metrics.find(_.monotonicValue).isDefined
+
+  /**
     * Returns a set of list requests to fetch the metadata for the metrics matching
     * this category. As there may be a lot of data in CloudWatch that we are not
     * interested in, the list is used to restrict to the subset we actually care
@@ -100,6 +106,26 @@ case class MetricCategory(
 
       m -> reqBuilder.build()
     }
+  }
+
+  /**
+    * Determines if the tags provided by Cloud Watch match those in the category config so
+    * that unwanted aggregates or lower level data can be filtered out. Ignores any `nf.*`
+    * tags.
+    *
+    * @param tags
+    *     The non-null data point to evaluate.
+    * @return
+    *     True if the tags match those of the category config, false if there were fewer or
+    *     more tags than expected.
+    */
+  def dimensionsMatch(tags: List[Dimension]): Boolean = {
+    var matched = 0
+    var extraTag = false
+    tags.filter(d => !d.name().startsWith("nf.")).foreach { d =>
+      if (dimensions.contains(d.name())) matched += 1 else extraTag = true
+    }
+    !extraTag && matched == dimensions.size
   }
 }
 
