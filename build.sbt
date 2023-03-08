@@ -39,6 +39,7 @@ lazy val `atlas-aggregator` = project
 
 lazy val `atlas-cloudwatch` = project
   .configure(BuildSettings.profile)
+  .enablePlugins(ProtobufPlugin)
   .settings(libraryDependencies ++= Seq(
     Dependencies.atlasCore,
     Dependencies.atlasJson,
@@ -55,6 +56,7 @@ lazy val `atlas-cloudwatch` = project
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,
     Dependencies.openHFT,
+    Dependencies.protobuf,
 
     Dependencies.atlasWebApi % "test",
     Dependencies.akkaHttpTestkit % "test",

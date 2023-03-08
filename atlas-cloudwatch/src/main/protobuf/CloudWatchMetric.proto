@@ -1,0 +1,28 @@
+syntax = "proto2";
+
+package com.netflix.atlas.cloudwatch;
+
+option java_multiple_files = true;
+option java_package = "com.netflix.atlas.cloudwatch";
+option java_outer_classname = "CloudWatchMetric";
+
+message CloudWatchDimension {
+  required string name = 1;
+  required string value = 2;
+}
+
+message CloudWatchValue {
+  required int64 timestamp = 1;
+  optional double sum = 2;
+  optional double min = 3;
+  optional double max = 4;
+  optional double count = 5;
+}
+
+message CloudWatchCacheEntry {
+  required string namespace = 1;
+  required string metric = 2;
+  required string unit = 3;
+  repeated CloudWatchDimension dimensions = 4;
+  repeated CloudWatchValue data = 5;
+}
