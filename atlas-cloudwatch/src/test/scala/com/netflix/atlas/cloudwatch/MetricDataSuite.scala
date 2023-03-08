@@ -17,7 +17,6 @@ package com.netflix.atlas.cloudwatch
 
 import java.time.Duration
 import java.time.Instant
-import com.netflix.atlas.cloudwatch.CloudWatchPoller.MetricData
 import com.netflix.atlas.core.model.Query
 import munit.FunSuite
 import software.amazon.awssdk.services.cloudwatch.model.Datapoint
