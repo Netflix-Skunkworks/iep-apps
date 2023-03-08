@@ -26,12 +26,6 @@ package object cloudwatch {
   type Tags = Map[String, String]
 
   /**
-    * Converts a list of cloudwatch dimensions into a tag map that can be used
-    * for Atlas.
-    */
-  type Tagger = List[Dimension] => Tags
-
-  /**
     * Converts a cloudwatch datapoint to a floating point value. The conversion is
     * based on the corresponding [[MetricDefinition]]. The full metadata is passed
     * in to allow access to other information that can be useful, such as the period

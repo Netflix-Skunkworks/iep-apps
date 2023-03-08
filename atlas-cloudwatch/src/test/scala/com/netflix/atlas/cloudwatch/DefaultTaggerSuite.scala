@@ -51,6 +51,8 @@ class DefaultTaggerSuite extends FunSuite {
         |    value = "bar"
         |  }
         |]
+        |valid-tag-characters = "-._A-Za-z0-9"
+        |valid-tag-value-characters = []
       """.stripMargin)
 
     val expected = Map(
@@ -75,6 +77,8 @@ class DefaultTaggerSuite extends FunSuite {
         |  }
         |]
         |common-tags = []
+        |valid-tag-characters = "-._A-Za-z0-9"
+        |valid-tag-value-characters = []
       """.stripMargin)
 
     val expected = Map(
@@ -110,6 +114,8 @@ class DefaultTaggerSuite extends FunSuite {
         |]
         |mappings = []
         |common-tags = []
+        |valid-tag-characters = "-._A-Za-z0-9"
+        |valid-tag-value-characters = []
       """.stripMargin)
 
     val expected = Map(
@@ -137,6 +143,8 @@ class DefaultTaggerSuite extends FunSuite {
         |]
         |mappings = []
         |common-tags = []
+        |valid-tag-characters = "-._A-Za-z0-9"
+        |valid-tag-value-characters = []
       """.stripMargin)
 
     intercept[PatternSyntaxException] {
@@ -158,6 +166,8 @@ class DefaultTaggerSuite extends FunSuite {
         |]
         |mappings = []
         |common-tags = []
+        |valid-tag-characters = "-._A-Za-z0-9"
+        |valid-tag-value-characters = []
       """.stripMargin)
 
     intercept[ConfigException.Missing] {
@@ -179,6 +189,8 @@ class DefaultTaggerSuite extends FunSuite {
         |]
         |mappings = []
         |common-tags = []
+        |valid-tag-characters = "-._A-Za-z0-9"
+        |valid-tag-value-characters = []
       """.stripMargin)
 
     val expected = Map(
@@ -215,6 +227,8 @@ class DefaultTaggerSuite extends FunSuite {
         |]
         |mappings = []
         |common-tags = []
+        |valid-tag-characters = "-._A-Za-z0-9"
+        |valid-tag-value-characters = []
       """.stripMargin)
 
     val expected = Map(
@@ -248,6 +262,8 @@ class DefaultTaggerSuite extends FunSuite {
         |  }
         |]
         |common-tags = []
+        |valid-tag-characters = "-._A-Za-z0-9"
+        |valid-tag-value-characters = []
       """.stripMargin)
 
     val expected = Map(
@@ -281,6 +297,8 @@ class DefaultTaggerSuite extends FunSuite {
         |]
         |mappings = []
         |common-tags = []
+        |valid-tag-characters = "-._A-Za-z0-9"
+        |valid-tag-value-characters = []
       """.stripMargin)
 
     val expected = Map(
@@ -309,6 +327,8 @@ class DefaultTaggerSuite extends FunSuite {
         |    value = "bar"
         |  }
         |]
+        |valid-tag-characters = "-._A-Za-z0-9"
+        |valid-tag-value-characters = []
       """.stripMargin)
 
     val expected = Map(
