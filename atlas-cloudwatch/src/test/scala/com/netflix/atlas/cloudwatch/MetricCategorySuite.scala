@@ -119,7 +119,7 @@ class MetricCategorySuite extends FunSuite {
     assertEquals(category.namespace, "AWS/ELB")
     assertEquals(category.period, 60)
     assertEquals(category.toListRequests.size, 2)
-    assertEquals(category.filter, Query.True)
+    assertEquals(category.filter, None)
   }
 
   test("category without timeout") {
@@ -164,7 +164,7 @@ class MetricCategorySuite extends FunSuite {
       """.stripMargin)
 
     val category = MetricCategory.fromConfig(cfg)
-    assertEquals(category.filter, Query.Equal("name", "RequestCount"))
+    assertEquals(category.filter, Some(Query.Equal("name", "RequestCount")))
   }
 
   test("config with invalid filter") {
