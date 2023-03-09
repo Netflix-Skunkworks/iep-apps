@@ -75,7 +75,7 @@ case class MetricCategory(
   timeout: Option[Duration],
   dimensions: List[String],
   metrics: List[MetricDefinition],
-  filter: Query
+  filter: Option[Query]
 ) {
 
   /**
@@ -146,9 +146,9 @@ object MetricCategory extends StrictLogging {
     import scala.jdk.CollectionConverters._
     val metrics = config.getConfigList("metrics").asScala.toList
     val filter =
-      if (!config.hasPath("filter")) Query.True
+      if (!config.hasPath("filter")) None
       else {
-        parseQuery(config.getString("filter"))
+        Some(parseQuery(config.getString("filter")))
       }
     val timeout = if (config.hasPath("timeout")) Some(config.getDuration("timeout")) else None
     val endPeriodOffset =

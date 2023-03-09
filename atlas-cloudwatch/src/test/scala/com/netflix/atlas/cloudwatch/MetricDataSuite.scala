@@ -28,7 +28,16 @@ class MetricDataSuite extends FunSuite {
     MetricDefinition("test", "alias", Conversions.fromName("sum"), false, Map.empty)
 
   private val category =
-    MetricCategory("namespace", 60, 1, 5, None, List("dimension"), List(definition), Query.True)
+    MetricCategory(
+      "namespace",
+      60,
+      1,
+      5,
+      None,
+      List("dimension"),
+      List(definition),
+      Some(Query.True)
+    )
   private val metadata = MetricMetadata(category, definition, Nil)
 
   private val monotonicMetadata = metadata.copy(definition = definition.copy(monotonicValue = true))

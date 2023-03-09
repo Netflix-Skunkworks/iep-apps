@@ -27,7 +27,7 @@ import java.time.Instant
 class MetricDefinitionSuite extends FunSuite {
 
   private val meta = MetricMetadata(
-    MetricCategory("AWS/ELB", 60, 1, 5, None, Nil, Nil, Query.True),
+    MetricCategory("AWS/ELB", 60, 1, 5, None, Nil, Nil, Some(Query.True)),
     null,
     Nil
   )
@@ -248,7 +248,7 @@ class MetricDefinitionSuite extends FunSuite {
       .build()
 
     val metadata = MetricMetadata(
-      MetricCategory("AWS/RDS", 60, 1, 5, None, Nil, Nil, Query.True),
+      MetricCategory("AWS/RDS", 60, 1, 5, None, Nil, Nil, Some(Query.True)),
       definition,
       Nil
     )
