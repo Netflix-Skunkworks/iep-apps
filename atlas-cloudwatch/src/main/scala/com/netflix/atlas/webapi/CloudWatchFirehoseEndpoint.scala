@@ -54,13 +54,7 @@ class CloudWatchFirehoseEndpoint(
   private val parseException = registry.createId("atlas.cloudwatch.firehose.parse.exception")
 
   override def routes: Route = {
-    post {
-      endpointPath("api" / "v1" / "firehose") {
-        handleReq
-      } ~
-      complete(StatusCodes.NotFound)
-    } ~
-    put { // just to be safe
+    (post | put) {
       endpointPath("api" / "v1" / "firehose") {
         handleReq
       } ~
