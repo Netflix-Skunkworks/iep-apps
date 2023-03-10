@@ -18,6 +18,7 @@ package com.netflix.atlas.cloudwatch
 import akka.actor.ActorSystem
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.expirationSeconds
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.newCacheEntry
+import com.netflix.atlas.cloudwatch.RedisClusterCloudWatchMetricsProcessor.getHash
 import com.netflix.atlas.cloudwatch.RedisClusterCloudWatchMetricsProcessor.getKey
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Registry
@@ -48,7 +49,7 @@ import scala.util.Using
 /**
   * A Redis cluster implementation of the Cloud Watch Metrics processor.
   *
-  * Keys are distributed across the cluster based on the XX hash of the AWS data. Scraping works by finiding the leaders
+  * Keys are distributed across the cluster based on the XX hash of the AWS data. Scraping works by finding the leaders
   * foreach scrape, scanning all of the keys, and creating a map of key to slots. Each slot is then fetched in a batch call
   * to consolidate the reads.
   *
@@ -112,7 +113,9 @@ class RedisClusterCloudWatchMetricsProcessor(
         } catch {
           case ex: Exception =>
             // TODO - watch out, this logging could be really nasty if the cluster or node is down
-            logger.debug("Failed to get key from Redis", ex)
+            val slot = JedisClusterCRC16.getSlot(key)
+            val hash = getHash(key)
+            logger.debug(s"Failed to get key ${hash} from Redis for slot ${slot}", ex)
             registry
               .counter(readExs.withTags("call", "get", "ex", ex.getClass.getSimpleName))
               .increment()
@@ -133,7 +136,9 @@ class RedisClusterCloudWatchMetricsProcessor(
       } catch {
         case ex: Exception =>
           // TODO - watch out, this could be really nasty if the cluster or node  is down
-          logger.debug("Failed to set key in Redis", ex)
+          val slot = JedisClusterCRC16.getSlot(key)
+          val hash = getHash(key)
+          logger.debug(s"Failed to set key ${hash} in Redis for slot ${slot}", ex)
           registry
             .counter(writeExs.withTags("call", "set", "ex", ex.getClass.getSimpleName))
             .increment()
@@ -182,7 +187,7 @@ class RedisClusterCloudWatchMetricsProcessor(
             scanKeys(node)
               .onComplete {
                 case Success(slotToKeys) =>
-                  logger.debug(s"Finished slot to keys call ${slotToKeys.size}")
+                  logger.debug(s"Finished slot to keys call with ${slotToKeys.size} slots")
                   val batches = ArrayBuffer[Future[Unit]]()
                   slotToKeys.values.foreach(keys => {
                     batches += getAndPublish(node, keys, ts)
@@ -355,7 +360,9 @@ class RedisClusterCloudWatchMetricsProcessor(
       }
     } catch {
       case ex: Exception =>
-        logger.debug("Failed to delete key in Redis", ex)
+        val slot = JedisClusterCRC16.getSlot(key.asInstanceOf[Array[Byte]])
+        val hash = getHash(key.asInstanceOf[Array[Byte]])
+        logger.debug(s"Failed to delete key ${hash} in Redis for slot ${slot}", ex)
         registry
           .counter(writeExs.withTags("call", "del", "ex", ex.getClass.getSimpleName))
           .increment()
@@ -381,6 +388,10 @@ object RedisClusterCloudWatchMetricsProcessor extends StrictLogging {
     val bytes = keyArrays.get()
     ByteBuffer.wrap(bytes).putLong(4, hash)
     bytes
+  }
+
+  private[cloudwatch] def getHash(key: Array[Byte]): Long = {
+    ByteBuffer.wrap(key).getLong(4)
   }
 
 }
