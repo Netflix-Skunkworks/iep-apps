@@ -59,6 +59,7 @@ lazy val `atlas-cloudwatch` = project
     Dependencies.openHFT,
     Dependencies.protobuf,
 
+    Dependencies.atlasAkkaTestkit % "test",
     Dependencies.atlasWebApi % "test",
     Dependencies.akkaHttpTestkit % "test",
     Dependencies.akkaTestkit % "test",
