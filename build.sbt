@@ -52,6 +52,7 @@ lazy val `atlas-cloudwatch` = project
     Dependencies.iepSpringLeader,
     Dependencies.iepSpringLeaderDDb,
     Dependencies.iepService,
+    Dependencies.jedis,
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,
