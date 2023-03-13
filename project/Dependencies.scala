@@ -56,6 +56,7 @@ object Dependencies {
   val iepService         = "com.netflix.iep" % "iep-service" % iep
   val iepSpring          = "com.netflix.iep" % "iep-spring" % iep
   val iepSpringLeaderDDb = "com.netflix.iep" % "iep-spring-leader-dynamodb" % iep
+  val iepSpringLeaderRds = "com.netflix.iep" % "iep-spring-leader-redis-cluster" % "5.0.0-SNAPSHOT"
   val iepSpringAdmin     = "com.netflix.iep" % "iep-spring-admin" % iep
   val iepSpringAtlas     = "com.netflix.iep" % "iep-spring-atlas" % iep
   val iepSpringAws2      = "com.netflix.iep" % "iep-spring-aws2" % iep
