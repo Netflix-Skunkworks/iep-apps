@@ -45,10 +45,6 @@ import java.util.Optional
 @Configuration
 class CloudWatchConfiguration extends StrictLogging {
 
-  // REPLACE With the dyn config jar include
-  @Bean
-  def getConfig: Config = ConfigFactory.load()
-
   @Bean
   def cloudWatchRules(config: Config): CloudWatchRules = new CloudWatchRules(config)
 
