@@ -84,7 +84,7 @@ class AkkaPublisher(registry: Registry, config: AggrConfig, implicit val system:
 
   private def createClient(name: String): StreamOps.SourceQueue[RequestTuple] = {
     val flow = Flow[RequestTuple]
-      .mapAsync(encodingParallelism) { t =>
+      .mapAsyncUnordered(encodingParallelism) { t =>
         Future(t.mkRequest() -> t)(ec)
       }
       .via(Http().superPool[RequestTuple]())
