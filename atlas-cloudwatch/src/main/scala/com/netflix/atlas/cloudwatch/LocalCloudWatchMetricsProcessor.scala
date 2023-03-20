@@ -46,9 +46,10 @@ class LocalCloudWatchMetricsProcessor(
   registry: Registry,
   rules: CloudWatchRules,
   tagger: Tagger,
-  publishRouter: PublishRouter
+  publishRouter: PublishRouter,
+  debugger: CloudWatchDebugger
 )(override implicit val system: ActorSystem)
-    extends CloudWatchMetricsProcessor(config, registry, rules, tagger, publishRouter) {
+    extends CloudWatchMetricsProcessor(config, registry, rules, tagger, publishRouter, debugger) {
 
   //                                               writeTS, expSec, data
   private val cache = new ConcurrentHashMap[Long, (Long, Long, Array[Byte])]

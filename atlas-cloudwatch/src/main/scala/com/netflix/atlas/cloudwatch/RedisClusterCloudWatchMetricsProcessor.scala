@@ -65,9 +65,10 @@ class RedisClusterCloudWatchMetricsProcessor(
   jedis: JedisCluster,
   leaderStatus: LeaderStatus,
   rules: CloudWatchRules,
-  publishRouter: PublishRouter
+  publishRouter: PublishRouter,
+  debugger: CloudWatchDebugger
 )(override implicit val system: ActorSystem)
-    extends CloudWatchMetricsProcessor(config, registry, rules, tagger, publishRouter) {
+    extends CloudWatchMetricsProcessor(config, registry, rules, tagger, publishRouter, debugger) {
 
   private implicit val executionContext = system.dispatchers.lookup("redis-io-dispatcher")
 
