@@ -78,6 +78,7 @@ class PublishQueue(
     .map(publish)
     .toMat(Sink.ignore)(Keep.left)
     .run()
+  logger.info(s"Setup queue for stack ${stack} publishing URI ${uri}")
 
   /**
     * Adds the data point to the queue if there is room. Increments a metric if not.

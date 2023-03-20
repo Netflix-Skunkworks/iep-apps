@@ -133,7 +133,7 @@ object MetricCategory extends StrictLogging {
 
   private val interpreter = Interpreter(QueryVocabulary.allWords)
 
-  private def parseQuery(query: String): Query = {
+  private[cloudwatch] def parseQuery(query: String): Query = {
     interpreter.execute(query).stack match {
       case (q: Query) :: Nil => q
       case _ =>
