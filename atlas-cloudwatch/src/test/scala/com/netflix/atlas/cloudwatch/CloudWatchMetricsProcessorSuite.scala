@@ -686,6 +686,49 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
     assertCounters(1, publishFuture = 1)
   }
 
+  test("processDatapoints 2 rules match") {
+    processor.processDatapoints(
+      List(
+        makeFirehoseMetric(
+          "AWS/UT1",
+          "TwoRuleMatch",
+          List(Dimension.builder().name("MyTag").value("Val").build()),
+          Array(39.0, 1.0, 7.0, 19),
+          "None",
+          timestamp - 60_00
+        )
+      ),
+      timestamp - 60_00
+    )
+
+    // yup, two values with the same tag set. Just the min and max values.
+    assertPublished(
+      List(
+        com.netflix.atlas.core.model.Datapoint(
+          Map(
+            "name"         -> "aws.utm.2rulematch",
+            "nf.region"    -> "us-west-2",
+            "aws.tag"      -> "Val",
+            "atlas.dstype" -> "gauge"
+          ),
+          timestamp,
+          1
+        ),
+        com.netflix.atlas.core.model.Datapoint(
+          Map(
+            "name"         -> "aws.utm.2rulematch",
+            "nf.region"    -> "us-west-2",
+            "aws.tag"      -> "Val",
+            "atlas.dstype" -> "gauge"
+          ),
+          timestamp,
+          7
+        )
+      )
+    )
+    assertCounters(1)
+  }
+
   test("normalize") {
     assertEquals(1677706140000L, normalize(1677706164123L, 60))
     assertEquals(1677705900000L, normalize(1677706164123L, 300))
@@ -941,7 +984,7 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
     assertEquals(routerCaptor.values.size, dps.size)
 
     dps.foreach { dp =>
-      val metric = routerCaptor.values.filter(_.tags.equals(dp.tags)).headOption match {
+      val metric = routerCaptor.values.filter(_.equals(dp)).headOption match {
         case Some(d) => d
         case None =>
           throw new AssertionError(s"Data point not found: ${dp} in ${routerCaptor.values}")
