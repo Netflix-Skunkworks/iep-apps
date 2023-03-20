@@ -54,6 +54,7 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
   var publishRouter: PublishRouter = null
   var processor: CloudWatchMetricsProcessor = null
   var routerCaptor = ArgCaptor[AtlasDatapoint]
+  var debugger: CloudWatchDebugger = null
   val config = ConfigFactory.load()
   val tagger = new NetflixTagger(config.getConfig("atlas.cloudwatch.tagger"))
   val rules: CloudWatchRules = new CloudWatchRules(config)
@@ -67,7 +68,9 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
   override def beforeEach(context: BeforeEach): Unit = {
     registry = new DefaultRegistry()
     publishRouter = mock[PublishRouter]
-    processor = new LocalCloudWatchMetricsProcessor(config, registry, rules, tagger, publishRouter)
+    debugger = new CloudWatchDebugger(config, registry)
+    processor =
+      new LocalCloudWatchMetricsProcessor(config, registry, rules, tagger, publishRouter, debugger)
     routerCaptor = ArgCaptor[AtlasDatapoint]
   }
 
@@ -95,7 +98,7 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
       timestamp
     )
     assertPublished(List.empty)
-    assertCounters(1, filtered = Map("namespace" -> 1))
+    assertCounters(1, filtered = Map("namespace" -> (1, "AWS/SomeNoneExistingNS")))
   }
 
   test("processDatapoints no metric match") {
@@ -112,7 +115,7 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
       timestamp
     )
     assertPublished(List.empty)
-    assertCounters(1, filtered = Map("metric" -> 1))
+    assertCounters(1, filtered = Map("metric" -> (1, "AWS/UT1")))
   }
 
   test("processDatapoints missing tag") {
@@ -129,7 +132,7 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
       timestamp
     )
     assertPublished(List.empty)
-    assertCounters(1, filtered = Map("tags" -> 1))
+    assertCounters(1, filtered = Map("tags" -> (1, "AWS/UT1")))
   }
 
   test("processDatapoints Filter by query") {
@@ -146,7 +149,7 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
       timestamp
     )
     assertPublished(List.empty)
-    assertCounters(1, filtered = Map("query" -> 1))
+    assertCounters(1, filtered = Map("query" -> (1, "AWS/UTQueryFilter")))
   }
 
   test("processDatapoints matched dist-summary") {
@@ -345,21 +348,18 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
     assertCounters(1)
   }
 
-  test("processDatapoints config with timeout") {
+  test("processDatapoints config with timeout - single value not timedout") {
     // 15m timeout so we make sure the data sticks around that long at least and we keep posting the last
     // value.
-    var dp = makeFirehoseMetric(
+    val dp = makeFirehoseMetric(
       "AWS/UT1",
       "TimeOut",
       List(Dimension.builder().name("MyTag").value("Val").build()),
       Array(1, 1, 1, 1),
       "None",
-      timestamp - (60_000 * 10)
+      timestamp - (60_000 * 1)
     )
-    processor.processDatapoints(List(dp), timestamp - 60_000)
-
-    dp = dp.copy(datapoint = makeDatapoint(Array(2, 2, 2, 2), timestamp - (60_000 * 5)))
-    processor.processDatapoints(List(dp), timestamp)
+    processor.processDatapoints(List(dp), timestamp - (60_000 * 1))
 
     assertPublished(
       List(
@@ -371,10 +371,93 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
             "atlas.dstype" -> "gauge"
           ),
           timestamp,
-          2
+          1
         )
       )
     )
+    assertCounters(1)
+  }
+
+  test("processDatapoints config with timeout - single value timedout") {
+    // 15m timeout so we make sure the data sticks around that long at least and we keep posting the last
+    // value.
+    val dp = makeFirehoseMetric(
+      "AWS/UT1",
+      "TimeOut",
+      List(Dimension.builder().name("MyTag").value("Val").build()),
+      Array(1, 1, 1, 1),
+      "None",
+      timestamp - (60_000 * 14)
+    )
+    processor.processDatapoints(List(dp), timestamp - (60_000 * 14))
+
+    assertPublished(
+      List(
+        com.netflix.atlas.core.model.Datapoint(
+          Map(
+            "name"         -> "aws.utm.timeout",
+            "aws.tag"      -> "Val",
+            "nf.region"    -> "us-west-2",
+            "atlas.dstype" -> "gauge"
+          ),
+          timestamp,
+          0
+        )
+      )
+    )
+    assertCounters(1)
+  }
+
+  test("processDatapoints config with timeout - two values timedout") {
+    // 15m timeout so we make sure the data sticks around that long at least and we keep posting the last
+    // value.
+    var dp = makeFirehoseMetric(
+      "AWS/UT1",
+      "TimeOut",
+      List(Dimension.builder().name("MyTag").value("Val").build()),
+      Array(1, 1, 1, 1),
+      "None",
+      timestamp - (60_000 * 15)
+    )
+    processor.processDatapoints(List(dp), timestamp - (60_000 * 15))
+
+    dp = dp.copy(datapoint = makeDatapoint(Array(2, 2, 2, 2), timestamp - (60_000 * 14)))
+    processor.processDatapoints(List(dp), timestamp - (60_000 * 14))
+
+    assertPublished(
+      List(
+        com.netflix.atlas.core.model.Datapoint(
+          Map(
+            "name"         -> "aws.utm.timeout",
+            "aws.tag"      -> "Val",
+            "nf.region"    -> "us-west-2",
+            "atlas.dstype" -> "gauge"
+          ),
+          timestamp,
+          0
+        )
+      )
+    )
+    assertCounters(2)
+  }
+
+  test("processDatapoints config with timeout - two values past timed") {
+    // 15m timeout so we make sure the data sticks around that long at least and we keep posting the last
+    // value.
+    var dp = makeFirehoseMetric(
+      "AWS/UT1",
+      "TimeOut",
+      List(Dimension.builder().name("MyTag").value("Val").build()),
+      Array(1, 1, 1, 1),
+      "None",
+      timestamp - (60_000 * 17)
+    )
+    processor.processDatapoints(List(dp), timestamp - (60_000 * 17))
+
+    dp = dp.copy(datapoint = makeDatapoint(Array(2, 2, 2, 2), timestamp - (60_000 * 16)))
+    processor.processDatapoints(List(dp), timestamp - (60_000 * 16))
+
+    assertPublished(List.empty)
     assertCounters(2)
   }
 
@@ -447,13 +530,50 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
     assertCounters(2)
   }
 
+  test("processDatapoints config 5m") {
+    var dp = makeFirehoseMetric(
+      "AWS/UT1",
+      "5Min",
+      List(Dimension.builder().name("MyTag").value("Val").build()),
+      Array(1, 1, 1, 1),
+      "None",
+      timestamp - (60_000 * 5)
+    )
+    processor.processDatapoints(List(dp), timestamp - (60_000 * 5))
+
+    dp = dp.copy(datapoint = makeDatapoint(Array(2, 2, 2, 1), timestamp))
+    processor.processDatapoints(List(dp), timestamp)
+
+    assertPublished(
+      List(
+        com.netflix.atlas.core.model.Datapoint(
+          Map(
+            "name"         -> "aws.utm.5min",
+            "nf.region"    -> "us-west-2",
+            "aws.tag"      -> "Val",
+            "atlas.dstype" -> "rate"
+          ),
+          timestamp,
+          0.0033333333333333335
+        )
+      )
+    )
+    assertCounters(2)
+  }
+
   test("processDatapoints purged namespace") {
     val ruleSpy = spy(rules)
     when(ruleSpy.rules)
       .thenCallRealMethod()
       .thenReturn(Map.empty)
-    processor =
-      new LocalCloudWatchMetricsProcessor(config, registry, ruleSpy, tagger, publishRouter)
+    processor = new LocalCloudWatchMetricsProcessor(
+      config,
+      registry,
+      ruleSpy,
+      tagger,
+      publishRouter,
+      debugger
+    )
     processor.processDatapoints(
       List(makeFirehoseMetric(Array(39.0, 1.0, 7.0, 19), timestamp)),
       timestamp
@@ -468,8 +588,14 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
     when(ruleSpy.rules)
       .thenCallRealMethod()
       .thenReturn(Map("AWS/UT1" -> Map("SomeMetric" -> (category, List.empty))))
-    processor =
-      new LocalCloudWatchMetricsProcessor(config, registry, ruleSpy, tagger, publishRouter)
+    processor = new LocalCloudWatchMetricsProcessor(
+      config,
+      registry,
+      ruleSpy,
+      tagger,
+      publishRouter,
+      debugger
+    )
     processor.processDatapoints(
       List(makeFirehoseMetric(Array(39.0, 1.0, 7.0, 19), timestamp)),
       timestamp
@@ -491,8 +617,14 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
           )
         )
       )
-    processor =
-      new LocalCloudWatchMetricsProcessor(config, registry, ruleSpy, tagger, publishRouter)
+    processor = new LocalCloudWatchMetricsProcessor(
+      config,
+      registry,
+      ruleSpy,
+      tagger,
+      publishRouter,
+      debugger
+    )
     processor.processDatapoints(
       List(makeFirehoseMetric(Array(39.0, 1.0, 7.0, 19), timestamp)),
       timestamp
@@ -514,8 +646,14 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
           )
         )
       )
-    processor =
-      new LocalCloudWatchMetricsProcessor(config, registry, ruleSpy, tagger, publishRouter)
+    processor = new LocalCloudWatchMetricsProcessor(
+      config,
+      registry,
+      ruleSpy,
+      tagger,
+      publishRouter,
+      debugger
+    )
     processor.processDatapoints(
       List(makeFirehoseMetric(Array(39.0, 1.0, 7.0, 19), timestamp)),
       timestamp
@@ -528,7 +666,7 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
   test("processDatapoints future data point") {
     processor.processDatapoints(
       List(makeFirehoseMetric(Array(39.0, 1.0, 7.0, 19), timestamp + 60_000)),
-      timestamp
+      timestamp + 60_000
     )
 
     assertPublished(
@@ -815,7 +953,7 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
 
   def assertCounters(
     received: Long,
-    filtered: Map[String, Long] = Map.empty,
+    filtered: Map[String, (Long, String)] = Map.empty,
     dupes: Long = 0,
     droppedOld: Long = 0,
     ooo: Long = 0,
@@ -825,15 +963,20 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
   ): Unit = {
     assertEquals(registry.counter("atlas.cloudwatch.datapoints.received").count(), received)
     List("namespace", "metric", "tags", "query").foreach { reason =>
+      val (count, ns) = filtered.getOrElse(reason, (0L, "NA"))
       assertEquals(
-        registry.counter("atlas.cloudwatch.datapoints.filtered", "reason", reason).count(),
-        filtered.getOrElse(reason, 0L),
+        registry
+          .counter("atlas.cloudwatch.datapoints.filtered", "aws.namespace", ns, "reason", reason)
+          .count(),
+        count,
         s"Count differs for ${reason}"
       )
     }
 
     assertEquals(
-      registry.counter("atlas.cloudwatch.datapoints.dupes", "namespace", "AWS/DynamoDB").count(),
+      registry
+        .counter("atlas.cloudwatch.datapoints.dupes", "aws.namespace", "AWS/DynamoDB")
+        .count(),
       dupes
     )
     assertEquals(
@@ -842,14 +985,14 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
           "atlas.cloudwatch.datapoints.dropped",
           "reason",
           "tooOld",
-          "namespace",
+          "aws.namespace",
           "AWS/DynamoDB"
         )
         .count(),
       droppedOld
     )
     assertEquals(
-      registry.counter("atlas.cloudwatch.datapoints.ooo", "namespace", "AWS/DynamoDB").count(),
+      registry.counter("atlas.cloudwatch.datapoints.ooo", "aws.namespace", "AWS/DynamoDB").count(),
       ooo
     )
 
@@ -861,11 +1004,13 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
       )
     }
     assertEquals(
-      registry.counter("atlas.cloudwatch.publish.empty", "namespace", "AWS/UT1").count(),
+      registry.counter("atlas.cloudwatch.publish.empty", "aws.namespace", "AWS/UT1").count(),
       publishEmpty
     )
     assertEquals(
-      registry.counter("atlas.cloudwatch.publish.future", "namespace", "AWS/UT1").count(),
+      registry
+        .distributionSummary("atlas.cloudwatch.publish.future", "aws.namespace", "AWS/UT1")
+        .count(),
       publishFuture
     )
   }
