@@ -18,11 +18,12 @@ package com.netflix.atlas.spring
 import akka.actor.ActorSystem
 import com.netflix.atlas.akka.AkkaHttpClient
 import com.netflix.atlas.akka.DefaultAkkaHttpClient
+import com.netflix.atlas.cloudwatch.CloudWatchDebugger
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor
 import com.netflix.atlas.cloudwatch.CloudWatchRules
-import com.netflix.atlas.cloudwatch.NetflixTagger
 import com.netflix.atlas.cloudwatch.PublishRouter
 import com.netflix.atlas.cloudwatch.RedisClusterCloudWatchMetricsProcessor
+import com.netflix.atlas.cloudwatch.NetflixTagger
 import com.netflix.atlas.cloudwatch.Tagger
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Registry
@@ -44,6 +45,10 @@ import java.util.Optional
   */
 @Configuration
 class CloudWatchConfiguration extends StrictLogging {
+
+  // REPLACE With the dyn config jar include
+  @Bean
+  def getConfig: Config = ConfigFactory.load()
 
   @Bean
   def cloudWatchRules(config: Config): CloudWatchRules = new CloudWatchRules(config)
@@ -74,6 +79,7 @@ class CloudWatchConfiguration extends StrictLogging {
     leaderStatus: LeaderStatus,
     rules: CloudWatchRules,
     publishRouter: PublishRouter,
+    debugger: CloudWatchDebugger,
     system: ActorSystem
   ): CloudWatchMetricsProcessor = {
     val r = registry.orElseGet(() => globalRegistry())
@@ -84,7 +90,8 @@ class CloudWatchConfiguration extends StrictLogging {
       jedis,
       leaderStatus,
       rules,
-      publishRouter
+      publishRouter,
+      debugger
     )(system)
   }
 
@@ -125,5 +132,14 @@ class CloudWatchConfiguration extends StrictLogging {
       config.getInt("atlas.cloudwatch.redis.cmd.timeout"),
       poolConfig
     )
+  }
+
+  @Bean
+  def debugger(
+    config: Config,
+    registry: Optional[Registry]
+  ): CloudWatchDebugger = {
+    val r = registry.orElseGet(() => globalRegistry())
+    new CloudWatchDebugger(config, r)
   }
 }

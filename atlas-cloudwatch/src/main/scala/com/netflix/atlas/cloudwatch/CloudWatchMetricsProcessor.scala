@@ -45,43 +45,36 @@ import scala.concurrent.duration.FiniteDuration
   * Also note that we store only the base tags and data from Cloudwatch, not the enriched or converted values. This allows
   * us to store a bit less data in the cache. However we do validate the data twice through the rules. This also give us
   * the ability to update rules and clear out anything from the cache that is no longer relevant.
-  *
-  * @param config
-  *     Non-null config to pull settings from.
-  * @param registry
-  *     Non-null registry to report metrics.
-  * @param rules
-  *     Non-null rules set to use for matching incoming data.
-  * @param system
-  *     The Akka system we use for scheduling.
   */
 abstract class CloudWatchMetricsProcessor(
   config: Config,
   registry: Registry,
   rules: CloudWatchRules,
   tagger: Tagger,
-  publishRouter: PublishRouter
+  publishRouter: PublishRouter,
+  debugger: CloudWatchDebugger
 )(implicit val system: ActorSystem)
     extends StrictLogging {
 
   /** The number of data points received by the processor from cloud watch.  */
   private[cloudwatch] val received = registry.counter("atlas.cloudwatch.datapoints.received")
+  private[cloudwatch] val receivedAge = registry.createId("atlas.cloudwatch.datapoints.age")
 
   /** The number of data points filtered out before caching due to not having a namespace config. */
   private[cloudwatch] val filteredNS =
-    registry.counter("atlas.cloudwatch.datapoints.filtered", "reason", "namespace")
+    registry.createId("atlas.cloudwatch.datapoints.filtered", "reason", "namespace")
 
   /** The number of data points filtered out before caching due to not having a metric config. */
   private[cloudwatch] val filteredMetric =
-    registry.counter("atlas.cloudwatch.datapoints.filtered", "reason", "metric")
+    registry.createId("atlas.cloudwatch.datapoints.filtered", "reason", "metric")
 
   /** The number of data points filtered out before caching due to missing or extraneous tags not definied in the category. */
   private[cloudwatch] val filteredTags =
-    registry.counter("atlas.cloudwatch.datapoints.filtered", "reason", "tags")
+    registry.createId("atlas.cloudwatch.datapoints.filtered", "reason", "tags")
 
   /** The number of data points filtered out before caching due to a query filter. */
   private[cloudwatch] val filteredQuery =
-    registry.counter("atlas.cloudwatch.datapoints.filtered", "reason", "query")
+    registry.createId("atlas.cloudwatch.datapoints.filtered", "reason", "query")
 
   /** The number of data points overwriting a duplicate value. */
   private[cloudwatch] val dupes = registry.createId("atlas.cloudwatch.datapoints.dupes")
@@ -113,9 +106,14 @@ abstract class CloudWatchMetricsProcessor(
     * old and existing values being expired. */
   private[cloudwatch] val publishEmpty = registry.createId("atlas.cloudwatch.publish.empty")
 
-  /** The number of data points still published even though their timestamp was for a time later than the expected
-    * publishing time. This is usually related to end-period-offsets but may be clock issues. */
+  /** The number of data points still published even though their timestamp was for at least one step
+    *  later than the expected publishing time. This is usually related to end-period-offsets but may be
+    *  clock issues. */
   private[cloudwatch] val publishFuture = registry.createId("atlas.cloudwatch.publish.future")
+  private[cloudwatch] val publishAtOffset = registry.createId("atlas.cloudwatch.publish.atOffset")
+  private[cloudwatch] val staleAge = registry.createId("atlas.cloudwatch.publish.stale.age")
+  private[cloudwatch] val staleWTimeout = registry.createId("atlas.cloudwatch.publish.inTimeout")
+  private[cloudwatch] val publishStep = registry.createId("atlas.cloudwatch.publish.step")
 
   private val step = config.getDuration("atlas.cloudwatch.step").getSeconds.toInt
   private val publishDelay = config.getDuration("atlas.cloudwatch.publishOffset").getSeconds.toInt
@@ -130,6 +128,7 @@ abstract class CloudWatchMetricsProcessor(
       ((step * 1000) - (now - topOfMinute)) + (publishDelay * 1000)
     }
     logger.info(s"Starting publishing in ${delay / 1000.0} seconds.")
+    logger.info(s"Publishing with in test mode: ${testMode}")
     system.scheduler.scheduleAtFixedRate(
       FiniteDuration.apply(delay, TimeUnit.MILLISECONDS),
       FiniteDuration.apply(step, TimeUnit.SECONDS)
@@ -157,30 +156,40 @@ abstract class CloudWatchMetricsProcessor(
 
     datapoints.foreach { dp =>
       rules.rules.get(dp.namespace) match {
-        case None => filteredNS.increment()
+        case None =>
+          registry.counter(filteredNS.withTag("aws.namespace", dp.namespace)).increment()
+          debugger.debugIncoming(dp, IncomingMatch.DroppedNS, receivedTimestamp)
         case Some(namespaceRules) =>
           namespaceRules.get(dp.metricName) match {
-            case None => filteredMetric.increment()
+            case None =>
+              registry.counter(filteredMetric.withTag("aws.namespace", dp.namespace)).increment()
+              debugger.debugIncoming(dp, IncomingMatch.DroppedMetric, receivedTimestamp)
             case Some(tuple) =>
-              if (!tuple._1.dimensionsMatch(dp.dimensions)) {
-                filteredTags.increment()
-              } else if (tuple._1.filter.isDefined && tuple._1.filter.get.matches(toTagMap(dp))) {
-                filteredQuery.increment()
+              val (category, _) = tuple
+              if (!category.dimensionsMatch(dp.dimensions)) {
+                registry.counter(filteredTags.withTag("aws.namespace", dp.namespace)).increment()
+                debugger.debugIncoming(
+                  dp,
+                  IncomingMatch.DroppedTag,
+                  receivedTimestamp,
+                  Some(category)
+                )
+              } else if (category.filter.isDefined && tuple._1.filter.get.matches(toTagMap(dp))) {
+                registry.counter(filteredQuery.withTag("aws.namespace", dp.namespace)).increment()
+                debugger.debugIncoming(
+                  dp,
+                  IncomingMatch.DroppedFilter,
+                  receivedTimestamp,
+                  Some(category)
+                )
               } else {
                 // finally passed the checks.
-                updateCache(dp, tuple._1, receivedTimestamp)
+                updateCache(dp, category, receivedTimestamp)
+                val delay = receivedTimestamp - dp.datapoint.timestamp().toEpochMilli
+                registry
+                  .distributionSummary(receivedAge.withTag("aws.namespace", dp.namespace))
+                  .record(delay)
               }
-
-              val delay = receivedTimestamp - dp.datapoint.timestamp().toEpochMilli
-              registry
-                .distributionSummary(
-                  "atlas.cloudwatch.namespace.delay",
-                  "namespace",
-                  tuple._1.namespace,
-                  "metric",
-                  dp.metricName
-                )
-                .record(delay)
           }
       }
     }
@@ -249,20 +258,31 @@ abstract class CloudWatchMetricsProcessor(
       new util.LinkedList[CloudWatchValue](data.asScala.filter(_.getTimestamp >= oldest).asJava)
     val ts = normalize(datapoint.datapoint.timestamp().toEpochMilli, category.period)
     if (ts < oldest) {
-      logger.warn(
-        s"Dropping data for namespace {} and metric {} that was older than the retention period of ${exp / 1000}s. {}s over.",
-        category.namespace,
-        datapoint.metricName,
-        (oldest - ts) / 1000.0
-      )
-      registry.counter(droppedOld.withTag("namespace", category.namespace)).increment()
+      registry.counter(droppedOld.withTag("aws.namespace", category.namespace)).increment()
+      debugger.debugIncoming(datapoint, IncomingMatch.DroppedOld, receivedTimestamp, Some(category))
     } else {
       if (filtered.isEmpty) {
         filtered.add(newValue(ts, datapoint.datapoint))
+        debugger.debugIncoming(
+          datapoint,
+          IncomingMatch.Accepted,
+          receivedTimestamp,
+          Some(category),
+          Some(InsertState.Append),
+          filtered
+        )
       } else if (filtered.get(0).getTimestamp > ts) {
         // prepend
         filtered.add(0, newValue(ts, datapoint.datapoint))
-        registry.counter(outOfOrder.withTag("namespace", category.namespace)).increment()
+        registry.counter(outOfOrder.withTag("aws.namespace", category.namespace)).increment()
+        debugger.debugIncoming(
+          datapoint,
+          IncomingMatch.Accepted,
+          receivedTimestamp,
+          Some(category),
+          Some(InsertState.OOO),
+          filtered
+        )
       } else {
         // see if we need to overwrite or insert
         var added = false
@@ -270,17 +290,28 @@ abstract class CloudWatchMetricsProcessor(
         while (i < filtered.size() && !added) {
           val dp = filtered.get(i)
           if (dp.getTimestamp == ts) {
-            logger.debug(
-              s"Duplicate value for namespace {} and metric {}",
-              category.namespace,
-              datapoint.metricName
-            )
-            registry.counter(dupes.withTag("namespace", category.namespace)).increment()
+            registry.counter(dupes.withTag("aws.namespace", category.namespace)).increment()
             filtered.set(i, newValue(ts, datapoint.datapoint))
+            debugger.debugIncoming(
+              datapoint,
+              IncomingMatch.Accepted,
+              receivedTimestamp,
+              Some(category),
+              Some(InsertState.Update),
+              filtered
+            )
             added = true
           } else if (dp.getTimestamp > ts) {
             filtered.add(i, newValue(ts, datapoint.datapoint))
-            registry.counter(outOfOrder.withTag("namespace", category.namespace)).increment()
+            registry.counter(outOfOrder.withTag("aws.namespace", category.namespace)).increment()
+            debugger.debugIncoming(
+              datapoint,
+              IncomingMatch.Accepted,
+              receivedTimestamp,
+              Some(category),
+              Some(InsertState.Append),
+              filtered
+            )
             added = true
           }
           i += 1
@@ -289,6 +320,14 @@ abstract class CloudWatchMetricsProcessor(
         if (!added) {
           // apppend
           filtered.add(newValue(ts, datapoint.datapoint))
+          debugger.debugIncoming(
+            datapoint,
+            IncomingMatch.Accepted,
+            receivedTimestamp,
+            Some(category),
+            Some(InsertState.Append),
+            filtered
+          )
         }
       }
     }
@@ -300,27 +339,32 @@ abstract class CloudWatchMetricsProcessor(
     val entry = CloudWatchCacheEntry.parseFrom(data)
     if (entry.getDataCount == 0) {
       delete(key)
-      registry.counter(publishEmpty.withTag("namespace", entry.getNamespace)).increment()
-      return
+      registry.counter(publishEmpty.withTag("aws.namespace", entry.getNamespace)).increment()
+      debugger.debugScrape(entry, timestamp, ScrapeState.Empty)
+      return null
     }
 
     rules.rules.get(entry.getNamespace) match {
       case None =>
         delete(key)
         purgedNS.increment()
+        debugger.debugScrape(entry, timestamp, ScrapeState.PurgedNS)
       case Some(namespaceRules) =>
         namespaceRules.get(entry.getMetric) match {
           case None =>
             delete(key)
             purgedMetric.increment()
+            debugger.debugScrape(entry, timestamp, ScrapeState.PurgedMetric)
           case Some(tuple) =>
             val (category, definitions) = tuple
             if (!category.dimensionsMatch(toAWSDimensions(entry))) {
               delete(key)
               purgedTags.increment()
+              debugger.debugScrape(entry, timestamp, ScrapeState.PurgedTag)
             } else if (category.filter.isDefined && category.filter.get.matches(toTagMap(entry))) {
               delete(key)
               purgedQuery.increment()
+              debugger.debugScrape(entry, timestamp, ScrapeState.PurgedFilter)
             } else {
               var i = 0
               val offsetTimestamp =
@@ -328,52 +372,129 @@ abstract class CloudWatchMetricsProcessor(
               while (i < entry.getDataCount && entry.getData(i).getTimestamp < offsetTimestamp) {
                 i += 1
               }
-              if (i == entry.getDataCount) {
-                i = entry.getDataCount - 1
+
+              val tuple = if (i >= entry.getDataCount) {
+                val dp = entry.getData(entry.getDataCount - 1)
+                val delta = (timestamp - dp.getTimestamp) / 1000
+                registry
+                  .distributionSummary(staleAge.withTag("aws.namespace", category.namespace))
+                  .record(delta)
+                category.timeout match {
+                  case Some(timeout) =>
+                    // nothing satisfies the offset so we check for timeouts and only publish if there
+                    // was a value within the timeout period
+                    if (timestamp - dp.getTimestamp < timeout.toMillis) {
+                      registry
+                        .counter(staleWTimeout.withTag("aws.namespace", category.namespace))
+                        .increment()
+                      debugger.debugScrape(
+                        entry,
+                        timestamp,
+                        ScrapeState.InTimeout,
+                        offsetTimestamp,
+                        Some(dp),
+                        Some(category)
+                      )
+                      Some(toAWSDatapoint(dp, entry.getUnit)) -> None
+                    } else {
+                      debugger.debugScrape(
+                        entry,
+                        timestamp,
+                        ScrapeState.Stale,
+                        offsetTimestamp,
+                        Some(dp),
+                        Some(category)
+                      )
+                      None -> None
+                    }
+                  case None =>
+                    debugger.debugScrape(
+                      entry,
+                      timestamp,
+                      ScrapeState.Stale,
+                      offsetTimestamp,
+                      Some(dp),
+                      Some(category)
+                    )
+                    None -> None
+                }
+              } else {
+                val dp = entry.getData(i)
+                if (dp.getTimestamp > offsetTimestamp) {
+                  registry
+                    .distributionSummary(
+                      publishFuture.withTags("aws.namespace", category.namespace)
+                    )
+                    .record(dp.getTimestamp - offsetTimestamp)
+                  debugger.debugScrape(
+                    entry,
+                    timestamp,
+                    ScrapeState.Future,
+                    offsetTimestamp,
+                    Some(dp),
+                    Some(category)
+                  )
+                } else {
+                  registry
+                    .counter(publishAtOffset.withTags("aws.namespace", category.namespace))
+                    .increment()
+                  debugger.debugScrape(
+                    entry,
+                    timestamp,
+                    ScrapeState.OnTime,
+                    offsetTimestamp,
+                    Some(dp),
+                    Some(category)
+                  )
+                }
+
+                val p = if (i > 0) {
+                  val pdp = entry.getData(i - 1)
+                  val delta = (dp.getTimestamp - pdp.getTimestamp) / 1000
+                  registry
+                    .distributionSummary(publishStep.withTags("aws.namespace", category.namespace))
+                    .record(delta)
+                  Some(toAWSDatapoint(pdp, entry.getUnit))
+                } else None
+
+                p -> Some(toAWSDatapoint(dp, entry.getUnit))
               }
-              // TODO - it's possible that a value in the future relative to the lookup timestamp is returned here, e.g.
-              // if the entry at index 0 is greater than timestamp. In that case, do we not report? OR report the value?
-              if (entry.getData(i).getTimestamp > offsetTimestamp) {
-                registry.counter(publishFuture.withTag("namespace", category.namespace)).increment()
-              }
-              // TODO - there are some configs where the timeout is less than the period * period count, e.g. Neptune.
-              // if we _don't_ want the last available value to keep posting all the time, then we need to incorporate
-              // that timeout here. Otherwise, e.g. for a value posted once a day, we'll keep posting the daily value until
-              // we get a new one.
-              val cur = toAWSDatapoint(entry.getData(i), entry.getUnit)
-              val prev = if (i > 0) {
-                Some(toAWSDatapoint(entry.getData(i - 1), entry.getUnit))
-              } else None
-              definitions.foreach { d =>
-                val metric = MetricData(
-                  MetricMetadata(category, d, toAWSDimensions(entry)),
-                  prev,
-                  Some(cur),
-                  if (prev.isDefined) Some(Instant.ofEpochMilli(prev.get.timestamp().toEpochMilli))
-                  else None
-                )
-                val atlasDp = toAtlasDatapoint(metric, timestamp)
-                publishRouter.publish(atlasDp)
+
+              tuple match {
+                case (p: Option[Datapoint], c: Option[Datapoint]) =>
+                  definitions.foreach { d =>
+                    val metric = MetricData(
+                      MetricMetadata(category, d, toAWSDimensions(entry)),
+                      p,
+                      c,
+                      if (p.isDefined) Some(Instant.ofEpochMilli(p.get.timestamp().toEpochMilli))
+                      else None
+                    )
+                    val atlasDp = toAtlasDatapoint(metric, timestamp)
+                    if (!atlasDp.value.isNaN) {
+                      publishRouter.publish(atlasDp)
+                    }
+                  }
+                case (_, _) => // no-op
               }
             }
         }
     }
   }
 
-  private[cloudwatch] def toAtlasDatapoint(
-    metric: MetricData,
-    receivedTimestamp: Long
-  ): AtlasDatapoint = {
+  private[cloudwatch] def toAtlasDatapoint(metric: MetricData, timestamp: Long): AtlasDatapoint = {
     val definition = metric.meta.definition
     val ts = tagger(metric.meta.dimensions) ++ definition.tags + ("name" ->
       // TODO - clean this out once tests are finished
       (if (testMode) s"TEST.${definition.alias}" else definition.alias))
-    val newValue = definition.conversion(metric.meta, metric.datapoint())
+    val newValue =
+      definition.conversion(metric.meta, metric.datapoint(Instant.ofEpochMilli(timestamp)))
     // NOTE - the polling CW code uses now for the timestamp, likely for LWC. BUT data could be off by
     // minutes potentially. And it didn't account for the offset value as far as I could tell. Now we'll at least
     // use the offset value.
-    new AtlasDatapoint(ts, receivedTimestamp, newValue)
+    new AtlasDatapoint(ts, timestamp, newValue)
   }
+
 }
 
 object CloudWatchMetricsProcessor {
@@ -506,7 +627,7 @@ object CloudWatchMetricsProcessor {
       entry.getDimensionsList.asScala
         .map(d => d.getName -> d.getValue)
         .append("name" -> entry.getMetric)
-        .append("aws.namespace" -> entry.getNamespace)
+        .append("aws.namespace" -> entry.getNamespace.replaceAll("/", "_"))
         .iterator
     )
   }
@@ -516,6 +637,8 @@ object CloudWatchMetricsProcessor {
     * Query filter from a [MetricCategory] config. Note that the `name` and `aws.namespace` tags are populated per
     * Atlas standards.
     *
+    * @param entry
+    * The non-null entry to encode.
     * @return
     * A non-null map with at least the `name` and `aws.namespace` tags.
     */
@@ -525,7 +648,7 @@ object CloudWatchMetricsProcessor {
       datapoint.dimensions
         .map(d => d.name() -> d.value())
         .appended("name" -> datapoint.metricName)
-        .appended("aws.namespace" -> datapoint.namespace)
+        .appended("aws.namespace" -> datapoint.namespace.replaceAll("/", "_"))
         .iterator
     )
   }
@@ -541,16 +664,14 @@ object CloudWatchMetricsProcessor {
     *     How long, in seconds, before expiration.
     */
   private[cloudwatch] def expirationSeconds(category: MetricCategory): Long = {
-    val periodCount =
-      if (category.hasMonotonic) category.periodCount + 1
-      else category.periodCount
+    var periodCount = Math.max(category.periodCount, category.endPeriodOffset)
+    if (category.hasMonotonic) periodCount += 1
     val periodExpiration = periodCount * category.period
 
     if (category.timeout.isDefined) {
-      Math.max(periodExpiration, category.timeout.get.getSeconds)
+      periodExpiration + (category.timeout.get.getSeconds * 2)
     } else {
       periodExpiration
     }
   }
-
 }
