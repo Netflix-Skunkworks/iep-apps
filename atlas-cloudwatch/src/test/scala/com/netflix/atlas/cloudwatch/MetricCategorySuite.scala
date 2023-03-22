@@ -16,11 +16,12 @@
 package com.netflix.atlas.cloudwatch
 
 import java.time.Duration
-
 import com.netflix.atlas.core.model.Query
 import com.typesafe.config.ConfigException
 import com.typesafe.config.ConfigFactory
+import junit.framework.TestCase.assertFalse
 import munit.FunSuite
+import software.amazon.awssdk.services.cloudwatch.model.Dimension
 
 class MetricCategorySuite extends FunSuite {
 
@@ -184,5 +185,54 @@ class MetricCategorySuite extends FunSuite {
     intercept[IllegalStateException] {
       MetricCategory.fromConfig(cfg)
     }
+  }
+
+  test("dimensionsMatch true") {
+    val cfg = ConfigFactory.parseString("""
+        |namespace = "AWS/ELB"
+        |period = 1 m
+        |dimensions = ["LoadBalancerName"]
+        |metrics = []
+        """.stripMargin)
+
+    val category = MetricCategory.fromConfig(cfg)
+    assert(
+      category.dimensionsMatch(
+        List(
+          Dimension.builder().name("LoadBalancerName").value("UT").build()
+        )
+      )
+    )
+  }
+
+  test("dimensionsMatch too few") {
+    val cfg = ConfigFactory.parseString("""
+        |namespace = "AWS/ELB"
+        |period = 1 m
+        |dimensions = ["LoadBalancerName"]
+        |metrics = []
+        """.stripMargin)
+
+    val category = MetricCategory.fromConfig(cfg)
+    assertFalse(category.dimensionsMatch(List.empty))
+  }
+
+  test("dimensionsMatch too many") {
+    val cfg = ConfigFactory.parseString("""
+        |namespace = "AWS/ELB"
+        |period = 1 m
+        |dimensions = ["LoadBalancerName"]
+        |metrics = []
+        """.stripMargin)
+
+    val category = MetricCategory.fromConfig(cfg)
+    assertFalse(
+      category.dimensionsMatch(
+        List(
+          Dimension.builder().name("LoadBalancerName").value("UT").build(),
+          Dimension.builder().name("ExtraDimension").value("UT").build()
+        )
+      )
+    )
   }
 }
