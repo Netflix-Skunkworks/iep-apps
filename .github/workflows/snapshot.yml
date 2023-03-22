@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - v0.3.x
 
 jobs:
   build:
