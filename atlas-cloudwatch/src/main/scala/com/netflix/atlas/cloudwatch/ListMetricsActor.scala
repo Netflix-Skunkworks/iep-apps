@@ -61,7 +61,7 @@ class ListMetricsActor(client: CloudWatchClient, tagger: Tagger) extends Actor w
         }
         logger.debug(s"before filtering, found ${candidates.size} metrics for $mname")
         val after = candidates.filter { m =>
-          category.filter.matches(tagger(m.dimensions))
+          category.filter.matches(tagger(m.dimensions)) && category.dimensionsMatch(m.dimensions)
         }
         logger.debug(s"after filtering, found ${after.size} metrics for $mname")
         after

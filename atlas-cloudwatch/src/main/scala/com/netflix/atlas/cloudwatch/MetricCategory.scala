@@ -22,6 +22,7 @@ import com.netflix.atlas.core.model.QueryVocabulary
 import com.netflix.atlas.core.stacklang.Interpreter
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
+import software.amazon.awssdk.services.cloudwatch.model.Dimension
 import software.amazon.awssdk.services.cloudwatch.model.DimensionFilter
 import software.amazon.awssdk.services.cloudwatch.model.ListMetricsRequest
 import software.amazon.awssdk.services.cloudwatch.model.RecentlyActive
@@ -101,6 +102,19 @@ case class MetricCategory(
       m -> reqBuilder.build()
     }
   }
+
+  /**
+    * Determines if the tags provided by Cloud Watch match those in the category config so
+    * that unwanted aggregates or lower level data can be filtered out.
+    *
+    * @param tags
+    * The non-null data point to evaluate.
+    * @return
+    * True if the tags match those of the category config, false if there were fewer or
+    * more tags than expected.
+    */
+  def dimensionsMatch(tags: List[Dimension]): Boolean =
+    tags.size == dimensions.size && tags.forall(d => dimensions.contains(d.name))
 }
 
 object MetricCategory extends StrictLogging {
