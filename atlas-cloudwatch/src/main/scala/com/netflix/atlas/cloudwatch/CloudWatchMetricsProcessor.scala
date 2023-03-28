@@ -256,7 +256,7 @@ abstract class CloudWatchMetricsProcessor(
 
     val filtered =
       new util.LinkedList[CloudWatchValue](data.asScala.filter(_.getTimestamp >= oldest).asJava)
-    val ts = normalize(datapoint.datapoint.timestamp().toEpochMilli, category.period)
+    val ts = normalize(datapoint.datapoint.timestamp().toEpochMilli, 60)
     if (ts < oldest) {
       registry.counter(droppedOld.withTag("aws.namespace", category.namespace)).increment()
       debugger.debugIncoming(datapoint, IncomingMatch.DroppedOld, receivedTimestamp, Some(category))
