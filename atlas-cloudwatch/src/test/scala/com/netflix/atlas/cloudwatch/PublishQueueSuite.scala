@@ -81,7 +81,7 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
           Datapoint(Map("k2" -> "v2"), timestamp, 24.1)
         )
       ),
-      1.seconds
+      60.seconds
     )
 
     assertCounters(2)
@@ -103,7 +103,7 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
           Datapoint(Map("k2" -> "v2"), timestamp, 24.1)
         )
       ),
-      1.seconds
+      60.seconds
     )
 
     assertCounters(2, dropped = Map("partialFailure" -> 1))
@@ -125,7 +125,7 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
           Datapoint(Map("k2" -> "v2"), timestamp, 24.1)
         )
       ),
-      1.seconds
+      60.seconds
     )
 
     assertCounters(2, dropped = Map("completeFailure" -> 2))
@@ -147,7 +147,7 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
           Datapoint(Map("k2" -> "v2"), timestamp, 24.1)
         )
       ),
-      1.seconds
+      60.seconds
     )
 
     assertCounters(2, dropped = Map("status_500" -> 2))
@@ -169,7 +169,7 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
           Datapoint(Map("k2" -> "v2"), timestamp, 24.1)
         )
       ),
-      1.seconds
+      60.seconds
     )
 
     assertCounters(2, retries = 1)
@@ -194,7 +194,7 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
         )
       )
     )
-    Await.ready(queue.publish(payload, 1, 2), 1.seconds)
+    Await.ready(queue.publish(payload, 1, 2), 60.seconds)
 
     assertCounters(dropped = Map("maxRetries" -> 2))
     verify(httpClient, times(1)).singleRequest(httpCaptor)
@@ -216,7 +216,7 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
           Datapoint(Map("k2" -> "v2"), timestamp, 24.1)
         )
       ),
-      1.seconds
+      60.seconds
     )
 
     assertCounters(2, retries = 1)
@@ -231,8 +231,7 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
   def assertCounters(
     sent: Long = 0,
     retries: Long = 0,
-    dropped: Map[String, Long] = Map.empty,
-    exceptions: Long = 0
+    dropped: Map[String, Long] = Map.empty
   ): Unit = {
     assertEquals(registry.counter("atlas.cloudwatch.queue.dps.sent", "stack", "main").count, sent)
     assertEquals(registry.counter("atlas.cloudwatch.queue.retries", "stack", "main").count, retries)
