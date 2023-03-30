@@ -27,6 +27,8 @@ import com.netflix.atlas.util.XXHasher
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
+import software.amazon.awssdk.services.cloudwatch.model.Datapoint
+import software.amazon.awssdk.services.cloudwatch.model.Metric
 
 import java.io.ByteArrayOutputStream
 import java.time.Duration
@@ -35,11 +37,6 @@ import java.util.concurrent.ConcurrentHashMap
 import scala.jdk.CollectionConverters._
 import scala.util.Using
 
-/**
-  * A utility to debug Cloud Watch data by intercepting messages at various stages and printing a JSON
-  * message along with some debug metrics tagged with the AWS namespace and metric. Uses a combination of
-  * flags and ASL queries to select data to debug.
-  */
 class CloudWatchDebugger(
   config: Config,
   registry: Registry
@@ -72,6 +69,9 @@ class CloudWatchDebugger(
 
   private[cloudwatch] val filteredAge =
     registry.createId("atlas.cloudwatch.dbg.ingest.filtered.age")
+
+  private[cloudwatch] val filteredEmpty =
+    registry.createId("atlas.cloudwatch.dbg.ingest.filtered.empty")
   private[cloudwatch] val accepted = registry.createId("atlas.cloudwatch.dbg.ingest.accepted")
 
   private[cloudwatch] val scrapeEmpty = registry.createId("atlas.cloudwatch.dbg.scrape.empty")
@@ -193,6 +193,107 @@ class CloudWatchDebugger(
 
           if (cacheEntries.size() >= 2) {
             json.writeNumberField("avgStep", ((step / (cacheEntries.size() - 1)) / 1000).toInt)
+          }
+        }
+        json.writeEndObject()
+      }
+
+      logger.info(stream.toString("UTF-8"))
+    } catch {
+      case ex: Exception => logger.error("whoops", ex)
+    }
+  }
+
+  def debugPolled(
+    metric: Metric,
+    incomingMatch: IncomingMatch,
+    timestamp: Long,
+    category: MetricCategory,
+    dataPoints: java.util.List[Datapoint] = Collections.emptyList()
+  ): Unit = {
+    if (config.isEmpty) return
+
+    if (
+      !rules.matches(toTagMap(metric)) &&
+      !(debugTags && incomingMatch == IncomingMatch.DroppedTag) &&
+      !(debugAge && incomingMatch == IncomingMatch.DroppedOld)
+    ) return
+
+    try {
+      // if we've already debugged a similar namespace metric and dimension key set. Purposely
+      // not including the tag values.
+      val ts = normalize(timestamp, 60)
+      val hashCode = hash(metric)
+      val prevReport = incomingLimiter.put(hashCode, timestamp)
+
+      val tags = Map(
+        "aws.namespace" -> metric.namespace(),
+        "metrics"       -> metric.metricName()
+      ).asJava
+
+      incomingMatch match {
+        case IncomingMatch.DroppedNS =>
+          registry.counter(filteredNS.withTags(tags)).increment()
+        case IncomingMatch.DroppedMetric =>
+          registry.counter(filteredMetric.withTags(tags)).increment()
+        case IncomingMatch.DroppedTag =>
+          registry.counter(filteredTags.withTags(tags)).increment()
+        case IncomingMatch.DroppedFilter =>
+          registry.counter(filteredFilter.withTags(tags)).increment()
+        case IncomingMatch.DroppedEmpty =>
+          registry.counter(filteredEmpty.withTags(tags)).increment()
+        case IncomingMatch.Accepted =>
+          registry.counter(accepted.withTags(tags)).increment()
+      }
+      if (prevReport == ts) return // here's our limiter
+
+      val stream = new ByteArrayOutputStream()
+      Using.resource(Json.newJsonGenerator(stream)) { json =>
+        json.writeStartObject()
+        json.writeStringField("state", "incoming")
+        json.writeNumberField("hash", hashCode)
+        json.writeNumberField("rts", timestamp)
+        json.writeStringField("ns", metric.namespace())
+        json.writeStringField("metric", metric.metricName())
+        json.writeObjectFieldStart("tags")
+        metric.dimensions.asScala.foreach(d => json.writeStringField(d.name(), d.value()))
+        json.writeEndObject()
+
+        json.writeStringField("filtered", incomingMatch.toString)
+        json.writeObjectFieldStart("cat")
+        json.writeNumberField("p", category.period)
+        json.writeNumberField("off", category.endPeriodOffset)
+        json.writeNumberField("to", category.timeout.getOrElse(Duration.ofSeconds(0)).getSeconds)
+        json.writeArrayFieldStart("tags")
+        category.dimensions.foreach(d => json.writeString(d))
+        json.writeEndArray()
+        json.writeEndObject()
+
+        if (!dataPoints.isEmpty) {
+          var step = 0L
+          var last = 0L
+          json.writeArrayFieldStart("cached")
+          for (i <- 0 until dataPoints.size()) {
+            val d = dataPoints.get(i)
+            val dts = d.timestamp().toEpochMilli
+            json.writeStartObject()
+            json.writeNumberField("ts", dts)
+            json.writeNumberField("offFromWindow", (ts - dts).toInt / 1000)
+            json.writeNumberField("sum", d.sum())
+            json.writeNumberField("min", d.minimum())
+            json.writeNumberField("max", d.maximum())
+            json.writeNumberField("count", d.sampleCount())
+            if (last != 0) {
+              step += (dts - last)
+            }
+            last = dts
+
+            json.writeEndObject()
+          }
+          json.writeEndArray()
+
+          if (dataPoints.size() >= 2) {
+            json.writeNumberField("avgStep", ((step / (dataPoints.size() - 1)) / 1000).toInt)
           }
         }
         json.writeEndObject()
@@ -351,12 +452,25 @@ class CloudWatchDebugger(
       .foreach(d => hash = XXHasher.updateHash(hash, d.getName))
     hash
   }
+
+  def hash(metric: Metric): Long = {
+    var hash = XXHasher.hash(metric.namespace())
+    hash = XXHasher.updateHash(hash, metric.metricName())
+    metric
+      .dimensions()
+      .asScala
+      .sortBy(_.name)
+      .foreach(d => hash = XXHasher.updateHash(hash, d.name))
+    hash
+  }
 }
 
 object IncomingMatch extends Enumeration {
 
   type IncomingMatch = Value
-  val DroppedNS, DroppedMetric, DroppedTag, DroppedFilter, DroppedOld, Accepted = Value
+
+  val DroppedNS, DroppedMetric, DroppedTag, DroppedFilter, DroppedOld, DroppedEmpty, Accepted =
+    Value
 }
 
 object InsertState extends Enumeration {
