@@ -66,6 +66,11 @@ import software.amazon.awssdk.services.cloudwatch.model.RecentlyActive
   *     Query expression used to select the set of metrics which should get published.
   *     This can sometimes be useful for debugging or if there are many "spammy" metrics
   *     for a given category.
+  * @param pollOffset
+  *     An optional flag that tells the app to poll for data instead of expecting it from
+  *     the Firehose stream. Represents an offset from midnight as to when to poll the
+  *     data. E.g. S3 daily metrics may be available 7 hours after midnight so set an
+  *     offset of 8 hours to make sure it is ready.
   */
 case class MetricCategory(
   namespace: String,
@@ -75,7 +80,8 @@ case class MetricCategory(
   timeout: Option[Duration],
   dimensions: List[String],
   metrics: List[MetricDefinition],
-  filter: Option[Query]
+  filter: Option[Query],
+  pollOffset: Option[Duration] = None
 ) {
 
   /**
@@ -154,6 +160,8 @@ object MetricCategory extends StrictLogging {
     val endPeriodOffset =
       if (config.hasPath("end-period-offset")) config.getInt("end-period-offset") else 1
     val periodCount = if (config.hasPath("period-count")) config.getInt("period-count") else 6
+    val pollOffset =
+      if (config.hasPath("poll-offset")) Some(config.getDuration("poll-offset")) else None
 
     apply(
       namespace = config.getString("namespace"),
@@ -163,7 +171,8 @@ object MetricCategory extends StrictLogging {
       timeout = timeout,
       dimensions = config.getStringList("dimensions").asScala.toList,
       metrics = metrics.flatMap(MetricDefinition.fromConfig),
-      filter = filter
+      filter = filter,
+      pollOffset = pollOffset
     )
   }
 }
