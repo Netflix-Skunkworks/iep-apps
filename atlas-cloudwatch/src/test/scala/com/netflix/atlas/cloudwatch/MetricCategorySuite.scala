@@ -207,6 +207,27 @@ class MetricCategorySuite extends FunSuite {
     assert(category.hasMonotonic)
   }
 
+  test("category with poll offset") {
+    val cfg = ConfigFactory.parseString("""
+        namespace = "AWS/ELB"
+        |period = 1m
+        |poll-offset = 7h
+        |dimensions = ["LoadBalancerName"]
+        |metrics = [
+        |  {
+        |    name = "RequestCount"
+        |    alias = "aws.elb.requests"
+        |    conversion = "sum,rate",
+        |    monotonic = true
+        |  }
+        |]
+        |filter = "name,RequestCount,:eq"
+      """.stripMargin)
+
+    val category = MetricCategory.fromConfig(cfg)
+    assertEquals(category.pollOffset.get, Duration.ofHours(7))
+  }
+
   test("dimensionsMatch true") {
     val cfg = ConfigFactory.parseString("""
         |namespace = "AWS/ELB"
