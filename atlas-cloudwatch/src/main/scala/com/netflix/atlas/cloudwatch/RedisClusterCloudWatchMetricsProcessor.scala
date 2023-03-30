@@ -95,6 +95,7 @@ class RedisClusterCloudWatchMetricsProcessor(
     .count(config.getInt("atlas.redis-cluster.scan.count"))
   private val commandObjects = new CommandObjects()
   private val maxBatch = config.getInt("atlas.redis-cluster.batch.size")
+  private val pollKey = "cw_last_poll".getBytes("UTF-8")
 
   private val currentScan = new AtomicReference[Future[Unit]]()
   private val running = new AtomicBoolean(false)
@@ -367,6 +368,23 @@ class RedisClusterCloudWatchMetricsProcessor(
         registry
           .counter(writeExs.withTags("call", "del", "ex", ex.getClass.getSimpleName))
           .increment()
+    }
+  }
+
+  override protected[cloudwatch] def lastSuccessfulPoll: Long = {
+    jedis.get(pollKey) match {
+      case null  => 0
+      case bytes => ByteBuffer.wrap(bytes).getLong()
+    }
+  }
+
+  override protected[cloudwatch] def updateLastSuccessfulPoll(timestamp: Long): Unit = {
+    val bytes = new Array[Byte](8)
+    ByteBuffer.wrap(bytes).putLong(timestamp)
+    jedis.set(pollKey, bytes) match {
+      case null => logger.error("Failed to set last poll key. Null response.")
+      case "OK" => // no-op
+      case unk  => logger.error(s"Failed to set last poll key: ${unk}")
     }
   }
 

@@ -22,6 +22,7 @@ import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 import scala.concurrent.Future
 
 /**
@@ -53,6 +54,7 @@ class LocalCloudWatchMetricsProcessor(
 
   //                                               writeTS, expSec, data
   private val cache = new ConcurrentHashMap[Long, (Long, Long, Array[Byte])]
+  private val lastPoll = new AtomicLong()
 
   override protected def updateCache(
     datapoint: FirehoseMetric,
@@ -93,6 +95,11 @@ class LocalCloudWatchMetricsProcessor(
   override protected[cloudwatch] def delete(key: Any): Unit = {
     cache.remove(key)
   }
+
+  override protected[cloudwatch] def lastSuccessfulPoll: Long = lastPoll.get()
+
+  override protected[cloudwatch] def updateLastSuccessfulPoll(timestamp: Long): Unit =
+    lastPoll.set(timestamp)
 
   private[cloudwatch] def inject(
     key: Long,
