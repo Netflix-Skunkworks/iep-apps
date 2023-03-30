@@ -226,6 +226,20 @@ abstract class CloudWatchMetricsProcessor(
   protected[cloudwatch] def delete(key: Any): Unit
 
   /**
+    * @return
+    *     The last successful poll time in unix epoch milliseconds.
+    */
+  protected[cloudwatch] def lastSuccessfulPoll: Long
+
+  /**
+    * Updates the last successful poll time.
+    *
+    * @param timestamp
+    *     The unix epoch milliseconds of the last successful poll.
+    */
+  protected[cloudwatch] def updateLastSuccessfulPoll(timestamp: Long): Unit
+
+  /**
     * Inserts the given data point in the proper order of the CloudWatchCloudWatchCacheEntry **AND** expires any old data from
     * the entry. Note that this can lead to empty cache entries and those should likely be deleted.
     * Duplicates are overwritten.
