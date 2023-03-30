@@ -28,6 +28,7 @@ import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import software.amazon.awssdk.services.cloudwatch.model.Datapoint
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
+import software.amazon.awssdk.services.cloudwatch.model.Metric
 
 import java.time.Instant
 import java.util
@@ -663,6 +664,29 @@ object CloudWatchMetricsProcessor {
         .map(d => d.name() -> d.value())
         .appended("name" -> datapoint.metricName)
         .appended("aws.namespace" -> datapoint.namespace.replaceAll("/", "_"))
+        .iterator
+    )
+  }
+
+  /**
+    * Converts the dimensions from the CloudWatch Metric to a sorted tag map to use in evaluating against a
+    * Query filter from a [MetricCategory] config. Note that the `name` and `aws.namespace` tags are populated per
+    * Atlas standards.
+    *
+    * @param metric
+    *     The non-null entry to encode.
+    * @return
+    *     A non-null map with at least the `name` and `aws.namespace` tags.
+    */
+  private[cloudwatch] def toTagMap(metric: Metric): Map[String, String] = {
+    SmallHashMap(
+      metric.dimensions().size() + 2,
+      metric
+        .dimensions()
+        .asScala
+        .map(d => d.name() -> d.value())
+        .append("name" -> metric.metricName())
+        .append("aws.namespace" -> metric.namespace().replaceAll("/", "_"))
         .iterator
     )
   }
