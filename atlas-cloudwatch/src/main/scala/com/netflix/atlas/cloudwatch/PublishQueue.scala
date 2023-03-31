@@ -27,9 +27,8 @@ import akka.util.ByteString
 import com.netflix.atlas.akka.AkkaHttpClient
 import com.netflix.atlas.akka.CustomMediaTypes
 import com.netflix.atlas.akka.StreamOps
+import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.json.Json
-import com.netflix.atlas.poller.Messages
-import com.netflix.atlas.poller.Messages.MetricsPayload
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
@@ -149,7 +148,7 @@ class PublishQueue(
     response.entity.dataBytes.runReduce(_ ++ _).onComplete {
       case Success(bs) =>
         try {
-          val msg = Json.decode[Messages.FailureResponse](bs.toArray)
+          val msg = Json.decode[FailureResponse](bs.toArray)
           msg.message.headOption.foreach { reason =>
             logger.warn("failed to validate some datapoints, first reason: {}", reason)
           }
@@ -193,3 +192,28 @@ class PublishQueue(
     retryAttempts.increment()
   }
 }
+
+/**
+  * Represents a failure response message from the publish endpoint.
+  *
+  * @param `type`
+  * Message type. Should always be "error".
+  * @param errorCount
+  * Number of datapoints that failed validation.
+  * @param message
+  * Reasons for why datapoints were dropped.
+  */
+case class FailureResponse(`type`: String, errorCount: Int, message: List[String])
+
+/**
+  * Metrics payload that pollers will send back to the manager.
+  *
+  * @param tags
+  * Common tags that should get added to all metrics in the payload.
+  * @param metrics
+  * Metrics collected by the poller.
+  */
+case class MetricsPayload(
+  tags: Map[String, String] = Map.empty,
+  metrics: Iterable[Datapoint] = Nil
+)
