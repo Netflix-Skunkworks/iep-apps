@@ -25,6 +25,7 @@ import com.netflix.atlas.cloudwatch.PublishRouter
 import com.netflix.atlas.cloudwatch.RedisClusterCloudWatchMetricsProcessor
 import com.netflix.atlas.cloudwatch.NetflixTagger
 import com.netflix.atlas.cloudwatch.Tagger
+import com.netflix.atlas.util.ExecutorFactory
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.Spectator.globalRegistry
@@ -48,6 +49,9 @@ class CloudWatchConfiguration extends StrictLogging {
 
   @Bean
   def cloudWatchRules(config: Config): CloudWatchRules = new CloudWatchRules(config)
+
+  @Bean
+  def executorFactor: ExecutorFactory = new ExecutorFactory
 
   @Bean
   def tagger(config: Config): Tagger = new NetflixTagger(
