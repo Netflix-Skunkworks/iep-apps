@@ -29,7 +29,6 @@ import com.netflix.atlas.akka.AkkaHttpClient
 import com.netflix.atlas.akka.CustomMediaTypes
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.json.Json
-import com.netflix.atlas.poller.Messages.MetricsPayload
 import com.netflix.atlas.webapi.PublishApi.FailureMessage
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.Registry
