@@ -54,7 +54,7 @@ class LocalCloudWatchMetricsProcessor(
 
   //                                               writeTS, expSec, data
   private val cache = new ConcurrentHashMap[Long, (Long, Long, Array[Byte])]
-  private val lastPoll = new AtomicLong()
+  private val lastPoll = new ConcurrentHashMap[String, AtomicLong]
 
   override protected[cloudwatch] def updateCache(
     datapoint: FirehoseMetric,
@@ -96,10 +96,14 @@ class LocalCloudWatchMetricsProcessor(
     cache.remove(key)
   }
 
-  override protected[cloudwatch] def lastSuccessfulPoll: Long = lastPoll.get()
+  override protected[cloudwatch] def lastSuccessfulPoll(id: String): Long = {
+    val lastPoll = this.lastPoll.get(id)
+    if (lastPoll == null) 0L else lastPoll.get()
+  }
 
-  override protected[cloudwatch] def updateLastSuccessfulPoll(timestamp: Long): Unit =
-    lastPoll.set(timestamp)
+  override protected[cloudwatch] def updateLastSuccessfulPoll(id: String, timestamp: Long): Unit = {
+    lastPoll.computeIfAbsent(id, _ => new AtomicLong(0L)).set(timestamp)
+  }
 
   private[cloudwatch] def inject(
     key: Long,
