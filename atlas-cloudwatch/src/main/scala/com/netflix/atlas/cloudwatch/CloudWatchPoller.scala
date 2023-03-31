@@ -15,355 +15,419 @@
  */
 package com.netflix.atlas.cloudwatch
 
-import java.time.Instant
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.atomic.AtomicReference
-import java.util.function.LongFunction
-import akka.actor.Actor
-import akka.actor.ActorRef
-import akka.actor.Props
-import akka.actor.Status
-import akka.routing.FromConfig
-import akka.stream.CompletionStrategy
-import akka.stream.OverflowStrategy
-import akka.stream.scaladsl.Keep
-import akka.stream.scaladsl.Sink
-import akka.stream.scaladsl.Source
-import com.github.benmanes.caffeine.cache.Caffeine
-import com.netflix.atlas.poller.Messages
+import akka.Done
+import akka.actor.ActorSystem
+import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.normalize
+import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.toTagMap
+import com.netflix.atlas.cloudwatch.CloudWatchPoller.runAfter
+import com.netflix.atlas.util.ExecutorFactory
+import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.leader.api.LeaderStatus
-import com.netflix.spectator.api.Functions
-import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.Registry
-import com.netflix.spectator.api.histogram.BucketCounter
-import com.netflix.spectator.api.patterns.PolledMeter
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
+import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient
-import software.amazon.awssdk.services.cloudwatch.model.Datapoint
-import software.amazon.awssdk.services.cloudwatch.model.StandardUnit
+import software.amazon.awssdk.services.cloudwatch.model.Dimension
+import software.amazon.awssdk.services.cloudwatch.model.ListMetricsRequest
+import software.amazon.awssdk.services.cloudwatch.model.Metric
+
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+import java.util.Optional
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+import scala.concurrent.Promise
+import scala.concurrent.duration.FiniteDuration
+import scala.jdk.CollectionConverters.CollectionHasAsScala
+import scala.jdk.StreamConverters.StreamHasToScala
+import scala.util.Failure
+import scala.util.Success
 
 /**
-  * Poller for fetching data from CloudWatch and reporting the data into Atlas.
+  * Poller for CloudWatch metrics. It is meant to handle daily or infrequently posted CloudWatch metrics
+  * that are not available via Firehose. For example, the S3 bucket aggregates.
   *
-  * @param config
-  *     Config for setting up the poller. See the reference.conf for more details
-  *     about the settings.
-  * @param registry
-  *     Registry for reporting metrics. The primary metrics are:
+  * Schedules are organized by offsets for ONLY daily metrics at this point. The schedule runs
+  * frequently and checks the last polled timestamp to determine if polling should occur. Actual
+  * calls to CloudWatch will only happen once a day to keep polling costs down.
   *
-  *     - `atlas.cloudwatch.listAge`: gauge showing the age in seconds of the list
-  *       metadata.
-  *     - `atlas.cloudwatch.listSize`: gauge showing the number of metrics found
-  *       by calling list metrics on CloudWatch.
-  *     - `atlas.cloudwatch.pendingGets`: gauge showing the number of metric get
-  *       requests that are currently in-flight. This should be less than the
-  *       list size or the system is starting to back up.
-  *
-  *     More detailed metrics on the specific AWS calls can be used by configuring
-  *     the `spectator-ext-aws` metric collector with the SDK.
-  * @param client
-  *     AWS CloudWatch client.
+  * TODO - Add support for other frequencies if we need them.
+  * TODO - Akka/Pekka streamify it. It should be simple but I had a hard time parallelizing
+  * the calls and backpressuring properly, particularly with the async AWS client.
   */
 class CloudWatchPoller(
   config: Config,
   registry: Registry,
-  client: CloudWatchClient,
-  leaderStatus: LeaderStatus
-) extends Actor
-    with StrictLogging {
+  leaderStatus: LeaderStatus,
+  accountSupplier: AwsAccountSupplier,
+  rules: CloudWatchRules,
+  clientFactory: AwsClientFactory,
+  processor: CloudWatchMetricsProcessor,
+  executorFactory: ExecutorFactory,
+  debugger: CloudWatchDebugger
+)(implicit val system: ActorSystem)
+    extends StrictLogging {
 
-  import CloudWatchPoller._
+  private val pollTime = registry.timer("atlas.cloudwatch.poller.pollTime")
+  private val errorSetup = registry.createId("atlas.cloudwatch.poller.failure", "call", "setup")
+  private val errorListing = registry.createId("atlas.cloudwatch.poller.failure", "call", "list")
+  private val errorStats = registry.createId("atlas.cloudwatch.poller.failure", "call", "metric")
+  private val emptyListing = registry.createId("atlas.cloudwatch.poller.emptyList")
 
-  import scala.concurrent.ExecutionContext.Implicits.global
-  import scala.concurrent.duration._
+  private val dpsDroppedTags =
+    registry.counter("atlas.cloudwatch.poller.dps.dropped", "reason", "tags")
 
-  // Load the categories and tagger based on the config settings
-  private val categories = getCategories(config)
-  private val tagger = getTagger(config)
+  private val dpsDroppedFilter =
+    registry.counter("atlas.cloudwatch.poller.dps.dropped", "reason", "filter")
+  private val dpsExpected = registry.counter("atlas.cloudwatch.poller.dps.expected")
+  private val dpsPolled = registry.counter("atlas.cloudwatch.poller.dps.polled")
 
-  // Metadata for the metrics in CloudWatch that we need to fetch and how to
-  // map them into Atlas metrics.
-  private val metricsMetadata = new AtomicReference[List[MetricMetadata]](Nil)
+  private val numThreads = config.getInt("atlas.cloudwatch.poller.num-threads")
+  private val frequency = config.getDuration("atlas.cloudwatch.poller.frequency").getSeconds
 
-  // Child actor for getting the data for a metric. This will do the call using the
-  // AWS SDK which is blocking and should be run in an isolated dispatcher.
-  private val metricsGetRef =
-    context.actorOf(
-      FromConfig.props(
-        Props(
-          classOf[GetMetricActor],
-          client,
-          registry,
-          buildBucketCounterCache(registry, categories)
+  private val periodFilter =
+    config.getDuration("atlas.cloudwatch.poller.period-filter").getSeconds.toInt
+
+  private[cloudwatch] val (offsetMap, flags) = {
+    var map = Map.empty[Int, List[MetricCategory]]
+    var flagMap = Map.empty[Int, AtomicBoolean]
+    rules
+      .getCategories(config)
+      .filter(c => c.pollOffset.isDefined && c.period == periodFilter)
+      .foreach { category =>
+        val offset = category.pollOffset.get.getSeconds.toInt
+        val categories = map.getOrElse(offset, List.empty)
+        map += offset -> (categories :+ category)
+
+        val flag = flagMap.getOrElse(offset, new AtomicBoolean(false))
+        flagMap += offset -> flag
+        logger.info(s"Setting offset of ${offset}s for categories ${category.namespace}")
+      }
+    logger.info(s"Loaded ${map.size} polling offsets")
+    (map, flagMap)
+  }
+
+  {
+    offsetMap.foreachEntry { (offset, categories) =>
+      logger.info(s"Scheduling poller for offset ${offset}s")
+      system.scheduler.scheduleAtFixedRate(
+        FiniteDuration.apply(frequency, TimeUnit.SECONDS),
+        FiniteDuration.apply(frequency, TimeUnit.SECONDS)
+      )(() => poll(offset, categories, flags.get(offset).get))(system.dispatcher)
+    }
+  }
+
+  private[cloudwatch] def poll(
+    offset: Int,
+    categories: List[MetricCategory],
+    flag: AtomicBoolean,
+    fullRunUt: Option[Promise[List[CloudWatchPoller#Poller]]] = None,
+    accountsUt: Option[Promise[Done]] = None
+  ): Unit = {
+    if (!leaderStatus.hasLeadership) {
+      logger.info("Not the leader, skipping CloudWatch polling.")
+      fullRunUt.map(_.success(List.empty))
+      return
+    }
+
+    // see if we've past the next run time.
+    var nextRun = 0L
+    try {
+      val previousRun = processor.lastSuccessfulPoll
+      nextRun = runAfter(offset, periodFilter)
+      if (previousRun >= nextRun) {
+        logger.info(
+          s"Skipping CloudWatch polling as we're within the polling interval. Previous ${previousRun}. Next ${nextRun}"
         )
-      ),
-      "metrics-get"
-    )
-
-  // Throttler to control the rate of get metrics calls in order to stay within AWS SDK limits.
-  private implicit val system = context.system
-
-  private val throttledMetricsGetRef = Source
-    .actorRef[List[MetricMetadata]](
-      {
-        case Status.Success(s: CompletionStrategy) => s
-        case Status.Success(_)                     => CompletionStrategy.draining
-      }: PartialFunction[Any, CompletionStrategy],
-      {
-        case Status.Failure(t) => t
-      }: PartialFunction[Any, Throwable],
-      config.getInt("atlas.cloudwatch.metrics-get-buffer-size"),
-      OverflowStrategy.dropHead
-    )
-    .flatMapConcat(ms => Source(ms))
-    .throttle(config.getInt("atlas.cloudwatch.metrics-get-max-rate-per-second"), 1.second)
-    .toMat(Sink.foreach(message => metricsGetRef.tell(message, self)))(Keep.left)
-    .run()
-
-  // Child actor for listing metrics. This will do the call using the
-  // AWS SDK which is blocking and should be run in an isolated dispatcher.
-  private val metricsListRef =
-    context.actorOf(FromConfig.props(Props(new ListMetricsActor(client, tagger))), "metrics-list")
-
-  // Batch size to use for flushing data back to the poller manager.
-  private val batchSize = config.getInt("atlas.cloudwatch.batch-size")
-
-  // Actor that sent the Tick message and that should receive the response.
-  private var responder: ActorRef = _
-
-  // Indicates if a list operation is currently in-flight. Only one list operation
-  // should be running at a time.
-  private var pendingList: Boolean = false
-
-  // Last time the metadata list was successfully updated.
-  private val listUpdateTime: AtomicLong = PolledMeter
-    .using(registry)
-    .withName("atlas.cloudwatch.listAge")
-    .monitorValue(new AtomicLong(registry.clock().wallTime()), Functions.age(registry.clock()))
-
-  // Size of the metadata list. Compare with pending gets to get an idea of
-  // how well we are keeping up with polling all of the data.
-  private val listSize: AtomicLong = PolledMeter
-    .using(registry)
-    .withName("atlas.cloudwatch.listSize")
-    .monitorValue(new AtomicLong(0L))
-
-  // Number of get requests that are in-flight.
-  private val pendingGets: AtomicLong = PolledMeter
-    .using(registry)
-    .withName("atlas.cloudwatch.pendingGets")
-    .monitorValue(new AtomicLong(0L))
-
-  // Cache of the last values received for a given metric
-  private val cacheTTL = config.getDuration("atlas.cloudwatch.cache-ttl")
-
-  private val metricCache = Caffeine
-    .newBuilder()
-    .expireAfterWrite(cacheTTL.toMillis, TimeUnit.MILLISECONDS)
-    .build[MetricMetadata, MetricData]()
-
-  // List keeping track of current batch of metric data.
-  private val metricBatch: MList = new MList
-
-  // Regularly flush any pending data that is still buffered
-  context.system.scheduler.scheduleAtFixedRate(5.seconds, 5.seconds, self, Flush)
-
-  def receive: Receive = {
-    case Flush          => flush()
-    case Messages.Tick  => refresh() // From PollerManager
-    case m: MetricData  => processMetricData(m) // Response from GetMetricActor
-    case MetricList(ms) => processMetricList(ms) // Response from ListMetricsActor
-  }
-
-  private def refresh(): Unit = {
-    responder = sender()
-    if (leaderStatus.hasLeadership) {
-      logger.debug("Refreshing metrics")
-      refreshMetricsList()
-      fetchMetricsData()
-      sendMetricData()
-    } else {
-      logger.debug("Skipping metrics refresh, do not have leadership.")
-    }
-  }
-
-  /** Refresh the metadata list if one is not already in progress. */
-  private def refreshMetricsList(): Unit = {
-    if (pendingList) {
-      logger.debug(s"list already in progress, skipping")
-    } else {
-      val listAge = registry.clock().wallTime() - listUpdateTime.get()
-      if (listSize.get() > 0 && listAge < cacheTTL.toMillis) {
-        logger.debug(s"list data within cache TTL (age=$listAge ms), skipping")
+        fullRunUt.map(_.success(List.empty))
+        return
       } else {
-        logger.info(s"refreshing list of cloudwatch metrics for ${categories.size} categories")
-        pendingList = true
-        metricsListRef ! ListMetrics(categories)
+        logger.info(
+          s"Polling for offset ${offset}s. Previous run was at ${previousRun}. Next run at ${nextRun}"
+        )
+      }
+    } catch {
+      case ex: Exception =>
+        logger.error("Unexpected exception checking for the last poll timestamp", ex)
+        return
+    }
+
+    if (!flag.compareAndSet(false, true)) {
+      logger.warn(s"Skipping polling for period ${offset}s as it was already running.")
+      fullRunUt.map(_.success(List.empty))
+      return
+    }
+
+    val threadPool = executorFactory.createFixedPool(numThreads)
+    val start = System.currentTimeMillis()
+    val futures = List.newBuilder[Future[Done]]
+    val now = Instant.now().truncatedTo(ChronoUnit.SECONDS)
+    val runners = List.newBuilder[Poller]
+
+    try {
+      accountSupplier.accounts.onComplete {
+        case Success(accounts) =>
+          try {
+            accounts.foreachEntry { (account, regions) =>
+              regions.foreach { region =>
+                val client = clientFactory.getInstance(
+                  account + "." + region.toString,
+                  classOf[CloudWatchClient],
+                  account,
+                  Optional.of(region)
+                )
+                categories.foreach { category =>
+                  val runner = Poller(now, category, threadPool, client, account, region)
+                  this.synchronized {
+                    runners += runner
+                    futures += runner.execute
+                  }
+                }
+              }
+            }
+
+            Future.sequence(futures.result()).onComplete {
+              case Success(_) =>
+                var expecting = 0
+                var got = 0
+                runners.result().foreach { cr =>
+                  expecting += cr.expecting.get()
+                  got += cr.got.get()
+                }
+                dpsExpected.increment(expecting)
+                dpsPolled.increment(got)
+                logger.info(
+                  s"Finished CloudWatch polling with ${got} of ${expecting} metrics in ${(System.currentTimeMillis() - start) / 1000.0} s"
+                )
+                pollTime.record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS)
+                processor.updateLastSuccessfulPoll(nextRun)
+                threadPool.shutdown()
+                fullRunUt.map(_.success(runners.result()))
+                flag.set(false)
+              case Failure(ex) =>
+                logger.error(
+                  "Failure at some point in polling for CloudWatch data." +
+                    " Not updating the next run time so we can retry.",
+                  ex
+                )
+                pollTime.record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS)
+                threadPool.shutdown()
+                fullRunUt.map(_.failure(ex))
+                flag.set(false)
+            }
+            accountsUt.map(_.success(Done))
+          } catch {
+            case ex: Exception =>
+              logger.error("Unexpected exception polling for CloudWatch data.", ex)
+              registry
+                .counter(errorSetup.withTags("exception", ex.getClass.getSimpleName))
+                .increment()
+              threadPool.shutdown()
+              accountsUt.map(_.failure(ex))
+              fullRunUt.map(_.failure(ex))
+              flag.set(false)
+          }
+
+        case Failure(ex) =>
+          registry.counter(errorSetup.withTags("exception", ex.getClass.getSimpleName)).increment()
+          flag.set(false)
+          logger.error("Failure fetching accounts", ex)
+          accountsUt.map(_.failure(ex))
+          fullRunUt.map(_.failure(ex))
+      }
+    } catch {
+      case ex: Exception =>
+        registry.counter(errorSetup.withTags("exception", ex.getClass.getSimpleName)).increment()
+        logger.error("Unexpected exception", ex)
+        flag.set(false)
+        accountsUt.map(_.failure(ex))
+        fullRunUt.map(_.failure(ex))
+    }
+  }
+
+  case class Poller(
+    now: Instant,
+    category: MetricCategory,
+    threadPool: ExecutorService,
+    client: CloudWatchClient,
+    account: String,
+    region: Region
+  ) {
+
+    private val nowMillis = now.toEpochMilli
+    private[cloudwatch] val expecting = new AtomicInteger()
+    private[cloudwatch] val got = new AtomicInteger()
+
+    private[cloudwatch] def execute: Future[Done] = {
+      logger.info(s"Polling for account ${account} and category ${category.namespace} in ${region}")
+      val futures = category.toListRequests.map { tuple =>
+        val (definition, request) = tuple
+        val promise = Promise[Done]()
+        threadPool.submit(ListMetrics(request, definition, promise))
+        promise.future
+      }
+
+      Future.reduceLeft(futures)((_, _) => Done).andThen {
+        case Success(_) =>
+          logger.info(
+            s"Finished polling with ${got.get()} of ${expecting.get()} for ${account} and ${
+                category.namespace
+              } in region ${region} in ${(System.currentTimeMillis() - nowMillis) / 1000.0} s"
+          )
+        case Failure(_) => // it will bubble up.
+      }
+    }
+
+    private[cloudwatch] case class ListMetrics(
+      request: ListMetricsRequest,
+      definition: MetricDefinition,
+      promise: Promise[Done]
+    ) extends Runnable {
+
+      @Override def run(): Unit = {
+        try {
+          val metrics = client.listMetricsPaginator(request)
+          val metricsList = metrics.metrics().stream().toScala(List)
+          logger.info(s"CloudWatch listed ${metricsList.size} metrics for ${
+              request.metricName()
+            } in ${account} and ${category.namespace} ${definition.name} in region ${region}")
+          if (metricsList.isEmpty) {
+            registry
+              .counter(
+                emptyListing.withTags(
+                  "account",
+                  account,
+                  "aws.namespace",
+                  category.namespace,
+                  "region",
+                  region.toString
+                )
+              )
+              .increment()
+          }
+          val futures = new Array[Future[Done]](metricsList.size)
+          var idx = 0
+          metricsList.foreach { metric =>
+            if (!category.dimensionsMatch(metric.dimensions().asScala.toList)) {
+              debugger.debugPolled(metric, IncomingMatch.DroppedTag, nowMillis, category)
+              dpsDroppedTags.increment()
+              futures(idx) = Future.successful(Done)
+            } else if (category.filter.map(_.matches(toTagMap(metric))).getOrElse(false)) {
+              debugger.debugPolled(metric, IncomingMatch.DroppedFilter, nowMillis, category)
+              dpsDroppedFilter.increment()
+              futures(idx) = Future.successful(Done)
+            } else {
+              val promise = Promise[Done]()
+              futures(idx) = promise.future
+              expecting.incrementAndGet()
+              threadPool.submit(FetchMetricStats(definition, metric, promise))
+            }
+            idx += 1
+          }
+
+          // completes on an empty metric list as well.
+          Future.sequence(futures.toList).onComplete {
+            case Success(_) =>
+              promise.success(Done)
+            case Failure(ex) =>
+              logger.error(
+                s"Failed at least one polling for ${account} and ${category.namespace} ${definition.name} in region ${region}",
+                ex
+              )
+              promise.failure(ex)
+          }
+
+        } catch {
+          case ex: Exception =>
+            logger.error(
+              s"Error listing metrics for ${account} and ${category.namespace} ${definition.name} in region ${region}",
+              ex
+            )
+            registry
+              .counter(errorListing.withTags("exception", ex.getClass.getSimpleName))
+              .increment()
+            promise.failure(ex)
+        }
+      }
+
+      private[cloudwatch] def utHack(exp: Int, polled: Int): Unit = {
+        expecting.set(exp)
+        got.set(polled)
+      }
+    }
+
+    private[cloudwatch] case class FetchMetricStats(
+      definition: MetricDefinition,
+      metric: Metric,
+      promise: Promise[Done]
+    ) extends Runnable {
+
+      @Override def run(): Unit = {
+        try {
+          val start = now.minusSeconds(category.periodCount * category.period)
+          val request = MetricMetadata(category, definition, metric.dimensions.asScala.toList)
+            .toGetRequest(start, now)
+          val response = client.getMetricStatistics(request)
+          val dimensions = request.dimensions().asScala.toList.toBuffer
+          dimensions += Dimension.builder().name("nf.account").value(account).build()
+          dimensions += Dimension.builder().name("nf.region").value(region.toString).build()
+
+          if (response.datapoints().isEmpty) {
+            debugger.debugPolled(metric, IncomingMatch.DroppedEmpty, nowMillis, category)
+          } else {
+            debugger.debugPolled(
+              metric,
+              IncomingMatch.Accepted,
+              nowMillis,
+              category,
+              response.datapoints()
+            )
+          }
+
+          response
+            .datapoints()
+            .asScala
+            .map { dp =>
+              val m = FirehoseMetric(
+                "",
+                metric.namespace(),
+                metric.metricName(),
+                dimensions.toList,
+                dp
+              )
+              processor.updateCache(m, category, nowMillis)
+            }
+          got.incrementAndGet()
+          promise.success(Done)
+        } catch {
+          case ex: Exception =>
+            logger.error(
+              s"Error getting metric ${metric.metricName()} for ${account} and ${category.namespace} ${definition.name} in region ${region}",
+              ex
+            )
+            registry
+              .counter(errorStats.withTags("exception", ex.getClass.getSimpleName))
+              .increment()
+            promise.failure(ex)
+        }
       }
     }
   }
 
-  /** Schedule all metrics in the metadata list for a refresh. */
-  private def fetchMetricsData(): Unit = {
-    val ms = metricsMetadata.get()
-    val pending = pendingGets.get()
-    val num = ms.size
-    if (pending > num) {
-      logger.warn(s"skipping fetch, still have ${pendingGets.get()} metrics pending")
-    } else {
-      if (pending > 0) {
-        logger.warn(s"not keeping up, still have ${pendingGets.get()} metrics pending")
-      }
-      pendingGets.addAndGet(num)
-      logger.info(s"requesting data for $num metrics")
-      throttledMetricsGetRef ! ms
-    }
-  }
-
-  /**
-    * Process the returned list of metrics. An empty list will get ignored as it is likely
-    * in error. The `atlas.cloudwatch.listAge` metric can be used to monitor how long it
-    * has been since the metadata was successfully updated.
-    */
-  private def processMetricList(ms: List[MetricMetadata]): Unit = {
-    pendingList = false
-    if (ms.nonEmpty) {
-      listUpdateTime.set(registry.clock().wallTime())
-      val size = ms.size
-      logger.info(s"found $size cloudwatch metrics")
-      listSize.set(size)
-      metricsMetadata.set(ms)
-    } else {
-      logger.warn("no cloudwatch metrics found")
-    }
-  }
-
-  /** Add a datapoint to the cache. */
-  private def processMetricData(data: MetricData): Unit = {
-    pendingGets.decrementAndGet()
-    val maybeMetricData = Option(metricCache.getIfPresent(data.meta))
-    val prev = maybeMetricData.flatMap(_.current)
-    val timestamp = data.lastReportedTimestamp.orElse {
-      maybeMetricData.flatMap(_.lastReportedTimestamp)
-    }
-    metricCache.put(data.meta, data.copy(previous = prev, lastReportedTimestamp = timestamp))
-  }
-
-  /** Send all metrics that are currently in the cache. */
-  private def sendMetricData(): Unit = {
-    metricCache.asMap().forEach { (meta, data) =>
-      val now = registry.clock().wallTime()
-      val d = data.datapoint(Instant.ofEpochMilli(now))
-      if (!d.sum.isNaN) {
-        val ts = tagger(meta.dimensions) ++ meta.definition.tags + ("name" -> meta.definition.alias)
-        val newValue = meta.convert(d)
-        metricBatch += new AtlasDatapoint(ts, now, newValue)
-        flush()
-      }
-    }
-  }
-
-  /** Flush data if the batch size is big enough or we are done with the current iteration. */
-  private def flush(): Unit = {
-    val now = registry.clock().wallTime()
-    if (metricBatch.nonEmpty) {
-      val age = now - metricBatch.head.timestamp
-      if (age > 5000) {
-        val batch = metricBatch.toList
-        metricBatch.clear()
-        logger.info(s"writing ${batch.size} metrics to client, age = $age ms")
-        responder ! Messages.MetricsPayload(Map.empty, batch)
-      } else if (metricBatch.lengthCompare(batchSize) >= 0) {
-        val batch = metricBatch.toList
-        metricBatch.clear()
-        logger.info(s"writing ${batch.size} metrics to client, max batch size reached")
-        responder ! Messages.MetricsPayload(Map.empty, batch)
-      } else {
-        logger.debug(s"not writing metrics, age = $age ms, size = ${metricBatch.size}")
-      }
-    }
-  }
 }
 
 object CloudWatchPoller {
 
-  case object Flush
-
-  private val Zero = Datapoint
-    .builder()
-    .minimum(0.0)
-    .maximum(0.0)
-    .sum(0.0)
-    .sampleCount(0.0)
-    .timestamp(Instant.now())
-    .unit(StandardUnit.NONE)
-    .build()
-
-  private val DatapointNaN = Datapoint
-    .builder()
-    .minimum(Double.NaN)
-    .maximum(Double.NaN)
-    .sum(Double.NaN)
-    .sampleCount(Double.NaN)
-    .timestamp(Instant.now())
-    .unit(StandardUnit.NONE)
-    .build()
-
-  private[cloudwatch] def getCategories(config: Config): List[MetricCategory] = {
-    import scala.jdk.CollectionConverters._
-    val categories = config.getStringList("atlas.cloudwatch.categories").asScala.map { name =>
-      val cfg = config.getConfig(s"atlas.cloudwatch.$name")
-      MetricCategory.fromConfig(cfg)
-    }
-    categories.toList
+  private def runAfter(offset: Int, period: Int): Long = {
+    val now = System.currentTimeMillis()
+    val midnight = normalize(now, period)
+    val start = midnight + (offset * 1000)
+    if (start < now) start + (period * 1000) else start
   }
 
-  private[cloudwatch] def getTagger(config: Config): Tagger = {
-    val cfg = config.getConfig("atlas.cloudwatch.tagger")
-    val cls = Class.forName(cfg.getString("class"))
-    cls.getConstructor(classOf[Config]).newInstance(cfg).asInstanceOf[Tagger]
-  }
-
-  val PeriodLagIdName: String = "atlas.cloudwatch.periodLag"
-
-  private def buildBucketCounterCache(
-    registry: Registry,
-    metricCategories: List[MetricCategory]
-  ): Map[Id, BucketCounter] = {
-
-    metricCategories.flatMap { category =>
-      val noDataThreshold = category.periodCount + category.endPeriodOffset
-
-      val bucketFunction: LongFunction[String] =
-        (periodCount: Long) =>
-          if (periodCount > noDataThreshold) // threshold is intended to be small (< 10)
-            "no_data"
-          else
-            periodCount.toString
-
-      val id = registry
-        .createId(PeriodLagIdName)
-        .withTag("cwNamespace", category.namespace)
-        .withTag("periodSeconds", category.period.toString)
-
-      category.metrics.map { metric =>
-        val periodLagId = id.withTag("cwMetricName", metric.name)
-        periodLagId -> BucketCounter
-          .get(
-            registry,
-            periodLagId,
-            bucketFunction
-          )
-
-      }
-    }.toMap
-  }
-
-  case class GetMetricData(metric: MetricMetadata)
-
-  case class ListMetrics(categories: List[MetricCategory])
-
-  case class MetricList(data: List[MetricMetadata])
 }

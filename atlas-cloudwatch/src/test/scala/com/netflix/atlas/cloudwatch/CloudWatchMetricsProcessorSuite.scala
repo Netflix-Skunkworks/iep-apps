@@ -1098,10 +1098,11 @@ object CloudWatchMetricsProcessorSuite {
     dimensions: List[Dimension],
     values: Array[Double],
     unit: String,
-    ts: Long = timestamp
+    ts: Long = timestamp,
+    streamName: String = "unitTest"
   ): FirehoseMetric = {
     FirehoseMetric(
-      "unitTest",
+      streamName,
       ns,
       metric,
       dimensions,

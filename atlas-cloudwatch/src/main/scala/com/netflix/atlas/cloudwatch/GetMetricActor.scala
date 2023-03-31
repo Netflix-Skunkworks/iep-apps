@@ -41,7 +41,7 @@ class GetMetricActor(
 
   import CloudWatchPoller._
 
-  private val basePeriodLagId = registry.createId(PeriodLagIdName)
+  private val basePeriodLagId = registry.createId("atlas.cloudwatch.periodLag")
 
   def receive: Receive = {
     case m: MetricMetadata =>

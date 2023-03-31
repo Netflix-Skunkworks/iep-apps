@@ -32,12 +32,6 @@ class MetricCategorySuite extends FunSuite {
     }
   }
 
-  test("production config loads") {
-    val cfg = ConfigFactory.parseResources("reference.conf").resolve()
-    val categories = CloudWatchPoller.getCategories(cfg)
-    assert(categories.nonEmpty)
-  }
-
   test("load category with empty dimensions succeeds") {
     val cfg = ConfigFactory.parseString("""
         |      namespace = "AWS/Lambda"
