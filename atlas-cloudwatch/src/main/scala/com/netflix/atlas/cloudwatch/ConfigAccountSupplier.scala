@@ -16,6 +16,7 @@
 package com.netflix.atlas.cloudwatch
 
 import com.typesafe.config.Config
+import com.typesafe.scalalogging.StrictLogging
 import software.amazon.awssdk.regions.Region
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -25,7 +26,7 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
 /**
   * Simple Typesafe config based AWS account supplier. Used for testing and in place of a supplier using internal tooling.
   */
-class ConfigAccountSupplier(config: Config) extends AwsAccountSupplier {
+class ConfigAccountSupplier(config: Config) extends AwsAccountSupplier with StrictLogging {
 
   private[cloudwatch] val defaultRegions =
     if (config.hasPath("atlas.cloudwatch.account.polling.default-regions"))
@@ -48,6 +49,7 @@ class ConfigAccountSupplier(config: Config) extends AwsAccountSupplier {
       c.getString("account") -> regions
     }
     .toMap
+  logger.debug(s"Loaded accounts: ${map}")
 
   /**
     * @return The non-null list of account IDs to poll for CloudWatch metrics.
