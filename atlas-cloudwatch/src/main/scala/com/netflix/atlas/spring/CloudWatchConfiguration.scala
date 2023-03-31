@@ -18,14 +18,17 @@ package com.netflix.atlas.spring
 import akka.actor.ActorSystem
 import com.netflix.atlas.akka.AkkaHttpClient
 import com.netflix.atlas.akka.DefaultAkkaHttpClient
+import com.netflix.atlas.cloudwatch.AwsAccountSupplier
 import com.netflix.atlas.cloudwatch.CloudWatchDebugger
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor
+import com.netflix.atlas.cloudwatch.CloudWatchPoller
 import com.netflix.atlas.cloudwatch.CloudWatchRules
 import com.netflix.atlas.cloudwatch.PublishRouter
 import com.netflix.atlas.cloudwatch.RedisClusterCloudWatchMetricsProcessor
 import com.netflix.atlas.cloudwatch.NetflixTagger
 import com.netflix.atlas.cloudwatch.Tagger
 import com.netflix.atlas.util.ExecutorFactory
+import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.Spectator.globalRegistry
@@ -52,6 +55,32 @@ class CloudWatchConfiguration extends StrictLogging {
 
   @Bean
   def executorFactor: ExecutorFactory = new ExecutorFactory
+
+  @Bean
+  def getCloudWatchPoller(
+    config: Config,
+    registry: Optional[Registry],
+    leaderStatus: LeaderStatus,
+    rules: CloudWatchRules,
+    accounts: AwsAccountSupplier,
+    clientFactory: AwsClientFactory,
+    processor: CloudWatchMetricsProcessor,
+    debugger: CloudWatchDebugger,
+    system: ActorSystem
+  ): CloudWatchPoller = {
+    val r = registry.orElseGet(() => globalRegistry())
+    new CloudWatchPoller(
+      config,
+      r,
+      leaderStatus,
+      accounts,
+      rules,
+      clientFactory,
+      processor,
+      new ExecutorFactory(),
+      debugger
+    )(system)
+  }
 
   @Bean
   def tagger(config: Config): Tagger = new NetflixTagger(

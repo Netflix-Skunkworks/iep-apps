@@ -206,7 +206,7 @@ abstract class CloudWatchMetricsProcessor(
     * @param receivedTimestamp
     *     The receive time in unix epoch milliseconds.
     */
-  protected def updateCache(
+  protected[cloudwatch] def updateCache(
     datapoint: FirehoseMetric,
     category: MetricCategory,
     receivedTimestamp: Long

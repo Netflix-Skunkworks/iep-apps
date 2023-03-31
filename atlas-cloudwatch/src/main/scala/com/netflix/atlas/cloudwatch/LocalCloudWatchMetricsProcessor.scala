@@ -56,7 +56,7 @@ class LocalCloudWatchMetricsProcessor(
   private val cache = new ConcurrentHashMap[Long, (Long, Long, Array[Byte])]
   private val lastPoll = new AtomicLong()
 
-  override protected def updateCache(
+  override protected[cloudwatch] def updateCache(
     datapoint: FirehoseMetric,
     category: MetricCategory,
     receivedTimestamp: Long
