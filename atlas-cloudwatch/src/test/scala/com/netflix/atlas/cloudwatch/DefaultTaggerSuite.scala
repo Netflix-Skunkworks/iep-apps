@@ -347,8 +347,7 @@ class DefaultTaggerSuite extends FunSuite {
     val tagger = new DefaultTagger(cfg.getConfig("atlas.cloudwatch.tagger"))
 
     val expected = Map(
-      "aws.alb"   -> "captured-portion",
-      "nf.region" -> "us-west-2"
+      "aws.alb" -> "captured-portion"
     )
 
     val actual = tagger(
@@ -365,8 +364,7 @@ class DefaultTaggerSuite extends FunSuite {
     val tagger = new DefaultTagger(cfg.getConfig("atlas.cloudwatch.tagger"))
 
     val expected = Map(
-      "aws.nlb"   -> "captured-portion",
-      "nf.region" -> "us-west-2"
+      "aws.nlb" -> "captured-portion"
     )
 
     val actual = tagger(
