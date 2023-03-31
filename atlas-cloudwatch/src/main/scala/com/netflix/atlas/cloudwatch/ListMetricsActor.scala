@@ -29,7 +29,9 @@ import software.amazon.awssdk.services.cloudwatch.model.Metric
   */
 class ListMetricsActor(client: CloudWatchClient, tagger: Tagger) extends Actor with StrictLogging {
 
-  import CloudWatchPoller._
+  case class ListMetrics(categories: List[MetricCategory])
+
+  case class MetricList(data: List[MetricMetadata])
 
   def receive: Receive = {
     case ListMetrics(categories) => sender() ! MetricList(listMetrics(categories))

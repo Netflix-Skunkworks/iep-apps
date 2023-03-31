@@ -31,7 +31,7 @@ class NetflixTaggerSuite extends FunSuite {
   test("production config loads") {
     val cfg = ConfigFactory.parseResources("reference.conf").resolve()
 
-    val tagger = CloudWatchPoller.getTagger(cfg)
+    val tagger = new NetflixTagger(cfg.getConfig("atlas.cloudwatch.tagger"))
     val tagged = tagger(
       List(
         Dimension.builder().name("aTag").value("aValue").build(),
@@ -78,7 +78,7 @@ class NetflixTaggerSuite extends FunSuite {
 
   test("fix tags") {
     val cfg = ConfigFactory.parseResources("reference.conf").resolve()
-    val tagger = CloudWatchPoller.getTagger(cfg)
+    val tagger = new NetflixTagger(cfg.getConfig("atlas.cloudwatch.tagger"))
 
     val original = Datapoint(
       Map(

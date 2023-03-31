@@ -15,7 +15,7 @@ object Dependencies {
 
     val atlas      = "1.8.0-SNAPSHOT"
     val aws2       = "2.20.13"
-    val iep        = "5.0.0"
+    val iep        = "5.0.1"
     val log4j      = "2.20.0"
     val scala      = "2.13.10"
     val servo      = "0.13.2"
