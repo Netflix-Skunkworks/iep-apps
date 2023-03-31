@@ -207,8 +207,8 @@ class CloudWatchPoller(
                 pollTime.record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS)
                 processor.updateLastSuccessfulPoll(nextRun)
                 threadPool.shutdown()
-                fullRunUt.map(_.success(runners.result()))
                 flag.set(false)
+                fullRunUt.map(_.success(runners.result()))
               case Failure(ex) =>
                 logger.error(
                   "Failure at some point in polling for CloudWatch data." +
@@ -217,8 +217,8 @@ class CloudWatchPoller(
                 )
                 pollTime.record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS)
                 threadPool.shutdown()
-                fullRunUt.map(_.failure(ex))
                 flag.set(false)
+                fullRunUt.map(_.failure(ex))
             }
             accountsUt.map(_.success(Done))
           } catch {
@@ -228,9 +228,9 @@ class CloudWatchPoller(
                 .counter(errorSetup.withTags("exception", ex.getClass.getSimpleName))
                 .increment()
               threadPool.shutdown()
+              flag.set(false)
               accountsUt.map(_.failure(ex))
               fullRunUt.map(_.failure(ex))
-              flag.set(false)
           }
 
         case Failure(ex) =>
