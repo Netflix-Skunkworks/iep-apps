@@ -130,7 +130,7 @@ class CloudWatchPoller(
     accountsUt: Option[Promise[Done]] = None
   ): Unit = {
     if (!leaderStatus.hasLeadership) {
-      logger.info("Not the leader, skipping CloudWatch polling.")
+      logger.info(s"Not the leader for ${offset}s, skipping CloudWatch polling.")
       fullRunUt.map(_.success(List.empty))
       return
     }
@@ -138,11 +138,11 @@ class CloudWatchPoller(
     // see if we've past the next run time.
     var nextRun = 0L
     try {
-      val previousRun = processor.lastSuccessfulPoll
+      val previousRun = processor.lastSuccessfulPoll(offset.toString)
       nextRun = runAfter(offset, periodFilter)
       if (previousRun >= nextRun) {
         logger.info(
-          s"Skipping CloudWatch polling as we're within the polling interval. Previous ${previousRun}. Next ${nextRun}"
+          s"Skipping CloudWatch polling for ${offset}s as we're within the polling interval. Previous ${previousRun}. Next ${nextRun}"
         )
         fullRunUt.map(_.success(List.empty))
         return
@@ -153,7 +153,7 @@ class CloudWatchPoller(
       }
     } catch {
       case ex: Exception =>
-        logger.error("Unexpected exception checking for the last poll timestamp", ex)
+        logger.error(s"Unexpected exception checking for the last poll timestamp on ${offset}s", ex)
         return
     }
 
@@ -205,7 +205,7 @@ class CloudWatchPoller(
                   s"Finished CloudWatch polling with ${got} of ${expecting} metrics in ${(System.currentTimeMillis() - start) / 1000.0} s"
                 )
                 pollTime.record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS)
-                processor.updateLastSuccessfulPoll(nextRun)
+                processor.updateLastSuccessfulPoll(offset.toString, nextRun)
                 threadPool.shutdown()
                 flag.set(false)
                 fullRunUt.map(_.success(runners.result()))

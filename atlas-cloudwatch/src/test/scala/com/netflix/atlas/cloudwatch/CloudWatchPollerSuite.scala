@@ -30,6 +30,7 @@ import munit.FunSuite
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.ArgumentMatchersSugar.any
 import org.mockito.ArgumentMatchersSugar.anyInt
+import org.mockito.ArgumentMatchersSugar.anyLong
 import org.mockito.MockitoSugar.mock
 import org.mockito.MockitoSugar.never
 import org.mockito.MockitoSugar.times
@@ -99,7 +100,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
 
     when(leaderStatus.hasLeadership).thenReturn(true)
     when(executorFactory.createFixedPool(anyInt)).thenReturn(threadPool)
-    when(processor.lastSuccessfulPoll).thenReturn(0L)
+    when(processor.lastSuccessfulPoll(anyString)).thenReturn(0L)
     when(
       clientFactory.getInstance(
         anyString,
@@ -129,16 +130,19 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     assertFalse(flag.get)
     assertCounters()
     verify(accountSupplier, never).accounts
+    verify(processor, never).updateLastSuccessfulPoll(anyString, anyLong)
   }
 
   test("poll already ran") {
-    when(processor.lastSuccessfulPoll).thenReturn(System.currentTimeMillis() + 86_400_000L)
+    when(processor.lastSuccessfulPoll(anyString))
+      .thenReturn(System.currentTimeMillis() + 86_400_000L)
     val poller = getPoller
     val flag = new AtomicBoolean()
     poller.poll(offset, List(getCategory(poller)), flag)
     assertFalse(flag.get)
     assertCounters()
     verify(accountSupplier, never).accounts
+    verify(processor, never).updateLastSuccessfulPoll(anyString, anyLong)
   }
 
   test("poll already running") {
@@ -148,6 +152,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     assert(flag.get)
     assertCounters()
     verify(accountSupplier, never).accounts
+    verify(processor, never).updateLastSuccessfulPoll(anyString, anyLong)
   }
 
   test("poll success") {
@@ -169,6 +174,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     assertEquals(pollers.size, 1)
     assertCounters(expected = 2, polled = 2)
     assertFalse(flag.get)
+    verify(processor, times(1)).updateLastSuccessfulPoll(anyString, anyLong)
   }
 
   test("poll on list failure") {
@@ -196,6 +202,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     }
     assertCounters()
     assertFalse(flag.get)
+    verify(processor, never).updateLastSuccessfulPoll(anyString, anyLong)
   }
 
   test("poll on client exception") {
@@ -222,6 +229,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     }
     assertCounters(errors = Map("setup" -> 1))
     assertFalse(flag.get)
+    verify(processor, never).updateLastSuccessfulPoll(anyString, anyLong)
   }
 
   test("poll accounts exception") {
@@ -241,6 +249,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     }
     assertCounters(errors = Map("setup" -> 1))
     assertFalse(flag.get)
+    verify(processor, never).updateLastSuccessfulPoll(anyString, anyLong)
   }
 
   test("poll empty accounts") {
@@ -256,6 +265,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     Await.result(full.future, 60.seconds)
     assertCounters()
     assertFalse(flag.get)
+    verify(processor, times(1)).updateLastSuccessfulPoll(anyString, anyLong)
   }
 
   test("Poller#execute all success") {
