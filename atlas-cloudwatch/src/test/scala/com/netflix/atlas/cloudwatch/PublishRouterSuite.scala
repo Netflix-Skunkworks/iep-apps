@@ -26,8 +26,6 @@ import com.typesafe.config.ConfigFactory
 import munit.FunSuite
 import org.mockito.MockitoSugar.mock
 
-import scala.jdk.CollectionConverters.CollectionHasAsScala
-
 class PublishRouterSuite extends FunSuite with TestKitBase {
 
   override implicit def system: ActorSystem = ActorSystem(getClass.getSimpleName)
