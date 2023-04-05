@@ -81,7 +81,7 @@ class PublishRouter(
                   r.getKey -> new PublishQueue(
                     config.getConfig("atlas.cloudwatch.account.routing"),
                     registry,
-                    destination,
+                    stack + "-" + destination,
                     baseURI
                       .replaceAll("\\$\\{STACK\\}", stack)
                       .replaceAll("\\$\\{REGION}", destination),
