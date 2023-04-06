@@ -25,14 +25,16 @@ import scala.concurrent.duration.DurationInt
 
 class ConfigAccountSupplierSuite extends FunSuite {
 
+  val rules = new CloudWatchRules(ConfigFactory.load())
+
   test("test config") {
     val cfg = ConfigFactory.load()
-    val accts = new ConfigAccountSupplier(cfg)
-    val map = Await.result(accts.accounts, 60.seconds)
+    val accts = new ConfigAccountSupplier(cfg, rules)
+    val map = accts.accounts
     assertEquals(map.size, 3)
-    assertEquals(map("000000000001"), accts.defaultRegions)
-    assertEquals(map("000000000002"), accts.defaultRegions)
-    assertEquals(map("000000000003"), List(Region.US_EAST_1))
+    assertEquals(map("000000000001"), accts.defaultRegions.map(r => r -> accts.namespaces).toMap)
+    assertEquals(map("000000000002"), accts.defaultRegions.map(r => r -> accts.namespaces).toMap)
+    assertEquals(map("000000000003"), Map(Region.US_EAST_1 -> accts.namespaces))
   }
 
   test("empty accounts") {
@@ -42,9 +44,8 @@ class ConfigAccountSupplierSuite extends FunSuite {
         |  accounts = []
         |}
       """.stripMargin)
-    val accts = new ConfigAccountSupplier(cfg)
-    val map = Await.result(accts.accounts, 60.seconds)
-    assert(map.isEmpty)
+    val accts = new ConfigAccountSupplier(cfg, rules)
+    assert(accts.accounts.isEmpty)
   }
 
   test("missing accounts") {
@@ -54,7 +55,7 @@ class ConfigAccountSupplierSuite extends FunSuite {
         |}
       """.stripMargin)
     intercept[Missing] {
-      new ConfigAccountSupplier(cfg)
+      new ConfigAccountSupplier(cfg, rules)
     }
   }
 }

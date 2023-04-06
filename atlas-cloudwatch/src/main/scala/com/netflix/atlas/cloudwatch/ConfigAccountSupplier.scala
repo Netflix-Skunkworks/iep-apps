@@ -26,7 +26,13 @@ import scala.jdk.CollectionConverters.CollectionHasAsScala
 /**
   * Simple Typesafe config based AWS account supplier. Used for testing and in place of a supplier using internal tooling.
   */
-class ConfigAccountSupplier(config: Config) extends AwsAccountSupplier with StrictLogging {
+class ConfigAccountSupplier(
+  config: Config,
+  rules: CloudWatchRules
+) extends AwsAccountSupplier
+    with StrictLogging {
+
+  private[cloudwatch] val namespaces = rules.rules.keySet
 
   private[cloudwatch] val defaultRegions =
     if (config.hasPath("atlas.cloudwatch.account.polling.default-regions"))
@@ -42,9 +48,9 @@ class ConfigAccountSupplier(config: Config) extends AwsAccountSupplier with Stri
     .asScala
     .map { c =>
       val regions = if (c.hasPath("regions")) {
-        c.getStringList("regions").asScala.map(Region.of(_)).toList
+        c.getStringList("regions").asScala.map(Region.of(_) -> namespaces).toMap
       } else {
-        defaultRegions
+        defaultRegions.map(_ -> namespaces).toMap
       }
       c.getString("account") -> regions
     }
@@ -54,5 +60,5 @@ class ConfigAccountSupplier(config: Config) extends AwsAccountSupplier with Stri
   /**
     * @return The non-null list of account IDs to poll for CloudWatch metrics.
     */
-  override val accounts: Future[Map[String, List[Region]]] = Future(map)
+  override val accounts: Map[String, Map[Region, Set[String]]] = map
 }

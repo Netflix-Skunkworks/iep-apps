@@ -20,15 +20,17 @@ import software.amazon.awssdk.regions.Region
 import scala.concurrent.Future
 
 /**
-  * Interface for supplying the list of accounts to poll for CloudWatch metrics.
+  * Interface for supplying the list of accounts, regions and namespaces to poll for CloudWatch metrics.
   */
 trait AwsAccountSupplier {
 
   /**
+    * The map of accounts to regions to namespaces for polling. The final set is the namespace list in
+    * the format of CloudWatch, e.g. "AWS/EC2" or "AWS/ECS".
     * @return
-    *     A future resolving to the non-null map of account IDs to poll for CloudWatch
-    *     metrics along with the regions they operate in.
+    *     The non-null map of account IDs to poll for CloudWatch metrics along with the regions they
+    *     operate in and namespaces to poll.
     */
-  def accounts: Future[Map[String, List[Region]]]
+  def accounts: Map[String, Map[Region, Set[String]]]
 
 }

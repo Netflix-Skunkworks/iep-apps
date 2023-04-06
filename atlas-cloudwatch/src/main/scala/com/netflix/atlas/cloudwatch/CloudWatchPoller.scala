@@ -170,80 +170,65 @@ class CloudWatchPoller(
     val runners = List.newBuilder[Poller]
 
     try {
-      accountSupplier.accounts.onComplete {
-        case Success(accounts) =>
-          try {
-            accounts.foreachEntry { (account, regions) =>
-              regions.foreach { region =>
-                val client = clientFactory.getInstance(
-                  account + "." + region.toString,
-                  classOf[CloudWatchClient],
-                  account,
-                  Optional.of(region)
-                )
-                categories.foreach { category =>
-                  val runner = Poller(now, category, threadPool, client, account, region)
-                  this.synchronized {
-                    runners += runner
-                    futures += runner.execute
-                  }
+      accountSupplier.accounts.foreachEntry { (account, regions) =>
+        regions.foreachEntry { (region, namespaces) =>
+          if (namespaces.size > 0) {
+            val client = clientFactory.getInstance(
+              account + "." + region.toString,
+              classOf[CloudWatchClient],
+              account,
+              Optional.of(region)
+            )
+            categories
+              .filter(c => namespaces.contains(c.namespace))
+              .foreach { category =>
+                val runner = Poller(now, category, threadPool, client, account, region)
+                this.synchronized {
+                  runners += runner
+                  futures += runner.execute
                 }
               }
-            }
-
-            Future.sequence(futures.result()).onComplete {
-              case Success(_) =>
-                var expecting = 0
-                var got = 0
-                runners.result().foreach { cr =>
-                  expecting += cr.expecting.get()
-                  got += cr.got.get()
-                }
-                dpsExpected.increment(expecting)
-                dpsPolled.increment(got)
-                logger.info(
-                  s"Finished CloudWatch polling with ${got} of ${expecting} metrics in ${(System.currentTimeMillis() - start) / 1000.0} s"
-                )
-                pollTime.record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS)
-                processor.updateLastSuccessfulPoll(offset.toString, nextRun)
-                threadPool.shutdown()
-                flag.set(false)
-                fullRunUt.map(_.success(runners.result()))
-              case Failure(ex) =>
-                logger.error(
-                  "Failure at some point in polling for CloudWatch data." +
-                    " Not updating the next run time so we can retry.",
-                  ex
-                )
-                pollTime.record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS)
-                threadPool.shutdown()
-                flag.set(false)
-                fullRunUt.map(_.failure(ex))
-            }
-            accountsUt.map(_.success(Done))
-          } catch {
-            case ex: Exception =>
-              logger.error("Unexpected exception polling for CloudWatch data.", ex)
-              registry
-                .counter(errorSetup.withTags("exception", ex.getClass.getSimpleName))
-                .increment()
-              threadPool.shutdown()
-              flag.set(false)
-              accountsUt.map(_.failure(ex))
-              fullRunUt.map(_.failure(ex))
           }
+        }
+      }
 
-        case Failure(ex) =>
-          registry.counter(errorSetup.withTags("exception", ex.getClass.getSimpleName)).increment()
+      Future.sequence(futures.result()).onComplete {
+        case Success(_) =>
+          var expecting = 0
+          var got = 0
+          runners.result().foreach { cr =>
+            expecting += cr.expecting.get()
+            got += cr.got.get()
+          }
+          dpsExpected.increment(expecting)
+          dpsPolled.increment(got)
+          logger.info(
+            s"Finished CloudWatch polling with ${got} of ${expecting} metrics in ${(System.currentTimeMillis() - start) / 1000.0} s"
+          )
+          pollTime.record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS)
+          processor.updateLastSuccessfulPoll(offset.toString, nextRun)
+          threadPool.shutdown()
           flag.set(false)
-          logger.error("Failure fetching accounts", ex)
-          accountsUt.map(_.failure(ex))
+          fullRunUt.map(_.success(runners.result()))
+        case Failure(ex) =>
+          logger.error(
+            "Failure at some point in polling for CloudWatch data." +
+              " Not updating the next run time so we can retry.",
+            ex
+          )
+          pollTime.record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS)
+          threadPool.shutdown()
+          flag.set(false)
           fullRunUt.map(_.failure(ex))
       }
+      accountsUt.map(_.success(Done))
     } catch {
       case ex: Exception =>
-        registry.counter(errorSetup.withTags("exception", ex.getClass.getSimpleName)).increment()
-        logger.error("Unexpected exception", ex)
+        logger.error("Unexpected exception polling for CloudWatch data.", ex)
+        registry
+          .counter(errorSetup.withTags("exception", ex.getClass.getSimpleName))
+          .increment()
+        threadPool.shutdown()
         flag.set(false)
         accountsUt.map(_.failure(ex))
         fullRunUt.map(_.failure(ex))
