@@ -27,13 +27,11 @@ import com.netflix.atlas.cloudwatch.PublishRouter
 import com.netflix.atlas.cloudwatch.RedisClusterCloudWatchMetricsProcessor
 import com.netflix.atlas.cloudwatch.NetflixTagger
 import com.netflix.atlas.cloudwatch.Tagger
-import com.netflix.atlas.util.ExecutorFactory
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.Spectator.globalRegistry
 import com.typesafe.config.Config
-import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig
 import org.springframework.context.annotation.Bean
@@ -52,9 +50,6 @@ class CloudWatchConfiguration extends StrictLogging {
 
   @Bean
   def cloudWatchRules(config: Config): CloudWatchRules = new CloudWatchRules(config)
-
-  @Bean
-  def executorFactor: ExecutorFactory = new ExecutorFactory
 
   @Bean
   def getCloudWatchPoller(
@@ -77,7 +72,6 @@ class CloudWatchConfiguration extends StrictLogging {
       rules,
       clientFactory,
       processor,
-      new ExecutorFactory(),
       debugger
     )(system)
   }
