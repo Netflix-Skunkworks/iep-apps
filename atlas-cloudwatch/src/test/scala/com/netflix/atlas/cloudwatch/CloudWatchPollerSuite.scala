@@ -19,6 +19,7 @@ import akka.Done
 import akka.actor.ActorSystem
 import akka.testkit.TestKitBase
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessorSuite.makeFirehoseMetric
+import com.netflix.atlas.cloudwatch.CloudWatchPoller.runKey
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.DefaultRegistry
@@ -111,9 +112,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   test("poll not leader") {
     when(leaderStatus.hasLeadership).thenReturn(false)
     val poller = getPoller
-    val flag = new AtomicBoolean()
-    poller.poll(offset, List(getCategory(poller)), flag)
-    assertFalse(flag.get)
+    poller.poll(offset, List(getCategory(poller)))
     assertCounters()
     verify(accountSupplier, never).accounts
     verify(processor, never).updateLastSuccessfulPoll(anyString, anyLong)
@@ -123,21 +122,16 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     when(processor.lastSuccessfulPoll(anyString))
       .thenReturn(System.currentTimeMillis() + 86_400_000L)
     val poller = getPoller
-    val flag = new AtomicBoolean()
-    poller.poll(offset, List(getCategory(poller)), flag)
-    assertFalse(flag.get)
+    poller.poll(offset, List(getCategory(poller)))
     assertCounters()
-    verify(accountSupplier, never).accounts
     verify(processor, never).updateLastSuccessfulPoll(anyString, anyLong)
   }
 
   test("poll already running") {
     val poller = getPoller
-    val flag = new AtomicBoolean(true)
-    poller.poll(offset, List(getCategory(poller)), flag)
-    assert(flag.get)
+    poller.flagMap.put(runKey(28800, "123456789012", Region.US_EAST_1), new AtomicBoolean(true))
+    poller.poll(offset, List(getCategory(poller)))
     assertCounters()
-    verify(accountSupplier, never).accounts
     verify(processor, never).updateLastSuccessfulPoll(anyString, anyLong)
   }
 
@@ -147,7 +141,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val flag = new AtomicBoolean()
     val full = Promise[List[CloudWatchPoller#Poller]]()
     val accountsDone = Promise[Done]()
-    poller.poll(offset, List(getCategory(poller)), flag, Some(full), Some(accountsDone))
+    poller.poll(offset, List(getCategory(poller)), Some(full), Some(accountsDone))
 
     Await.result(accountsDone.future, 60.seconds)
     val pollers = Await.result(full.future, 60.seconds)
@@ -162,7 +156,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val flag = new AtomicBoolean()
     val full = Promise[List[CloudWatchPoller#Poller]]()
     val accountsDone = Promise[Done]()
-    poller.poll(offset, List(getCategory(poller)), flag, Some(full), Some(accountsDone))
+    poller.poll(offset, List(getCategory(poller)), Some(full), Some(accountsDone))
 
     Await.result(accountsDone.future, 60.seconds)
     intercept[RuntimeException] {
@@ -186,7 +180,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val flag = new AtomicBoolean()
     val full = Promise[List[CloudWatchPoller#Poller]]()
     val accountsDone = Promise[Done]()
-    poller.poll(offset, List(getCategory(poller)), flag, Some(full), Some(accountsDone))
+    poller.poll(offset, List(getCategory(poller)), Some(full), Some(accountsDone))
 
     intercept[RuntimeException] {
       Await.result(accountsDone.future, 60.seconds)
@@ -205,7 +199,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val flag = new AtomicBoolean()
     val full = Promise[List[CloudWatchPoller#Poller]]()
     val accountsDone = Promise[Done]()
-    poller.poll(offset, List(getCategory(poller)), flag, Some(full), Some(accountsDone))
+    poller.poll(offset, List(getCategory(poller)), Some(full), Some(accountsDone))
 
     intercept[RuntimeException] {
       Await.result(accountsDone.future, 60.seconds)
@@ -224,13 +218,13 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val flag = new AtomicBoolean()
     val full = Promise[List[CloudWatchPoller#Poller]]()
     val accountsDone = Promise[Done]()
-    poller.poll(offset, List(getCategory(poller)), flag, Some(full), Some(accountsDone))
+    poller.poll(offset, List(getCategory(poller)), Some(full), Some(accountsDone))
 
     Await.result(accountsDone.future, 60.seconds)
     Await.result(full.future, 60.seconds)
     assertCounters()
     assertFalse(flag.get)
-    verify(processor, times(1)).updateLastSuccessfulPoll(anyString, anyLong)
+    verify(processor, never).updateLastSuccessfulPoll(anyString, anyLong)
   }
 
   test("Poller#execute all success") {
