@@ -19,7 +19,6 @@ import akka.Done
 import akka.actor.ActorSystem
 import akka.testkit.TestKitBase
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessorSuite.makeFirehoseMetric
-import com.netflix.atlas.util.ExecutorFactory
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.DefaultRegistry
@@ -29,7 +28,6 @@ import junit.framework.TestCase.assertFalse
 import munit.FunSuite
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.ArgumentMatchersSugar.any
-import org.mockito.ArgumentMatchersSugar.anyInt
 import org.mockito.ArgumentMatchersSugar.anyLong
 import org.mockito.MockitoSugar.mock
 import org.mockito.MockitoSugar.never
@@ -51,14 +49,11 @@ import software.amazon.awssdk.services.cloudwatch.paginators.ListMetricsIterable
 import java.time.Duration
 import java.time.Instant
 import java.util.Optional
-import java.util.concurrent.ExecutorService
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.Await
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.concurrent.duration.DurationInt
-import scala.util.Try
+import scala.jdk.CollectionConverters.SeqHasAsJava
 
 class CloudWatchPollerSuite extends FunSuite with TestKitBase {
 
@@ -77,9 +72,6 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   var clientFactory: AwsClientFactory = null
   var client: CloudWatchClient = null
   var routerCaptor = ArgCaptor[FirehoseMetric]
-  var executorFactory: ExecutorFactory = null
-  var threadPool: ExecutorService = null
-  var threadPoolCaptor = ArgCaptor[Runnable]
   var debugger: CloudWatchDebugger = null
   val config = ConfigFactory.load()
   val rules: CloudWatchRules = new CloudWatchRules(config)
@@ -93,13 +85,9 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     clientFactory = mock[AwsClientFactory]
     client = mock[CloudWatchClient]
     routerCaptor = ArgCaptor[FirehoseMetric]
-    executorFactory = mock[ExecutorFactory]
-    threadPool = mock[ExecutorService]
-    threadPoolCaptor = ArgCaptor[Runnable]
     debugger = new CloudWatchDebugger(config, registry)
 
     when(leaderStatus.hasLeadership).thenReturn(true)
-    when(executorFactory.createFixedPool(anyInt)).thenReturn(threadPool)
     when(processor.lastSuccessfulPoll(anyString)).thenReturn(0L)
     when(
       clientFactory.getInstance(
@@ -155,22 +143,16 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
 
   test("poll success") {
     val poller = getPoller
+    mockSuccess
     val flag = new AtomicBoolean()
     val full = Promise[List[CloudWatchPoller#Poller]]()
     val accountsDone = Promise[Done]()
     poller.poll(offset, List(getCategory(poller)), flag, Some(full), Some(accountsDone))
 
     Await.result(accountsDone.future, 60.seconds)
-    verify(threadPool, times(2)).submit(threadPoolCaptor)
-    threadPoolCaptor.values.foreach { p =>
-      val poll = p.asInstanceOf[CloudWatchPoller#Poller#ListMetrics]
-      poll.utHack(2, 2)
-      poll.promise.complete(Try(Done))
-    }
-
     val pollers = Await.result(full.future, 60.seconds)
     assertEquals(pollers.size, 1)
-    assertCounters(expected = 2, polled = 2)
+    assertCounters(expected = 4, polled = 4)
     assertFalse(flag.get)
     verify(processor, times(1)).updateLastSuccessfulPoll(anyString, anyLong)
   }
@@ -183,18 +165,6 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     poller.poll(offset, List(getCategory(poller)), flag, Some(full), Some(accountsDone))
 
     Await.result(accountsDone.future, 60.seconds)
-    verify(threadPool, times(2)).submit(threadPoolCaptor)
-    threadPoolCaptor
-      .values(0)
-      .asInstanceOf[CloudWatchPoller#Poller#ListMetrics]
-      .promise
-      .complete(Try(Done))
-    threadPoolCaptor
-      .values(1)
-      .asInstanceOf[CloudWatchPoller#Poller#ListMetrics]
-      .promise
-      .failure(new RuntimeException("test"))
-
     intercept[RuntimeException] {
       Await.result(full.future, 60.seconds)
     }
@@ -221,7 +191,6 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     intercept[RuntimeException] {
       Await.result(accountsDone.future, 60.seconds)
     }
-    verify(threadPool, never).submit(threadPoolCaptor)
     intercept[RuntimeException] {
       Await.result(full.future, 60.seconds)
     }
@@ -241,7 +210,6 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     intercept[RuntimeException] {
       Await.result(accountsDone.future, 60.seconds)
     }
-    verify(threadPool, never).submit(threadPoolCaptor)
     intercept[RuntimeException] {
       Await.result(full.future, 60.seconds)
     }
@@ -259,7 +227,6 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     poller.poll(offset, List(getCategory(poller)), flag, Some(full), Some(accountsDone))
 
     Await.result(accountsDone.future, 60.seconds)
-    verify(threadPool, never).submit(threadPoolCaptor)
     Await.result(full.future, 60.seconds)
     assertCounters()
     assertFalse(flag.get)
@@ -268,34 +235,21 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
 
   test("Poller#execute all success") {
     val poller = getPoller
+    mockSuccess
     val child = getChild(poller)
     val f = child.execute
-
-    verify(threadPool, times(2)).submit(threadPoolCaptor)
-    var listRequest = threadPoolCaptor.values(0).asInstanceOf[CloudWatchPoller#Poller#ListMetrics]
-    assertEquals(listRequest.request.metricName(), "DailyMetricA")
-    listRequest.promise.complete(Try(Done))
-    listRequest = threadPoolCaptor.values(1).asInstanceOf[CloudWatchPoller#Poller#ListMetrics]
-    assertEquals(listRequest.request.metricName(), "DailyMetricB")
-    listRequest.promise.complete(Try(Done))
     Await.result(f, 1.seconds)
+    assertCounters()
   }
 
   test("Poller#execute one failure") {
     val poller = getPoller
     val child = getChild(poller)
     val f = child.execute
-
-    verify(threadPool, times(2)).submit(threadPoolCaptor)
-    var listRequest = threadPoolCaptor.values(0).asInstanceOf[CloudWatchPoller#Poller#ListMetrics]
-    assertEquals(listRequest.request.metricName(), "DailyMetricA")
-    listRequest.promise.complete(Try(Done))
-    listRequest = threadPoolCaptor.values(1).asInstanceOf[CloudWatchPoller#Poller#ListMetrics]
-    assertEquals(listRequest.request.metricName(), "DailyMetricB")
-    listRequest.promise.failure(new RuntimeException("test"))
     intercept[RuntimeException] {
       Await.result(f, 1.seconds)
     }
+    assertCounters()
   }
 
   test("Poller#ListMetrics success") {
@@ -304,15 +258,9 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val (mdef, req) = getListReq(poller)
     val promise = Promise[Done]()
     mockListMetricsResp(req)
+    mockMetricStats()
     child.ListMetrics(req, mdef, promise).run
 
-    verify(threadPool, times(2)).submit(threadPoolCaptor)
-    var metricRequest =
-      threadPoolCaptor.values(0).asInstanceOf[CloudWatchPoller#Poller#FetchMetricStats]
-    metricRequest.promise.complete(Try(Done))
-    metricRequest =
-      threadPoolCaptor.values(1).asInstanceOf[CloudWatchPoller#Poller#FetchMetricStats]
-    metricRequest.promise.complete(Try(Done))
     assertCounters(droppedTags = 1, droppedFilter = 1)
     Await.result(promise.future, 1.seconds)
   }
@@ -325,7 +273,6 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     mockListMetricsResp(req, true)
     child.ListMetrics(req, mdef, promise).run
 
-    verify(threadPool, never).submit(threadPoolCaptor)
     assertCounters(empty = 1)
     Await.result(promise.future, 1.seconds)
   }
@@ -338,13 +285,6 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     mockListMetricsResp(req)
     child.ListMetrics(req, mdef, promise).run
 
-    verify(threadPool, times(2)).submit(threadPoolCaptor)
-    var metricRequest =
-      threadPoolCaptor.values(0).asInstanceOf[CloudWatchPoller#Poller#FetchMetricStats]
-    metricRequest.promise.complete(Try(Done))
-    metricRequest =
-      threadPoolCaptor.values(1).asInstanceOf[CloudWatchPoller#Poller#FetchMetricStats]
-    metricRequest.promise.failure(new RuntimeException("test"))
     assertCounters(droppedTags = 1, droppedFilter = 1)
     intercept[RuntimeException] {
       Await.result(promise.future, 1.seconds)
@@ -359,7 +299,6 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     when(client.listMetricsPaginator(req)).thenThrow(new RuntimeException("test"))
     child.ListMetrics(req, mdef, promise).run
 
-    verify(threadPool, never).submit(threadPoolCaptor)
     assertCounters(errors = Map("list" -> 1))
     intercept[RuntimeException] {
       Await.result(promise.future, 1.seconds)
@@ -372,7 +311,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val category = getCategory(poller)
     val (mdef, _) = getListReq(poller)
     val promise = Promise[Done]()
-    metricStats()
+    mockMetricStats()
     child.FetchMetricStats(mdef, metric, promise).run()
 
     verify(processor, times(2)).updateCache(
@@ -419,7 +358,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val category = getCategory(poller)
     val (mdef, _) = getListReq(poller)
     val promise = Promise[Done]()
-    metricStats(empty = true)
+    mockMetricStats(empty = true)
     child.FetchMetricStats(mdef, metric, promise).run()
 
     verify(processor, never).updateCache(
@@ -437,7 +376,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val category = getCategory(poller)
     val (mdef, _) = getListReq(poller)
     val promise = Promise[Done]()
-    metricStats(exception = true)
+    mockMetricStats(exception = true)
     child.FetchMetricStats(mdef, metric, promise).run()
 
     verify(processor, never).updateCache(
@@ -460,7 +399,6 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
       rules,
       clientFactory,
       processor,
-      executorFactory,
       debugger
     )
   }
@@ -474,7 +412,6 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     poller.Poller(
       timestamp,
       category,
-      executorFactory.createFixedPool(8),
       client,
       account,
       region
@@ -552,7 +489,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
       .build()
   }
 
-  def metricStats(empty: Boolean = false, exception: Boolean = false): Unit = {
+  def mockMetricStats(empty: Boolean = false, exception: Boolean = false): Unit = {
     val data =
       if (empty) List.empty
       else
@@ -586,6 +523,57 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     } else {
       when(client.getMetricStatistics(any[GetMetricStatisticsRequest])).thenReturn(resp)
     }
+  }
+
+  def mockSuccess(): Unit = {
+    when(client.listMetricsPaginator(any[ListMetricsRequest]))
+      .thenAnswer((req: ListMetricsRequest) => {
+        val metrics = List(
+          Metric
+            .builder()
+            .namespace("AWS/UT1")
+            .metricName(req.metricName())
+            .dimensions(Dimension.builder().name("MyTag").value("a").build())
+            .build(),
+          Metric
+            .builder()
+            .namespace("AWS/UT1")
+            .metricName(req.metricName())
+            .dimensions(Dimension.builder().name("MyTag").value("b").build())
+            .build()
+        )
+        val lmr = ListMetricsResponse
+          .builder()
+          .metrics(metrics.toArray: _*)
+          .build()
+        when(client.listMetrics(any[ListMetricsRequest])).thenReturn(lmr)
+        new ListMetricsIterable(client, req)
+      })
+
+    val dps = List(
+      Datapoint
+        .builder()
+        .sum(42)
+        .minimum(1)
+        .maximum(5)
+        .sampleCount(5)
+        .timestamp(timestamp.minusSeconds(86400 * 2))
+        .build(),
+      Datapoint
+        .builder()
+        .sum(24)
+        .minimum(0)
+        .maximum(3)
+        .sampleCount(10)
+        .timestamp(timestamp.minusSeconds(86400))
+        .build()
+    )
+    val resp = GetMetricStatisticsResponse
+      .builder()
+      .label("UT1")
+      .datapoints(dps.asJava)
+      .build()
+    when(client.getMetricStatistics(any[GetMetricStatisticsRequest])).thenReturn(resp)
   }
 
   def assertCounters(
@@ -629,4 +617,5 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
       empty
     )
   }
+
 }

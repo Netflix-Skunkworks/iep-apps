@@ -20,7 +20,6 @@ import akka.actor.ActorSystem
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.normalize
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.toTagMap
 import com.netflix.atlas.cloudwatch.CloudWatchPoller.runAfter
-import com.netflix.atlas.util.ExecutorFactory
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Registry
@@ -68,10 +67,11 @@ class CloudWatchPoller(
   rules: CloudWatchRules,
   clientFactory: AwsClientFactory,
   processor: CloudWatchMetricsProcessor,
-  executorFactory: ExecutorFactory,
   debugger: CloudWatchDebugger
 )(implicit val system: ActorSystem)
     extends StrictLogging {
+
+  private implicit val executionContext = system.dispatchers.lookup("aws-poller-io-dispatcher")
 
   private val pollTime = registry.timer("atlas.cloudwatch.poller.pollTime")
   private val errorSetup = registry.createId("atlas.cloudwatch.poller.failure", "call", "setup")
@@ -86,8 +86,6 @@ class CloudWatchPoller(
     registry.counter("atlas.cloudwatch.poller.dps.dropped", "reason", "filter")
   private val dpsExpected = registry.counter("atlas.cloudwatch.poller.dps.expected")
   private val dpsPolled = registry.counter("atlas.cloudwatch.poller.dps.polled")
-
-  private val numThreads = config.getInt("atlas.cloudwatch.poller.num-threads")
   private val frequency = config.getDuration("atlas.cloudwatch.poller.frequency").getSeconds
 
   private val periodFilter =
@@ -163,7 +161,6 @@ class CloudWatchPoller(
       return
     }
 
-    val threadPool = executorFactory.createFixedPool(numThreads)
     val start = System.currentTimeMillis()
     val futures = List.newBuilder[Future[Done]]
     val now = Instant.now().truncatedTo(ChronoUnit.SECONDS)
@@ -182,7 +179,7 @@ class CloudWatchPoller(
             categories
               .filter(c => namespaces.contains(c.namespace))
               .foreach { category =>
-                val runner = Poller(now, category, threadPool, client, account, region)
+                val runner = Poller(now, category, /*threadPool, */ client, account, region)
                 this.synchronized {
                   runners += runner
                   futures += runner.execute
@@ -207,7 +204,6 @@ class CloudWatchPoller(
           )
           pollTime.record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS)
           processor.updateLastSuccessfulPoll(offset.toString, nextRun)
-          threadPool.shutdown()
           flag.set(false)
           fullRunUt.map(_.success(runners.result()))
         case Failure(ex) =>
@@ -217,7 +213,6 @@ class CloudWatchPoller(
             ex
           )
           pollTime.record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS)
-          threadPool.shutdown()
           flag.set(false)
           fullRunUt.map(_.failure(ex))
       }
@@ -228,7 +223,6 @@ class CloudWatchPoller(
         registry
           .counter(errorSetup.withTags("exception", ex.getClass.getSimpleName))
           .increment()
-        threadPool.shutdown()
         flag.set(false)
         accountsUt.map(_.failure(ex))
         fullRunUt.map(_.failure(ex))
@@ -238,7 +232,6 @@ class CloudWatchPoller(
   case class Poller(
     now: Instant,
     category: MetricCategory,
-    threadPool: ExecutorService,
     client: CloudWatchClient,
     account: String,
     region: Region
@@ -253,7 +246,7 @@ class CloudWatchPoller(
       val futures = category.toListRequests.map { tuple =>
         val (definition, request) = tuple
         val promise = Promise[Done]()
-        threadPool.submit(ListMetrics(request, definition, promise))
+        executionContext.execute(ListMetrics(request, definition, promise))
         promise.future
       }
 
@@ -310,7 +303,7 @@ class CloudWatchPoller(
               val promise = Promise[Done]()
               futures(idx) = promise.future
               expecting.incrementAndGet()
-              threadPool.submit(FetchMetricStats(definition, metric, promise))
+              executionContext.execute(FetchMetricStats(definition, metric, promise))
             }
             idx += 1
           }
