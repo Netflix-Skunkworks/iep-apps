@@ -45,6 +45,7 @@ object Dependencies {
   val atlasWebApi        = "com.netflix.atlas_v1" %% "atlas-webapi" % atlas
   val aws2AutoScaling    = "software.amazon.awssdk" % "autoscaling" % aws2
   val aws2CloudWatch     = "software.amazon.awssdk" % "cloudwatch" % aws2
+  val aws2Config         = "software.amazon.awssdk" % "config" % aws2
   val aws2DynamoDB       = "software.amazon.awssdk" % "dynamodb" % aws2
   val aws2EC2            = "software.amazon.awssdk" % "ec2" % aws2
   val aws2S3             = "software.amazon.awssdk" % "s3" % aws2

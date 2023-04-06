@@ -45,6 +45,7 @@ lazy val `atlas-cloudwatch` = project
     Dependencies.atlasJson,
     Dependencies.atlasSpringAkka,
     Dependencies.aws2CloudWatch,
+    Dependencies.aws2Config,
     Dependencies.frigga,
     Dependencies.iepDynConfig,
     Dependencies.iepSpring,
