@@ -20,6 +20,7 @@ import akka.actor.ActorSystem
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.normalize
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.toTagMap
 import com.netflix.atlas.cloudwatch.CloudWatchPoller.runAfter
+import com.netflix.atlas.cloudwatch.CloudWatchPoller.runKey
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Registry
@@ -34,7 +35,7 @@ import software.amazon.awssdk.services.cloudwatch.model.Metric
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Optional
-import java.util.concurrent.ExecutorService
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -91,9 +92,10 @@ class CloudWatchPoller(
   private val periodFilter =
     config.getDuration("atlas.cloudwatch.poller.period-filter").getSeconds.toInt
 
-  private[cloudwatch] val (offsetMap, flags) = {
+  private[cloudwatch] val flagMap = new ConcurrentHashMap[String, AtomicBoolean]()
+
+  private[cloudwatch] val offsetMap = {
     var map = Map.empty[Int, List[MetricCategory]]
-    var flagMap = Map.empty[Int, AtomicBoolean]
     rules
       .getCategories(config)
       .filter(c => c.pollOffset.isDefined && c.period == periodFilter)
@@ -101,13 +103,10 @@ class CloudWatchPoller(
         val offset = category.pollOffset.get.getSeconds.toInt
         val categories = map.getOrElse(offset, List.empty)
         map += offset -> (categories :+ category)
-
-        val flag = flagMap.getOrElse(offset, new AtomicBoolean(false))
-        flagMap += offset -> flag
         logger.info(s"Setting offset of ${offset}s for categories ${category.namespace}")
       }
     logger.info(s"Loaded ${map.size} polling offsets")
-    (map, flagMap)
+    map
   }
 
   {
@@ -116,47 +115,18 @@ class CloudWatchPoller(
       system.scheduler.scheduleAtFixedRate(
         FiniteDuration.apply(frequency, TimeUnit.SECONDS),
         FiniteDuration.apply(frequency, TimeUnit.SECONDS)
-      )(() => poll(offset, categories, flags.get(offset).get))(system.dispatcher)
+      )(() => poll(offset, categories))(system.dispatcher)
     }
   }
 
   private[cloudwatch] def poll(
     offset: Int,
     categories: List[MetricCategory],
-    flag: AtomicBoolean,
     fullRunUt: Option[Promise[List[CloudWatchPoller#Poller]]] = None,
     accountsUt: Option[Promise[Done]] = None
   ): Unit = {
     if (!leaderStatus.hasLeadership) {
       logger.info(s"Not the leader for ${offset}s, skipping CloudWatch polling.")
-      fullRunUt.map(_.success(List.empty))
-      return
-    }
-
-    // see if we've past the next run time.
-    var nextRun = 0L
-    try {
-      val previousRun = processor.lastSuccessfulPoll(offset.toString)
-      nextRun = runAfter(offset, periodFilter)
-      if (previousRun >= nextRun) {
-        logger.info(
-          s"Skipping CloudWatch polling for ${offset}s as we're within the polling interval. Previous ${previousRun}. Next ${nextRun}"
-        )
-        fullRunUt.map(_.success(List.empty))
-        return
-      } else {
-        logger.info(
-          s"Polling for offset ${offset}s. Previous run was at ${previousRun}. Next run at ${nextRun}"
-        )
-      }
-    } catch {
-      case ex: Exception =>
-        logger.error(s"Unexpected exception checking for the last poll timestamp on ${offset}s", ex)
-        return
-    }
-
-    if (!flag.compareAndSet(false, true)) {
-      logger.warn(s"Skipping polling for period ${offset}s as it was already running.")
       fullRunUt.map(_.success(List.empty))
       return
     }
@@ -170,21 +140,56 @@ class CloudWatchPoller(
       accountSupplier.accounts.foreachEntry { (account, regions) =>
         regions.foreachEntry { (region, namespaces) =>
           if (namespaces.size > 0) {
-            val client = clientFactory.getInstance(
-              account + "." + region.toString,
-              classOf[CloudWatchClient],
-              account,
-              Optional.of(region)
-            )
-            categories
-              .filter(c => namespaces.contains(c.namespace))
-              .foreach { category =>
-                val runner = Poller(now, category, /*threadPool, */ client, account, region)
-                this.synchronized {
-                  runners += runner
-                  futures += runner.execute
+            val filtered = categories.filter(c => namespaces.contains(c.namespace))
+            if (filtered.size > 0) {
+              val nextRun = timeToRun(offset, account, region)
+              if (nextRun > 0) {
+                // flag check
+                val flag = flagMap.computeIfAbsent(
+                  runKey(offset, account, region),
+                  _ => new AtomicBoolean(false)
+                )
+                if (flag.compareAndSet(false, true)) {
+                  val client = clientFactory.getInstance(
+                    account + "." + region.toString,
+                    classOf[CloudWatchClient],
+                    account,
+                    Optional.of(region)
+                  )
+                  val catFutures = filtered.map { category =>
+                    val runner = Poller(now, category, client, account, region)
+                    this.synchronized {
+                      runners += runner
+                      runner.execute
+                    }
+                  }
+                  futures += Future.reduceLeft(catFutures)((_, _) => Done).andThen {
+                    case Success(_) =>
+                      val key = runKey(offset, account, region)
+                      processor.updateLastSuccessfulPoll(key, nextRun)
+                      val flag = flagMap.get(key)
+                      if (flag == null) {
+                        logger.error(s"No flag found for key ${key}")
+                      } else {
+                        flag.set(false)
+                      }
+                    case Failure(_) =>
+                      val key = runKey(offset, account, region)
+                      val flag = flagMap.get(key)
+                      if (flag == null) {
+                        logger.error(s"No flag found for key ${key}")
+                      } else {
+                        flag.set(false)
+                      }
+                    // let it bubble up. We'll retry all categories which should be ok as the polling should be idempotent
+                  }
+                } else {
+                  logger.warn(
+                    s"Skipping polling for period ${offset}s ${account} in ${region} as it was already running."
+                  )
                 }
               }
+            }
           }
         }
       }
@@ -203,8 +208,6 @@ class CloudWatchPoller(
             s"Finished CloudWatch polling with ${got} of ${expecting} metrics in ${(System.currentTimeMillis() - start) / 1000.0} s"
           )
           pollTime.record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS)
-          processor.updateLastSuccessfulPoll(offset.toString, nextRun)
-          flag.set(false)
           fullRunUt.map(_.success(runners.result()))
         case Failure(ex) =>
           logger.error(
@@ -213,7 +216,6 @@ class CloudWatchPoller(
             ex
           )
           pollTime.record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS)
-          flag.set(false)
           fullRunUt.map(_.failure(ex))
       }
       accountsUt.map(_.success(Done))
@@ -223,7 +225,6 @@ class CloudWatchPoller(
         registry
           .counter(errorSetup.withTags("exception", ex.getClass.getSimpleName))
           .increment()
-        flag.set(false)
         accountsUt.map(_.failure(ex))
         fullRunUt.map(_.failure(ex))
     }
@@ -397,6 +398,30 @@ class CloudWatchPoller(
     }
   }
 
+  private def timeToRun(offset: Int, account: String, region: Region): Long = {
+    // see if we've past the next run time.
+    var nextRun = 0L
+    try {
+      val previousRun = processor.lastSuccessfulPoll(runKey(offset, account, region))
+      nextRun = runAfter(offset, periodFilter)
+      if (previousRun >= nextRun) {
+        logger.info(
+          s"Skipping CloudWatch polling for ${offset}s as we're within the polling interval. Previous ${previousRun}. Next ${nextRun}"
+        )
+        return -1
+      } else {
+        logger.info(
+          s"Polling for offset ${offset}s. Previous run was at ${previousRun}. Next run at ${nextRun}"
+        )
+      }
+    } catch {
+      case ex: Exception =>
+        logger.error(s"Unexpected exception checking for the last poll timestamp on ${offset}s", ex)
+        return -1
+    }
+    nextRun
+  }
+
 }
 
 object CloudWatchPoller {
@@ -408,4 +433,7 @@ object CloudWatchPoller {
     if (start < now) start + (period * 1000) else start
   }
 
+  private[cloudwatch] def runKey(offset: Int, account: String, region: Region): String = {
+    s"${account}_${region.toString}_${offset.toString}"
+  }
 }
