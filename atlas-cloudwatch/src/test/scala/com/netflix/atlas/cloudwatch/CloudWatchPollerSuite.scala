@@ -110,9 +110,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
       )
     ).thenReturn(client)
     when(accountSupplier.accounts).thenReturn(
-      Future(
-        Map(account -> List(Region.US_EAST_1))
-      )
+      Map(account -> Map(Region.US_EAST_1 -> Set("AWS/UT1", "AWS/UTRedis", "AWS/UTQueryFilter")))
     )
   }
 
@@ -233,7 +231,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   }
 
   test("poll accounts exception") {
-    when(accountSupplier.accounts).thenReturn(Future.failed(new RuntimeException("test")))
+    when(accountSupplier.accounts).thenThrow(new RuntimeException("test"))
     val poller = getPoller
     val flag = new AtomicBoolean()
     val full = Promise[List[CloudWatchPoller#Poller]]()
@@ -253,7 +251,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   }
 
   test("poll empty accounts") {
-    when(accountSupplier.accounts).thenReturn(Future(Map.empty))
+    when(accountSupplier.accounts).thenReturn(Map.empty)
     val poller = getPoller
     val flag = new AtomicBoolean()
     val full = Promise[List[CloudWatchPoller#Poller]]()
