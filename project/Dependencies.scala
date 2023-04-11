@@ -75,7 +75,7 @@ object Dependencies {
   val mockitoScala       = "org.mockito" % "mockito-scala_2.13" % "1.10.4"
   val munit              = "org.scalameta" %% "munit" % "0.7.29"
   val openHFT            = "net.openhft" % "zero-allocation-hashing" % "0.16"
-  val protobuf           = "com.google.protobuf" % "protobuf-java" % "3.22.0"
+  val protobuf           = "com.google.protobuf" % "protobuf-java" % "3.22.2"
   val scalaCompiler      = "org.scala-lang" % "scala-compiler" % scala
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
   val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
