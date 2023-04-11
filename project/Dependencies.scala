@@ -14,14 +14,14 @@ object Dependencies {
     val akkaHttpV  = "10.2.10"
 
     val atlas      = "1.8.0-SNAPSHOT"
-    val aws2       = "2.20.13"
-    val iep        = "5.0.1"
+    val aws2       = "2.20.35"
+    val iep        = "5.0.2"
     val log4j      = "2.20.0"
     val scala      = "2.13.10"
     val servo      = "0.13.2"
     val slf4j      = "1.7.36"
-    val spectator  = "1.6.0-SNAPSHOT"
-    val spring     = "6.0.5"
+    val spectator  = "1.6.1"
+    val spring     = "6.0.7"
     val avroV      = "1.11.1"
 
     val crossScala = Seq(scala)
@@ -50,7 +50,7 @@ object Dependencies {
   val aws2EC2            = "software.amazon.awssdk" % "ec2" % aws2
   val aws2S3             = "software.amazon.awssdk" % "s3" % aws2
   val aws2SQS            = "software.amazon.awssdk" % "sqs" % aws2
-  val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "3.1.4"
+  val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "3.1.6"
   val frigga             = "com.netflix.frigga" % "frigga" % "0.26.0"
   val iepDynConfig       = "com.netflix.iep" % "iep-dynconfig" % iep
   val iepLeaderApi       = "com.netflix.iep" % "iep-leader-api" % iep
@@ -63,7 +63,7 @@ object Dependencies {
   val iepSpringAws2      = "com.netflix.iep" % "iep-spring-aws2" % iep
   val iepSpringJmx       = "com.netflix.iep" % "iep-spring-jmxport" % iep
   val iepSpringLeader    = "com.netflix.iep" % "iep-spring-leader" % iep
-  val jedis              = "redis.clients" % "jedis" % "4.3.1"
+  val jedis              = "redis.clients" % "jedis" % "4.3.2"
   val jsonSchema         = "com.github.java-json-tools" % "json-schema-validator" % "2.2.14"
   val jsr305             = "com.google.code.findbugs" % "jsr305" % "3.0.2"
   val log4jApi           = "org.apache.logging.log4j" % "log4j-api" % log4j
@@ -75,7 +75,7 @@ object Dependencies {
   val mockitoScala       = "org.mockito" % "mockito-scala_2.13" % "1.10.4"
   val munit              = "org.scalameta" %% "munit" % "0.7.29"
   val openHFT            = "net.openhft" % "zero-allocation-hashing" % "0.16"
-  val protobuf           = "com.google.protobuf" % "protobuf-java" % "3.22.0"
+  val protobuf           = "com.google.protobuf" % "protobuf-java" % "3.22.2"
   val scalaCompiler      = "org.scala-lang" % "scala-compiler" % scala
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
   val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
