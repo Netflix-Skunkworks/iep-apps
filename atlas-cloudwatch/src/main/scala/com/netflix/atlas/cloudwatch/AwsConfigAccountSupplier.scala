@@ -184,7 +184,6 @@ class AwsConfigAccountSupplier(
   system.scheduler.scheduleAtFixedRate(delay.seconds, 24.hours)(runner)(system.dispatcher)
   logger.info(s"Next AWS Config load in ${delay} seconds.")
 
-
   override def accounts: Map[String, Map[Region, Set[String]]] = filtered
 
   private def splitResource(resource: String): (String, String) = {

@@ -309,7 +309,11 @@ class RedisClusterCloudWatchMetricsProcessor(
     promise.future
   }
 
-  def getAndPublish(node: String, keys: ArrayBuffer[Array[Byte]], timestamp: Long): Future[NotUsed] = {
+  def getAndPublish(
+    node: String,
+    keys: ArrayBuffer[Array[Byte]],
+    timestamp: Long
+  ): Future[NotUsed] = {
     val promise = Promise[NotUsed]()
     executionContext.execute(new Runnable() {
       override def run(): Unit = {
