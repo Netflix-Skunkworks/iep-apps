@@ -15,6 +15,7 @@
  */
 package com.netflix.atlas.cloudwatch
 
+import akka.NotUsed
 import akka.actor.ActorSystem
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.expirationSeconds
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.newCacheEntry
@@ -97,7 +98,7 @@ class RedisClusterCloudWatchMetricsProcessor(
   private val maxBatch = config.getInt("atlas.redis-cluster.batch.size")
   private val pollKey = "cw_last_poll_"
 
-  private val currentScan = new AtomicReference[Future[Unit]]()
+  private val currentScan = new AtomicReference[Future[NotUsed]]()
   private val running = new AtomicBoolean(false)
   private val pubCounter = new AtomicInteger()
 
@@ -125,7 +126,7 @@ class RedisClusterCloudWatchMetricsProcessor(
         }
 
       var isNew: Boolean = false
-      val payload: Array[Byte] = if (existing == null || existing.length == 0) {
+      val payload: Array[Byte] = if (existing == null || existing.isEmpty) {
         isNew = true
         newCacheEntry(datapoint, category).toByteArray
       } else {
@@ -152,13 +153,13 @@ class RedisClusterCloudWatchMetricsProcessor(
     }
   }
 
-  override def publish(ts: Long): Future[Unit] = {
+  override def publish(ts: Long): Future[NotUsed] = {
     if (!leaderStatus.hasLeadership) {
       logger.debug("Not the leader, skipping publishing.")
-      return Future.successful(null)
+      return Future.successful(NotUsed)
     }
 
-    val promise = Promise[Unit]()
+    val promise = Promise[NotUsed]()
     currentScan.set(promise.future)
 
     if (!running.compareAndSet(false, true)) {
@@ -170,7 +171,7 @@ class RedisClusterCloudWatchMetricsProcessor(
     val start = registry.clock().monotonicTime()
     try {
       pubCounter.set(0)
-      val scanners = Vector.newBuilder[Future[Unit]]
+      val scanners = Vector.newBuilder[Future[NotUsed]]
       logger.info(s"Starting Redis scrape and publish for ${ts}")
 
       jedis.getClusterNodes.forEach((node, pool) => {
@@ -183,21 +184,21 @@ class RedisClusterCloudWatchMetricsProcessor(
           }
           if (info.contains("role:master")) {
             logger.info(s"Scanning Redis leader ${node}")
-            val batchPromise = Promise[Unit]()
+            val batchPromise = Promise[NotUsed]()
             scanners += batchPromise.future
 
             scanKeys(node)
               .onComplete {
                 case Success(slotToKeys) =>
                   logger.debug(s"Finished slot to keys call with ${slotToKeys.size} slots")
-                  val batches = ArrayBuffer[Future[Unit]]()
+                  val batches = ArrayBuffer[Future[NotUsed]]()
                   slotToKeys.values.foreach(keys => {
                     batches += getAndPublish(node, keys, ts)
                   })
 
                   Future.sequence(batches).onComplete {
                     case Success(_) =>
-                      batchPromise.complete(Try(null))
+                      batchPromise.complete(Try(NotUsed))
                     case Failure(ex) =>
                       // shouldn't happen.
                       logger.error("Failed on one or more batches", ex)
@@ -208,7 +209,7 @@ class RedisClusterCloudWatchMetricsProcessor(
                   logger.error(s"Failed to scan for keys on node ${node}", ex)
                   // let the other leaders complete.
                   registry.counter(scanFailure.withTag("node", node)).increment()
-                  batchPromise.complete(Try(null))
+                  batchPromise.complete(Try(NotUsed))
               }
           } else {
             logger.debug(s"Skipping Redis follower ${node}")
@@ -231,7 +232,7 @@ class RedisClusterCloudWatchMetricsProcessor(
 
             val duration = java.time.Duration.ofNanos(elapsed)
             logger.info(s"Finished a scrape run $duration with ${pubCounter.get()} pubs")
-            promise.complete(Try(null))
+            promise.complete(Try(NotUsed))
           } else {
             logger.error(
               s"Failed to mark the scrape for ${start} as finished as it was already finished."
@@ -262,7 +263,7 @@ class RedisClusterCloudWatchMetricsProcessor(
   private def scanKeys(node: String): Future[mutable.HashMap[Int, ArrayBuffer[Array[Byte]]]] = {
     val promise = Promise[mutable.HashMap[Int, ArrayBuffer[Array[Byte]]]]()
     executionContext.execute(new Runnable() {
-      @Override def run: Unit = {
+      @Override def run(): Unit = {
         try {
           var sum = 0
           val slotToKeys = mutable.HashMap[Int, ArrayBuffer[Array[Byte]]]()
@@ -308,10 +309,10 @@ class RedisClusterCloudWatchMetricsProcessor(
     promise.future
   }
 
-  def getAndPublish(node: String, keys: ArrayBuffer[Array[Byte]], timestamp: Long): Future[Unit] = {
-    val promise = Promise[Unit]()
+  def getAndPublish(node: String, keys: ArrayBuffer[Array[Byte]], timestamp: Long): Future[NotUsed] = {
+    val promise = Promise[NotUsed]()
     executionContext.execute(new Runnable() {
-      override def run: Unit = {
+      override def run(): Unit = {
         registry.counter(keysRead.withTag("node", node)).increment()
 
         try {
@@ -341,7 +342,7 @@ class RedisClusterCloudWatchMetricsProcessor(
                   .increment()
             }
           }
-          promise.complete(Try(null))
+          promise.complete(Try(NotUsed))
 
         } catch {
           case ex: Exception =>

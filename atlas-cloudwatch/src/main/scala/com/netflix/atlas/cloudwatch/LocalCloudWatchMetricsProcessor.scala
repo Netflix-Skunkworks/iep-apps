@@ -15,6 +15,7 @@
  */
 package com.netflix.atlas.cloudwatch
 
+import akka.NotUsed
 import akka.actor.ActorSystem
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.expirationSeconds
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.newCacheEntry
@@ -77,7 +78,7 @@ class LocalCloudWatchMetricsProcessor(
     cache.put(hash, (receivedTimestamp, expirationSeconds(category), data))
   }
 
-  override protected[cloudwatch] def publish(now: Long): Future[Unit] = {
+  override protected[cloudwatch] def publish(now: Long): Future[NotUsed] = {
     val iterator = cache.entrySet().iterator()
     while (iterator.hasNext) {
       val entry = iterator.next()
@@ -89,7 +90,7 @@ class LocalCloudWatchMetricsProcessor(
         sendToRouter(hash, data, now)
       }
     }
-    Future.successful(null)
+    Future.successful(NotUsed)
   }
 
   override protected[cloudwatch] def delete(key: Any): Unit = {
