@@ -140,7 +140,7 @@ class PublishRouter(
     }
   }
 
-  def shutdown: Unit = {
+  def shutdown(): Unit = {
     schedulers.shutdownNow()
   }
 }

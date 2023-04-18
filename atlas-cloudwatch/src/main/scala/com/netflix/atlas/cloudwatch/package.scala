@@ -16,7 +16,6 @@
 package com.netflix.atlas
 
 import software.amazon.awssdk.services.cloudwatch.model.Datapoint
-import software.amazon.awssdk.services.cloudwatch.model.Dimension
 
 /**
   * Helper types used in this package.
@@ -34,5 +33,4 @@ package object cloudwatch {
   type Conversion = (MetricMetadata, Datapoint) => Double
 
   type AtlasDatapoint = com.netflix.atlas.core.model.Datapoint
-  type MList = scala.collection.mutable.ListBuffer[AtlasDatapoint]
 }

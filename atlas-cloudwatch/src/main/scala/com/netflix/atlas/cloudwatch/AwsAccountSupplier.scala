@@ -17,8 +17,6 @@ package com.netflix.atlas.cloudwatch
 
 import software.amazon.awssdk.regions.Region
 
-import scala.concurrent.Future
-
 /**
   * Interface for supplying the list of accounts, regions and namespaces to poll for CloudWatch metrics.
   */

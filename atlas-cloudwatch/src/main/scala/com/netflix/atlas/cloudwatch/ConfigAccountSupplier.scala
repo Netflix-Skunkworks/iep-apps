@@ -19,8 +19,6 @@ import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import software.amazon.awssdk.regions.Region
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 /**
@@ -39,7 +37,7 @@ class ConfigAccountSupplier(
       config
         .getStringList("atlas.cloudwatch.account.polling.default-regions")
         .asScala
-        .map(Region.of(_))
+        .map(Region.of)
         .toList
     else List(Region.of(System.getenv("NETFLIX_REGION")))
 
