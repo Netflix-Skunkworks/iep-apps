@@ -31,7 +31,6 @@ import java.util.Optional
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.compat.java8.StreamConverters.StreamHasToScala
-import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.duration.DurationLong
 import scala.jdk.CollectionConverters.CollectionHasAsScala
@@ -73,14 +72,6 @@ class AwsConfigAccountSupplier(
   @volatile private[cloudwatch] var rawAccountResources
     : Map[String, Map[Region, Map[String, Set[String]]]] = null
   @volatile private[cloudwatch] var filtered: Map[String, Map[Region, Set[String]]] = null
-
-  val delay = {
-    val now = System.currentTimeMillis()
-    val normalized = normalize(now, 86_400) + (new Random().nextInt(3600) * 1000)
-    (if (now < normalized) normalized - now else (normalized + (86400 * 1000)) - now) / 1000
-  }
-  system.scheduler.scheduleAtFixedRate(delay.seconds, 24.hours)(runner)(system.dispatcher)
-  logger.info(s"Next AWS Config load in ${delay} seconds.")
 
   private val runner: Runnable = () => {
     val start = System.currentTimeMillis()
@@ -184,6 +175,14 @@ class AwsConfigAccountSupplier(
   }
   // run now to make sure we have access and can start
   runner.run()
+
+  private val delay = {
+    val now = System.currentTimeMillis()
+    val normalized = normalize(now, 86_400) + (new Random().nextInt(3600) * 1000)
+    (if (now < normalized) normalized - now else (normalized + (86400 * 1000)) - now) / 1000
+  }
+  system.scheduler.scheduleAtFixedRate(delay.seconds, 24.hours)(runner)(system.dispatcher)
+  logger.info(s"Next AWS Config load in ${delay} seconds.")
 
   override def accounts: Map[String, Map[Region, Set[String]]] = filtered
 

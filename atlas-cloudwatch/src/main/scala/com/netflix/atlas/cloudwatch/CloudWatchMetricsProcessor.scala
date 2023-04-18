@@ -15,6 +15,7 @@
  */
 package com.netflix.atlas.cloudwatch
 
+import akka.NotUsed
 import akka.actor.ActorSystem
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.expirationSeconds
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.newValue
@@ -215,7 +216,7 @@ abstract class CloudWatchMetricsProcessor(
   /**
     * Called by the scheduler to publish data accumulated in the cache. Exposed for unit testing.
     */
-  protected[cloudwatch] def publish(now: Long): Future[Unit]
+  protected[cloudwatch] def publish(now: Long): Future[NotUsed]
 
   /**
     * Removes the given entry from the cache. This is used to purge entries that are no longer valid due to a config
@@ -361,7 +362,7 @@ abstract class CloudWatchMetricsProcessor(
       delete(key)
       registry.counter(publishEmpty.withTag("aws.namespace", entry.getNamespace)).increment()
       debugger.debugScrape(entry, timestamp, ScrapeState.Empty)
-      return null
+      return
     }
 
     rules.rules.get(entry.getNamespace) match {
