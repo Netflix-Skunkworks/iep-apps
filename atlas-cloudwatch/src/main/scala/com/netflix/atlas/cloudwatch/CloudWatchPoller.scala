@@ -23,7 +23,9 @@ import com.netflix.atlas.cloudwatch.CloudWatchPoller.runAfter
 import com.netflix.atlas.cloudwatch.CloudWatchPoller.runKey
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.leader.api.LeaderStatus
+import com.netflix.spectator.api.Functions
 import com.netflix.spectator.api.Registry
+import com.netflix.spectator.api.patterns.PolledMeter
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import software.amazon.awssdk.regions.Region
@@ -39,6 +41,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
@@ -78,6 +81,15 @@ class CloudWatchPoller(
   private val errorListing = registry.createId("atlas.cloudwatch.poller.failure", "call", "list")
   private val errorStats = registry.createId("atlas.cloudwatch.poller.failure", "call", "metric")
   private val emptyListing = registry.createId("atlas.cloudwatch.poller.emptyList")
+
+  private val globalLastUpdate =
+    PolledMeter
+      .using(registry)
+      .withId(registry.createId("atlas.cloudwatch.poller.lastRun"))
+      .monitorValue(
+        new AtomicLong(System.currentTimeMillis()),
+        Functions.AGE
+      )
 
   private val dpsDroppedTags =
     registry.counter("atlas.cloudwatch.poller.dps.dropped", "reason", "tags")
@@ -206,6 +218,7 @@ class CloudWatchPoller(
           logger.info(
             s"Finished CloudWatch polling with ${got} of ${expecting} metrics in ${(System.currentTimeMillis() - start) / 1000.0} s"
           )
+          globalLastUpdate.set(System.currentTimeMillis())
           pollTime.record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS)
           fullRunUt.map(_.success(runners.result()))
         case Failure(ex) =>

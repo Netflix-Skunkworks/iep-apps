@@ -29,14 +29,17 @@ import com.netflix.atlas.akka.CustomMediaTypes
 import com.netflix.atlas.akka.StreamOps
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.json.Json
+import com.netflix.spectator.api.Functions
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.Registry
+import com.netflix.spectator.api.patterns.PolledMeter
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
 import java.time.Duration
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
@@ -70,6 +73,15 @@ class PublishQueue(
   private val queueSize = getSetting("queueSize")
   private val batchSize = getSetting("batchSize")
   private val batchTimeout = getDurationSetting("batchTimeout")
+
+  private val lastUpdateTimestamp =
+    PolledMeter
+      .using(registry)
+      .withId(registry.createId("atlas.cloudwatch.queue.lastPublish", "stack", stack))
+      .monitorValue(
+        new AtomicLong(System.currentTimeMillis()),
+        Functions.AGE
+      )
 
   private[cloudwatch] val publishQueue = StreamOps
     .blockingQueue[AtlasDatapoint](registry, s"${stack}PubQueue", queueSize)
@@ -136,6 +148,7 @@ class PublishQueue(
         retry(payload, retries, size)
         promise.complete(Try(NotUsed))
     }
+    lastUpdateTimestamp.set(System.currentTimeMillis())
     promise.future
   }
 
