@@ -439,7 +439,7 @@ object DruidDatabaseActor {
       case Histogram(_) if metric.isDistSummary => Aggregation.distSummary(metric.name)
       case DataExpr.GroupBy(e, _)               => toAggregation(metric, e)
       case DataExpr.Consolidation(e, _)         => toAggregation(metric, e)
-      case _: DataExpr.Sum if metric.isSketch   => Aggregation.distinct(metric.name)
+      case _ if metric.isSketch                 => Aggregation.distinct(metric.name)
       case _: DataExpr.Sum                      => Aggregation.sum(metric.name)
       case _: DataExpr.Max                      => Aggregation.max(metric.name)
       case _: DataExpr.Min                      => Aggregation.min(metric.name)
