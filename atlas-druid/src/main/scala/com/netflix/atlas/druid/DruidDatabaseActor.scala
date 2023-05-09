@@ -439,6 +439,7 @@ object DruidDatabaseActor {
       case Histogram(_) if metric.isDistSummary => Aggregation.distSummary(metric.name)
       case DataExpr.GroupBy(e, _)               => toAggregation(metric, e)
       case DataExpr.Consolidation(e, _)         => toAggregation(metric, e)
+      case _ if metric.isSketch                 => Aggregation.distinct(metric.name)
       case _: DataExpr.Sum                      => Aggregation.sum(metric.name)
       case _: DataExpr.Max                      => Aggregation.max(metric.name)
       case _: DataExpr.Min                      => Aggregation.min(metric.name)
@@ -563,7 +564,8 @@ object DruidDatabaseActor {
           // performance. This filter cannot be used with the spectatorHistogram type in druid.
           val metricValueFilter = Query.Not(Query.Equal(name, "0")).and(Query.HasKey(name))
           val finalQueryWithFilter =
-            if (m.metric.isHistogram) finalQuery else finalQuery.and(metricValueFilter)
+            if (m.metric.isHistogram || m.metric.isSketch) finalQuery
+            else finalQuery.and(metricValueFilter)
 
           val groupByQuery = GroupByQuery(
             dataSource = datasource,

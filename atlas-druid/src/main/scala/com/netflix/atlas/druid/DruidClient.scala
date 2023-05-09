@@ -251,7 +251,12 @@ object DruidClient {
 
   case class Metric(name: String, dataType: String = "DOUBLE") {
 
-    def isCounter: Boolean = dataType == "DOUBLE" || dataType == "FLOAT" || dataType == "LONG"
+    def isSketch: Boolean = {
+      dataType == "HLLSketch"
+    }
+
+    def isCounter: Boolean =
+      dataType == "DOUBLE" || dataType == "FLOAT" || dataType == "LONG" || isSketch
 
     def isTimer: Boolean = {
       dataType == "spectatorHistogramTimer"
@@ -512,6 +517,7 @@ object DruidClient {
     def sum(fieldName: String): Aggregation = Aggregation("doubleSum", fieldName)
     def min(fieldName: String): Aggregation = Aggregation("doubleMin", fieldName)
     def max(fieldName: String): Aggregation = Aggregation("doubleMax", fieldName)
+    def distinct(fieldName: String): Aggregation = Aggregation("HLLSketchMerge", fieldName)
     def timer(fieldName: String): Aggregation = Aggregation("timer", fieldName)
     def distSummary(fieldName: String): Aggregation = Aggregation("dist-summary", fieldName)
   }

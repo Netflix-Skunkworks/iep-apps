@@ -65,6 +65,17 @@
         "minValue": null,
         "maxValue": null,
         "errorMessage": null
+      },
+      "test.metric.hllsketch": {
+        "typeSignature": "COMPLEX<HLLSketch>",
+        "type": "HLLSketch",
+        "hasMultipleValues": false,
+        "hasNulls": true,
+        "size": 0,
+        "cardinality": null,
+        "minValue": null,
+        "maxValue": null,
+        "errorMessage": null
       }
     },
     "size": 158732338,
