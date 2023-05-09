@@ -153,7 +153,8 @@ class DruidClientSuite extends FunSuite {
       "test.dim.2",
       "test.metric.histogram.dist.1",
       "test.metric.histogram.dist.2",
-      "test.metric.histogram.timer"
+      "test.metric.histogram.timer",
+      "test.metric.hllsketch"
     )
     assertEquals(columns.keySet, expected)
   }
@@ -165,6 +166,7 @@ class DruidClientSuite extends FunSuite {
     assertEquals(columns("test.metric.histogram.dist.1").`type`, "spectatorHistogram")
     assertEquals(columns("test.metric.histogram.dist.2").`type`, "spectatorHistogramDistribution")
     assertEquals(columns("test.metric.histogram.timer").`type`, "spectatorHistogramTimer")
+    assertEquals(columns("test.metric.hllsketch").`type`, "HLLSketch")
     assertEquals(columns("test.dim.1").`type`, "STRING")
     assertEquals(columns("test.dim.1").`type`, "STRING")
   }
@@ -177,6 +179,7 @@ class DruidClientSuite extends FunSuite {
         case "test.metric.histogram.dist.1" => assert(m.isDistSummary)
         case "test.metric.histogram.dist.2" => assert(m.isDistSummary)
         case "test.metric.histogram.timer"  => assert(m.isTimer)
+        case "test.metric.hllsketch"        => assert(m.isSketch)
         case name                           => throw new MatchError(name)
       }
     }
@@ -240,6 +243,13 @@ class DruidClientSuite extends FunSuite {
     val aggr = Aggregation.distSummary("foo")
     val json = Json.encode(aggr)
     assert(json.contains("spectatorHistogram"))
+    assert(!json.contains("aggrType"))
+  }
+
+  test("aggregation encode, distinct type") {
+    val aggr = Aggregation.distinct("foo")
+    val json = Json.encode(aggr)
+    assert(json.contains("HLLSketchMerge"))
     assert(!json.contains("aggrType"))
   }
 
