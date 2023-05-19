@@ -109,6 +109,33 @@
         "compression": 50,
         "histogram": true,
         "staticBufferMax": 5000
+      },
+      "test.metric.hllsketch": {
+        "type": "HLLSketchMerge",
+        "name": "test.metric.hllsketch",
+        "fieldName": "test.metric.hllsketch",
+        "lgK": 12,
+        "tgtHllType": "HLL_4"
+      },
+      "test.metric.histogram.dist.1": {
+        "type": "spectatorHistogram",
+        "name": "test.metric.histogram.dist.1",
+        "fieldName": "test.metric.histogram.dist.1"
+      },
+      "test.metric.histogram.dist.2": {
+        "type": "spectatorHistogramDistribution",
+        "name": "test.metric.histogram.dist.2",
+        "fieldName": "test.metric.histogram.dist.2"
+      },
+      "test.metric.histogram.timer": {
+        "type": "spectatorHistogramTimer",
+        "name": "test.metric.histogram.timer",
+        "fieldName": "test.metric.histogram.timer"
+      },
+      "changed.metric": {
+        "type": "spectatorHistogramTimer",
+        "name": "changed.metric",
+        "fieldName": "changed.metric"
       }
     },
     "timestampSpec": null,

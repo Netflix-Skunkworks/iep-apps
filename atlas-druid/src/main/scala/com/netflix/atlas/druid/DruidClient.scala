@@ -249,14 +249,14 @@ object DruidClient {
 
   case class Datasource(dimensions: List[String], metrics: List[Metric])
 
-  case class Metric(name: String, dataType: String = "DOUBLE") {
+  case class Metric(name: String, dataType: String = "doubleSum") {
 
     def isSketch: Boolean = {
-      dataType == "HLLSketch"
+      dataType == "HLLSketchMerge"
     }
 
     def isCounter: Boolean =
-      dataType == "DOUBLE" || dataType == "FLOAT" || dataType == "LONG" || isSketch
+      dataType == "doubleSum" || dataType == "floatSum" || dataType == "longSum" || isSketch
 
     def isTimer: Boolean = {
       dataType == "spectatorHistogramTimer"
@@ -278,7 +278,7 @@ object DruidClient {
     toInclude: Option[ToInclude] = None,
     merge: Boolean = true,
     analysisTypes: List[String] = List("aggregators"),
-    lenientAggregatorMerge: Boolean = false
+    lenientAggregatorMerge: Boolean = true
   ) {
     val queryType: String = "segmentMetadata"
   }
@@ -307,9 +307,7 @@ object DruidClient {
 
     def toDatasource: Datasource = {
       val dimensions = columns.filter(_._2.isDimension).keys.toList.sorted
-      val metrics = columns
-        .filter(_._1 != "__time")
-        .filter(_._2.isMetric)
+      val metrics = aggregators
         .map {
           case (name, column) => Metric(name, column.`type`)
         }
