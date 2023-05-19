@@ -144,7 +144,7 @@ class DruidClientSuite extends FunSuite {
     val result = executeSegmentMetadataRequest
     assertEquals(result.size, 1)
 
-    val columns = result.head.columns
+    val columns = result.head.columns.filter(!_._2.isError)
 
     val expected = Set(
       "__time",
@@ -181,6 +181,17 @@ class DruidClientSuite extends FunSuite {
         case "test.metric.histogram.timer"  => assert(m.isTimer)
         case "test.metric.hllsketch"        => assert(m.isSketch)
         case name                           => throw new MatchError(name)
+      }
+    }
+  }
+
+  test("segmentMetadata dimensions") {
+    val ds = executeSegmentMetadataRequest.head.toDatasource
+    ds.dimensions.foreach { d =>
+      d match {
+        case "test.dim.1" => assert(true)
+        case "test.dim.2" => assert(true)
+        case name => throw new MatchError(name)
       }
     }
   }

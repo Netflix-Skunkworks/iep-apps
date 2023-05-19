@@ -323,11 +323,13 @@ object DruidClient {
     `type`: String,
     hasMultipleValues: Boolean,
     size: Long,
-    cardinality: Long
+    cardinality: Long,
+    errorMessage: String
   ) {
 
-    def isDimension: Boolean = `type` == "STRING"
-    def isMetric: Boolean = !isDimension
+    def isDimension: Boolean = `type` == "STRING" && !isError
+    def isMetric: Boolean = !isDimension && !isError
+    def isError: Boolean = errorMessage != null
   }
 
   case class Aggregator(

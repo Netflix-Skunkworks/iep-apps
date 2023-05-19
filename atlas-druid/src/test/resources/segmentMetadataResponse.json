@@ -76,6 +76,17 @@
         "minValue": null,
         "maxValue": null,
         "errorMessage": null
+      },
+      "changed.metric": {
+        "typeSignature": "STRING",
+        "type": "STRING",
+        "hasMultipleValues": false,
+        "hasNulls": false,
+        "size": -1,
+        "cardinality": null,
+        "minValue": null,
+        "maxValue": null,
+        "errorMessage": "error:cannot_merge_diff_types: [LONG] and [spectatorHistogramTimer]"
       }
     },
     "size": 158732338,
