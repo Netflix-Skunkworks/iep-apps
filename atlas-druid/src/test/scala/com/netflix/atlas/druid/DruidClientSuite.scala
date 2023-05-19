@@ -144,7 +144,7 @@ class DruidClientSuite extends FunSuite {
     val result = executeSegmentMetadataRequest
     assertEquals(result.size, 1)
 
-    val columns = result.head.columns
+    val columns = result.head.columns.filter(!_._2.isError)
 
     val expected = Set(
       "__time",
@@ -173,6 +173,17 @@ class DruidClientSuite extends FunSuite {
 
   test("segmentMetadata metrics") {
     val ds = executeSegmentMetadataRequest.head.toDatasource
+
+    val expected = Set(
+      "test.metric.counter",
+      "test.metric.histogram.dist.1",
+      "test.metric.histogram.dist.2",
+      "test.metric.histogram.timer",
+      "test.metric.hllsketch",
+      "changed.metric"
+    )
+    assertEquals(ds.metrics.map(m => m.name).toSet, expected)
+
     ds.metrics.foreach { m =>
       m.name match {
         case "test.metric.counter"          => assert(m.isCounter)
@@ -180,20 +191,57 @@ class DruidClientSuite extends FunSuite {
         case "test.metric.histogram.dist.2" => assert(m.isDistSummary)
         case "test.metric.histogram.timer"  => assert(m.isTimer)
         case "test.metric.hllsketch"        => assert(m.isSketch)
+        case "changed.metric"               => assert(m.isTimer)
         case name                           => throw new MatchError(name)
+      }
+    }
+  }
+
+  test("segmentMetadata dimensions") {
+    val ds = executeSegmentMetadataRequest.head.toDatasource
+
+    val expected = Set(
+      "test.dim.1",
+      "test.dim.2"
+    )
+    assertEquals(ds.dimensions.toSet, expected)
+
+    ds.dimensions.foreach { d =>
+      d match {
+        case "test.dim.1" => assert(true)
+        case "test.dim.2" => assert(true)
+        case name         => throw new MatchError(name)
       }
     }
   }
 
   test("segmentMetadata aggregators") {
     val aggregators = executeSegmentMetadataRequest.head.aggregators
-    assertEquals(aggregators.size, 2)
 
     val expected = Set(
       "test.metric.counter",
-      "test.metric.histogram"
+      "test.metric.histogram",
+      "test.metric.hllsketch",
+      "test.metric.histogram.dist.1",
+      "test.metric.histogram.dist.2",
+      "test.metric.histogram.timer",
+      "changed.metric"
     )
     assertEquals(aggregators.keySet, expected)
+
+    aggregators.values.foreach { a =>
+      a.name match {
+        case "test.metric.counter"          => assertEquals(a.`type`, "longSum")
+        case "test.metric.histogram"        => assertEquals(a.`type`, "netflixHistogram")
+        case "test.metric.hllsketch"        => assertEquals(a.`type`, "HLLSketchMerge")
+        case "test.metric.histogram.dist.1" => assertEquals(a.`type`, "spectatorHistogram")
+        case "test.metric.histogram.dist.2" =>
+          assertEquals(a.`type`, "spectatorHistogramDistribution")
+        case "test.metric.histogram.timer" => assertEquals(a.`type`, "spectatorHistogramTimer")
+        case "changed.metric"              => assertEquals(a.`type`, "spectatorHistogramTimer")
+        case name                          => throw new MatchError(name)
+      }
+    }
   }
 
   private def executeGroupByRequest: List[GroupByDatapoint] = {
