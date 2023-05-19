@@ -261,7 +261,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
         val exprStr = expr.toString()
         toDruidQueries(metadata, id, fetchContext, expr)
           .map {
-            case (tags, q) => Map("data-expr" -> exprStr, "tags" -> tags, "druid-query" -> q)
+            case (tags, _, q) => Map("data-expr" -> exprStr, "tags" -> tags, "druid-query" -> q)
           }
       }
       .sortWith { (m1, m2) =>
@@ -300,10 +300,14 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
       }
     val query = expr.query
 
-    val valueMapper = createValueMapper(normalizeRates, fetchContext, expr)
-
     val druidQueries = toDruidQueries(metadata, id, fetchContext, expr).map {
-      case (tags, groupByQuery) =>
+      case (tags, metric, groupByQuery) =>
+        // For sketches just use the distinct count, other types are assumed to be counters.
+        val valueMapper =
+          if (metric.isSketch)
+            (v: Double) => v
+          else
+            createValueMapper(normalizeRates, fetchContext, expr)
         client.data(groupByQuery).map { result =>
           val candidates = toTimeSeries(tags, fetchContext, result, maxDataSize, valueMapper)
           // See behavior on multi-value dimensions:
@@ -523,7 +527,7 @@ object DruidDatabaseActor {
     id: String,
     context: EvalContext,
     expr: DataExpr
-  ): List[(Map[String, String], DataQuery)] = {
+  ): List[(Map[String, String], DruidClient.Metric, DataQuery)] = {
     val query = expr.query
     val metrics = metadata.datasources.flatMap { ds =>
       ds.metrics.filter(m => query.couldMatch(m.tags)).map { m =>
@@ -580,7 +584,7 @@ object DruidDatabaseActor {
               groupByQuery.toTimeseriesQuery
             else
               groupByQuery
-          Some(tags -> druidQuery.withAdditionalContext(Map("atlasQuerySource" -> id)))
+          Some((tags, m.metric, druidQuery.withAdditionalContext(Map("atlasQuerySource" -> id))))
         }
     }
   }
