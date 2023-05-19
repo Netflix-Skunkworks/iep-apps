@@ -300,7 +300,6 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
       }
     val query = expr.query
 
-
     val druidQueries = toDruidQueries(metadata, id, fetchContext, expr).map {
       case (tags, metric, groupByQuery) =>
         // For sketches just use the distinct count, other types are assumed to be counters.
