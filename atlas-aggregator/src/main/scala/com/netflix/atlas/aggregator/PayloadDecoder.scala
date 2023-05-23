@@ -38,6 +38,8 @@ import com.netflix.spectator.impl.AsciiSet
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
+import java.util.function.Consumer
+
 /**
   * Helper for encoding and decoding the aggregator payloads. Format of the payload is a simple
   * array containing:
@@ -298,7 +300,8 @@ object PayloadDecoder {
     */
   private def rollup(id: Id): Id = {
     val rollup = new java.util.HashSet[String]()
-    rollupPolicies.forEachMatch(id, p => rollup.addAll(p.rollup))
+    val consumer: Consumer[RollupPolicy] = p => rollup.addAll(p.rollup)
+    rollupPolicies.forEachMatch(id, consumer)
     if (rollup.isEmpty)
       id
     else
