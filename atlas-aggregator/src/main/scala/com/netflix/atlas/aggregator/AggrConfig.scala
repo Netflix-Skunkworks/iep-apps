@@ -86,6 +86,10 @@ class AggrConfig(
     true
   }
 
+  override def delayGaugeAggregation(): Boolean = {
+    config.getBoolean("atlas.aggregator.delay-gauge-aggregation")
+  }
+
   override def indexCacheSupplier[T](): QueryIndex.CacheSupplier[T] = { () =>
     new CaffeineCache[T].asInstanceOf[Cache[String, java.util.List[QueryIndex[T]]]]
   }
