@@ -544,7 +544,7 @@ object DruidDatabaseActor {
         // Common tags should be extracted for the simplified query rather than the raw
         // query. The simplified query may have additional exact matches due to simplified
         // OR clauses that need to be maintained for correct processing in the eval step.
-        val simpleQuery = simplify(query, ds)
+        val simpleQuery = simplify(query, name, ds)
         val commonTags = exactTags(simpleQuery)
         val tags = commonTags ++ m.tags
 
@@ -616,11 +616,12 @@ object DruidDatabaseActor {
     * Simplify the query by mapping clauses for dimensions that are not present in the data source
     * to false.
     */
-  private def simplify(query: Query, ds: List[String]): Query = {
+  private def simplify(query: Query, name: String, ds: List[String]): Query = {
     val simpleQuery = query match {
-      case Query.And(q1, q2)                 => Query.And(simplify(q1, ds), simplify(q2, ds))
-      case Query.Or(q1, q2)                  => Query.Or(simplify(q1, ds), simplify(q2, ds))
-      case Query.Not(q)                      => Query.Not(simplify(q, ds))
+      case Query.And(q1, q2) => Query.And(simplify(q1, name, ds), simplify(q2, name, ds))
+      case Query.Or(q1, q2)  => Query.Or(simplify(q1, name, ds), simplify(q2, name, ds))
+      case Query.Not(q)      => Query.Not(simplify(q, name, ds))
+      case q: KeyValueQuery if q.k == "name" => if (q.check(name)) Query.True else Query.False
       case q: KeyQuery if q.k == "statistic" => Query.True
       case q: KeyQuery if isSpecial(q.k)     => q
       case q: KeyQuery if ds.contains(q.k)   => q
