@@ -17,7 +17,6 @@ package com.netflix.atlas.druid
 
 import java.time.Duration
 import java.time.Instant
-
 import com.netflix.atlas.core.model.ConsolidationFunction
 import com.netflix.atlas.core.model.DataExpr
 import com.netflix.atlas.core.model.EvalContext
@@ -25,6 +24,7 @@ import com.netflix.atlas.core.model.Query
 import com.netflix.atlas.core.model.QueryVocabulary
 import com.netflix.atlas.core.stacklang.Interpreter
 import com.netflix.atlas.druid.DruidClient._
+import com.netflix.atlas.json.Json
 import munit.FunSuite
 
 class DruidDatabaseActorSuite extends FunSuite {
@@ -259,6 +259,22 @@ class DruidDatabaseActorSuite extends FunSuite {
     val expr = DataExpr.Sum(Query.Or(Query.Equal("a", "1"), Query.Equal("d", "2")))
     val queries = toDruidQueries(metadata, "test", context, expr)
     assert(queries.forall(_._1.contains("a")))
+  }
+
+  test("toDruidQueries: or with name dimension") {
+    val expr = DataExpr.Sum(
+      Query.Or(
+        Query.And(
+          Query.Equal("name", "m1"),
+          Query.Equal("b", "foo")
+        ),
+        Query.Equal("name", "m3")
+      )
+    )
+    val queries = toDruidQueries(metadata, "test", context, expr)
+    val m1 = queries.filter(t => t._2.name == "m1").head
+    val json = Json.encode(m1._3)
+    assert(json.contains("""{"dimension":"b","value":"foo","type":"selector"}"""))
   }
 
   private def evalQuery(str: String): Query = {
