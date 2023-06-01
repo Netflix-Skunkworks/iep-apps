@@ -258,6 +258,10 @@ object DruidClient {
     def isCounter: Boolean =
       dataType == "doubleSum" || dataType == "floatSum" || dataType == "longSum" || isSketch
 
+    def isMinMax: Boolean =
+      dataType == "doubleMin" || dataType == "floatMin" || dataType == "longMin" ||
+      dataType == "doubleMax" || dataType == "floatMax" || dataType == "longMax"
+
     def isTimer: Boolean = {
       dataType == "spectatorHistogramTimer"
     }
@@ -268,7 +272,7 @@ object DruidClient {
 
     def isHistogram: Boolean = isTimer || isDistSummary
 
-    def isSupported: Boolean = isCounter || isHistogram
+    def isSupported: Boolean = isCounter || isHistogram || isMinMax
   }
 
   // http://druid.io/docs/latest/querying/segmentmetadataquery.html
