@@ -284,6 +284,18 @@ class DruidDatabaseActorSuite extends FunSuite {
     }
   }
 
+  test("simplify: single name with or") {
+    val q = evalQuery("name,a,:eq,dim,1,:eq,:and,name,b,:eq,dim,2,:eq,:and,:or")
+    val expected = evalQuery("dim,1,:eq")
+    assertEquals(simplify(q, List("a"), List("dim")), expected)
+  }
+
+  test("simplify: multiple names with or") {
+    val q = evalQuery("name,a,:eq,dim,1,:eq,:and,name,b,:eq,dim,2,:eq,:and,:or")
+    val expected = evalQuery("dim,1,:eq,dim,2,:eq,:or")
+    assertEquals(simplify(q, List("a", "b"), List("dim")), expected)
+  }
+
   test("simplifyExact: conjunctive clause") {
     val q = evalQuery("a,1,:eq,b,2,:eq,:and,c,3,:eq,:and")
     assertEquals(simplifyExact(q), q)
