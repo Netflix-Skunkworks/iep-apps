@@ -45,6 +45,7 @@ import com.netflix.spectator.impl.PatternMatcher
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
+import java.time.temporal.ChronoUnit
 import scala.concurrent.duration._
 import scala.util.Failure
 import scala.util.Success
@@ -215,25 +216,42 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
               case q: KeyValueQuery if q.k == k => q
               case q: PatternQuery if q.k == k  => q
             }
-          val topnQuery = TopNQuery(
-            dataSources = datasources.map { ds =>
-              ds.name
-            },
-            dimension = toDimensionSpec(DefaultDimensionSpec(k, "value"), dimensionFilterMatches),
-            intervals = List(queryIntervalString(tagsInterval)),
-            filter = DruidFilter.forQuery(query),
-            threshold = if (tq.limit < Int.MaxValue) tq.limit else 1000
-          )
-          val druidQueries = List(client.topn(topnQuery))
-          Source(druidQueries)
-            .flatMapMerge(Int.MaxValue, v => v)
-            .map(_.flatMap(_.values))
-            .fold(List.empty[String]) { (vs1, vs2) =>
-              ListHelper.merge(tq.limit, vs1, vs2)
+          val druidQueries = datasources
+            .flatMap { ds =>
+              // If there's a metric name in the query, ensure we simplify the query taking
+              // into account the name match earlier so only the branch of the :or for the particular
+              // metric will be present when constructing the filter
+              val names = ds.metrics.filter(m => query.couldMatch(m.tags)).map(_.metric.name)
+
+              val filterQuery = simplify(query, names, ds.datasource.dimensions)
+              if (filterQuery == Query.False) None
+              else {
+                Some(
+                  TopNQuery(
+                    dataSource = ds.name,
+                    dimension =
+                      toDimensionSpec(DefaultDimensionSpec(k, "value"), dimensionFilterMatches),
+                    intervals = List(queryIntervalString(tagsInterval)),
+                    filter = DruidFilter.forQuery(filterQuery),
+                    threshold = if (tq.limit < Int.MaxValue) tq.limit else 1000
+                  )
+                )
+              }
             }
-            .runWith(Sink.foreach { vs =>
-              callback(k, vs)
-            })
+
+          if (druidQueries.nonEmpty) {
+            Source(druidQueries.map { q => client.topn(q) })
+              .flatMapMerge(Int.MaxValue, v => v)
+              .map(_.flatMap(_.values))
+              .fold(List.empty[String]) { (vs1, vs2) =>
+                ListHelper.merge(tq.limit, vs1, vs2)
+              }
+              .runWith(Sink.foreach { vs =>
+                callback(k, vs)
+              })
+          } else {
+            callback(null, Nil)
+          }
         } else {
           callback(null, Nil)
         }
@@ -243,7 +261,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
   }
 
   private def queryIntervalString(duration: java.time.Duration): String = {
-    val now = Instant.now()
+    val now = Instant.now().truncatedTo(ChronoUnit.MINUTES)
     s"${now.minus(duration)}/$now"
   }
 
@@ -544,7 +562,7 @@ object DruidDatabaseActor {
         // Common tags should be extracted for the simplified query rather than the raw
         // query. The simplified query may have additional exact matches due to simplified
         // OR clauses that need to be maintained for correct processing in the eval step.
-        val simpleQuery = simplify(query, name, ds)
+        val simpleQuery = simplify(query, List(name), ds)
         val commonTags = exactTags(simpleQuery)
         val tags = commonTags ++ m.tags
 
@@ -616,12 +634,12 @@ object DruidDatabaseActor {
     * Simplify the query by mapping clauses for dimensions that are not present in the data source
     * to false.
     */
-  private def simplify(query: Query, name: String, ds: List[String]): Query = {
+  private[druid] def simplify(query: Query, names: List[String], ds: List[String]): Query = {
     val simpleQuery = query match {
-      case Query.And(q1, q2) => Query.And(simplify(q1, name, ds), simplify(q2, name, ds))
-      case Query.Or(q1, q2)  => Query.Or(simplify(q1, name, ds), simplify(q2, name, ds))
-      case Query.Not(q)      => Query.Not(simplify(q, name, ds))
-      case q: KeyValueQuery if q.k == "name" => if (q.check(name)) Query.True else Query.False
+      case Query.And(q1, q2) => Query.And(simplify(q1, names, ds), simplify(q2, names, ds))
+      case Query.Or(q1, q2)  => Query.Or(simplify(q1, names, ds), simplify(q2, names, ds))
+      case Query.Not(q)      => Query.Not(simplify(q, names, ds))
+      case q: KeyValueQuery if q.k == "name" => checkNameClause(q, names)
       case q: KeyQuery if q.k == "statistic" => Query.True
       case q: KeyQuery if isSpecial(q.k)     => q
       case q: KeyQuery if ds.contains(q.k)   => q
@@ -629,6 +647,10 @@ object DruidDatabaseActor {
       case q: Query                          => q
     }
     Query.simplify(simpleQuery)
+  }
+
+  private def checkNameClause(q: KeyValueQuery, names: List[String]): Query = {
+    if (names.exists(q.check)) Query.True else Query.False
   }
 
   /**

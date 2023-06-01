@@ -83,7 +83,11 @@ class DruidClient(
         .fold(ByteString.empty)(_ ++ _)
     }
     .map { data =>
-      logger.trace(s"raw response payload: ${data.decodeString(StandardCharsets.UTF_8)}")
+      if (data.startsWith(gzipMagicHeader)) {
+        logger.trace(s"raw response payload: GZip[${data.length}]")
+      } else {
+        logger.trace(s"raw response payload: ${data.decodeString(StandardCharsets.UTF_8)}")
+      }
       data
     }
 
@@ -374,7 +378,7 @@ object DruidClient {
 
   // https://druid.apache.org/docs/latest/querying/topnquery.html
   case class TopNQuery(
-    private val dataSources: List[String],
+    dataSource: String,
     dimension: DimensionSpec,
     intervals: List[String],
     filter: Option[DruidFilter] = None,
@@ -384,7 +388,6 @@ object DruidClient {
   ) {
 
     val queryType: String = "topN"
-    val dataSource: UnionDatasource = UnionDatasource(dataSources)
   }
 
   trait TopNMetricSpec
