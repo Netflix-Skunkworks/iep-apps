@@ -95,7 +95,7 @@ class PublishRouter(
             routes += defaultKey -> new PublishQueue(
               config.getConfig("atlas.cloudwatch.account.routing"),
               registry,
-              NetflixEnvironment.region(),
+              stack + "-" + NetflixEnvironment.region(),
               baseURI
                 .replaceAll("\\$\\{STACK\\}", stack)
                 .replaceAll("\\$\\{REGION}", NetflixEnvironment.region()),
