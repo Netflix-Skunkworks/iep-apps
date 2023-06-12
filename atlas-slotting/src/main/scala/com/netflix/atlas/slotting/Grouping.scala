@@ -20,12 +20,12 @@ import com.netflix.spectator.api.Counter
 import com.netflix.spectator.ipc.ServerGroup
 import com.typesafe.scalalogging.StrictLogging
 import software.amazon.awssdk.services.autoscaling.model.AutoScalingGroup
-import software.amazon.awssdk.services.autoscaling.model.{Instance => AsgInstance}
-import software.amazon.awssdk.services.ec2.model.{Instance => Ec2Instance}
+import software.amazon.awssdk.services.autoscaling.model.Instance as AsgInstance
+import software.amazon.awssdk.services.ec2.model.Instance as Ec2Instance
 
 import java.nio.ByteBuffer
 import java.time.Instant
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
 case class AsgDetails(
   name: String,

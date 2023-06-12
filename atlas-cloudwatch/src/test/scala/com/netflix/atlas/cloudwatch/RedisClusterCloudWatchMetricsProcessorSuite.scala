@@ -50,7 +50,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.language.postfixOps
 
 class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase {
@@ -791,7 +791,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
     val extractor = (key: Array[Byte]) => ByteBuffer.wrap(key).getLong(4)
 
     def setJedis(jedis: Connection): Unit = {
-      when(jedis.executeCommand(any[CommandObject[AnyRef]])).thenAnswer((cmd: CommandObject[_]) => {
+      when(jedis.executeCommand(any[CommandObject[AnyRef]])).thenAnswer((cmd: CommandObject[?]) => {
         // System.out.println(s"#### CMD: ${cmd.getArguments.getCommand}")
         cmd.getArguments.getCommand match {
           case Command.SCAN =>

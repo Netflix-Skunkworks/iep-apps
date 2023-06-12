@@ -19,12 +19,12 @@ import akka.NotUsed
 import akka.actor.ActorRefFactory
 import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.model.MediaTypes
-import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import akka.util.Timeout
-import com.netflix.atlas.akka.CustomDirectives._
+import com.netflix.atlas.akka.CustomDirectives.*
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.core.index.TagQuery
 import com.netflix.atlas.core.model.CustomVocabulary
@@ -38,7 +38,7 @@ import com.netflix.atlas.webapi.TagsApi.ListValuesRequest
 import com.netflix.atlas.webapi.TagsApi.ValueListResponse
 import com.typesafe.config.Config
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class ForeachApi(config: Config, implicit val actorRefFactory: ActorRefFactory) extends WebApi {
 

@@ -57,7 +57,7 @@ object Util extends StrictLogging {
     name: String,
     interval: Duration,
     fn: () => Unit
-  ): ScheduledFuture[_] = {
+  ): ScheduledFuture[?] = {
     val scheduler = new Scheduler(registry, name, 2)
     val options = new Scheduler.Options()
       .withFrequency(Scheduler.Policy.FIXED_RATE_SKIP_IF_LONG, interval)

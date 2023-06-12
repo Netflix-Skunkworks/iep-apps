@@ -41,7 +41,8 @@ import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
-import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.*
 import scala.util.Failure
 import scala.util.Success
 
@@ -53,11 +54,11 @@ class LoadGenWsService(
 ) extends AbstractService
     with StrictLogging {
 
-  import LoadGenService._
+  import LoadGenService.*
 
   private val streamFailures = registry.counter("loadgen.streamFailures")
 
-  private implicit val ec = scala.concurrent.ExecutionContext.global
+  private implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.global
 
   private var killSwitch: KillSwitch = _
 
@@ -128,7 +129,7 @@ class LoadGenWsService(
   }
 
   private def dataSources: Evaluator.DataSources = {
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
     val defaultStep = config.getDuration("iep.lwc.loadgen.step")
     val uris = config
       .getStringList("iep.lwc.loadgen.uris")

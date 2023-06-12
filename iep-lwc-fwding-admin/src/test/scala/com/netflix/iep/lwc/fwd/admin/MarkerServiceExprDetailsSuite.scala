@@ -24,12 +24,12 @@ import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo
 import com.netflix.iep.lwc.fwd.cw.Report
 import munit.FunSuite
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class MarkerServiceExprDetailsSuite extends FunSuite {
 
-  import ExpressionDetails._
-  import MarkerServiceImpl._
+  import ExpressionDetails.*
+  import MarkerServiceImpl.*
 
   private val fwdMetricInfoPurgeLimitMillis = 5.days.toMillis
 

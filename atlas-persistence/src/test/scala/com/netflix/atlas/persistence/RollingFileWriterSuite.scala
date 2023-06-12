@@ -129,7 +129,7 @@ class RollingFileWriterSuite extends FunSuite {
       dataFileReader.close()
     }
     dpListBuf.toArray.map(record => {
-      import scala.jdk.CollectionConverters._
+      import scala.jdk.CollectionConverters.*
       Datapoint(
         record
           .get("tags")

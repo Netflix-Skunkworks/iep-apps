@@ -42,8 +42,8 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.TimeoutException
-import scala.jdk.CollectionConverters._
-import scala.jdk.DurationConverters._
+import scala.jdk.CollectionConverters.*
+import scala.jdk.DurationConverters.*
 import scala.util.Failure
 import scala.util.Success
 

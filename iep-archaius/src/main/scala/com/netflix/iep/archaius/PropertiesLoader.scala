@@ -34,9 +34,9 @@ class PropertiesLoader(config: Config, propContext: PropertiesContext, dynamoSer
 
   private val table = config.getString("netflix.iep.archaius.table")
 
-  import scala.jdk.StreamConverters._
+  import scala.jdk.StreamConverters.*
 
-  import scala.concurrent.duration._
+  import scala.concurrent.duration.*
   import scala.concurrent.ExecutionContext.Implicits.global
   context.system.scheduler.scheduleAtFixedRate(5.seconds, 5.seconds, self, PropertiesLoader.Tick)
 

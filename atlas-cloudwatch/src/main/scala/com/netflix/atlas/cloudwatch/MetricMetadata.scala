@@ -34,7 +34,7 @@ case class MetricMetadata(
   def convert(d: Datapoint): Double = definition.conversion(this, d)
 
   def toGetRequest(s: Instant, e: Instant): GetMetricStatisticsRequest = {
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
     GetMetricStatisticsRequest
       .builder()
       .metricName(definition.name)

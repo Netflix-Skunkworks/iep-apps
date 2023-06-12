@@ -35,7 +35,7 @@ import java.time.Instant
 import java.util
 import java.util.concurrent.TimeUnit
 import scala.concurrent.Future
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.concurrent.duration.FiniteDuration
 
 /**

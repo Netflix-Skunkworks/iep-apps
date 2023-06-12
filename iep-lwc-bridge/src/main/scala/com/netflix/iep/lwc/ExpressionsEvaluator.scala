@@ -36,10 +36,10 @@ import com.typesafe.scalalogging.StrictLogging
   */
 class ExpressionsEvaluator(config: Config, registry: Registry) extends StrictLogging {
 
-  import ExpressionsEvaluator._
+  import ExpressionsEvaluator.*
 
   private val subIdsToLog = {
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
     config.getStringList("netflix.iep.lwc.bridge.logging.subscriptions").asScala.toSet
   }
 
@@ -59,7 +59,7 @@ class ExpressionsEvaluator(config: Config, registry: Registry) extends StrictLog
     * the list will come from the `/expressions` endpoint of the LWC API service.
     */
   def sync(subs: SubscriptionList): Unit = synchronized {
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
 
     val previous = subscriptions
     val current = subs.asScala.toSet

@@ -21,12 +21,13 @@ import akka.actor.Timers
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
-import com.netflix.iep.config.NetflixEnvironment._
-import com.netflix.iep.lwc.fwd.admin.ScalingPolicies._
+import com.netflix.iep.config.NetflixEnvironment.*
+import com.netflix.iep.lwc.fwd.admin.ScalingPolicies.*
 import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.util.Failure
 
@@ -35,8 +36,8 @@ class ScalingPolicies(config: Config, dao: ScalingPoliciesDao)
     with Timers
     with StrictLogging {
 
-  private implicit val ec = scala.concurrent.ExecutionContext.global
-  private implicit val mat = Materializer(context.system)
+  private implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.global
+  private implicit val mat: Materializer = Materializer(context.system)
 
   protected var scalingPolicies = Map.empty[EddaEndpoint, List[ScalingPolicy]]
 

@@ -22,8 +22,8 @@ import java.util.regex.Pattern
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model._
-import akka.stream._
+import akka.http.scaladsl.model.*
+import akka.stream.*
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Framing
 import akka.stream.scaladsl.Keep
@@ -43,7 +43,7 @@ import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.json.Json
 import com.netflix.atlas.json.JsonSupport
 import com.netflix.iep.aws2.AwsClientFactory
-import com.netflix.iep.lwc.fwd.cw._
+import com.netflix.iep.lwc.fwd.cw.*
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Functions
 import com.netflix.spectator.api.Registry
@@ -62,7 +62,7 @@ import java.util.concurrent.ThreadFactory
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
@@ -76,7 +76,7 @@ class ForwardingService(
 ) extends AbstractService
     with StrictLogging {
 
-  import ForwardingService._
+  import ForwardingService.*
 
   private val streamFailures = registry.counter("forwarding.streamFailures")
 
@@ -260,7 +260,7 @@ object ForwardingService extends StrictLogging {
   ): Flow[Map[String, ClusterConfig], Evaluator.DataSources, NotUsed] = {
     Flow[Map[String, ClusterConfig]]
       .map { configs =>
-        import scala.jdk.CollectionConverters._
+        import scala.jdk.CollectionConverters.*
         val exprs = configs.flatMap {
           case (key, config) =>
             config.expressions
@@ -305,7 +305,7 @@ object ForwardingService extends StrictLogging {
     expression: ForwardingExpression,
     msg: TimeSeriesMessage
   ): Option[AccountDatum] = {
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
     val name = Strings.substitute(expression.metricName, msg.tags)
     val accountId = Strings.substitute(expression.account, msg.tags)
 
@@ -378,7 +378,7 @@ object ForwardingService extends StrictLogging {
     doPut: PutFunction
   ): Flow[ForwardingMsgEnvelope, ForwardingMsgEnvelope, NotUsed] = {
 
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
     Flow[ForwardingMsgEnvelope]
       .groupBy(
         Int.MaxValue,
@@ -445,7 +445,7 @@ object ForwardingService extends StrictLogging {
   }
 
   def toReport(msg: ForwardingMsgEnvelope): Report = {
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
 
     Report(
       System.currentTimeMillis(),

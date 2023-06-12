@@ -42,6 +42,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
@@ -74,7 +75,8 @@ class CloudWatchPoller(
 )(implicit val system: ActorSystem)
     extends StrictLogging {
 
-  private implicit val executionContext = system.dispatchers.lookup("aws-poller-io-dispatcher")
+  private implicit val executionContext: ExecutionContext =
+    system.dispatchers.lookup("aws-poller-io-dispatcher")
 
   private val pollTime = registry.timer("atlas.cloudwatch.poller.pollTime")
   private val errorSetup = registry.createId("atlas.cloudwatch.poller.failure", "call", "setup")

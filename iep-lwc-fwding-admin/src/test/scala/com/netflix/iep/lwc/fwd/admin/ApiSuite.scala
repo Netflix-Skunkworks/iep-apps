@@ -15,7 +15,7 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.*
 import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.Sink
 import com.netflix.atlas.akka.StreamOps.SourceQueue
@@ -29,7 +29,7 @@ import com.netflix.iep.lwc.fwd.cw.Report
 import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
-import ExpressionDetails._
+import ExpressionDetails.*
 import akka.Done
 import akka.stream.Materializer
 import com.netflix.atlas.akka.testkit.MUnitRouteSuite

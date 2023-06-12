@@ -20,7 +20,7 @@ import java.util.concurrent.TimeoutException
 import akka.NotUsed
 import akka.actor.ActorSelection
 import akka.actor.ActorSystem
-import akka.stream._
+import akka.stream.*
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Keep
 import akka.stream.scaladsl.Sink
@@ -43,7 +43,7 @@ import akka.util.Timeout
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 trait MarkerService {
   var queue: SourceQueue[Report]
@@ -58,12 +58,12 @@ class MarkerServiceImpl(
     with MarkerService
     with StrictLogging {
 
-  import MarkerServiceImpl._
+  import MarkerServiceImpl.*
 
   private val fwdMetricInfoPurgeLimitMillis =
     config.getDuration("iep.lwc.fwding-admin.fwd-metric-info-purge-limit").toMillis
 
-  private implicit val ec = scala.concurrent.ExecutionContext.global
+  private implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.global
   private var killSwitch: KillSwitch = _
 
   override var queue: SourceQueue[Report] = _
@@ -112,7 +112,7 @@ object MarkerServiceImpl extends StrictLogging {
   def lookupScalingPolicy(
     scalingPolicies: ActorSelection
   )(implicit ec: ExecutionContext): Flow[Report, ScalingPolicyStatus, NotUsed] = {
-    import ScalingPolicies._
+    import ScalingPolicies.*
     implicit val askTimeout = Timeout(15.seconds)
 
     Flow[Report]
@@ -182,7 +182,7 @@ object MarkerServiceImpl extends StrictLogging {
     report: Report,
     prevExprDetails: Option[ExpressionDetails]
   ): Map[String, Long] = {
-    import ExpressionDetails._
+    import ExpressionDetails.*
 
     report.metric
       .map(_ => Map.empty[String, Long])
@@ -200,7 +200,7 @@ object MarkerServiceImpl extends StrictLogging {
     scalingPolicyStatus: ScalingPolicyStatus,
     prevExprDetails: Option[ExpressionDetails]
   ): Map[String, Long] = {
-    import ExpressionDetails._
+    import ExpressionDetails.*
 
     if (scalingPolicyStatus.unknown || scalingPolicyStatus.scalingPolicy.isDefined) {
       Map.empty[String, Long]

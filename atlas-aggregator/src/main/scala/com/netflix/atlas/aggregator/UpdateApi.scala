@@ -15,7 +15,7 @@
  */
 package com.netflix.atlas.aggregator
 
-import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
@@ -23,7 +23,7 @@ import akka.http.scaladsl.model.StatusCode
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Route
 import com.fasterxml.jackson.core.JsonParser
-import com.netflix.atlas.akka.CustomDirectives._
+import com.netflix.atlas.akka.CustomDirectives.*
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.core.validation.ValidationResult
 import com.netflix.atlas.eval.stream.Evaluator
@@ -35,7 +35,7 @@ class UpdateApi(
 ) extends WebApi
     with StrictLogging {
 
-  import UpdateApi._
+  import UpdateApi.*
 
   require(aggrService != null, "no binding for aggregate registry")
 

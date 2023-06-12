@@ -27,7 +27,7 @@ import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.model.headers._
+import akka.http.scaladsl.model.headers.*
 import akka.stream.Materializer
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Source
@@ -57,11 +57,11 @@ class DruidClient(
   client: HttpClient
 ) extends StrictLogging {
 
-  import DruidClient._
+  import DruidClient.*
 
   private val uri = config.getString("uri")
 
-  private implicit val mat = Materializer(system)
+  private implicit val mat: Materializer = Materializer(system)
 
   private val loggingClient = Flow[HttpRequest]
     .map(req => req -> AccessLogger.newClientLogger("druid", req))
@@ -197,7 +197,7 @@ class DruidClient(
     data: ByteString
   ): List[GroupByDatapoint] = {
     Using.resource(Json.newJsonParser(inputStream(data))) { parser =>
-      import com.netflix.atlas.json.JsonParserHelper._
+      import com.netflix.atlas.json.JsonParserHelper.*
       val builder = List.newBuilder[GroupByDatapoint]
       foreachItem(parser) {
         require(parser.currentToken() == JsonToken.START_ARRAY)
@@ -225,7 +225,7 @@ class DruidClient(
           }
         } else if (valueToken != JsonToken.VALUE_NULL) {
           // Floating point value. In some cases histogram can be null, ignore those entries.
-          import com.fasterxml.jackson.core.JsonToken._
+          import com.fasterxml.jackson.core.JsonToken.*
           val value = valueToken match {
             case VALUE_NUMBER_INT   => parser.getValueAsLong.toDouble
             case VALUE_NUMBER_FLOAT => parser.getValueAsDouble

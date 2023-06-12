@@ -46,20 +46,20 @@ import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
 import java.time.temporal.ChronoUnit
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Failure
 import scala.util.Success
 
 class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
 
-  import DruidClient._
-  import DruidDatabaseActor._
+  import DruidClient.*
+  import DruidDatabaseActor.*
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  import ExplainApi._
-  import com.netflix.atlas.webapi.GraphApi._
-  import com.netflix.atlas.webapi.TagsApi._
+  import ExplainApi.*
+  import com.netflix.atlas.webapi.GraphApi.*
+  import com.netflix.atlas.webapi.TagsApi.*
 
   private implicit val sys: ActorSystem = context.system
 
@@ -366,7 +366,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
 
 object DruidDatabaseActor {
 
-  import DruidClient._
+  import DruidClient.*
 
   case object Tick
 

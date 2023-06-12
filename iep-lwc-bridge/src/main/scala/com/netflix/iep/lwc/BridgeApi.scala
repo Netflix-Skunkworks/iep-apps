@@ -26,15 +26,15 @@ import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.Uri
-import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import com.fasterxml.jackson.core.JsonParser
 import com.netflix.atlas.akka.AccessLogger
-import com.netflix.atlas.akka.CustomDirectives._
+import com.netflix.atlas.akka.CustomDirectives.*
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.core.model.DefaultSettings
 import com.netflix.atlas.json.Json
-import com.netflix.atlas.json.JsonParserHelper._
+import com.netflix.atlas.json.JsonParserHelper.*
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.histogram.BucketCounter
 import com.netflix.spectator.api.histogram.BucketFunctions
@@ -51,7 +51,7 @@ class BridgeApi(
 ) extends WebApi
     with StrictLogging {
 
-  import com.netflix.atlas.akka.OpportunisticEC._
+  import com.netflix.atlas.akka.OpportunisticEC.*
 
   override def routes: Route = {
     post {
@@ -194,7 +194,7 @@ object BridgeApi {
   }
 
   private def getValue(parser: JsonParser): Double = {
-    import com.fasterxml.jackson.core.JsonToken._
+    import com.fasterxml.jackson.core.JsonToken.*
     parser.nextToken() match {
       case START_ARRAY        => nextDouble(parser)
       case VALUE_NUMBER_FLOAT => parser.getValueAsDouble()
