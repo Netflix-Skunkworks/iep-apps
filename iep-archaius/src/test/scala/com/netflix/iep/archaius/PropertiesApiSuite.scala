@@ -21,7 +21,7 @@ import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCode
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.model.headers._
+import akka.http.scaladsl.model.headers.*
 import akka.http.scaladsl.testkit.RouteTestTimeout
 import com.netflix.atlas.akka.RequestHandler
 import com.netflix.atlas.akka.testkit.MUnitRouteSuite
@@ -31,14 +31,14 @@ import com.netflix.spectator.api.ManualClock
 
 class PropertiesApiSuite extends MUnitRouteSuite {
 
-  import scala.concurrent.duration._
-  implicit val routeTestTimeout = RouteTestTimeout(5.second)
+  import scala.concurrent.duration.*
+  private implicit val routeTestTimeout: RouteTestTimeout = RouteTestTimeout(5.second)
 
-  val clock = new ManualClock()
-  val registry = new DefaultRegistry(clock)
-  val propContext = new PropertiesContext(registry)
-  val endpoint = new PropertiesApi(propContext, system)
-  val routes = RequestHandler.standardOptions(endpoint.routes)
+  private val clock = new ManualClock()
+  private val registry = new DefaultRegistry(clock)
+  private val propContext = new PropertiesContext(registry)
+  private val endpoint = new PropertiesApi(propContext, system)
+  private val routes = RequestHandler.standardOptions(endpoint.routes)
 
   private def assertJsonContentType(response: HttpResponse): Unit = {
     assertEquals(response.entity.contentType.mediaType, MediaTypes.`application/json`)

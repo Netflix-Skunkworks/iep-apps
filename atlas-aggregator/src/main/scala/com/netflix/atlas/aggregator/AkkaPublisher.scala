@@ -22,7 +22,7 @@ import akka.http.scaladsl.model.HttpMethods
 import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.Uri
-import akka.http.scaladsl.model.headers._
+import akka.http.scaladsl.model.headers.*
 import akka.stream.Attributes
 import akka.stream.RestartSettings
 import akka.stream.scaladsl.Flow
@@ -52,7 +52,7 @@ import java.util.zip.GZIPOutputStream
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.Promise
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
@@ -66,7 +66,7 @@ import scala.util.Using
 class AkkaPublisher(registry: Registry, config: AggrConfig, implicit val system: ActorSystem)
     extends Publisher {
 
-  import AkkaPublisher._
+  import AkkaPublisher.*
 
   private val atlasUri = Uri(config.uri())
   private val evalUri = Uri(config.evalUri())
@@ -156,7 +156,7 @@ object AkkaPublisher {
     }
 
     def future: CompletableFuture[Void] = {
-      import scala.jdk.FutureConverters._
+      import scala.jdk.FutureConverters.*
       promise.future.asJava.toCompletableFuture
     }
   }

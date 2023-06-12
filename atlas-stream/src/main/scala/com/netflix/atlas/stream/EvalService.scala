@@ -17,7 +17,6 @@ package com.netflix.atlas.stream
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
-
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.AbruptTerminationException
@@ -38,8 +37,9 @@ import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import org.reactivestreams.Publisher
 
-import scala.concurrent.duration._
-import scala.jdk.CollectionConverters._
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.*
+import scala.jdk.CollectionConverters.*
 import scala.util.Failure
 import scala.util.Success
 
@@ -51,7 +51,7 @@ class EvalService(
 ) extends AbstractService
     with StrictLogging {
 
-  private implicit val ec = scala.concurrent.ExecutionContext.global
+  private implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.global
 
   private val registrations = new ConcurrentHashMap[String, StreamInfo]
   private val numDataSources = new AtomicInteger(0)

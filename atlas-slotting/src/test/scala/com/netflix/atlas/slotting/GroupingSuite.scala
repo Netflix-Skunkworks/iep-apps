@@ -20,10 +20,10 @@ import com.netflix.atlas.json.Json
 import munit.FunSuite
 import software.amazon.awssdk.services.autoscaling.model.AutoScalingGroup
 import software.amazon.awssdk.services.autoscaling.model.SuspendedProcess
-import software.amazon.awssdk.services.autoscaling.model.{Instance => AsgInstance}
-import software.amazon.awssdk.services.ec2.model.{Instance => Ec2Instance}
+import software.amazon.awssdk.services.autoscaling.model.Instance as AsgInstance
+import software.amazon.awssdk.services.ec2.model.Instance as Ec2Instance
 
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.io.Source
 
 class GroupingSuite extends FunSuite with Grouping {

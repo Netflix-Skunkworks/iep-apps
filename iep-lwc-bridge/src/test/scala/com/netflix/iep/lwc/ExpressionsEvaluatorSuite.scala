@@ -22,7 +22,7 @@ import munit.FunSuite
 
 class ExpressionsEvaluatorSuite extends FunSuite {
 
-  import scala.jdk.CollectionConverters._
+  import scala.jdk.CollectionConverters.*
 
   private val config = ConfigFactory.load()
   private val registry = new NoopRegistry

@@ -15,7 +15,7 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import com.netflix.iep.lwc.fwd.admin.ExpressionDetails._
+import com.netflix.iep.lwc.fwd.admin.ExpressionDetails.*
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.ForwardingDimension
 import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
@@ -28,7 +28,7 @@ import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 
 import java.net.URI
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class ExpressionDetailsDaoSuite extends FunSuite with StrictLogging {
 

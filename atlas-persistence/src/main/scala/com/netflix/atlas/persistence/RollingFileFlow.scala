@@ -31,7 +31,7 @@ import com.netflix.atlas.core.model.Datapoint
 import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 
 class RollingFileFlow(
   val dataDir: String,

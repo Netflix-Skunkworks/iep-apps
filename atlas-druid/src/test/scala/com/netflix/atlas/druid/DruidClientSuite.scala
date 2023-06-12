@@ -44,7 +44,7 @@ import scala.util.Using
 
 class DruidClientSuite extends FunSuite {
 
-  import DruidClient._
+  import DruidClient.*
 
   private val config = ConfigFactory.load().getConfig("atlas.druid")
 
@@ -130,7 +130,7 @@ class DruidClientSuite extends FunSuite {
   }
 
   private def executeSegmentMetadataRequest: List[SegmentMetadataResult] = {
-    import com.netflix.atlas.core.util.Streams._
+    import com.netflix.atlas.core.util.Streams.*
     val file = "segmentMetadataResponse.json"
     val payload = Using.resource(resource(file))(byteArray)
     val response = HttpResponse(StatusCodes.OK, entity = payload)
@@ -245,7 +245,7 @@ class DruidClientSuite extends FunSuite {
   }
 
   private def executeGroupByRequest: List[GroupByDatapoint] = {
-    import com.netflix.atlas.core.util.Streams._
+    import com.netflix.atlas.core.util.Streams.*
     val file = "groupByResponseArray.json"
     val payload = Using.resource(resource(file))(byteArray)
     val response = HttpResponse(StatusCodes.OK, entity = payload)
@@ -263,7 +263,7 @@ class DruidClientSuite extends FunSuite {
   }
 
   private def executeGroupByHistogramRequest: List[GroupByDatapoint] = {
-    import com.netflix.atlas.core.util.Streams._
+    import com.netflix.atlas.core.util.Streams.*
     val file = "groupByResponseHisto.json"
     val payload = Using.resource(resource(file))(byteArray)
     val response = HttpResponse(StatusCodes.OK, entity = payload)

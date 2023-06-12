@@ -30,7 +30,7 @@ import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Using
 
 class S3CopyService(

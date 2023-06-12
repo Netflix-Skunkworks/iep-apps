@@ -31,7 +31,7 @@ import scala.concurrent.duration.Duration
 
 class EvalFlowSuite extends FunSuite {
 
-  private implicit val system = ActorSystem(getClass.getSimpleName)
+  private implicit val system: ActorSystem = ActorSystem(getClass.getSimpleName)
   private val config = ConfigFactory.load
   private val registry = new NoopRegistry()
   private val validateNoop: DataSource => Unit = _ => ()

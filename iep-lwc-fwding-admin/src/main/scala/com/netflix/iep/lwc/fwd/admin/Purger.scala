@@ -22,7 +22,7 @@ import akka.Done
 import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.*
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.stream.ActorAttributes
 import akka.stream.scaladsl.Flow
@@ -31,7 +31,7 @@ import akka.stream.scaladsl.Source
 import com.netflix.atlas.akka.AccessLogger
 import com.netflix.atlas.akka.StreamOps
 import com.netflix.atlas.json.Json
-import com.netflix.iep.lwc.fwd.cw._
+import com.netflix.iep.lwc.fwd.cw.*
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
@@ -51,7 +51,7 @@ class PurgerImpl(
 ) extends Purger
     with StrictLogging {
 
-  import PurgerImpl._
+  import PurgerImpl.*
 
   private val user = encodeUriParam(config.getString("iep.lwc.fwding-admin.user"))
   private val comment = encodeUriParam("Removed expressions by iep-lwc-fwding-admin")

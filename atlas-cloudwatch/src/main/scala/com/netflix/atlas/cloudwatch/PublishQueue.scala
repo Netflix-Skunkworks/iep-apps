@@ -40,6 +40,7 @@ import java.time.Duration
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.concurrent.duration.FiniteDuration
@@ -61,7 +62,7 @@ class PublishQueue(
 )(implicit system: ActorSystem)
     extends StrictLogging {
 
-  private implicit val executionContext = system.dispatcher
+  private implicit val executionContext: ExecutionContext = system.dispatcher
 
   private val datapointsDropped =
     registry.createId("atlas.cloudwatch.queue.dps.dropped", "stack", stack)

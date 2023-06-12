@@ -18,7 +18,7 @@ package com.netflix.atlas.webapi
 import akka.actor.ActorSystem
 import akka.http.scaladsl.model.HttpRequest
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import com.fasterxml.jackson.core.JsonParser
 import com.netflix.atlas.akka.CustomDirectives.customJson

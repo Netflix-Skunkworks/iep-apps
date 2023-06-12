@@ -30,12 +30,12 @@ import scala.util.matching.Regex
   */
 class DefaultTagger(config: Config) extends Tagger {
 
-  import scala.jdk.CollectionConverters._
+  import scala.jdk.CollectionConverters.*
 
   private val validTagChars = AsciiSet.fromPattern(config.getString("valid-tag-characters"))
 
   private val validTagValueChars = {
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
     config
       .getConfigList("valid-tag-value-characters")
       .asScala

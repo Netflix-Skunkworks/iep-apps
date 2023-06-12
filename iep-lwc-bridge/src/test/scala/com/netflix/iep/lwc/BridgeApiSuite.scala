@@ -25,8 +25,8 @@ import com.typesafe.config.ConfigFactory
 
 class BridgeApiSuite extends MUnitRouteSuite {
 
-  import scala.concurrent.duration._
-  private implicit val routeTestTimeout = RouteTestTimeout(5.second)
+  import scala.concurrent.duration.*
+  private implicit val routeTestTimeout: RouteTestTimeout = RouteTestTimeout(5.second)
 
   private val config = ConfigFactory.load()
   private val evaluator = new ExpressionsEvaluator(config, new NoopRegistry)
@@ -211,7 +211,7 @@ class BridgeApiSuite extends MUnitRouteSuite {
   }
 
   test("parse conflicting apps, tag entry set no duplicates") {
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
     val json = s"""{
         "tags": {"nf.app": "foo", "c": "d"},
         "metrics": [
@@ -266,7 +266,7 @@ class BridgeApiSuite extends MUnitRouteSuite {
   }
 
   test("parse too many tags") {
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
     val tags = (0 until 20).map(i => i.toString -> i.toString).toMap
     val tagsString = (0 until 20).map(i => s""""$i":"$i"""").mkString(",")
     val json = s"""{

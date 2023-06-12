@@ -33,8 +33,8 @@ import software.amazon.awssdk.services.ec2.Ec2Client
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest
 import software.amazon.awssdk.services.ec2.model.InstanceStateName
 
-import scala.jdk.CollectionConverters._
-import scala.jdk.StreamConverters._
+import scala.jdk.CollectionConverters.*
+import scala.jdk.StreamConverters.*
 import scala.collection.immutable.SortedMap
 
 class SlottingService(

@@ -23,13 +23,13 @@ import com.netflix.atlas.core.model.EvalContext
 import com.netflix.atlas.core.model.Query
 import com.netflix.atlas.core.model.QueryVocabulary
 import com.netflix.atlas.core.stacklang.Interpreter
-import com.netflix.atlas.druid.DruidClient._
+import com.netflix.atlas.druid.DruidClient.*
 import com.netflix.atlas.json.Json
 import munit.FunSuite
 
 class DruidDatabaseActorSuite extends FunSuite {
 
-  import DruidDatabaseActor._
+  import DruidDatabaseActor.*
 
   test("dimension to spec no matches") {
     val spec = toDimensionSpec("key", Query.Equal("app", "www"))

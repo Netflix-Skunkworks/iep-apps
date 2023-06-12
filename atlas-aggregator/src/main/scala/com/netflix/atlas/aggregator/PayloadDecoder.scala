@@ -70,8 +70,8 @@ class PayloadDecoder(
   rollupFunction: Id => Id
 ) extends StrictLogging {
 
-  import PayloadDecoder._
-  import com.netflix.atlas.json.JsonParserHelper._
+  import PayloadDecoder.*
+  import com.netflix.atlas.json.JsonParserHelper.*
 
   /**
     * Decode payload and send the updates to the aggregator implementation.
@@ -236,7 +236,7 @@ object PayloadDecoder {
       )
     )
 
-  private def updateRollupPolicies(policies: java.util.List[_ <: Config]): Unit = {
+  private def updateRollupPolicies(policies: java.util.List[? <: Config]): Unit = {
     val idx = QueryIndex.newInstance[RollupPolicy](new NoopRegistry)
     policies.forEach { c =>
       val query = Parser.parseQuery(c.getString("query"))

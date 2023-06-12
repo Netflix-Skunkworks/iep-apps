@@ -44,7 +44,7 @@ trait DynamoOps extends StrictLogging {
   val Timestamp = "timestamp"
 
   private def javaMap[K, V](pairs: Seq[(K, V)]): java.util.Map[K, V] = {
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
     new java.util.TreeMap[K, V](pairs.toMap.asJava)
   }
 

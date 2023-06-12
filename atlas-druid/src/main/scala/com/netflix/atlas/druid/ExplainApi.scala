@@ -20,12 +20,12 @@ import akka.http.scaladsl.model.HttpEntity
 import akka.http.scaladsl.model.HttpResponse
 import akka.http.scaladsl.model.MediaTypes
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.RouteResult
 import akka.pattern.ask
 import akka.util.Timeout
-import com.netflix.atlas.akka.CustomDirectives._
+import com.netflix.atlas.akka.CustomDirectives.*
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.druid.ExplainApi.ExplainRequest
 import com.netflix.atlas.eval.graph.Grapher
@@ -33,7 +33,8 @@ import com.netflix.atlas.json.Json
 import com.netflix.atlas.webapi.GraphApi.DataRequest
 import com.typesafe.config.Config
 
-import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.*
 
 class ExplainApi(config: Config, implicit val actorRefFactory: ActorRefFactory) extends WebApi {
 
@@ -41,7 +42,7 @@ class ExplainApi(config: Config, implicit val actorRefFactory: ActorRefFactory) 
 
   private val dbRef = actorRefFactory.actorSelection("/user/db")
 
-  private implicit val ec = actorRefFactory.dispatcher
+  private implicit val ec: ExecutionContext = actorRefFactory.dispatcher
 
   override def routes: Route = {
     endpointPath("explain" / "v1" / "graph") {

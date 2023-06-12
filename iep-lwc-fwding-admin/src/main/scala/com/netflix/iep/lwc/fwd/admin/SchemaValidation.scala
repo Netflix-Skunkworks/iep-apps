@@ -22,7 +22,7 @@ import com.netflix.atlas.json.Json
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.io.Source
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 
 class SchemaValidation extends StrictLogging {
 

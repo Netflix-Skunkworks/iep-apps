@@ -36,7 +36,7 @@ import scala.util.Using
 
 class ExprUpdateServiceSuite extends FunSuite {
 
-  private implicit val system = ActorSystem()
+  private implicit val system: ActorSystem = ActorSystem()
 
   private val config = ConfigFactory.load()
   private val clock = new ManualClock()

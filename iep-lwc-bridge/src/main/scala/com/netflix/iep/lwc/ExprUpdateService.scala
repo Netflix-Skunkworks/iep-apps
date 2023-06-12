@@ -63,8 +63,8 @@ class ExprUpdateService(
 ) extends AbstractService
     with StrictLogging {
 
-  import scala.concurrent.duration._
-  import com.netflix.atlas.akka.OpportunisticEC._
+  import scala.concurrent.duration.*
+  import com.netflix.atlas.akka.OpportunisticEC.*
 
   private val configUri = Uri(config.getString("netflix.iep.lwc.bridge.config-uri"))
 
@@ -132,7 +132,7 @@ class ExprUpdateService(
   }
 
   private def update(data: ByteString): Future[NotUsed] = {
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
     Future {
       try {
         Using.resource(ExprUpdateService.inputStream(data)) { in =>

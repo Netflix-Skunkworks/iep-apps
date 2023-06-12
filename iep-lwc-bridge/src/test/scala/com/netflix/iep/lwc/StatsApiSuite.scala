@@ -29,10 +29,10 @@ import com.typesafe.config.ConfigFactory
 
 class StatsApiSuite extends MUnitRouteSuite {
 
-  import scala.jdk.CollectionConverters._
-  import scala.concurrent.duration._
+  import scala.jdk.CollectionConverters.*
+  import scala.concurrent.duration.*
 
-  private implicit val routeTestTimeout = RouteTestTimeout(5.second)
+  private implicit val routeTestTimeout: RouteTestTimeout = RouteTestTimeout(5.second)
 
   private val config = ConfigFactory.load()
   private val evaluator = new ExpressionsEvaluator(config, new NoopRegistry)

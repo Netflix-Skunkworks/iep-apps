@@ -15,7 +15,7 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import com.netflix.iep.lwc.fwd.admin.Timer._
+import com.netflix.iep.lwc.fwd.admin.Timer.*
 import com.netflix.spectator.api.ManualClock
 import munit.FunSuite
 

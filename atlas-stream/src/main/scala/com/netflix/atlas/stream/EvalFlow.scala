@@ -85,7 +85,7 @@ private[stream] class EvalFlow(
       }
 
       private def sourceWithHeartbeat: Source[MessageEnvelope, NotUsed] = {
-        import scala.concurrent.duration._
+        import scala.concurrent.duration.*
         val heartbeatSrc = Source
           .repeat(new MessageEnvelope("_", DiagnosticMessage.info("heartbeat")))
           .throttle(1, 5.seconds, 1, ThrottleMode.Shaping)
