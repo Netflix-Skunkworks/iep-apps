@@ -16,13 +16,15 @@
 package com.netflix.iep.lwc.fwd.admin
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.model._
+import akka.dispatch.MessageDispatcher
+import akka.http.scaladsl.model.*
 import akka.http.scaladsl.server.Directives.entity
-import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.unmarshalling.Unmarshaller._
+import akka.http.scaladsl.unmarshalling.Unmarshaller
+import akka.http.scaladsl.unmarshalling.Unmarshaller.*
 import com.fasterxml.jackson.databind.JsonNode
-import com.netflix.atlas.akka.CustomDirectives._
+import com.netflix.atlas.akka.CustomDirectives.*
 import com.netflix.atlas.akka.WebApi
 import com.netflix.atlas.json.Json
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
@@ -43,10 +45,11 @@ class Api(
 ) extends WebApi
     with StrictLogging {
 
-  private implicit val configUnmarshaller =
+  private implicit val configUnmarshaller: Unmarshaller[HttpEntity, JsonNode] =
     byteArrayUnmarshaller.map(Json.decode[JsonNode](_))
 
-  private implicit val blockingDispatcher = system.dispatchers.lookup("blocking-dispatcher")
+  private implicit val blockingDispatcher: MessageDispatcher =
+    system.dispatchers.lookup("blocking-dispatcher")
 
   def routes: Route = {
 

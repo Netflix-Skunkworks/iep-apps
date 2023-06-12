@@ -32,7 +32,7 @@ import redis.clients.jedis.params.ScanParams
 import redis.clients.jedis.util.JedisClusterCRC16
 
 import java.nio.ByteBuffer
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import java.util
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -40,6 +40,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.util.Failure
@@ -71,7 +72,8 @@ class RedisClusterCloudWatchMetricsProcessor(
 )(override implicit val system: ActorSystem)
     extends CloudWatchMetricsProcessor(config, registry, rules, tagger, publishRouter, debugger) {
 
-  private implicit val executionContext = system.dispatchers.lookup("redis-io-dispatcher")
+  private implicit val executionContext: ExecutionContext =
+    system.dispatchers.lookup("redis-io-dispatcher")
 
   private val updatesNew = registry.counter("atlas.cloudwatch.redis.updates", "id", "new")
   private val updatesExisting = registry.counter("atlas.cloudwatch.redis.updates", "id", "existing")
@@ -324,7 +326,7 @@ class RedisClusterCloudWatchMetricsProcessor(
             try {
               registry.counter(batchCalls.withTag("node", node)).increment()
               val data = Using.resource(jedis.getClusterNodes.get(node).getResource) { jedis =>
-                jedis.executeCommand(commandObjects.mget(batch.toSeq: _*))
+                jedis.executeCommand(commandObjects.mget(batch.toSeq*))
               }
               var nonNull = 0
               batch

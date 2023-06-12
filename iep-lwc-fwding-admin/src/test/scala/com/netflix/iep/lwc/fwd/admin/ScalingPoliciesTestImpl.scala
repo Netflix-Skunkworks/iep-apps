@@ -19,6 +19,8 @@ import akka.NotUsed
 import akka.stream.scaladsl.Flow
 import com.typesafe.config.Config
 
+import scala.concurrent.ExecutionContext
+
 class ScalingPoliciesTestImpl(
   config: Config,
   dao: ScalingPoliciesDao,
@@ -33,7 +35,7 @@ class ScalingPoliciesDaoTestImpl(
   policies: Map[EddaEndpoint, List[ScalingPolicy]]
 ) extends ScalingPoliciesDao {
 
-  protected implicit val ec = scala.concurrent.ExecutionContext.global
+  protected implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.global
 
   override def getScalingPolicies: Flow[EddaEndpoint, List[ScalingPolicy], NotUsed] = {
     Flow[EddaEndpoint]

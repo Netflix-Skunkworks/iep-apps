@@ -16,8 +16,8 @@
 package com.netflix.iep.lwc.fwd.admin
 
 import com.netflix.atlas.json.Json
-import com.netflix.iep.lwc.fwd.admin.Timer._
-import com.netflix.iep.lwc.fwd.cw._
+import com.netflix.iep.lwc.fwd.admin.Timer.*
+import com.netflix.iep.lwc.fwd.cw.*
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
@@ -45,10 +45,10 @@ class ExpressionDetailsDaoImpl(
 ) extends ExpressionDetailsDao
     with StrictLogging {
 
-  import ExpressionDetails._
+  import ExpressionDetails.*
 
-  import scala.jdk.CollectionConverters._
-  import scala.jdk.StreamConverters._
+  import scala.jdk.CollectionConverters.*
+  import scala.jdk.StreamConverters.*
 
   private val ageLimitMillis = config.getDuration("iep.lwc.fwding-admin.age-limit").toMillis
 
@@ -195,7 +195,7 @@ case class ExpressionDetails(
   scalingPolicies: List[ScalingPolicy]
 ) {
 
-  import ExpressionDetails._
+  import ExpressionDetails.*
 
   def isPurgeEligible(now: Long, ageLimitMillis: Long): Boolean = {
     val ageThreshold = now - ageLimitMillis

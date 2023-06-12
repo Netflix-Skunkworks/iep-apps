@@ -20,7 +20,7 @@ import com.netflix.atlas.eval.stream.Evaluator.DataSources
 import com.netflix.atlas.json.Json
 
 import scala.collection.mutable
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try

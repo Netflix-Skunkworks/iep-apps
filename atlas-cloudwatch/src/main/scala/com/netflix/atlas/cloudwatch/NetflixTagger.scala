@@ -25,7 +25,7 @@ import software.amazon.awssdk.services.cloudwatch.model.Dimension
   */
 class NetflixTagger(config: Config) extends DefaultTagger(config) {
 
-  import scala.jdk.CollectionConverters._
+  import scala.jdk.CollectionConverters.*
 
   private val keys = config.getStringList("netflix-keys").asScala
 

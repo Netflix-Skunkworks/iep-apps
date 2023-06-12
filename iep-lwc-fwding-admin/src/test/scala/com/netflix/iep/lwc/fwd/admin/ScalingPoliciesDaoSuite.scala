@@ -16,7 +16,7 @@
 package com.netflix.iep.lwc.fwd.admin
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.*
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Sink
 import akka.stream.scaladsl.Source
@@ -34,12 +34,12 @@ import scala.util.Try
 
 class ScalingPoliciesDaoSuite extends FunSuite {
 
-  val config = ConfigFactory.load()
-  private implicit val system = ActorSystem()
+  private val config = ConfigFactory.load()
+  private implicit val system: ActorSystem = ActorSystem()
 
-  val ec2PoliciesUri = config.getString("iep.lwc.fwding-admin.ec2-policies-uri")
-  val cwAlarmsUri = config.getString("iep.lwc.fwding-admin.cw-alarms-uri")
-  val titusPoliciesUri = config.getString("iep.lwc.fwding-admin.titus-policies-uri")
+  private val ec2PoliciesUri = config.getString("iep.lwc.fwding-admin.ec2-policies-uri")
+  private val cwAlarmsUri = config.getString("iep.lwc.fwding-admin.cw-alarms-uri")
+  private val titusPoliciesUri = config.getString("iep.lwc.fwding-admin.titus-policies-uri")
 
   test("Lookup all EC2 scaling policies") {
     val data = Map(

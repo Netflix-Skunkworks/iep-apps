@@ -96,7 +96,7 @@ case class MetricCategory(
     * about rather than a single request fetching everything for the namespace.
     */
   def toListRequests: List[(MetricDefinition, ListMetricsRequest)] = {
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
     metrics.map { m =>
       val reqBuilder = ListMetricsRequest
         .builder()
@@ -149,7 +149,7 @@ object MetricCategory extends StrictLogging {
   }
 
   def fromConfig(config: Config): MetricCategory = {
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
     val metrics = config.getConfigList("metrics").asScala.toList
     val filter =
       if (!config.hasPath("filter")) None

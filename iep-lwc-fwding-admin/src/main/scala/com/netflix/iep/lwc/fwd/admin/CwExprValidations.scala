@@ -19,7 +19,7 @@ import java.time.Duration
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.netflix.atlas.core.model.DataExpr
-import com.netflix.atlas.core.model.Query._
+import com.netflix.atlas.core.model.Query.*
 import com.netflix.atlas.core.model.StyleExpr
 import com.netflix.atlas.core.model.TimeSeriesExpr
 import com.netflix.atlas.eval.stream.Evaluator

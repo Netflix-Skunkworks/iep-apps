@@ -17,7 +17,7 @@ package com.netflix.iep.lwc.fwd.admin
 
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.*
 import akka.http.scaladsl.model.headers.RawHeader
 import akka.stream.scaladsl.Flow
 import akka.stream.scaladsl.Sink
@@ -31,15 +31,15 @@ import munit.FunSuite
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import scala.util.Success
 
 class PurgerSuite extends FunSuite {
 
-  import ExpressionDetails._
-  import PurgerImpl._
+  import ExpressionDetails.*
+  import PurgerImpl.*
 
-  private implicit val system = ActorSystem(getClass.getSimpleName)
+  private implicit val system: ActorSystem = ActorSystem(getClass.getSimpleName)
 
   test("Filter purge eligible expressions") {
     val data = List(

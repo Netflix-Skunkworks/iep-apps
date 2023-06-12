@@ -34,7 +34,7 @@ import java.io.ByteArrayOutputStream
 import java.time.Duration
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
-import scala.jdk.CollectionConverters._
+import scala.jdk.CollectionConverters.*
 import scala.util.Using
 
 class CloudWatchDebugger(

@@ -46,7 +46,7 @@ class CloudWatchRules(config: Config) {
   def rules: Map[String, Map[String, (MetricCategory, List[MetricDefinition])]] = nsMap
 
   private[cloudwatch] def getCategories(config: Config): List[MetricCategory] = {
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
     val categories = config.getStringList("atlas.cloudwatch.categories").asScala.map { name =>
       val cfg = config.getConfig(s"atlas.cloudwatch.$name")
       MetricCategory.fromConfig(cfg)

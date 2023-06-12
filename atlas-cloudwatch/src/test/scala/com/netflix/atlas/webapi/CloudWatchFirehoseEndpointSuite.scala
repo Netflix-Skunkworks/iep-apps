@@ -193,7 +193,7 @@ class CloudWatchFirehoseEndpointSuite extends MUnitRouteSuite {
   }
 
   test("decode missing timestamp") {
-    import scala.compat.java8.FunctionConverters._
+    import scala.compat.java8.FunctionConverters.*
     val json = makeJson(CWDP("MetricA", Array[Double](42.0, 10.0, 32.0, 2.0), wTimestamp = false))
     Using.resource(Json.newJsonParser(json)) { parser =>
       val obtained = decodeMetricJson(parser, List.empty)
@@ -219,7 +219,7 @@ class CloudWatchFirehoseEndpointSuite extends MUnitRouteSuite {
   }
 
   test("decode missing values") {
-    import scala.compat.java8.FunctionConverters._
+    import scala.compat.java8.FunctionConverters.*
     val json = makeJson(CWDP("MetricA", Array[Double](42.0, 10.0, 32.0)))
     Using.resource(Json.newJsonParser(json)) { parser =>
       val obtained = decodeMetricJson(parser, List.empty)

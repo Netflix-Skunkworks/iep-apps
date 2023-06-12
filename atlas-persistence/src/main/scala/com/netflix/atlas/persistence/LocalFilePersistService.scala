@@ -124,7 +124,7 @@ class LocalFilePersistService(
   }
 
   private def getRollingFileFlow(workerId: Int): Flow[List[Datapoint], NotUsed, NotUsed] = {
-    import scala.concurrent.duration._
+    import scala.concurrent.duration.*
     RestartFlow.withBackoff(
       RestartSettings(
         minBackoff = 1.second,
@@ -146,7 +146,7 @@ class LocalFilePersistService(
       // Don't add overhead of balancer and async boundary for single worker
       workerFlowFactory(0)
     } else {
-      import akka.stream.scaladsl.GraphDSL.Implicits._
+      import akka.stream.scaladsl.GraphDSL.Implicits.*
       Flow.fromGraph(GraphDSL.create() { implicit b =>
         val balancer = b.add(Balance[In](workerCount))
         val merge = b.add(Merge[Out](workerCount))

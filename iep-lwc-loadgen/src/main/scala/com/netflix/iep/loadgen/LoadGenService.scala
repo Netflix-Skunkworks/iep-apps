@@ -38,7 +38,8 @@ import com.netflix.spectator.api.patterns.CardinalityLimiters
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
-import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.*
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
@@ -51,11 +52,11 @@ class LoadGenService(
 ) extends AbstractService
     with StrictLogging {
 
-  import LoadGenService._
+  import LoadGenService.*
 
   private val streamFailures = registry.counter("loadgen.streamFailures")
 
-  private implicit val ec = scala.concurrent.ExecutionContext.global
+  private implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.global
 
   private val limiter = CardinalityLimiters.mostFrequent(20)
 
@@ -93,7 +94,7 @@ class LoadGenService(
   }
 
   private def dataSources: List[Evaluator.DataSources] = {
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
     val defaultStep = config.getDuration("iep.lwc.loadgen.step")
     config
       .getStringList("iep.lwc.loadgen.uris")

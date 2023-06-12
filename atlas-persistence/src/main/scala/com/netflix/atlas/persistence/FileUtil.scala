@@ -20,7 +20,7 @@ import java.nio.file.Files
 
 import com.typesafe.scalalogging.StrictLogging
 
-import scala.jdk.StreamConverters._
+import scala.jdk.StreamConverters.*
 import scala.util.Using
 
 object FileUtil extends StrictLogging {

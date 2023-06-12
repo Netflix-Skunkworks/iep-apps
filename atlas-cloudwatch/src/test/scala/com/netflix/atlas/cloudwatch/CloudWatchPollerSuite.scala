@@ -467,7 +467,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     // yup, brittle if they change the AWS impl.
     val lmr = ListMetricsResponse
       .builder()
-      .metrics(ms.toArray: _*)
+      .metrics(ms.toArray*)
       .build()
     when(client.listMetrics(request)).thenReturn(lmr)
     val resp = new ListMetricsIterable(client, request)
@@ -505,7 +505,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
             .timestamp(timestamp.minusSeconds(86400))
             .build()
         )
-    import scala.jdk.CollectionConverters._
+    import scala.jdk.CollectionConverters.*
     val resp = GetMetricStatisticsResponse
       .builder()
       .label("UT1")
@@ -538,7 +538,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
         )
         val lmr = ListMetricsResponse
           .builder()
-          .metrics(metrics.toArray: _*)
+          .metrics(metrics.toArray*)
           .build()
         when(client.listMetrics(any[ListMetricsRequest])).thenReturn(lmr)
         new ListMetricsIterable(client, req)

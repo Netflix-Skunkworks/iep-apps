@@ -46,8 +46,7 @@ object Timer {
       f,
       name,
       registry.clock(),
-      (n: String, t: List[String], d: Long) =>
-        registry.timer(n, t: _*).record(d, TimeUnit.NANOSECONDS)
+      (n: String, t: List[String], d: Long) => registry.timer(n, t*).record(d, TimeUnit.NANOSECONDS)
     )
   }
 

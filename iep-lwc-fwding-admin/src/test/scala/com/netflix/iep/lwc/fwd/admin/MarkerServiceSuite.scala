@@ -29,15 +29,16 @@ import com.typesafe.config.ConfigFactory
 import munit.FunSuite
 
 import scala.concurrent.Await
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 
 class MarkerServiceSuite extends FunSuite {
 
-  import MarkerServiceImpl._
+  import MarkerServiceImpl.*
 
   private val config = ConfigFactory.load()
-  private implicit val system = ActorSystem(getClass.getSimpleName)
-  implicit val ec = scala.concurrent.ExecutionContext.global
+  private implicit val system: ActorSystem = ActorSystem(getClass.getSimpleName)
+  implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.global
 
   test("Read ExpressionDetails using a dedicated dispatcher") {
     val data = ExpressionDetails(

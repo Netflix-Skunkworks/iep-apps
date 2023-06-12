@@ -31,7 +31,7 @@ import com.netflix.atlas.eval.model.ArrayData
 import com.netflix.atlas.eval.model.TimeSeriesMessage
 import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.json.Json
-import com.netflix.iep.lwc.fwd.cw._
+import com.netflix.iep.lwc.fwd.cw.*
 import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 import munit.FunSuite
@@ -49,11 +49,11 @@ import scala.util.Success
 
 class ForwardingServiceSuite extends FunSuite {
 
-  import ForwardingService._
+  import ForwardingService.*
 
-  import scala.jdk.CollectionConverters._
+  import scala.jdk.CollectionConverters.*
 
-  private implicit val system = ActorSystem(getClass.getSimpleName)
+  private implicit val system: ActorSystem = ActorSystem(getClass.getSimpleName)
 
   private val version =
     """{"ts":1505226236957,"hash":"2d4d"}"""

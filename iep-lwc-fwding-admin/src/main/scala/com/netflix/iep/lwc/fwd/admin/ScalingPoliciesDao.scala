@@ -19,7 +19,7 @@ import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.coding.Coders
-import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.*
 import akka.http.scaladsl.model.headers.Accept
 import akka.http.scaladsl.model.headers.HttpEncodings
 import akka.http.scaladsl.model.headers.`Accept-Encoding`
@@ -33,6 +33,7 @@ import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
+import scala.concurrent.ExecutionContext
 import scala.util.Failure
 import scala.util.Success
 
@@ -46,7 +47,7 @@ class ScalingPoliciesDaoImpl(
 ) extends ScalingPoliciesDao
     with StrictLogging {
 
-  private implicit val ec = scala.concurrent.ExecutionContext.global
+  private implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.global
 
   private val ec2PoliciesUri = config.getString("iep.lwc.fwding-admin.ec2-policies-uri")
   private val cwAlarmsUri = config.getString("iep.lwc.fwding-admin.cw-alarms-uri")
