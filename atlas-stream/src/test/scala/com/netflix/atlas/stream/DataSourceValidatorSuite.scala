@@ -28,7 +28,7 @@ class DataSourceValidatorSuite extends FunSuite {
       """[{"id":"abc", "step": 10, "uri":"http://local-dev/api/v1/graph?q=name,jvm.gc.pause,:eq,:sum&step=10s"}]"""
     val validator = DataSourceValidator(10, validateNoop)
     validator.validate(stringValid) match {
-      case Right(dss) => assertEquals(dss.getSources.size(), 1)
+      case Right(dss) => assertEquals(dss.sources().size(), 1)
       case Left(_)    => fail("validation should have passed")
     }
   }
@@ -37,7 +37,7 @@ class DataSourceValidatorSuite extends FunSuite {
     val stringValid = "[]"
     val validator = DataSourceValidator(10, validateNoop)
     validator.validate(stringValid) match {
-      case Right(dss) => assertEquals(dss.getSources.size(), 0)
+      case Right(dss) => assertEquals(dss.sources().size(), 0)
       case Left(_)    => fail("validation should have passed")
     }
   }
@@ -124,7 +124,7 @@ class DataSourceValidatorSuite extends FunSuite {
     )
     val validator = DataSourceValidator(10, validateNoop)
     validator.validate(dsList) match {
-      case Right(dss) => assertEquals(dss.getSources.size(), 1)
+      case Right(dss) => assertEquals(dss.sources().size(), 1)
       case Left(_)    => fail("validation should have passed")
     }
   }
