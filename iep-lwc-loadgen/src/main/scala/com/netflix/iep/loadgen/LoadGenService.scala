@@ -114,8 +114,8 @@ class LoadGenService(
   }
 
   private def updateStats(envelope: Evaluator.MessageEnvelope): Unit = {
-    val id = limiter(envelope.getId)
-    envelope.getMessage match {
+    val id = limiter(envelope.id())
+    envelope.message() match {
       case tsm: TimeSeriesMessage => record(id, "timeseries", value(tsm))
       case msg: DiagnosticMessage => record(id, msg.typeName)
       case _                      => record(id, "unknown")

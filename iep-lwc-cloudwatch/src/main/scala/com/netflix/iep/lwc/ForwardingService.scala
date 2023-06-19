@@ -284,7 +284,7 @@ object ForwardingService extends StrictLogging {
 
     Flow[Evaluator.MessageEnvelope]
       .filter { env =>
-        env.getMessage match {
+        env.message() match {
           case _: TimeSeriesMessage =>
             datapoints.increment()
             true
@@ -294,8 +294,8 @@ object ForwardingService extends StrictLogging {
         }
       }
       .map { env =>
-        val id = Json.decode[ExpressionId](env.getId)
-        val msg = env.getMessage.asInstanceOf[TimeSeriesMessage]
+        val id = Json.decode[ExpressionId](env.id())
+        val msg = env.message().asInstanceOf[TimeSeriesMessage]
         ForwardingMsgEnvelope(id, createMetricDatum(config, id.expression, msg), None)
       }
   }
