@@ -55,10 +55,10 @@ class EvalFlowSuite extends FunSuite {
     val future = Source
       .single(dataSourceStr)
       .via(evalFlow)
-      .filter(envelope => envelope.getId != "_") // filter out heartbeat
+      .filter(envelope => envelope.id() != "_") // filter out heartbeat
       .runWith(Sink.head)
     val messageEnvelope = Await.result(future, Duration.Inf)
 
-    assertEquals(messageEnvelope.getId, "mockId")
+    assertEquals(messageEnvelope.id(), "mockId")
   }
 }

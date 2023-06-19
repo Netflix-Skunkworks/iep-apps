@@ -107,7 +107,7 @@ class LoadGenWsService(
   private def evalSourceWsFlow: Flow[Evaluator.DataSources, String, NotUsed] = {
     Flow[Evaluator.DataSources]
       .map(dss => {
-        TextMessage(Json.encode(dss.getSources))
+        TextMessage(Json.encode(dss.sources()))
       })
       .via(
         Http.get(system).webSocketClientFlow(WebSocketRequest(atlasStreamWsUri))

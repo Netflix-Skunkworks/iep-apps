@@ -110,14 +110,14 @@ class EvalService(
   private def distributeMessage(envelope: MessageEnvelope) = {
     try {
       // MessageEnvelope is DataSource id, which has been prefixed with "streamId" + "|"
-      val index = envelope.getId.indexOf("|")
+      val index = envelope.id().indexOf("|")
       if (index > 0) {
-        val streamId = envelope.getId.substring(0, index)
+        val streamId = envelope.id().substring(0, index)
         val info = getStreamInfo(streamId)
         if (info != null) {
           info.handler.offer(
             // Remove prefix
-            new MessageEnvelope(envelope.getId.substring(index + 1), envelope.getMessage)
+            new MessageEnvelope(envelope.id().substring(index + 1), envelope.message())
           )
         } else {
           logger.debug(s"discarding message without handler: $envelope")
@@ -167,10 +167,12 @@ class EvalService(
 
     streamInfo.dataSources = Some(
       new DataSources(
-        dataSources.getSources.asScala
+        dataSources
+          .sources()
+          .asScala
           .map(ds =>
             // Prefix DataSource id with streamId+"|", for mapping MessageEnvelope to stream later
-            new DataSource(s"$streamId|${ds.getId}", ds.getStep, ds.getUri)
+            new DataSource(s"$streamId|${ds.id()}", ds.step(), ds.uri())
           )
           .asJava
       )
@@ -184,7 +186,7 @@ class EvalService(
   private def getCurrentDataSources: DataSources = {
     val dsSet = registrations.values.asScala
       .flatMap(_.dataSources)
-      .flatMap(_.getSources.asScala)
+      .flatMap(_.sources().asScala)
       .toSet
       .asJava
     numDataSources.set(dsSet.size())

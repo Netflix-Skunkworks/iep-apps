@@ -56,7 +56,7 @@ case class DataSourceValidator(maxDataSourcesPerSession: Int, validateFunc: Data
       // Validate each DataSource
       val visitedIds = mutable.Set[String]()
       dataSourceList.foreach(ds => {
-        val id = ds.getId
+        val id = ds.id()
         // Validate id
         if (id == null) {
           addError(id, "id cannot be null", errorMap)
