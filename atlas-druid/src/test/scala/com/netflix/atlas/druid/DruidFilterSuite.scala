@@ -119,37 +119,37 @@ class DruidFilterSuite extends FunSuite {
 
   test("forQuery - :gt") {
     val actual = DruidFilter.forQuery(eval("country,US,:gt"))
-    val expected = Some(DruidFilter.JavaScript("country", "function(x) { return x > 'US'; }"))
+    val expected = Some(DruidFilter.Bound.greaterThan("country", "US"))
     assertEquals(actual, expected)
   }
 
   test("forQuery - :ge") {
     val actual = DruidFilter.forQuery(eval("country,US,:ge"))
-    val expected = Some(DruidFilter.JavaScript("country", "function(x) { return x >= 'US'; }"))
+    val expected = Some(DruidFilter.Bound.greaterThanEqual("country", "US"))
     assertEquals(actual, expected)
   }
 
   test("forQuery - :lt") {
     val actual = DruidFilter.forQuery(eval("country,US,:lt"))
-    val expected = Some(DruidFilter.JavaScript("country", "function(x) { return x < 'US'; }"))
+    val expected = Some(DruidFilter.Bound.lessThan("country", "US"))
     assertEquals(actual, expected)
   }
 
   test("forQuery - :le") {
     val actual = DruidFilter.forQuery(eval("country,US,:le"))
-    val expected = Some(DruidFilter.JavaScript("country", "function(x) { return x <= 'US'; }"))
+    val expected = Some(DruidFilter.Bound.lessThanEqual("country", "US"))
     assertEquals(actual, expected)
   }
 
   test("forQuery - :le sanitize single quote") {
     val actual = DruidFilter.forQuery(eval("country,US',:le"))
-    val expected = Some(DruidFilter.JavaScript("country", "function(x) { return x <= 'US_'; }"))
+    val expected = Some(DruidFilter.Bound.lessThanEqual("country", "US'"))
     assertEquals(actual, expected)
   }
 
   test("forQuery - :le sanitize double quote") {
     val actual = DruidFilter.forQuery(eval("country,US\",:le"))
-    val expected = Some(DruidFilter.JavaScript("country", "function(x) { return x <= 'US_'; }"))
+    val expected = Some(DruidFilter.Bound.lessThanEqual("country", "US\""))
     assertEquals(actual, expected)
   }
 
