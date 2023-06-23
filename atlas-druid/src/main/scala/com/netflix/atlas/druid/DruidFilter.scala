@@ -38,10 +38,10 @@ object DruidFilter {
       case Query.False                  => throw new UnsupportedOperationException(":false")
       case Query.Equal(k, v)            => Equal(k, v)
       case Query.In(k, vs)              => In(k, vs)
-      case Query.GreaterThan(k, v)      => js(k, ">", v)
-      case Query.GreaterThanEqual(k, v) => js(k, ">=", v)
-      case Query.LessThan(k, v)         => js(k, "<", v)
-      case Query.LessThanEqual(k, v)    => js(k, "<=", v)
+      case Query.GreaterThan(k, v)      => Bound.greaterThan(k, v)
+      case Query.GreaterThanEqual(k, v) => Bound.greaterThanEqual(k, v)
+      case Query.LessThan(k, v)         => Bound.lessThan(k, v)
+      case Query.LessThanEqual(k, v)    => Bound.lessThanEqual(k, v)
       case Query.HasKey(k)              => Not(Equal(k, "")) // druid: empty string is same as null
       case Query.Regex(k, v)            => Regex(k, s"^$v")
       case Query.RegexIgnoreCase(k, v)  => Regex(k, s"(?i)^$v")
@@ -65,11 +65,6 @@ object DruidFilter {
     Query.simplify(newQuery.asInstanceOf[Query], true)
   }
 
-  private def js(k: String, op: String, v: String): JavaScript = {
-    val sanitizedV = sanitize(v)
-    JavaScript(k, s"function(x) { return x $op '$sanitizedV'; }")
-  }
-
   case class Equal(dimension: String, value: String) extends DruidFilter {
     val `type`: String = "selector"
   }
@@ -82,8 +77,33 @@ object DruidFilter {
     val `type`: String = "in"
   }
 
-  case class JavaScript(dimension: String, function: String) extends DruidFilter {
-    val `type`: String = "javascript"
+  case class Bound(
+    dimension: String,
+    lower: Option[String] = None,
+    lowerStrict: Boolean = false,
+    upper: Option[String] = None,
+    upperStrict: Boolean = false
+  ) extends DruidFilter {
+    val `type`: String = "bound"
+  }
+
+  object Bound {
+
+    def greaterThan(dimension: String, value: String): Bound = {
+      Bound(dimension, lower = Some(value), lowerStrict = true)
+    }
+
+    def greaterThanEqual(dimension: String, value: String): Bound = {
+      Bound(dimension, lower = Some(value))
+    }
+
+    def lessThan(dimension: String, value: String): Bound = {
+      Bound(dimension, upper = Some(value), upperStrict = true)
+    }
+
+    def lessThanEqual(dimension: String, value: String): Bound = {
+      Bound(dimension, upper = Some(value))
+    }
   }
 
   case class And(fields: List[DruidFilter]) extends DruidFilter {
