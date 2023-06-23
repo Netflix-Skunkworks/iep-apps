@@ -24,6 +24,7 @@ import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.Registry
+import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import junit.framework.TestCase.assertFalse
 import munit.FunSuite
@@ -104,14 +105,60 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   }
 
   test("init") {
-    val poller = getPoller
+    val poller = getPoller()
     val categories = poller.offsetMap.get(offset).get
     assertEquals(categories.filter(_.namespace == "AWS/UT1").size, 1)
   }
 
+  test("init multiple offsets") {
+    val cfg = ConfigFactory.parseString("""
+        |atlas {
+        |  cloudwatch {
+        |    categories = ["cfg1", "cfg2"]
+        |    poller.frequency = "5m"
+        |
+        |    cfg1 = {
+        |      namespace = "AWS/CFG1"
+        |      period = 5m
+        |      poll-offset = 5m
+        |
+        |      dimensions = ["foo"]
+        |      metrics = [
+        |        {
+        |          name = "M1"
+        |          alias = "aws.m1"
+        |          conversion = "max"
+        |        }
+        |      ]
+        |    }
+        |
+        |    cfg2 = {
+        |      namespace = "AWS/CFG2"
+        |      period = 1d
+        |      poll-offset = 1h
+        |
+        |      dimensions = ["bar"]
+        |      metrics = [
+        |        {
+        |          name = "M2"
+        |          alias = "aws.m2"
+        |          conversion = "max"
+        |        }
+        |      ]
+        |    }
+        |  }
+        |}
+        |""".stripMargin)
+    val poller = getPoller(cfg)
+    var categories = poller.offsetMap.get(300).get
+    assertEquals(categories.filter(_.namespace == "AWS/CFG1").size, 1)
+    categories = poller.offsetMap.get(3600).get
+    assertEquals(categories.filter(_.namespace == "AWS/CFG2").size, 1)
+  }
+
   test("poll not leader") {
     when(leaderStatus.hasLeadership).thenReturn(false)
-    val poller = getPoller
+    val poller = getPoller()
     poller.poll(offset, List(getCategory(poller)))
     assertCounters()
     verify(accountSupplier, never).accounts
@@ -121,14 +168,14 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   test("poll already ran") {
     when(processor.lastSuccessfulPoll(anyString))
       .thenReturn(System.currentTimeMillis() + 86_400_000L)
-    val poller = getPoller
+    val poller = getPoller()
     poller.poll(offset, List(getCategory(poller)))
     assertCounters()
     verify(processor, never).updateLastSuccessfulPoll(anyString, anyLong)
   }
 
   test("poll already running") {
-    val poller = getPoller
+    val poller = getPoller()
     poller.flagMap.put(runKey(28800, "123456789012", Region.US_EAST_1), new AtomicBoolean(true))
     poller.poll(offset, List(getCategory(poller)))
     assertCounters()
@@ -136,7 +183,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   }
 
   test("poll success") {
-    val poller = getPoller
+    val poller = getPoller()
     mockSuccess
     val flag = new AtomicBoolean()
     val full = Promise[List[CloudWatchPoller#Poller]]()
@@ -152,7 +199,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   }
 
   test("poll on list failure") {
-    val poller = getPoller
+    val poller = getPoller()
     val flag = new AtomicBoolean()
     val full = Promise[List[CloudWatchPoller#Poller]]()
     val accountsDone = Promise[Done]()
@@ -176,7 +223,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
         any[Optional[Region]]
       )
     ).thenThrow(new RuntimeException("test"))
-    val poller = getPoller
+    val poller = getPoller()
     val flag = new AtomicBoolean()
     val full = Promise[List[CloudWatchPoller#Poller]]()
     val accountsDone = Promise[Done]()
@@ -195,7 +242,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
 
   test("poll accounts exception") {
     when(accountSupplier.accounts).thenThrow(new RuntimeException("test"))
-    val poller = getPoller
+    val poller = getPoller()
     val flag = new AtomicBoolean()
     val full = Promise[List[CloudWatchPoller#Poller]]()
     val accountsDone = Promise[Done]()
@@ -214,7 +261,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
 
   test("poll empty accounts") {
     when(accountSupplier.accounts).thenReturn(Map.empty)
-    val poller = getPoller
+    val poller = getPoller()
     val flag = new AtomicBoolean()
     val full = Promise[List[CloudWatchPoller#Poller]]()
     val accountsDone = Promise[Done]()
@@ -228,7 +275,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   }
 
   test("Poller#execute all success") {
-    val poller = getPoller
+    val poller = getPoller()
     mockSuccess
     val child = getChild(poller)
     val f = child.execute
@@ -237,7 +284,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   }
 
   test("Poller#execute one failure") {
-    val poller = getPoller
+    val poller = getPoller()
     val child = getChild(poller)
     val f = child.execute
     intercept[RuntimeException] {
@@ -247,7 +294,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   }
 
   test("Poller#ListMetrics success") {
-    val poller = getPoller
+    val poller = getPoller()
     val child = getChild(poller)
     val (mdef, req) = getListReq(poller)
     val promise = Promise[Done]()
@@ -260,7 +307,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   }
 
   test("Poller#ListMetrics empty") {
-    val poller = getPoller
+    val poller = getPoller()
     val child = getChild(poller)
     val (mdef, req) = getListReq(poller)
     val promise = Promise[Done]()
@@ -272,7 +319,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   }
 
   test("Poller#ListMetrics one failure") {
-    val poller = getPoller
+    val poller = getPoller()
     val child = getChild(poller)
     val (mdef, req) = getListReq(poller)
     val promise = Promise[Done]()
@@ -286,7 +333,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   }
 
   test("Poller#ListMetrics client throws") {
-    val poller = getPoller
+    val poller = getPoller()
     val child = getChild(poller)
     val (mdef, req) = getListReq(poller)
     val promise = Promise[Done]()
@@ -300,7 +347,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   }
 
   test("Poller#FetchMetricStats success") {
-    val poller = getPoller
+    val poller = getPoller()
     val child = getChild(poller)
     val category = getCategory(poller)
     val (mdef, _) = getListReq(poller)
@@ -347,7 +394,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   }
 
   test("Poller#FetchMetricStats success empty") {
-    val poller = getPoller
+    val poller = getPoller()
     val child = getChild(poller)
     val category = getCategory(poller)
     val (mdef, _) = getListReq(poller)
@@ -365,7 +412,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   }
 
   test("Poller#FetchMetricStats client throws") {
-    val poller = getPoller
+    val poller = getPoller()
     val child = getChild(poller)
     val category = getCategory(poller)
     val (mdef, _) = getListReq(poller)
@@ -384,9 +431,9 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     assertCounters(errors = Map("metric" -> 1))
   }
 
-  def getPoller: CloudWatchPoller = {
+  def getPoller(cfg: Config = config): CloudWatchPoller = {
     new CloudWatchPoller(
-      config,
+      cfg,
       registry,
       leaderStatus,
       accountSupplier,

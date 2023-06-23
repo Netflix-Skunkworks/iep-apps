@@ -102,16 +102,13 @@ class CloudWatchPoller(
   private val dpsPolled = registry.counter("atlas.cloudwatch.poller.dps.polled")
   private val frequency = config.getDuration("atlas.cloudwatch.poller.frequency").getSeconds
 
-  private val periodFilter =
-    config.getDuration("atlas.cloudwatch.poller.period-filter").getSeconds.toInt
-
   private[cloudwatch] val flagMap = new ConcurrentHashMap[String, AtomicBoolean]()
 
   private[cloudwatch] val offsetMap = {
     var map = Map.empty[Int, List[MetricCategory]]
     rules
       .getCategories(config)
-      .filter(c => c.pollOffset.isDefined && c.period == periodFilter)
+      .filter(c => c.pollOffset.isDefined)
       .foreach { category =>
         val offset = category.pollOffset.get.getSeconds.toInt
         val categories = map.getOrElse(offset, List.empty)
@@ -155,7 +152,7 @@ class CloudWatchPoller(
           if (namespaces.size > 0) {
             val filtered = categories.filter(c => namespaces.contains(c.namespace))
             if (filtered.size > 0) {
-              val nextRun = timeToRun(offset, account, region)
+              val nextRun = timeToRun(filtered.head.period, offset, account, region)
               if (nextRun > 0) {
                 // flag check
                 val flag = flagMap.computeIfAbsent(
@@ -412,12 +409,12 @@ class CloudWatchPoller(
     }
   }
 
-  private def timeToRun(offset: Int, account: String, region: Region): Long = {
+  private def timeToRun(period: Int, offset: Int, account: String, region: Region): Long = {
     // see if we've past the next run time.
     var nextRun = 0L
     try {
       val previousRun = processor.lastSuccessfulPoll(runKey(offset, account, region))
-      nextRun = runAfter(offset, periodFilter)
+      nextRun = runAfter(offset, period)
       if (previousRun >= nextRun) {
         logger.info(
           s"Skipping CloudWatch polling for ${offset}s as we're within the polling interval. Previous ${previousRun}. Next ${nextRun}"
