@@ -110,7 +110,7 @@ object DefaultTagger {
     def unapply(extractorDirective: (Regex, String)): Option[(String, String)] = {
       val (regex, alias) = extractorDirective
       regex.findFirstMatchIn(rawValue).map { matches =>
-        val value = if (matches.groupCount > 0) matches.group(1) else rawValue
+        val value = if (matches.groupCount > 0) matches.subgroups.mkString("-") else rawValue
         alias -> value
       }
     }

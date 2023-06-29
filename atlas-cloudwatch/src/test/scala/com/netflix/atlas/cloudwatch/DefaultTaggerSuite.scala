@@ -21,6 +21,8 @@ import com.typesafe.config.ConfigFactory
 import munit.FunSuite
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
 
+import java.util.regex.Pattern
+
 class DefaultTaggerSuite extends FunSuite {
 
   private val dimensions = List(
@@ -110,6 +112,14 @@ class DefaultTaggerSuite extends FunSuite {
         |        pattern = "[^.]+/([^.]+)/.*"
         |      }
         |    ]
+        |  },
+        |  {
+        |    name = "MediaConnectARN"
+        |    directives = [
+        |      {
+        |        pattern = "arn_aws_\\w+_([a-z\\-0-9]+)_\\d+_source_\\d-[a-zA-Z0-9]+-[a-zA-Z0-9]+_(.*)"
+        |      }
+        |    ]
         |  }
         |]
         |mappings = []
@@ -121,12 +131,22 @@ class DefaultTaggerSuite extends FunSuite {
     val expected = Map(
       "ExtractDotDelimited"   -> "captured-portion",
       "ExtractSlashDelimited" -> "captured-portion",
+      "MediaConnectARN"       -> "us-west-1-test-Episode1-1-ABCDE",
       "CloudWatch"            -> "abc",
       "NoMapping"             -> "def"
     )
 
     val tagger = new DefaultTagger(cfg)
-    assertEquals(tagger(dimensions), expected)
+    val withARN = dimensions ++ List(
+      Dimension
+        .builder()
+        .name("MediaConnectARN")
+        .value(
+          "arn_aws_mediaconnect_us-west-1_123456789011_source_1-aAbBcCdDeEfFgGHh-aA913dabeef2_test-Episode1-1-ABCDE"
+        )
+        .build()
+    )
+    assertEquals(tagger(withARN), expected)
   }
 
   test("syntax error in extractor pattern throws") {
