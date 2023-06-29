@@ -117,7 +117,7 @@ class DefaultTaggerSuite extends FunSuite {
         |    name = "MediaConnectARN"
         |    directives = [
         |      {
-        |        pattern = "arn_aws_\\w+_([a-z\\-0-9]+)_\\d+_source_\\d-[a-zA-Z0-9]+-[a-zA-Z0-9]+_(.*)"
+        |        pattern = "arn:aws:\\w+:([a-z\\-0-9]+):\\d+:source:\\d-[a-zA-Z0-9]+-[a-zA-Z0-9]+:(.*)"
         |      }
         |    ]
         |  }
@@ -142,7 +142,7 @@ class DefaultTaggerSuite extends FunSuite {
         .builder()
         .name("MediaConnectARN")
         .value(
-          "arn_aws_mediaconnect_us-west-1_123456789011_source_1-aAbBcCdDeEfFgGHh-aA913dabeef2_test-Episode1-1-ABCDE"
+          "arn:aws:mediaconnect:us-west-1:123456789011:source:1-aAbBcCdDeEfFgGHh-aA913dabeef2:test-Episode1-1-ABCDE"
         )
         .build()
     )
