@@ -13,16 +13,16 @@ object Dependencies {
     val akka       = "2.6.21"
     val akkaHttpV  = "10.2.10"
 
-    val atlas      = "1.8.0-SNAPSHOT"
+    val atlas      = "1.8.0-rc.3"
     val aws2       = "2.20.35"
-    val iep        = "5.0.2"
+    val iep        = "5.0.7"
     val log4j      = "2.20.0"
     val scala      = "2.13.11"
     val servo      = "0.13.2"
     val slf4j      = "1.7.36"
-    val spectator  = "1.7.0-SNAPSHOT"
+    val spectator  = "1.6.10"
     val spring     = "6.0.7"
-    val avroV      = "1.11.1"
+    val avroV      = "1.11.2"
 
     val crossScala = Seq(scala)
   }
@@ -50,14 +50,14 @@ object Dependencies {
   val aws2EC2            = "software.amazon.awssdk" % "ec2" % aws2
   val aws2S3             = "software.amazon.awssdk" % "s3" % aws2
   val aws2SQS            = "software.amazon.awssdk" % "sqs" % aws2
-  val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "3.1.6"
+  val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "3.1.8"
   val frigga             = "com.netflix.frigga" % "frigga" % "0.26.0"
   val iepDynConfig       = "com.netflix.iep" % "iep-dynconfig" % iep
   val iepLeaderApi       = "com.netflix.iep" % "iep-leader-api" % iep
   val iepService         = "com.netflix.iep" % "iep-service" % iep
   val iepSpring          = "com.netflix.iep" % "iep-spring" % iep
   val iepSpringLeaderDDb = "com.netflix.iep" % "iep-spring-leader-dynamodb" % iep
-  val iepSpringLeaderRds = "com.netflix.iep" % "iep-spring-leader-redis-cluster" % "5.0.0-SNAPSHOT"
+  val iepSpringLeaderRds = "com.netflix.iep" % "iep-spring-leader-redis-cluster" % iep
   val iepSpringAdmin     = "com.netflix.iep" % "iep-spring-admin" % iep
   val iepSpringAtlas     = "com.netflix.iep" % "iep-spring-atlas" % iep
   val iepSpringAws2      = "com.netflix.iep" % "iep-spring-aws2" % iep
@@ -71,11 +71,11 @@ object Dependencies {
   val log4jJcl           = "org.apache.logging.log4j" % "log4j-jcl" % log4j
   val log4jJul           = "org.apache.logging.log4j" % "log4j-jul" % log4j
   val log4jSlf4j         = "org.apache.logging.log4j" % "log4j-slf4j-impl" % log4j
-  val mockitoCore        = "org.mockito" % "mockito-core" % "3.12.4"
-  val mockitoScala       = "org.mockito" % "mockito-scala_2.13" % "1.10.4"
+  val mockitoCore        = "org.mockito" % "mockito-core" % "5.5.0"
+  val mockitoScala       = "org.mockito" % "mockito-scala_2.13" % "1.17.22"
   val munit              = "org.scalameta" %% "munit" % "0.7.29"
   val openHFT            = "net.openhft" % "zero-allocation-hashing" % "0.16"
-  val protobuf           = "com.google.protobuf" % "protobuf-java" % "3.22.2"
+  val protobuf           = "com.google.protobuf" % "protobuf-java" % "3.24.2"
   val scalaCompiler      = "org.scala-lang" % "scala-compiler" % scala
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
   val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
@@ -84,7 +84,7 @@ object Dependencies {
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
   val slf4jLog4j         = "org.slf4j" % "slf4j-log4j12" % slf4j
   val slf4jSimple        = "org.slf4j" % "slf4j-simple" % slf4j
-  val snappy             = "org.xerial.snappy" % "snappy-java" % "1.1.9.1"
+  val snappy             = "org.xerial.snappy" % "snappy-java" % "1.1.10.3"
   val spectatorApi       = "com.netflix.spectator" % "spectator-api" % spectator
   val spectatorAws2      = "com.netflix.spectator" % "spectator-ext-aws2" % spectator
   val spectatorAtlas     = "com.netflix.spectator" % "spectator-reg-atlas" % spectator
