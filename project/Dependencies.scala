@@ -15,7 +15,7 @@ object Dependencies {
 
     val atlas      = "1.8.0-SNAPSHOT"
     val aws2       = "2.20.35"
-    val iep        = "5.0.2"
+    val iep        = "5.0.7"
     val log4j      = "2.20.0"
     val scala      = "2.13.11"
     val servo      = "0.13.2"
@@ -57,7 +57,7 @@ object Dependencies {
   val iepService         = "com.netflix.iep" % "iep-service" % iep
   val iepSpring          = "com.netflix.iep" % "iep-spring" % iep
   val iepSpringLeaderDDb = "com.netflix.iep" % "iep-spring-leader-dynamodb" % iep
-  val iepSpringLeaderRds = "com.netflix.iep" % "iep-spring-leader-redis-cluster" % "5.0.0-SNAPSHOT"
+  val iepSpringLeaderRds = "com.netflix.iep" % "iep-spring-leader-redis-cluster" % iep
   val iepSpringAdmin     = "com.netflix.iep" % "iep-spring-admin" % iep
   val iepSpringAtlas     = "com.netflix.iep" % "iep-spring-atlas" % iep
   val iepSpringAws2      = "com.netflix.iep" % "iep-spring-aws2" % iep
