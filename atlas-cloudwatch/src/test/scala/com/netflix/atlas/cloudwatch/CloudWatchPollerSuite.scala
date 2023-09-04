@@ -106,8 +106,8 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
 
   test("init") {
     val poller = getPoller()
-    val categories = poller.offsetMap.get(offset).get
-    assertEquals(categories.filter(_.namespace == "AWS/UT1").size, 1)
+    val categories = poller.offsetMap(offset)
+    assertEquals(categories.count(_.namespace == "AWS/UT1"), 1)
   }
 
   test("init multiple offsets") {
@@ -150,10 +150,10 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
         |}
         |""".stripMargin)
     val poller = getPoller(cfg)
-    var categories = poller.offsetMap.get(300).get
-    assertEquals(categories.filter(_.namespace == "AWS/CFG1").size, 1)
-    categories = poller.offsetMap.get(3600).get
-    assertEquals(categories.filter(_.namespace == "AWS/CFG2").size, 1)
+    var categories = poller.offsetMap(300)
+    assertEquals(categories.count(_.namespace == "AWS/CFG1"), 1)
+    categories = poller.offsetMap(3600)
+    assertEquals(categories.count(_.namespace == "AWS/CFG2"), 1)
   }
 
   test("poll not leader") {
@@ -184,7 +184,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
 
   test("poll success") {
     val poller = getPoller()
-    mockSuccess
+    mockSuccess()
     val flag = new AtomicBoolean()
     val full = Promise[List[CloudWatchPoller#Poller]]()
     val accountsDone = Promise[Done]()
@@ -276,7 +276,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
 
   test("Poller#execute all success") {
     val poller = getPoller()
-    mockSuccess
+    mockSuccess()
     val child = getChild(poller)
     val f = child.execute
     Await.result(f, 1.seconds)
@@ -300,7 +300,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val promise = Promise[Done]()
     mockListMetricsResp(req)
     mockMetricStats()
-    child.ListMetrics(req, mdef, promise).run
+    child.ListMetrics(req, mdef, promise).run()
 
     assertCounters(droppedTags = 1, droppedFilter = 1)
     Await.result(promise.future, 1.seconds)
@@ -312,7 +312,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val (mdef, req) = getListReq(poller)
     val promise = Promise[Done]()
     mockListMetricsResp(req, true)
-    child.ListMetrics(req, mdef, promise).run
+    child.ListMetrics(req, mdef, promise).run()
 
     assertCounters(empty = 1)
     Await.result(promise.future, 1.seconds)
@@ -324,7 +324,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val (mdef, req) = getListReq(poller)
     val promise = Promise[Done]()
     mockListMetricsResp(req)
-    child.ListMetrics(req, mdef, promise).run
+    child.ListMetrics(req, mdef, promise).run()
 
     assertCounters(droppedTags = 1, droppedFilter = 1)
     intercept[RuntimeException] {
@@ -338,7 +338,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val (mdef, req) = getListReq(poller)
     val promise = Promise[Done]()
     when(client.listMetricsPaginator(req)).thenThrow(new RuntimeException("test"))
-    child.ListMetrics(req, mdef, promise).run
+    child.ListMetrics(req, mdef, promise).run()
 
     assertCounters(errors = Map("list" -> 1))
     intercept[RuntimeException] {
@@ -373,7 +373,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
       timestamp.minusSeconds(86400 * 2).toEpochMilli,
       ""
     )
-    assertEquals(routerCaptor.values(0), firehose)
+    assertEquals(routerCaptor.values.head, firehose)
 
     firehose = makeFirehoseMetric(
       "AWS/UT1",
@@ -445,9 +445,8 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   }
 
   def getChild(poller: CloudWatchPoller): CloudWatchPoller#Poller = {
-    val category = poller.offsetMap
-      .get(Duration.ofHours(8).getSeconds.toInt)
-      .get
+    val category = poller
+      .offsetMap(Duration.ofHours(8).getSeconds.toInt)
       .filter(_.namespace == "AWS/UT1")
       .head
     poller.Poller(
@@ -460,9 +459,8 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   }
 
   def getCategory(poller: CloudWatchPoller): MetricCategory =
-    poller.offsetMap
-      .get(Duration.ofHours(8).getSeconds.toInt)
-      .get
+    poller
+      .offsetMap(Duration.ofHours(8).getSeconds.toInt)
       .filter(_.namespace == "AWS/UT1")
       .head
 
@@ -470,9 +468,8 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     poller: CloudWatchPoller,
     index: Int = 0
   ): (MetricDefinition, ListMetricsRequest) = {
-    val category = poller.offsetMap
-      .get(Duration.ofHours(8).getSeconds.toInt)
-      .get
+    val category = poller
+      .offsetMap(Duration.ofHours(8).getSeconds.toInt)
       .filter(_.namespace == "AWS/UT1")
       .head
     category.toListRequests(index)
