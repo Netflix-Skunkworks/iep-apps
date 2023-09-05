@@ -15,19 +15,19 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import akka.NotUsed
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.coding.Coders
-import akka.http.scaladsl.model.*
-import akka.http.scaladsl.model.headers.Accept
-import akka.http.scaladsl.model.headers.HttpEncodings
-import akka.http.scaladsl.model.headers.`Accept-Encoding`
-import akka.http.scaladsl.unmarshalling.Unmarshal
-import akka.stream.scaladsl.Flow
-import akka.stream.scaladsl.Source
-import com.netflix.atlas.akka.AccessLogger
-import com.netflix.atlas.akka.StreamOps
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.coding.Coders
+import org.apache.pekko.http.scaladsl.model.*
+import org.apache.pekko.http.scaladsl.model.headers.Accept
+import org.apache.pekko.http.scaladsl.model.headers.HttpEncodings
+import org.apache.pekko.http.scaladsl.model.headers.`Accept-Encoding`
+import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshal
+import org.apache.pekko.stream.scaladsl.Flow
+import org.apache.pekko.stream.scaladsl.Source
+import com.netflix.atlas.pekko.AccessLogger
+import com.netflix.atlas.pekko.StreamOps
 import com.netflix.atlas.json.Json
 import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo
 import com.typesafe.config.Config

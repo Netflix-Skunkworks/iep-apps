@@ -15,18 +15,18 @@
  */
 package com.netflix.atlas.cloudwatch
 
-import akka.actor.ActorSystem
-import akka.http.javadsl.model.ContentType
-import akka.http.scaladsl.model.ContentTypes
-import akka.http.scaladsl.model.HttpEntity
-import akka.http.scaladsl.model.HttpRequest
-import akka.http.scaladsl.model.HttpResponse
-import akka.http.scaladsl.model.ResponseEntity
-import akka.http.scaladsl.model.StatusCode
-import akka.http.scaladsl.model.StatusCodes
-import akka.testkit.TestKitBase
-import com.netflix.atlas.akka.AkkaHttpClient
-import com.netflix.atlas.akka.CustomMediaTypes
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.javadsl.model.ContentType
+import org.apache.pekko.http.scaladsl.model.ContentTypes
+import org.apache.pekko.http.scaladsl.model.HttpEntity
+import org.apache.pekko.http.scaladsl.model.HttpRequest
+import org.apache.pekko.http.scaladsl.model.HttpResponse
+import org.apache.pekko.http.scaladsl.model.ResponseEntity
+import org.apache.pekko.http.scaladsl.model.StatusCode
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.testkit.TestKitBase
+import com.netflix.atlas.pekko.AkkaHttpClient
+import com.netflix.atlas.pekko.CustomMediaTypes
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.json.Json
 import com.netflix.atlas.webapi.PublishApi.FailureMessage

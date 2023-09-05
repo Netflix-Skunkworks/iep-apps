@@ -15,7 +15,7 @@
  */
 package com.netflix.atlas.cloudwatch
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.normalize
 import com.netflix.atlas.json.Json
 import com.netflix.atlas.json.JsonParserHelper.foreachField

@@ -15,18 +15,18 @@
  */
 package com.netflix.iep.loadgen
 
-import akka.NotUsed
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.Uri
-import akka.stream.AbruptTerminationException
-import akka.stream.KillSwitch
-import akka.stream.KillSwitches
-import akka.stream.ThrottleMode
-import akka.stream.scaladsl.Flow
-import akka.stream.scaladsl.Keep
-import akka.stream.scaladsl.Sink
-import akka.stream.scaladsl.Source
-import com.netflix.atlas.akka.DiagnosticMessage
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.stream.AbruptTerminationException
+import org.apache.pekko.stream.KillSwitch
+import org.apache.pekko.stream.KillSwitches
+import org.apache.pekko.stream.ThrottleMode
+import org.apache.pekko.stream.scaladsl.Flow
+import org.apache.pekko.stream.scaladsl.Keep
+import org.apache.pekko.stream.scaladsl.Sink
+import org.apache.pekko.stream.scaladsl.Source
+import com.netflix.atlas.pekko.DiagnosticMessage
 import com.netflix.atlas.core.util.Strings
 import com.netflix.atlas.eval.model.ArrayData
 import com.netflix.atlas.eval.model.TimeSeriesMessage

@@ -15,9 +15,9 @@
  */
 package com.netflix.atlas.cloudwatch
 
-import akka.actor.ActorSystem
-import akka.testkit.ImplicitSender
-import akka.testkit.TestKitBase
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.testkit.ImplicitSender
+import org.apache.pekko.testkit.TestKitBase
 import com.fasterxml.jackson.core.JsonGenerator
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.newCacheEntry
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.newValue

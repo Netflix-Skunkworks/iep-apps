@@ -17,21 +17,21 @@ package com.netflix.iep.lwc
 
 import java.util.concurrent.TimeUnit
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.HttpEntity
-import akka.http.scaladsl.model.HttpMethods
-import akka.http.scaladsl.model.HttpRequest
-import akka.http.scaladsl.model.HttpResponse
-import akka.http.scaladsl.model.MediaTypes
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.model.Uri
-import akka.http.scaladsl.server.Directives.*
-import akka.http.scaladsl.server.Route
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.model.HttpEntity
+import org.apache.pekko.http.scaladsl.model.HttpMethods
+import org.apache.pekko.http.scaladsl.model.HttpRequest
+import org.apache.pekko.http.scaladsl.model.HttpResponse
+import org.apache.pekko.http.scaladsl.model.MediaTypes
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.server.Directives.*
+import org.apache.pekko.http.scaladsl.server.Route
 import com.fasterxml.jackson.core.JsonParser
-import com.netflix.atlas.akka.AccessLogger
-import com.netflix.atlas.akka.CustomDirectives.*
-import com.netflix.atlas.akka.WebApi
+import com.netflix.atlas.pekko.AccessLogger
+import com.netflix.atlas.pekko.CustomDirectives.*
+import com.netflix.atlas.pekko.WebApi
 import com.netflix.atlas.core.model.DefaultSettings
 import com.netflix.atlas.json.Json
 import com.netflix.atlas.json.JsonParserHelper.*
@@ -51,7 +51,7 @@ class BridgeApi(
 ) extends WebApi
     with StrictLogging {
 
-  import com.netflix.atlas.akka.OpportunisticEC.*
+  import com.netflix.atlas.pekko.OpportunisticEC.*
 
   override def routes: Route = {
     post {

@@ -15,14 +15,14 @@
  */
 package com.netflix.atlas.webapi
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.ContentTypes
-import akka.http.scaladsl.model.HttpEntity
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Directives.*
-import akka.http.scaladsl.server.Route
-import com.netflix.atlas.akka.CustomDirectives.endpointPath
-import com.netflix.atlas.akka.WebApi
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.ContentTypes
+import org.apache.pekko.http.scaladsl.model.HttpEntity
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.server.Directives.*
+import org.apache.pekko.http.scaladsl.server.Route
+import com.netflix.atlas.pekko.CustomDirectives.endpointPath
+import com.netflix.atlas.pekko.WebApi
 import com.netflix.atlas.cloudwatch.CloudWatchRules
 import com.netflix.atlas.cloudwatch.MetricCategory
 import com.netflix.atlas.cloudwatch.MetricDefinition

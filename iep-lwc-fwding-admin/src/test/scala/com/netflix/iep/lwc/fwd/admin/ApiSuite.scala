@@ -15,12 +15,12 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import akka.http.scaladsl.model.*
-import akka.stream.scaladsl.Keep
-import akka.stream.scaladsl.Sink
-import com.netflix.atlas.akka.StreamOps.SourceQueue
-import com.netflix.atlas.akka.RequestHandler
-import com.netflix.atlas.akka.StreamOps
+import org.apache.pekko.http.scaladsl.model.*
+import org.apache.pekko.stream.scaladsl.Keep
+import org.apache.pekko.stream.scaladsl.Sink
+import com.netflix.atlas.pekko.StreamOps.SourceQueue
+import com.netflix.atlas.pekko.RequestHandler
+import com.netflix.atlas.pekko.StreamOps
 import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.json.Json
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
@@ -30,9 +30,9 @@ import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import ExpressionDetails.*
-import akka.Done
-import akka.stream.Materializer
-import com.netflix.atlas.akka.testkit.MUnitRouteSuite
+import org.apache.pekko.Done
+import org.apache.pekko.stream.Materializer
+import com.netflix.atlas.pekko.testkit.MUnitRouteSuite
 
 import scala.concurrent.Future
 

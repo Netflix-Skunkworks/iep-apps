@@ -15,11 +15,11 @@
  */
 package com.netflix.atlas
 
-import _root_.akka.http.scaladsl.model.HttpRequest
-import _root_.akka.http.scaladsl.model.HttpResponse
-import _root_.akka.stream.scaladsl.Flow
-import _root_.akka.NotUsed
-import com.netflix.atlas.akka.AccessLogger
+import org.apache.pekko.http.scaladsl.model.HttpRequest
+import org.apache.pekko.http.scaladsl.model.HttpResponse
+import org.apache.pekko.stream.scaladsl.Flow
+import org.apache.pekko.NotUsed
+import com.netflix.atlas.pekko.AccessLogger
 
 import scala.util.Try
 

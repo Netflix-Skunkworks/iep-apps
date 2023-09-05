@@ -19,12 +19,12 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
 
-import akka.NotUsed
-import akka.actor.ActorSystem
-import akka.stream.KillSwitch
-import akka.stream.KillSwitches
-import akka.stream.scaladsl.Keep
-import akka.stream.scaladsl.Source
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.KillSwitch
+import org.apache.pekko.stream.KillSwitches
+import org.apache.pekko.stream.scaladsl.Keep
+import org.apache.pekko.stream.scaladsl.Source
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config

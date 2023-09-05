@@ -15,16 +15,16 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import akka.NotUsed
-import akka.actor.ActorSystem
-import akka.actor.Props
-import akka.pattern.AskTimeoutException
-import akka.pattern.ask
-import akka.stream.scaladsl.Flow
-import akka.testkit.ImplicitSender
-import akka.testkit.TestActorRef
-import akka.testkit.TestKitBase
-import akka.util.Timeout
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.actor.Props
+import org.apache.pekko.pattern.AskTimeoutException
+import org.apache.pekko.pattern.ask
+import org.apache.pekko.stream.scaladsl.Flow
+import org.apache.pekko.testkit.ImplicitSender
+import org.apache.pekko.testkit.TestActorRef
+import org.apache.pekko.testkit.TestKitBase
+import org.apache.pekko.util.Timeout
 import com.netflix.iep.lwc.fwd.admin.ScalingPolicies.GetCache
 import com.netflix.iep.lwc.fwd.admin.ScalingPolicies.GetScalingPolicy
 import com.netflix.iep.lwc.fwd.admin.ScalingPolicies.RefreshCache

@@ -15,7 +15,7 @@
  */
 package com.netflix.iep.lwc
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config

@@ -4,19 +4,12 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    // Do not upgrade Akka, Akka-HTTP, or Alpakka versions, license has changed for newer
-    // versions:
-    //
-    // - https://www.lightbend.com/blog/why-we-are-changing-the-license-for-akka
-    // - https://github.com/akka/akka/pull/31561
-    // - https://github.com/akka/akka-http/pull/4155
-    val akka       = "2.6.21"
-    val akkaHttpV  = "10.2.10"
-
-    val atlas      = "1.8.0-rc.3"
+    val atlas      = "1.8.0-SNAPSHOT"
     val aws2       = "2.20.35"
     val iep        = "5.0.7"
     val log4j      = "2.20.0"
+    val pekko      = "1.0.1"
+    val pekkoHttpV = "1.0.0"
     val scala      = "2.13.11"
     val servo      = "0.13.2"
     val slf4j      = "1.7.36"
@@ -29,18 +22,12 @@ object Dependencies {
 
   import Versions._
   val avro               = "org.apache.avro" % "avro" % avroV
-  val akkaActor          = "com.typesafe.akka" %% "akka-actor" % akka
-  val akkaHttpCaching    = "com.typesafe.akka" %% "akka-http-caching" % akkaHttpV
-  val akkaHttpCore       = "com.typesafe.akka" %% "akka-http-core" % akkaHttpV
-  val akkaHttpTestkit    = "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpV
-  val akkaSlf4j          = "com.typesafe.akka" %% "akka-slf4j" % akka
-  val akkaTestkit        = "com.typesafe.akka" %% "akka-testkit" % akka
-  val atlasAkkaTestkit   = "com.netflix.atlas_v1" %% "atlas-akka-testkit" % atlas
   val atlasCore          = "com.netflix.atlas_v1" %% "atlas-core" % atlas
   val atlasEval          = "com.netflix.atlas_v1" %% "atlas-eval" % atlas
   val atlasJson          = "com.netflix.atlas_v1" %% "atlas-json" % atlas
-  val atlasSpringAkka    = "com.netflix.atlas_v1" %% "atlas-spring-akka" % atlas
+  val atlasPekkoTestkit  = "com.netflix.atlas_v1" %% "atlas-pekko-testkit" % atlas
   val atlasSpringEval    = "com.netflix.atlas_v1" %% "atlas-spring-eval" % atlas
+  val atlasSpringPekko   = "com.netflix.atlas_v1" %% "atlas-spring-pekko" % atlas
   val atlasSpringWebApi  = "com.netflix.atlas_v1" %% "atlas-spring-webapi" % atlas
   val atlasWebApi        = "com.netflix.atlas_v1" %% "atlas-webapi" % atlas
   val aws2AutoScaling    = "software.amazon.awssdk" % "autoscaling" % aws2
@@ -75,6 +62,12 @@ object Dependencies {
   val mockitoScala       = "org.mockito" % "mockito-scala_2.13" % "1.17.22"
   val munit              = "org.scalameta" %% "munit" % "0.7.29"
   val openHFT            = "net.openhft" % "zero-allocation-hashing" % "0.16"
+  val pekkoActor         = "org.apache.pekko" %% "pekko-actor" % pekko
+  val pekkoHttpCaching   = "org.apache.pekko" %% "pekko-http-caching" % pekkoHttpV
+  val pekkoHttpCore      = "org.apache.pekko" %% "pekko-http-core" % pekkoHttpV
+  val pekkoHttpTestkit   = "org.apache.pekko" %% "pekko-http-testkit" % pekkoHttpV
+  val pekkoSlf4j         = "org.apache.pekko" %% "pekko-slf4j" % pekko
+  val pekkoTestkit       = "org.apache.pekko" %% "pekko-testkit" % pekko
   val protobuf           = "com.google.protobuf" % "protobuf-java" % "3.24.2"
   val scalaCompiler      = "org.scala-lang" % "scala-compiler" % scala
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala

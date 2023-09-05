@@ -17,16 +17,16 @@ package com.netflix.iep.lwc.fwd.admin
 
 import java.util.concurrent.TimeoutException
 
-import akka.NotUsed
-import akka.actor.ActorSelection
-import akka.actor.ActorSystem
-import akka.stream.*
-import akka.stream.scaladsl.Flow
-import akka.stream.scaladsl.Keep
-import akka.stream.scaladsl.Sink
-import akka.stream.scaladsl.Source
-import com.netflix.atlas.akka.StreamOps
-import com.netflix.atlas.akka.StreamOps.SourceQueue
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSelection
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.*
+import org.apache.pekko.stream.scaladsl.Flow
+import org.apache.pekko.stream.scaladsl.Keep
+import org.apache.pekko.stream.scaladsl.Sink
+import org.apache.pekko.stream.scaladsl.Source
+import com.netflix.atlas.pekko.StreamOps
+import com.netflix.atlas.pekko.StreamOps.SourceQueue
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo
 import com.netflix.iep.lwc.fwd.cw.Report
@@ -38,8 +38,8 @@ import com.typesafe.scalalogging.StrictLogging
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
-import akka.pattern.ask
-import akka.util.Timeout
+import org.apache.pekko.pattern.ask
+import org.apache.pekko.util.Timeout
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future

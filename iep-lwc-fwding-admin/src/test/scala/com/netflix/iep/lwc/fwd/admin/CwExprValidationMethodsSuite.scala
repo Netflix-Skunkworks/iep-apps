@@ -15,7 +15,7 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.netflix.atlas.core.model.StyleExpr
 import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.iep.lwc.fwd.cw.ForwardingDimension

@@ -15,13 +15,13 @@
  */
 package com.netflix.atlas.persistence
 
-import akka.http.scaladsl.model.HttpResponse
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Directives.*
-import akka.http.scaladsl.server.Route
-import com.netflix.atlas.akka.CustomDirectives.*
-import com.netflix.atlas.akka.DiagnosticMessage
-import com.netflix.atlas.akka.WebApi
+import org.apache.pekko.http.scaladsl.model.HttpResponse
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.server.Directives.*
+import org.apache.pekko.http.scaladsl.server.Route
+import com.netflix.atlas.pekko.CustomDirectives.*
+import com.netflix.atlas.pekko.DiagnosticMessage
+import com.netflix.atlas.pekko.WebApi
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.webapi.PublishPayloads
 

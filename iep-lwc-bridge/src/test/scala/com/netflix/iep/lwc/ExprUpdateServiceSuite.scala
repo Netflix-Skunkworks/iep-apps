@@ -15,11 +15,11 @@
  */
 package com.netflix.iep.lwc
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.HttpResponse
-import akka.http.scaladsl.model.StatusCodes
-import akka.stream.scaladsl.Sink
-import akka.stream.scaladsl.Source
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.HttpResponse
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.stream.scaladsl.Sink
+import org.apache.pekko.stream.scaladsl.Source
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.ManualClock

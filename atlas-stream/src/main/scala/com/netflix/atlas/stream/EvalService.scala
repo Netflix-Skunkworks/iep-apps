@@ -17,14 +17,14 @@ package com.netflix.atlas.stream
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
-import akka.NotUsed
-import akka.actor.ActorSystem
-import akka.stream.AbruptTerminationException
-import akka.stream.ThrottleMode
-import akka.stream.scaladsl.Keep
-import akka.stream.scaladsl.Sink
-import akka.stream.scaladsl.Source
-import com.netflix.atlas.akka.StreamOps
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.AbruptTerminationException
+import org.apache.pekko.stream.ThrottleMode
+import org.apache.pekko.stream.scaladsl.Keep
+import org.apache.pekko.stream.scaladsl.Sink
+import org.apache.pekko.stream.scaladsl.Source
+import com.netflix.atlas.pekko.StreamOps
 import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.eval.stream.Evaluator.DataSource
 import com.netflix.atlas.eval.stream.Evaluator.DataSources

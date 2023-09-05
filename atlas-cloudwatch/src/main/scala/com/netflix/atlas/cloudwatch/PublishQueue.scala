@@ -15,18 +15,18 @@
  */
 package com.netflix.atlas.cloudwatch
 
-import akka.NotUsed
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.HttpEntity
-import akka.http.scaladsl.model.HttpMethods
-import akka.http.scaladsl.model.HttpRequest
-import akka.http.scaladsl.model.HttpResponse
-import akka.stream.scaladsl.Keep
-import akka.stream.scaladsl.Sink
-import akka.util.ByteString
-import com.netflix.atlas.akka.AkkaHttpClient
-import com.netflix.atlas.akka.CustomMediaTypes
-import com.netflix.atlas.akka.StreamOps
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.HttpEntity
+import org.apache.pekko.http.scaladsl.model.HttpMethods
+import org.apache.pekko.http.scaladsl.model.HttpRequest
+import org.apache.pekko.http.scaladsl.model.HttpResponse
+import org.apache.pekko.stream.scaladsl.Keep
+import org.apache.pekko.stream.scaladsl.Sink
+import org.apache.pekko.util.ByteString
+import com.netflix.atlas.pekko.AkkaHttpClient
+import com.netflix.atlas.pekko.CustomMediaTypes
+import com.netflix.atlas.pekko.StreamOps
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.json.Json
 import com.netflix.spectator.api.Functions

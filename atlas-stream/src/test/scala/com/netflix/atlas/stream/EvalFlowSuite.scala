@@ -15,10 +15,10 @@
  */
 package com.netflix.atlas.stream
 
-import akka.actor.ActorSystem
-import akka.stream.scaladsl.Sink
-import akka.stream.scaladsl.Source
-import com.netflix.atlas.akka.DiagnosticMessage
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.scaladsl.Sink
+import org.apache.pekko.stream.scaladsl.Source
+import com.netflix.atlas.pekko.DiagnosticMessage
 import com.netflix.atlas.eval.stream.Evaluator.DataSource
 import com.netflix.atlas.eval.stream.Evaluator.DataSources
 import com.netflix.atlas.eval.stream.Evaluator.MessageEnvelope
