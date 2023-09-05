@@ -15,12 +15,12 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import akka.NotUsed
-import akka.actor.Actor
-import akka.actor.Timers
-import akka.stream.Materializer
-import akka.stream.scaladsl.Sink
-import akka.stream.scaladsl.Source
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.Actor
+import org.apache.pekko.actor.Timers
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.Sink
+import org.apache.pekko.stream.scaladsl.Source
 import com.netflix.iep.config.NetflixEnvironment.*
 import com.netflix.iep.lwc.fwd.admin.ScalingPolicies.*
 import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo

@@ -15,7 +15,7 @@
  */
 package com.netflix.atlas.aggregator
 
-import com.netflix.atlas.akka.DiagnosticMessage
+import com.netflix.atlas.pekko.DiagnosticMessage
 import com.netflix.atlas.core.validation.ValidationResult
 import com.netflix.atlas.json.Json
 import com.netflix.atlas.json.JsonSupport

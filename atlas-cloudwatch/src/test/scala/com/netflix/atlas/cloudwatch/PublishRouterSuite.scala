@@ -15,9 +15,9 @@
  */
 package com.netflix.atlas.cloudwatch
 
-import akka.actor.ActorSystem
-import akka.testkit.TestKitBase
-import com.netflix.atlas.akka.AkkaHttpClient
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.testkit.TestKitBase
+import com.netflix.atlas.pekko.AkkaHttpClient
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessorSuite.timestamp
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.spectator.api.DefaultRegistry

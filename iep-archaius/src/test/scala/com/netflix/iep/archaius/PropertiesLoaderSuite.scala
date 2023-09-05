@@ -15,10 +15,10 @@
  */
 package com.netflix.iep.archaius
 
-import akka.actor.ActorSystem
-import akka.testkit.ImplicitSender
-import akka.testkit.TestActorRef
-import akka.testkit.TestKitBase
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.testkit.ImplicitSender
+import org.apache.pekko.testkit.TestActorRef
+import org.apache.pekko.testkit.TestKitBase
 import com.netflix.atlas.json.Json
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.ManualClock

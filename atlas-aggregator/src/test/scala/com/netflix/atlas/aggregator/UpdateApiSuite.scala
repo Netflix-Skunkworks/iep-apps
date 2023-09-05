@@ -15,12 +15,12 @@
  */
 package com.netflix.atlas.aggregator
 
-import akka.actor.ActorSystem
-import akka.http.scaladsl.model.HttpEntity
-import akka.http.scaladsl.model.StatusCode
-import akka.http.scaladsl.model.StatusCodes
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.HttpEntity
+import org.apache.pekko.http.scaladsl.model.StatusCode
+import org.apache.pekko.http.scaladsl.model.StatusCodes
 import com.fasterxml.jackson.core.JsonFactory
-import com.netflix.atlas.akka.ByteStringInputStream
+import com.netflix.atlas.pekko.ByteStringInputStream
 import com.netflix.atlas.core.util.RefIntHashMap
 import com.netflix.atlas.core.util.SmallHashMap
 import com.netflix.atlas.core.util.Strings

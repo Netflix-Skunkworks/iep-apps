@@ -18,17 +18,17 @@ package com.netflix.iep.archaius
 import java.io.StringWriter
 import java.util.Properties
 
-import akka.actor.ActorRefFactory
-import akka.http.scaladsl.model.HttpCharsets
-import akka.http.scaladsl.server.Directives.*
-import akka.http.scaladsl.model.HttpEntity
-import akka.http.scaladsl.model.HttpRequest
-import akka.http.scaladsl.model.HttpResponse
-import akka.http.scaladsl.model.MediaTypes
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Route
-import com.netflix.atlas.akka.CustomDirectives.*
-import com.netflix.atlas.akka.WebApi
+import org.apache.pekko.actor.ActorRefFactory
+import org.apache.pekko.http.scaladsl.model.HttpCharsets
+import org.apache.pekko.http.scaladsl.server.Directives.*
+import org.apache.pekko.http.scaladsl.model.HttpEntity
+import org.apache.pekko.http.scaladsl.model.HttpRequest
+import org.apache.pekko.http.scaladsl.model.HttpResponse
+import org.apache.pekko.http.scaladsl.model.MediaTypes
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.server.Route
+import com.netflix.atlas.pekko.CustomDirectives.*
+import com.netflix.atlas.pekko.WebApi
 import com.netflix.atlas.json.Json
 import com.netflix.frigga.Names
 

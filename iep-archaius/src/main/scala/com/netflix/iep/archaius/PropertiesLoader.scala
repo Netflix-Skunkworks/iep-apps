@@ -15,7 +15,7 @@
  */
 package com.netflix.iep.archaius
 
-import akka.actor.Actor
+import org.apache.pekko.actor.Actor
 import com.netflix.atlas.json.Json
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging

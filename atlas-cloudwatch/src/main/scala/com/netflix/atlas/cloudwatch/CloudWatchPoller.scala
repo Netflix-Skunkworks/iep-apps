@@ -15,8 +15,8 @@
  */
 package com.netflix.atlas.cloudwatch
 
-import akka.Done
-import akka.actor.ActorSystem
+import org.apache.pekko.Done
+import org.apache.pekko.actor.ActorSystem
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.normalize
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.toTagMap
 import com.netflix.atlas.cloudwatch.CloudWatchPoller.runAfter

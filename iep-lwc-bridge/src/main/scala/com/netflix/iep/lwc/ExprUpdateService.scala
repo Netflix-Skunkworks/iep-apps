@@ -16,27 +16,27 @@
 package com.netflix.iep.lwc
 
 import java.util.concurrent.atomic.AtomicLong
-import akka.NotUsed
-import akka.actor.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.HttpMethods
-import akka.http.scaladsl.model.HttpRequest
-import akka.http.scaladsl.model.HttpResponse
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.model.Uri
-import akka.stream.KillSwitch
-import akka.stream.KillSwitches
-import akka.stream.OverflowStrategy
-import akka.stream.RestartSettings
-import akka.stream.ThrottleMode
-import akka.stream.scaladsl.Flow
-import akka.stream.scaladsl.Keep
-import akka.stream.scaladsl.RestartFlow
-import akka.stream.scaladsl.Sink
-import akka.stream.scaladsl.Source
-import akka.util.ByteString
-import com.netflix.atlas.akka.AccessLogger
-import com.netflix.atlas.akka.ByteStringInputStream
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.model.HttpMethods
+import org.apache.pekko.http.scaladsl.model.HttpRequest
+import org.apache.pekko.http.scaladsl.model.HttpResponse
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.stream.KillSwitch
+import org.apache.pekko.stream.KillSwitches
+import org.apache.pekko.stream.OverflowStrategy
+import org.apache.pekko.stream.RestartSettings
+import org.apache.pekko.stream.ThrottleMode
+import org.apache.pekko.stream.scaladsl.Flow
+import org.apache.pekko.stream.scaladsl.Keep
+import org.apache.pekko.stream.scaladsl.RestartFlow
+import org.apache.pekko.stream.scaladsl.Sink
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.util.ByteString
+import com.netflix.atlas.pekko.AccessLogger
+import com.netflix.atlas.pekko.ByteStringInputStream
 import com.netflix.atlas.json.Json
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Functions
@@ -64,7 +64,7 @@ class ExprUpdateService(
     with StrictLogging {
 
   import scala.concurrent.duration.*
-  import com.netflix.atlas.akka.OpportunisticEC.*
+  import com.netflix.atlas.pekko.OpportunisticEC.*
 
   private val configUri = Uri(config.getString("netflix.iep.lwc.bridge.config-uri"))
 

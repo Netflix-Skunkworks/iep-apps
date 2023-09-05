@@ -15,8 +15,8 @@
  */
 package com.netflix.atlas.cloudwatch
 
-import akka.NotUsed
-import akka.actor.ActorSystem
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSystem
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.expirationSeconds
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.newValue
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.normalize

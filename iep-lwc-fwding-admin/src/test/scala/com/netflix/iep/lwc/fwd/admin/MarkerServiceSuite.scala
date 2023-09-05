@@ -15,12 +15,12 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import akka.NotUsed
-import akka.actor.ActorSystem
-import akka.actor.Props
-import akka.stream.scaladsl.Flow
-import akka.stream.scaladsl.Sink
-import akka.stream.scaladsl.Source
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.actor.Props
+import org.apache.pekko.stream.scaladsl.Flow
+import org.apache.pekko.stream.scaladsl.Sink
+import org.apache.pekko.stream.scaladsl.Source
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
 import com.netflix.iep.lwc.fwd.cw.FwdMetricInfo

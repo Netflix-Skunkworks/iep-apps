@@ -21,7 +21,7 @@ lazy val `atlas-aggregator` = project
   .configure(BuildSettings.profile)
   .settings(libraryDependencies ++= Seq(
     Dependencies.atlasJson,
-    Dependencies.atlasSpringAkka,
+    Dependencies.atlasSpringPekko,
     Dependencies.atlasSpringEval,
     Dependencies.caffeine,
     Dependencies.iepDynConfig,
@@ -32,8 +32,8 @@ lazy val `atlas-aggregator` = project
     Dependencies.log4jSlf4j,
     Dependencies.spectatorAtlas,
 
-    Dependencies.akkaHttpTestkit % "test",
-    Dependencies.akkaTestkit % "test",
+    Dependencies.pekkoHttpTestkit % "test",
+    Dependencies.pekkoTestkit % "test",
     Dependencies.munit % "test"
   ))
 
@@ -43,7 +43,7 @@ lazy val `atlas-cloudwatch` = project
   .settings(libraryDependencies ++= Seq(
     Dependencies.atlasCore,
     Dependencies.atlasJson,
-    Dependencies.atlasSpringAkka,
+    Dependencies.atlasSpringPekko,
     Dependencies.aws2CloudWatch,
     Dependencies.aws2Config,
     Dependencies.frigga,
@@ -60,10 +60,10 @@ lazy val `atlas-cloudwatch` = project
     Dependencies.openHFT,
     Dependencies.protobuf,
 
-    Dependencies.atlasAkkaTestkit % "test",
+    Dependencies.atlasPekkoTestkit % "test",
     Dependencies.atlasWebApi % "test",
-    Dependencies.akkaHttpTestkit % "test",
-    Dependencies.akkaTestkit % "test",
+    Dependencies.pekkoHttpTestkit % "test",
+    Dependencies.pekkoTestkit % "test",
     Dependencies.mockitoCore % "test",
     Dependencies.mockitoScala % "test",
     Dependencies.munit % "test"
@@ -72,7 +72,7 @@ lazy val `atlas-cloudwatch` = project
 lazy val `atlas-druid` = project
   .configure(BuildSettings.profile)
   .settings(libraryDependencies ++= Seq(
-    Dependencies.atlasSpringAkka,
+    Dependencies.atlasSpringPekko,
     Dependencies.atlasSpringWebApi,
     Dependencies.iepSpring,
     Dependencies.log4jApi,
@@ -84,7 +84,7 @@ lazy val `atlas-persistence` = project
   .configure(BuildSettings.profile)
   .settings(
     libraryDependencies ++= Seq(
-      Dependencies.atlasSpringAkka,
+      Dependencies.atlasSpringPekko,
       Dependencies.atlasSpringWebApi,
       Dependencies.avro,
       Dependencies.aws2S3,
@@ -99,8 +99,8 @@ lazy val `atlas-persistence` = project
 lazy val `atlas-slotting` = project
   .configure(BuildSettings.profile)
   .settings(libraryDependencies ++= Seq(
-      Dependencies.akkaHttpCaching,
-      Dependencies.atlasSpringAkka,
+      Dependencies.pekkoHttpCaching,
+      Dependencies.atlasSpringPekko,
       Dependencies.aws2AutoScaling,
       Dependencies.aws2DynamoDB,
       Dependencies.aws2EC2,
@@ -113,31 +113,31 @@ lazy val `atlas-slotting` = project
       Dependencies.log4jSlf4j,
       Dependencies.spectatorAws2,
 
-      Dependencies.akkaHttpTestkit % "test",
-      Dependencies.akkaTestkit % "test",
-      Dependencies.atlasAkkaTestkit % "test",
+      Dependencies.pekkoHttpTestkit % "test",
+      Dependencies.pekkoTestkit % "test",
+      Dependencies.atlasPekkoTestkit % "test",
       Dependencies.munit % "test"
   ))
 
 lazy val `atlas-stream` = project
   .configure(BuildSettings.profile)
   .settings(libraryDependencies ++= Seq(
-    Dependencies.atlasSpringAkka,
+    Dependencies.atlasSpringPekko,
     Dependencies.atlasSpringEval,
     Dependencies.iepSpring,
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,
 
-    Dependencies.akkaHttpTestkit % "test",
-    Dependencies.akkaTestkit % "test",
+    Dependencies.pekkoHttpTestkit % "test",
+    Dependencies.pekkoTestkit % "test",
     Dependencies.munit % "test"
   ))
 
 lazy val `iep-archaius` = project
   .configure(BuildSettings.profile)
   .settings(libraryDependencies ++= Seq(
-    Dependencies.atlasSpringAkka,
+    Dependencies.atlasSpringPekko,
     Dependencies.aws2DynamoDB,
     Dependencies.frigga,
     Dependencies.iepDynConfig,
@@ -148,16 +148,16 @@ lazy val `iep-archaius` = project
     Dependencies.log4jSlf4j,
     Dependencies.spectatorAws2,
 
-    Dependencies.akkaHttpTestkit % "test",
-    Dependencies.akkaTestkit % "test",
-    Dependencies.atlasAkkaTestkit % "test",
+    Dependencies.pekkoHttpTestkit % "test",
+    Dependencies.pekkoTestkit % "test",
+    Dependencies.atlasPekkoTestkit % "test",
     Dependencies.munit % "test"
   ))
 
 lazy val `iep-atlas` = project
   .configure(BuildSettings.profile)
   .settings(libraryDependencies ++= Seq(
-    Dependencies.atlasSpringAkka,
+    Dependencies.atlasSpringPekko,
     Dependencies.atlasSpringWebApi,
     Dependencies.iepSpring,
     Dependencies.iepSpringAdmin,
@@ -171,7 +171,7 @@ lazy val `iep-lwc-bridge` = project
   .configure(BuildSettings.profile)
   .settings(libraryDependencies ++= Seq(
     Dependencies.atlasCore,
-    Dependencies.atlasSpringAkka,
+    Dependencies.atlasSpringPekko,
     Dependencies.frigga,
     Dependencies.iepSpring,
     Dependencies.iepSpringAtlas,
@@ -180,9 +180,9 @@ lazy val `iep-lwc-bridge` = project
     Dependencies.log4jSlf4j,
     Dependencies.spectatorAtlas,
 
-    Dependencies.akkaHttpTestkit % "test",
-    Dependencies.akkaTestkit % "test",
-    Dependencies.atlasAkkaTestkit % "test",
+    Dependencies.pekkoHttpTestkit % "test",
+    Dependencies.pekkoTestkit % "test",
+    Dependencies.atlasPekkoTestkit % "test",
     Dependencies.munit % "test"
   ))
 
@@ -193,7 +193,7 @@ lazy val `iep-lwc-cloudwatch` = project
   .configure(BuildSettings.profile)
   .dependsOn(`iep-lwc-cloudwatch-model`)
   .settings(libraryDependencies ++= Seq(
-    Dependencies.atlasSpringAkka,
+    Dependencies.atlasSpringPekko,
     Dependencies.atlasSpringEval,
     Dependencies.aws2CloudWatch,
     Dependencies.iepDynConfig,
@@ -205,8 +205,8 @@ lazy val `iep-lwc-cloudwatch` = project
     Dependencies.log4jSlf4j,
     Dependencies.spectatorAws2,
 
-    Dependencies.akkaHttpTestkit % "test",
-    Dependencies.akkaTestkit % "test",
+    Dependencies.pekkoHttpTestkit % "test",
+    Dependencies.pekkoTestkit % "test",
     Dependencies.munit % "test"
   ))
 
@@ -215,7 +215,7 @@ lazy val `iep-lwc-fwding-admin` = project
   .dependsOn(`iep-lwc-cloudwatch-model`)
   .settings(libraryDependencies ++= Seq(
     Dependencies.atlasEval,
-    Dependencies.atlasSpringAkka,
+    Dependencies.atlasSpringPekko,
     Dependencies.atlasSpringEval,
     Dependencies.aws2DynamoDB,
     Dependencies.iepSpring,
@@ -227,9 +227,9 @@ lazy val `iep-lwc-fwding-admin` = project
     Dependencies.jsonSchema,
     Dependencies.spectatorAws2,
 
-    Dependencies.akkaHttpTestkit % "test",
-    Dependencies.akkaTestkit % "test",
-    Dependencies.atlasAkkaTestkit % "test",
+    Dependencies.pekkoHttpTestkit % "test",
+    Dependencies.pekkoTestkit % "test",
+    Dependencies.atlasPekkoTestkit % "test",
     Dependencies.munit % "test"
   ))
 
@@ -237,7 +237,7 @@ lazy val `iep-lwc-fwding-admin` = project
 lazy val `iep-lwc-loadgen` = project
   .configure(BuildSettings.profile)
   .settings(libraryDependencies ++= Seq(
-    Dependencies.atlasSpringAkka,
+    Dependencies.atlasSpringPekko,
     Dependencies.atlasSpringEval,
     Dependencies.iepSpring,
     Dependencies.iepSpringAtlas,
@@ -245,8 +245,8 @@ lazy val `iep-lwc-loadgen` = project
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,
 
-    Dependencies.akkaHttpTestkit % "test",
-    Dependencies.akkaTestkit % "test",
+    Dependencies.pekkoHttpTestkit % "test",
+    Dependencies.pekkoTestkit % "test",
     Dependencies.munit % "test"
   ))
 

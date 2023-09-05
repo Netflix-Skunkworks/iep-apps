@@ -15,8 +15,8 @@
  */
 package com.netflix.atlas.webapi
 
-import akka.http.scaladsl.model.ContentTypes
-import akka.http.scaladsl.model.HttpEntity
+import org.apache.pekko.http.scaladsl.model.ContentTypes
+import org.apache.pekko.http.scaladsl.model.HttpEntity
 import com.netflix.atlas.json.Json
 import com.netflix.atlas.webapi.RequestId.getByteArrayOutputStream
 

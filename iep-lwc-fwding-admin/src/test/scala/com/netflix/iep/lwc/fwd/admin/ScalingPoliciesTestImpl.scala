@@ -15,8 +15,8 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import akka.NotUsed
-import akka.stream.scaladsl.Flow
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Flow
 import com.typesafe.config.Config
 
 import scala.concurrent.ExecutionContext

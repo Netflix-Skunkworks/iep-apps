@@ -15,15 +15,15 @@
  */
 package com.netflix.atlas.slotting
 
-import akka.http.scaladsl.model.HttpResponse
-import akka.http.scaladsl.model.MediaTypes
-import akka.http.scaladsl.model.StatusCode
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.model.headers.Host
-import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.testkit.RouteTestTimeout
-import com.netflix.atlas.akka.RequestHandler
-import com.netflix.atlas.akka.testkit.MUnitRouteSuite
+import org.apache.pekko.http.scaladsl.model.HttpResponse
+import org.apache.pekko.http.scaladsl.model.MediaTypes
+import org.apache.pekko.http.scaladsl.model.StatusCode
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.headers.Host
+import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.http.scaladsl.testkit.RouteTestTimeout
+import com.netflix.atlas.pekko.RequestHandler
+import com.netflix.atlas.pekko.testkit.MUnitRouteSuite
 import com.netflix.atlas.json.Json
 
 import scala.collection.immutable.SortedMap
