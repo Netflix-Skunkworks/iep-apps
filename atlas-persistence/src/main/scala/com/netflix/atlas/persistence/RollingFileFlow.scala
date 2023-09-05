@@ -17,16 +17,16 @@ package com.netflix.atlas.persistence
 
 import java.nio.file.Files
 import java.nio.file.Paths
-import akka.NotUsed
-import akka.stream.Attributes
-import akka.stream.FlowShape
-import akka.stream.Inlet
-import akka.stream.Outlet
-import akka.stream.stage.GraphStage
-import akka.stream.stage.GraphStageLogic
-import akka.stream.stage.InHandler
-import akka.stream.stage.OutHandler
-import akka.stream.stage.TimerGraphStageLogic
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Attributes
+import org.apache.pekko.stream.FlowShape
+import org.apache.pekko.stream.Inlet
+import org.apache.pekko.stream.Outlet
+import org.apache.pekko.stream.stage.GraphStage
+import org.apache.pekko.stream.stage.GraphStageLogic
+import org.apache.pekko.stream.stage.InHandler
+import org.apache.pekko.stream.stage.OutHandler
+import org.apache.pekko.stream.stage.TimerGraphStageLogic
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging

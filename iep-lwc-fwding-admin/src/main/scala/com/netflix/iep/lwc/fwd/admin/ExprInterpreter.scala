@@ -15,7 +15,7 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import akka.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.model.Uri
 import com.netflix.atlas.core.model.CustomVocabulary
 import com.netflix.atlas.core.model.ModelExtractors
 import com.netflix.atlas.core.model.StyleExpr

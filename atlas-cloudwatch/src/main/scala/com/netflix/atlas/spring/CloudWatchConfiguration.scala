@@ -15,9 +15,9 @@
  */
 package com.netflix.atlas.spring
 
-import akka.actor.ActorSystem
-import com.netflix.atlas.akka.AkkaHttpClient
-import com.netflix.atlas.akka.DefaultAkkaHttpClient
+import org.apache.pekko.actor.ActorSystem
+import com.netflix.atlas.pekko.AkkaHttpClient
+import com.netflix.atlas.pekko.DefaultAkkaHttpClient
 import com.netflix.atlas.cloudwatch.AwsAccountSupplier
 import com.netflix.atlas.cloudwatch.CloudWatchDebugger
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor

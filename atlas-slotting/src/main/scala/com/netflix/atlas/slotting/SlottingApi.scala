@@ -15,25 +15,25 @@
  */
 package com.netflix.atlas.slotting
 
-import akka.actor.ActorSystem
-import akka.http.caching.LfuCache
-import akka.http.caching.scaladsl.Cache
-import akka.http.caching.scaladsl.CachingSettings
-import akka.http.scaladsl.model.HttpEntity
-import akka.http.scaladsl.model.HttpRequest
-import akka.http.scaladsl.model.HttpResponse
-import akka.http.scaladsl.model.MediaTypes
-import akka.http.scaladsl.model.StatusCode
-import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.model.Uri
-import akka.http.scaladsl.model.headers.*
-import akka.http.scaladsl.server.Directives.*
-import akka.http.scaladsl.server.RequestContext
-import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.server.RouteResult
-import akka.http.scaladsl.server.directives.CachingDirectives.*
-import com.netflix.atlas.akka.CustomDirectives.*
-import com.netflix.atlas.akka.WebApi
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.caching.LfuCache
+import org.apache.pekko.http.caching.scaladsl.Cache
+import org.apache.pekko.http.caching.scaladsl.CachingSettings
+import org.apache.pekko.http.scaladsl.model.HttpEntity
+import org.apache.pekko.http.scaladsl.model.HttpRequest
+import org.apache.pekko.http.scaladsl.model.HttpResponse
+import org.apache.pekko.http.scaladsl.model.MediaTypes
+import org.apache.pekko.http.scaladsl.model.StatusCode
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.model.headers.*
+import org.apache.pekko.http.scaladsl.server.Directives.*
+import org.apache.pekko.http.scaladsl.server.RequestContext
+import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.http.scaladsl.server.RouteResult
+import org.apache.pekko.http.scaladsl.server.directives.CachingDirectives.*
+import com.netflix.atlas.pekko.CustomDirectives.*
+import com.netflix.atlas.pekko.WebApi
 import com.netflix.atlas.json.Json
 import com.typesafe.scalalogging.StrictLogging
 

@@ -15,7 +15,7 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 import com.fasterxml.jackson.databind.JsonNode
 import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.json.Json

@@ -17,20 +17,20 @@ package com.netflix.atlas.stream
 
 import java.util.UUID
 
-import akka.NotUsed
-import akka.stream.Attributes
-import akka.stream.FlowShape
-import akka.stream.Inlet
-import akka.stream.Outlet
-import akka.stream.ThrottleMode
-import akka.stream.scaladsl.Flow
-import akka.stream.scaladsl.Source
-import akka.stream.stage.GraphStage
-import akka.stream.stage.GraphStageLogic
-import akka.stream.stage.InHandler
-import akka.stream.stage.OutHandler
-import com.netflix.atlas.akka.DiagnosticMessage
-import com.netflix.atlas.akka.StreamOps
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Attributes
+import org.apache.pekko.stream.FlowShape
+import org.apache.pekko.stream.Inlet
+import org.apache.pekko.stream.Outlet
+import org.apache.pekko.stream.ThrottleMode
+import org.apache.pekko.stream.scaladsl.Flow
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.stream.stage.GraphStage
+import org.apache.pekko.stream.stage.GraphStageLogic
+import org.apache.pekko.stream.stage.InHandler
+import org.apache.pekko.stream.stage.OutHandler
+import com.netflix.atlas.pekko.DiagnosticMessage
+import com.netflix.atlas.pekko.StreamOps
 import com.netflix.atlas.eval.stream.Evaluator.MessageEnvelope
 import com.netflix.atlas.json.Json
 import com.typesafe.scalalogging.StrictLogging

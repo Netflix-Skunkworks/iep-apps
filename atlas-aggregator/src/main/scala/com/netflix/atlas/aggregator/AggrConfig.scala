@@ -15,7 +15,7 @@
  */
 package com.netflix.atlas.aggregator
 
-import akka.actor.ActorSystem
+import org.apache.pekko.actor.ActorSystem
 
 import java.security.SecureRandom
 import com.netflix.spectator.api.Clock

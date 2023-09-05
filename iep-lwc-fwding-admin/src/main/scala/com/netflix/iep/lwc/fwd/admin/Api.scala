@@ -15,17 +15,17 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import akka.actor.ActorSystem
-import akka.dispatch.MessageDispatcher
-import akka.http.scaladsl.model.*
-import akka.http.scaladsl.server.Directives.entity
-import akka.http.scaladsl.server.Directives.*
-import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.unmarshalling.Unmarshaller
-import akka.http.scaladsl.unmarshalling.Unmarshaller.*
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.dispatch.MessageDispatcher
+import org.apache.pekko.http.scaladsl.model.*
+import org.apache.pekko.http.scaladsl.server.Directives.entity
+import org.apache.pekko.http.scaladsl.server.Directives.*
+import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshaller
+import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshaller.*
 import com.fasterxml.jackson.databind.JsonNode
-import com.netflix.atlas.akka.CustomDirectives.*
-import com.netflix.atlas.akka.WebApi
+import com.netflix.atlas.pekko.CustomDirectives.*
+import com.netflix.atlas.pekko.WebApi
 import com.netflix.atlas.json.Json
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.Report

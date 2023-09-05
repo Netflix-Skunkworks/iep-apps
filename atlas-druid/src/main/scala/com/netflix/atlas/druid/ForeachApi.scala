@@ -15,17 +15,17 @@
  */
 package com.netflix.atlas.druid
 
-import akka.NotUsed
-import akka.actor.ActorRefFactory
-import akka.http.scaladsl.model.HttpEntity
-import akka.http.scaladsl.model.MediaTypes
-import akka.http.scaladsl.server.Directives.*
-import akka.http.scaladsl.server.Route
-import akka.stream.scaladsl.Source
-import akka.util.ByteString
-import akka.util.Timeout
-import com.netflix.atlas.akka.CustomDirectives.*
-import com.netflix.atlas.akka.WebApi
+import org.apache.pekko.NotUsed
+import org.apache.pekko.actor.ActorRefFactory
+import org.apache.pekko.http.scaladsl.model.HttpEntity
+import org.apache.pekko.http.scaladsl.model.MediaTypes
+import org.apache.pekko.http.scaladsl.server.Directives.*
+import org.apache.pekko.http.scaladsl.server.Route
+import org.apache.pekko.stream.scaladsl.Source
+import org.apache.pekko.util.ByteString
+import org.apache.pekko.util.Timeout
+import com.netflix.atlas.pekko.CustomDirectives.*
+import com.netflix.atlas.pekko.WebApi
 import com.netflix.atlas.core.index.TagQuery
 import com.netflix.atlas.core.model.CustomVocabulary
 import com.netflix.atlas.core.model.ModelExtractors
@@ -78,7 +78,7 @@ class ForeachApi(config: Config, implicit val actorRefFactory: ActorRefFactory) 
 
   private def tagValues(key: String, query: Query): Source[List[String], NotUsed] = {
     val tq = TagQuery(Some(query), Some(key))
-    val future = akka.pattern.ask(dbRef, ListValuesRequest(tq))(Timeout(10.seconds))
+    val future = org.apache.pekko.pattern.ask(dbRef, ListValuesRequest(tq))(Timeout(10.seconds))
     Source
       .future(future)
       .collect {
