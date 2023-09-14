@@ -17,7 +17,7 @@ package com.netflix.atlas.cloudwatch
 
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKitBase
-import com.netflix.atlas.pekko.AkkaHttpClient
+import com.netflix.atlas.pekko.PekkoHttpClient
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessorSuite.timestamp
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.spectator.api.DefaultRegistry
@@ -33,7 +33,7 @@ class PublishRouterSuite extends FunSuite with TestKitBase {
   var registry: Registry = new DefaultRegistry()
   val config = ConfigFactory.load()
   val tagger = new NetflixTagger(config.getConfig("atlas.cloudwatch.tagger"))
-  val httpClient = mock[AkkaHttpClient]
+  val httpClient = mock[PekkoHttpClient]
   val router = new PublishRouter(config, registry, tagger, httpClient)
 
   test("initialize") {

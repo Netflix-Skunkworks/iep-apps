@@ -24,7 +24,7 @@ import org.apache.pekko.http.scaladsl.model.HttpResponse
 import org.apache.pekko.stream.scaladsl.Keep
 import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.util.ByteString
-import com.netflix.atlas.pekko.AkkaHttpClient
+import com.netflix.atlas.pekko.PekkoHttpClient
 import com.netflix.atlas.pekko.CustomMediaTypes
 import com.netflix.atlas.pekko.StreamOps
 import com.netflix.atlas.core.model.Datapoint
@@ -57,7 +57,7 @@ class PublishQueue(
   registry: Registry,
   val stack: String,
   val uri: String,
-  httpClient: AkkaHttpClient,
+  httpClient: PekkoHttpClient,
   scheduler: ScheduledExecutorService
 )(implicit system: ActorSystem)
     extends StrictLogging {

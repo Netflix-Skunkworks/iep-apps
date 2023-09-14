@@ -60,7 +60,7 @@ import scala.util.Success
   * calls to CloudWatch will only happen once a day to keep polling costs down.
   *
   * TODO - Add support for other frequencies if we need them.
-  * TODO - Akka/Pekka streamify it. It should be simple but I had a hard time parallelizing
+  * TODO - Pekko/Pekka streamify it. It should be simple but I had a hard time parallelizing
   * the calls and backpressuring properly, particularly with the async AWS client.
   */
 class CloudWatchPoller(

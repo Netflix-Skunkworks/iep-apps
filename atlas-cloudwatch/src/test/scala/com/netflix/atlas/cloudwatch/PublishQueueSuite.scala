@@ -25,7 +25,7 @@ import org.apache.pekko.http.scaladsl.model.ResponseEntity
 import org.apache.pekko.http.scaladsl.model.StatusCode
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.testkit.TestKitBase
-import com.netflix.atlas.pekko.AkkaHttpClient
+import com.netflix.atlas.pekko.PekkoHttpClient
 import com.netflix.atlas.pekko.CustomMediaTypes
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.json.Json
@@ -55,7 +55,7 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
   override implicit def system: ActorSystem = ActorSystem(getClass.getSimpleName)
 
   var registry: Registry = null
-  var httpClient = mock[AkkaHttpClient]
+  var httpClient = mock[PekkoHttpClient]
   var httpCaptor = ArgCaptor[HttpRequest]
   var scheduler = mock[ScheduledExecutorService]
   val timestamp = 1672531200000L
@@ -64,7 +64,7 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
 
   override def beforeEach(context: BeforeEach): Unit = {
     registry = new DefaultRegistry()
-    httpClient = mock[AkkaHttpClient]
+    httpClient = mock[PekkoHttpClient]
     httpCaptor = ArgCaptor[HttpRequest]
     scheduler = mock[ScheduledExecutorService]
   }

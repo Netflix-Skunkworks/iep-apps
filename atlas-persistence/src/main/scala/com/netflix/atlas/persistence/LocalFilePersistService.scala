@@ -158,7 +158,7 @@ class LocalFilePersistService(
     }
   }
 
-  // This service should stop the Akka flow when application is shutdown gracefully, and let
+  // This service should stop the Pekko flow when application is shutdown gracefully, and let
   // S3CopyService do the cleanup. It should trigger:
   //   1. stop taking more data points (monitor droppedQueueClosed)
   //   2. close current file writer so that last file is ready to copy to s3
