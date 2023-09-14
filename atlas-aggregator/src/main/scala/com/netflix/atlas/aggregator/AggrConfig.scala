@@ -75,7 +75,7 @@ class AggrConfig(
   override def validTagCharacters(): String = null
 
   override def publisher(): Publisher = {
-    new AkkaPublisher(registry, this, system)
+    new PekkoPublisher(registry, this, system)
   }
 
   override def evaluatorStepSize(): Long = {

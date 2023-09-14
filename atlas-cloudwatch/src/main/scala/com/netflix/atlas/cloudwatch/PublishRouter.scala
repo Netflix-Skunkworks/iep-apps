@@ -16,7 +16,7 @@
 package com.netflix.atlas.cloudwatch
 
 import org.apache.pekko.actor.ActorSystem
-import com.netflix.atlas.pekko.AkkaHttpClient
+import com.netflix.atlas.pekko.PekkoHttpClient
 import com.netflix.atlas.cloudwatch.PublishRouter.defaultKey
 import com.netflix.iep.config.NetflixEnvironment
 import com.netflix.spectator.api.Registry
@@ -30,7 +30,7 @@ class PublishRouter(
   config: Config,
   registry: Registry,
   tagger: Tagger,
-  httpClient: AkkaHttpClient
+  httpClient: PekkoHttpClient
 )(implicit system: ActorSystem)
     extends StrictLogging {
 

@@ -59,14 +59,14 @@ import scala.util.Try
 import scala.util.Using
 
 /**
-  * Use Akka-Http client for sending data instead of default which is based on the
+  * Use Pekko-Http client for sending data instead of default which is based on the
   * URLConnection class built into the JDK. This helps reduce the number of threads
   * needed overall.
   */
-class AkkaPublisher(registry: Registry, config: AggrConfig, implicit val system: ActorSystem)
+class PekkoPublisher(registry: Registry, config: AggrConfig, implicit val system: ActorSystem)
     extends Publisher {
 
-  import AkkaPublisher.*
+  import PekkoPublisher.*
 
   private val atlasUri = Uri(config.uri())
   private val evalUri = Uri(config.evalUri())
@@ -129,7 +129,7 @@ class AkkaPublisher(registry: Registry, config: AggrConfig, implicit val system:
   }
 }
 
-object AkkaPublisher {
+object PekkoPublisher {
 
   private val VoidInstance = null.asInstanceOf[Void]
 
