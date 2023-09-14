@@ -16,8 +16,8 @@
 package com.netflix.atlas.spring
 
 import org.apache.pekko.actor.ActorSystem
-import com.netflix.atlas.pekko.AkkaHttpClient
-import com.netflix.atlas.pekko.DefaultAkkaHttpClient
+import com.netflix.atlas.pekko.PekkoHttpClient
+import com.netflix.atlas.pekko.DefaultPekkoHttpClient
 import com.netflix.atlas.cloudwatch.AwsAccountSupplier
 import com.netflix.atlas.cloudwatch.CloudWatchDebugger
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor
@@ -86,7 +86,7 @@ class CloudWatchConfiguration extends StrictLogging {
     config: Config,
     registry: Optional[Registry],
     tagger: Tagger,
-    httpClient: AkkaHttpClient,
+    httpClient: PekkoHttpClient,
     system: ActorSystem
   ): PublishRouter = {
     val r = registry.orElseGet(() => globalRegistry())
@@ -128,8 +128,8 @@ class CloudWatchConfiguration extends StrictLogging {
   @Bean
   def httpClient(
     system: ActorSystem
-  ): DefaultAkkaHttpClient = {
-    new DefaultAkkaHttpClient("PubProxy")(system)
+  ): DefaultPekkoHttpClient = {
+    new DefaultPekkoHttpClient("PubProxy")(system)
   }
 
   /**

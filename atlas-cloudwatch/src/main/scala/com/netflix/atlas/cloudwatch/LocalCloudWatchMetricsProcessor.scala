@@ -41,7 +41,7 @@ import scala.concurrent.Future
   * @param publishRouter
   *     The non-null publisher to report to.
   * @param system
-  *     The Akka system we use for scheduling.
+  *     The Pekko system we use for scheduling.
   */
 class LocalCloudWatchMetricsProcessor(
   config: Config,
