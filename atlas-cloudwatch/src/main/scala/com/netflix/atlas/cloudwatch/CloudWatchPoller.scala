@@ -279,59 +279,61 @@ class CloudWatchPoller(
       promise: Promise[Done]
     ) extends Runnable {
 
+      def process(metricsList: List[Metric]): Unit = {
+        logger.info(s"CloudWatch listed ${metricsList.size} metrics for ${
+            request.metricName()
+          } in ${account} and ${category.namespace} ${definition.name} in region ${region}")
+        if (metricsList.isEmpty) {
+          registry
+            .counter(
+              emptyListing.withTags(
+                "account",
+                account,
+                "aws.namespace",
+                category.namespace,
+                "region",
+                region.toString
+              )
+            )
+            .increment()
+        }
+        val futures = new Array[Future[Done]](metricsList.size)
+        var idx = 0
+        metricsList.foreach { metric =>
+          if (!category.dimensionsMatch(metric.dimensions().asScala.toList)) {
+            debugger.debugPolled(metric, IncomingMatch.DroppedTag, nowMillis, category)
+            dpsDroppedTags.increment()
+            futures(idx) = Future.successful(Done)
+          } else if (category.filter.map(_.matches(toTagMap(metric))).getOrElse(false)) {
+            debugger.debugPolled(metric, IncomingMatch.DroppedFilter, nowMillis, category)
+            dpsDroppedFilter.increment()
+            futures(idx) = Future.successful(Done)
+          } else {
+            val promise = Promise[Done]()
+            futures(idx) = promise.future
+            expecting.incrementAndGet()
+            executionContext.execute(FetchMetricStats(definition, metric, promise))
+          }
+          idx += 1
+        }
+
+        // completes on an empty metric list as well.
+        Future.sequence(futures.toList).onComplete {
+          case Success(_) =>
+            promise.success(Done)
+          case Failure(ex) =>
+            logger.error(
+              s"Failed at least one polling for ${account} and ${category.namespace} ${definition.name} in region ${region}",
+              ex
+            )
+            promise.failure(ex)
+        }
+      }
+
       @Override def run(): Unit = {
         try {
           val metrics = client.listMetricsPaginator(request)
-          val metricsList = metrics.metrics().stream().toScala(List)
-          logger.info(s"CloudWatch listed ${metricsList.size} metrics for ${
-              request.metricName()
-            } in ${account} and ${category.namespace} ${definition.name} in region ${region}")
-          if (metricsList.isEmpty) {
-            registry
-              .counter(
-                emptyListing.withTags(
-                  "account",
-                  account,
-                  "aws.namespace",
-                  category.namespace,
-                  "region",
-                  region.toString
-                )
-              )
-              .increment()
-          }
-          val futures = new Array[Future[Done]](metricsList.size)
-          var idx = 0
-          metricsList.foreach { metric =>
-            if (!category.dimensionsMatch(metric.dimensions().asScala.toList)) {
-              debugger.debugPolled(metric, IncomingMatch.DroppedTag, nowMillis, category)
-              dpsDroppedTags.increment()
-              futures(idx) = Future.successful(Done)
-            } else if (category.filter.map(_.matches(toTagMap(metric))).getOrElse(false)) {
-              debugger.debugPolled(metric, IncomingMatch.DroppedFilter, nowMillis, category)
-              dpsDroppedFilter.increment()
-              futures(idx) = Future.successful(Done)
-            } else {
-              val promise = Promise[Done]()
-              futures(idx) = promise.future
-              expecting.incrementAndGet()
-              executionContext.execute(FetchMetricStats(definition, metric, promise))
-            }
-            idx += 1
-          }
-
-          // completes on an empty metric list as well.
-          Future.sequence(futures.toList).onComplete {
-            case Success(_) =>
-              promise.success(Done)
-            case Failure(ex) =>
-              logger.error(
-                s"Failed at least one polling for ${account} and ${category.namespace} ${definition.name} in region ${region}",
-                ex
-              )
-              promise.failure(ex)
-          }
-
+          process(metrics.metrics().stream().toScala(List))
         } catch {
           case ex: Exception =>
             logger.error(

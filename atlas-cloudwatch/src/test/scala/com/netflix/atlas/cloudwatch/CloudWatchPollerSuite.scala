@@ -298,9 +298,9 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val child = getChild(poller)
     val (mdef, req) = getListReq(poller)
     val promise = Promise[Done]()
-    mockListMetricsResp(req)
+    val metrics = getListResponse(req)
     mockMetricStats()
-    child.ListMetrics(req, mdef, promise).run()
+    child.ListMetrics(req, mdef, promise).process(metrics)
 
     assertCounters(droppedTags = 1, droppedFilter = 1)
     Await.result(promise.future, 1.seconds)
@@ -311,8 +311,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val child = getChild(poller)
     val (mdef, req) = getListReq(poller)
     val promise = Promise[Done]()
-    mockListMetricsResp(req, true)
-    child.ListMetrics(req, mdef, promise).run()
+    child.ListMetrics(req, mdef, promise).process(List.empty)
 
     assertCounters(empty = 1)
     Await.result(promise.future, 1.seconds)
@@ -323,8 +322,8 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val child = getChild(poller)
     val (mdef, req) = getListReq(poller)
     val promise = Promise[Done]()
-    mockListMetricsResp(req)
-    child.ListMetrics(req, mdef, promise).run()
+    val metrics = getListResponse(req)
+    child.ListMetrics(req, mdef, promise).process(metrics)
 
     assertCounters(droppedTags = 1, droppedFilter = 1)
     intercept[RuntimeException] {
@@ -475,47 +474,36 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     category.toListRequests(index)
   }
 
-  def mockListMetricsResp(request: ListMetricsRequest, empty: Boolean = false): Unit = {
-    val ms =
-      if (empty) List.empty
-      else
-        List(
-          Metric
-            .builder()
-            .namespace("AWS/UT1")
-            .metricName(request.metricName())
-            .dimensions(Dimension.builder().name("MyTag").value("a").build())
-            .build(),
-          Metric
-            .builder()
-            .namespace("AWS/UT1")
-            .metricName(request.metricName())
-            .dimensions(Dimension.builder().name("MyTag").value("b").build())
-            .build(),
-          Metric
-            .builder()
-            .namespace("AWS/UT1")
-            .metricName(request.metricName())
-            .dimensions(Dimension.builder().name("MyTag").value("c").build())
-            .build(),
-          Metric
-            .builder()
-            .namespace("AWS/UT1")
-            .metricName(request.metricName())
-            .dimensions(
-              Dimension.builder().name("MyTag").value("a").build(),
-              Dimension.builder().name("ExtraTag").value("filtered").build()
-            )
-            .build()
+  def getListResponse(req: ListMetricsRequest) = {
+    List(
+      Metric
+        .builder()
+        .namespace("AWS/UT1")
+        .metricName(req.metricName())
+        .dimensions(Dimension.builder().name("MyTag").value("a").build())
+        .build(),
+      Metric
+        .builder()
+        .namespace("AWS/UT1")
+        .metricName(req.metricName())
+        .dimensions(Dimension.builder().name("MyTag").value("b").build())
+        .build(),
+      Metric
+        .builder()
+        .namespace("AWS/UT1")
+        .metricName(req.metricName())
+        .dimensions(Dimension.builder().name("MyTag").value("c").build())
+        .build(),
+      Metric
+        .builder()
+        .namespace("AWS/UT1")
+        .metricName(req.metricName())
+        .dimensions(
+          Dimension.builder().name("MyTag").value("a").build(),
+          Dimension.builder().name("ExtraTag").value("filtered").build()
         )
-    // yup, brittle if they change the AWS impl.
-    val lmr = ListMetricsResponse
-      .builder()
-      .metrics(ms.toArray*)
-      .build()
-    when(client.listMetrics(request)).thenReturn(lmr)
-    val resp = new ListMetricsIterable(client, request)
-    when(client.listMetricsPaginator(request)).thenReturn(resp)
+        .build()
+    )
   }
 
   def metric: Metric = {
