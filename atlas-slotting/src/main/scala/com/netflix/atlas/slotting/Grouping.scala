@@ -45,7 +45,8 @@ case class AsgInstanceDetails(
 )
 
 case class Ec2InstanceDetails(
-  privateIpAddress: String,
+  ipv6Address: Option[String],
+  privateIpAddress: Option[String],
   publicIpAddress: Option[String],
   publicDnsName: Option[String],
   launchTime: Instant,
@@ -72,7 +73,8 @@ case class SlottedAsgDetails(
 
 case class SlottedInstanceDetails(
   instanceId: String,
-  privateIpAddress: String,
+  ipv6Address: Option[String],
+  privateIpAddress: Option[String],
   publicIpAddress: Option[String],
   publicDnsName: Option[String],
   slot: Int,
@@ -172,7 +174,8 @@ trait Grouping extends StrictLogging {
     */
   def mkEc2InstanceDetails(instance: Ec2Instance): Ec2InstanceDetails = {
     Ec2InstanceDetails(
-      instance.privateIpAddress,
+      Option(instance.ipv6Address),
+      Option(instance.privateIpAddress),
       Option(instance.publicIpAddress),
       instance.publicDnsName match {
         case ""      => None
@@ -211,6 +214,7 @@ trait Grouping extends StrictLogging {
 
         SlottedInstanceDetails(
           i.instanceId,
+          instance.ipv6Address,
           instance.privateIpAddress,
           instance.publicIpAddress,
           instance.publicDnsName,

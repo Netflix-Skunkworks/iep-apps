@@ -159,7 +159,7 @@ class SlottingApiSuite extends MUnitRouteSuite {
       assertEquals(res.instances.size, 3)
 
       assertEquals(res.instances.head.instanceId, "i-001")
-      assertEquals(res.instances.head.privateIpAddress, "192.168.1.1")
+      assertEquals(res.instances.head.privateIpAddress.get, "192.168.1.1")
       assertEquals(res.instances.head.publicIpAddress, None)
       assertEquals(res.instances.head.publicDnsName, None)
       assertEquals(res.instances.head.slot, 0)
