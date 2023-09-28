@@ -120,7 +120,7 @@ class GroupingSuite extends FunSuite with Grouping {
 
     assertEquals(details.imageId, "ami-001")
     assertEquals(details.instanceType, "r4.large")
-    assertEquals(details.privateIpAddress, "192.168.1.1")
+    assertEquals(details.privateIpAddress.get, "192.168.1.1")
   }
 
   test("make slotted instance details") {
@@ -144,15 +144,42 @@ class GroupingSuite extends FunSuite with Grouping {
     )
 
     val instanceInfo = Map(
-      "i-001" -> Ec2InstanceDetails("192.168.1.1", None, None, instant, "ami-001", "r4.large"),
-      "i-002" -> Ec2InstanceDetails("192.168.1.2", None, None, instant, "ami-001", "r4.large"),
-      "i-003" -> Ec2InstanceDetails("192.168.1.3", None, None, instant, "ami-001", "r4.large")
+      "i-001" -> Ec2InstanceDetails(
+        None,
+        Some("192.168.1.1"),
+        None,
+        None,
+        instant,
+        "ami-001",
+        "r4.large"
+      ),
+      "i-002" -> Ec2InstanceDetails(
+        None,
+        Some("192.168.1.2"),
+        None,
+        None,
+        instant,
+        "ami-001",
+        "r4.large"
+      ),
+      "i-003" -> Ec2InstanceDetails(
+        None,
+        Some("192.168.1.3"),
+        None,
+        None,
+        instant,
+        "ami-001",
+        "r4.large"
+      )
     )
 
     val slotted = mkSlottedInstanceDetailsList(asgDetails, instanceInfo)
 
     assertEquals(slotted.map(_.instanceId), List("i-001", "i-002", "i-003"))
-    assertEquals(slotted.map(_.privateIpAddress), List("192.168.1.1", "192.168.1.2", "192.168.1.3"))
+    assertEquals(
+      slotted.map(_.privateIpAddress.get),
+      List("192.168.1.1", "192.168.1.2", "192.168.1.3")
+    )
     assertEquals(slotted.map(_.slot), List(-1, -1, -1))
   }
 
@@ -200,15 +227,42 @@ class GroupingSuite extends FunSuite with Grouping {
     )
 
     val instanceInfo = Map(
-      "i-001" -> Ec2InstanceDetails("192.168.1.1", None, None, instant, "ami-001", "r4.large"),
-      "i-002" -> Ec2InstanceDetails("192.168.1.2", None, None, instant, "ami-001", "r4.large"),
-      "i-003" -> Ec2InstanceDetails("192.168.1.3", None, None, instant, "ami-001", "r4.large")
+      "i-001" -> Ec2InstanceDetails(
+        None,
+        Some("192.168.1.1"),
+        None,
+        None,
+        instant,
+        "ami-001",
+        "r4.large"
+      ),
+      "i-002" -> Ec2InstanceDetails(
+        None,
+        Some("192.168.1.2"),
+        None,
+        None,
+        instant,
+        "ami-001",
+        "r4.large"
+      ),
+      "i-003" -> Ec2InstanceDetails(
+        None,
+        Some("192.168.1.3"),
+        None,
+        None,
+        instant,
+        "ami-001",
+        "r4.large"
+      )
     )
 
     val slotted = assignSlots(asgDetails, instanceInfo)
 
     assertEquals(slotted.map(_.instanceId), List("i-001", "i-002", "i-003"))
-    assertEquals(slotted.map(_.privateIpAddress), List("192.168.1.1", "192.168.1.2", "192.168.1.3"))
+    assertEquals(
+      slotted.map(_.privateIpAddress.get),
+      List("192.168.1.1", "192.168.1.2", "192.168.1.3")
+    )
     assertEquals(slotted.map(_.slot), List(0, 1, 2))
   }
 
@@ -257,15 +311,42 @@ class GroupingSuite extends FunSuite with Grouping {
     )
 
     val instanceInfo = Map(
-      "i-001" -> Ec2InstanceDetails("192.168.1.1", None, None, instant, "ami-001", "r4.large"),
-      "i-003" -> Ec2InstanceDetails("192.168.1.3", None, None, instant, "ami-001", "r4.large"),
-      "i-004" -> Ec2InstanceDetails("192.168.1.4", None, None, instant, "ami-001", "r4.large")
+      "i-001" -> Ec2InstanceDetails(
+        None,
+        Some("192.168.1.1"),
+        None,
+        None,
+        instant,
+        "ami-001",
+        "r4.large"
+      ),
+      "i-003" -> Ec2InstanceDetails(
+        None,
+        Some("192.168.1.3"),
+        None,
+        None,
+        instant,
+        "ami-001",
+        "r4.large"
+      ),
+      "i-004" -> Ec2InstanceDetails(
+        None,
+        Some("192.168.1.4"),
+        None,
+        None,
+        instant,
+        "ami-001",
+        "r4.large"
+      )
     )
 
     val merged = mergeSlots(oldAsgSlotted, newAsgDetails, instanceInfo)
 
     assertEquals(merged.map(_.instanceId), List("i-001", "i-004", "i-003"))
-    assertEquals(merged.map(_.privateIpAddress), List("192.168.1.1", "192.168.1.4", "192.168.1.3"))
+    assertEquals(
+      merged.map(_.privateIpAddress.get),
+      List("192.168.1.1", "192.168.1.4", "192.168.1.3")
+    )
     assertEquals(merged.map(_.slot), List(0, 1, 2))
   }
 
@@ -308,10 +389,42 @@ class GroupingSuite extends FunSuite with Grouping {
     )
 
     val instanceInfo = Map(
-      "i-001" -> Ec2InstanceDetails("192.168.1.1", None, None, instant, "ami-001", "r4.large"),
-      "i-003" -> Ec2InstanceDetails("192.168.1.3", None, None, instant, "ami-001", "r4.large"),
-      "i-004" -> Ec2InstanceDetails("192.168.1.4", None, None, instant, "ami-001", "r4.large"),
-      "i-005" -> Ec2InstanceDetails("192.168.1.5", None, None, instant, "ami-001", "r4.large")
+      "i-001" -> Ec2InstanceDetails(
+        None,
+        Some("192.168.1.1"),
+        None,
+        None,
+        instant,
+        "ami-001",
+        "r4.large"
+      ),
+      "i-003" -> Ec2InstanceDetails(
+        None,
+        Some("192.168.1.3"),
+        None,
+        None,
+        instant,
+        "ami-001",
+        "r4.large"
+      ),
+      "i-004" -> Ec2InstanceDetails(
+        None,
+        Some("192.168.1.4"),
+        None,
+        None,
+        instant,
+        "ami-001",
+        "r4.large"
+      ),
+      "i-005" -> Ec2InstanceDetails(
+        None,
+        Some("192.168.1.5"),
+        None,
+        None,
+        instant,
+        "ami-001",
+        "r4.large"
+      )
     )
 
     val caught = intercept[NoSuchElementException] {
@@ -360,15 +473,52 @@ class GroupingSuite extends FunSuite with Grouping {
     )
 
     val instanceInfo = Map(
-      "i-001" -> Ec2InstanceDetails("192.168.1.1", None, None, instant, "ami-001", "r4.large"),
-      "i-003" -> Ec2InstanceDetails("192.168.1.3", None, None, instant, "ami-001", "r4.large"),
-      "i-004" -> Ec2InstanceDetails("192.168.1.4", None, None, instant, "ami-001", "r4.large")
+      "i-001" -> Ec2InstanceDetails(
+        None,
+        Some("192.168.1.1"),
+        None,
+        None,
+        instant,
+        "ami-001",
+        "r4.large"
+      ),
+      "i-003" -> Ec2InstanceDetails(
+        None,
+        Some("192.168.1.3"),
+        None,
+        None,
+        instant,
+        "ami-001",
+        "r4.large"
+      ),
+      "i-004" -> Ec2InstanceDetails(
+        None,
+        Some("192.168.1.4"),
+        None,
+        None,
+        instant,
+        "ami-001",
+        "r4.large"
+      )
     )
 
     val merged = mergeSlots(oldAsgSlotted, newAsgDetails, instanceInfo)
 
     assertEquals(merged.map(_.instanceId), List("i-001", "i-004", "i-003"))
-    assertEquals(merged.map(_.privateIpAddress), List("192.168.1.1", "192.168.1.4", "192.168.1.3"))
+    assertEquals(
+      merged.map(_.privateIpAddress.get),
+      List("192.168.1.1", "192.168.1.4", "192.168.1.3")
+    )
     assertEquals(merged.map(_.slot), List(0, 1, 2))
+  }
+
+  test("load IPv6 address") {
+    val instance = loadSlottedInstanceDetails("/SlottedInstanceDetails-0.json")
+    assertEquals(instance.ipv6Address, Some("0:0:0:0:0:FFFF:C0A8:0101"))
+  }
+
+  test("load without IPv6 address") {
+    val instance = loadSlottedInstanceDetails("/SlottedInstanceDetails-1.json")
+    assertEquals(instance.ipv6Address, None)
   }
 }
