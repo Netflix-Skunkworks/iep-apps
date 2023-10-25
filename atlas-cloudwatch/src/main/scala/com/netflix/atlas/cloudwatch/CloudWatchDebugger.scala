@@ -315,10 +315,7 @@ class CloudWatchDebugger(
   ): Unit = {
     if (config.isEmpty) return
 
-    if (
-      !rules.matches(toTagMap(cacheEntry)) &&
-      !(debugStale && scrapeState == ScrapeState.Stale)
-    ) return
+    if (!rules.matches(toTagMap(cacheEntry))) return
 
     try {
       // if we've already debugged a similar namespace metric and dimension key set. Purposely

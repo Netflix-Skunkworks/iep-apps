@@ -215,7 +215,7 @@ class CloudWatchPoller(
           dpsExpected.increment(expecting)
           dpsPolled.increment(got)
           logger.info(
-            s"Finished CloudWatch polling with ${got} of ${expecting} metrics in ${(System.currentTimeMillis() - start) / 1000.0} s"
+            s"Finished CloudWatch polling for ${offset}s with ${got} of ${expecting} metrics in ${(System.currentTimeMillis() - start) / 1000.0}s"
           )
           globalLastUpdate.set(System.currentTimeMillis())
           pollTime.record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS)
