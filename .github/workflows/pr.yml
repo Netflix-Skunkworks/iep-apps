@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        java: [17, 20]
+        java: [17, 21]
         scala: [2.13.11]
     steps:
       - uses: actions/checkout@v3
@@ -15,7 +15,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           java-version: ${{ matrix.java }}
-          distribution: 'temurin'
+          distribution: 'zulu'
           cache: 'sbt'
       - name: Build
         run: cat /dev/null | project/sbt ++${{ matrix.scala }} clean test
@@ -27,7 +27,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           java-version: 17
-          distribution: 'temurin'
+          distribution: 'zulu'
           cache: 'sbt'
       - name: Build
         run: cat /dev/null | project/sbt checkLicenseHeaders scalafmtCheckAll
