@@ -13,7 +13,7 @@ object Dependencies {
     val akka       = "2.6.20"
     val akkaHttpV  = "10.2.10"
 
-    val atlas      = "1.7.0-SNAPSHOT"
+    val atlas      = "1.7.7"
     val aws2       = "2.18.10"
     val iep        = "4.0.2"
     val log4j      = "2.19.0"
