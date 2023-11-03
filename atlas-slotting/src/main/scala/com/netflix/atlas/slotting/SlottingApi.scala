@@ -197,9 +197,8 @@ object SlottingApi {
           s"$scheme://$host/api/v1/autoScalingGroups",
           s"$scheme://$host/api/v1/autoScalingGroups?verbose=true",
           s"$scheme://$host/api/v1/autoScalingGroups/:name",
-          s"$scheme://$host/api/v2/group/autoScalingGroups",
-          s"$scheme://$host/api/v2/group/autoScalingGroups;_expand",
-          s"$scheme://$host/api/v2/group/autoScalingGroups/:name"
+          s"$scheme://$host/api/v1/clusters/:name",
+          s"$scheme://$host/api/v1/clusters/:name?verbose=true"
         )
       )
     )

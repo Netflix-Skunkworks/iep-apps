@@ -58,7 +58,7 @@ class SlottingApiSuite extends MUnitRouteSuite {
       val endpoints = description("endpoints").asInstanceOf[List[String]]
       assertResponse(response, StatusCodes.OK)
       assertEquals(description("description"), "Atlas Slotting Service")
-      assertEquals(endpoints.size, 7)
+      assertEquals(endpoints.size, 6)
     }
   }
 
