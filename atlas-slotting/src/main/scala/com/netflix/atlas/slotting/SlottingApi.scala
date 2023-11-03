@@ -15,6 +15,11 @@
  */
 package com.netflix.atlas.slotting
 
+import com.netflix.atlas.json.Json
+import com.netflix.atlas.pekko.CustomDirectives.*
+import com.netflix.atlas.pekko.WebApi
+import com.netflix.spectator.ipc.ServerGroup
+import com.typesafe.scalalogging.StrictLogging
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.caching.LfuCache
 import org.apache.pekko.http.caching.scaladsl.Cache
@@ -32,10 +37,6 @@ import org.apache.pekko.http.scaladsl.server.RequestContext
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.RouteResult
 import org.apache.pekko.http.scaladsl.server.directives.CachingDirectives.*
-import com.netflix.atlas.pekko.CustomDirectives.*
-import com.netflix.atlas.pekko.WebApi
-import com.netflix.atlas.json.Json
-import com.typesafe.scalalogging.StrictLogging
 
 import scala.util.matching.Regex
 
@@ -74,35 +75,27 @@ class SlottingApi(system: ActorSystem, slottingCache: SlottingCache)
           get {
             parameters("verbose".as[Boolean].?) { verbose =>
               if (verbose.contains(true)) {
-                complete(verboseList(compress, slottingCache))
+                complete(verboseAsgList(compress, slottingCache))
               } else {
-                complete(indexList(compress, slottingCache))
+                complete(indexAsgList(compress, slottingCache))
               }
             }
           }
         } ~
         endpointPath("autoScalingGroups", Remaining) { asgName =>
           get {
-            complete(singleItem(compress, slottingCache, asgName))
-          }
-        }
-      } ~
-      // edda compatibility endpoints
-      pathPrefix(("api" | "REST") / "v2" / "group") {
-        endpointPath("autoScalingGroups") {
-          get {
-            complete(indexList(compress, slottingCache))
+            complete(singleAsg(compress, slottingCache, asgName))
           }
         } ~
-        path(autoScalingGroupsExpand) { _ =>
+        endpointPath("clusters", Remaining) { clusterName =>
           get {
-            complete(verboseList(compress, slottingCache))
-          }
-        } ~
-        endpointPath("autoScalingGroups", Remaining) { asgNameWithArgs =>
-          val asgName = stripEddaArgs.replaceAllIn(asgNameWithArgs, "")
-          get {
-            complete(singleItem(compress, slottingCache, asgName))
+            parameters("verbose".as[Boolean].?) { verbose =>
+              if (verbose.contains(true)) {
+                complete(verboseClusterList(compress, slottingCache, clusterName))
+              } else {
+                complete(indexClusterList(compress, slottingCache, clusterName))
+              }
+            }
           }
         }
       } ~
@@ -145,21 +138,49 @@ object SlottingApi {
     }
   }
 
-  def indexList(compress: Boolean, slottingCache: SlottingCache): HttpResponse = {
+  def indexAsgList(compress: Boolean, slottingCache: SlottingCache): HttpResponse = {
     mkResponse(compress, StatusCodes.OK, slottingCache.asgs.keySet)
   }
 
-  def verboseList(compress: Boolean, slottingCache: SlottingCache): HttpResponse = {
+  def verboseAsgList(compress: Boolean, slottingCache: SlottingCache): HttpResponse = {
     mkResponse(compress, StatusCodes.OK, slottingCache.asgs.values.toList)
   }
 
-  def singleItem(compress: Boolean, slottingCache: SlottingCache, asgName: String): HttpResponse = {
+  def singleAsg(compress: Boolean, slottingCache: SlottingCache, asgName: String): HttpResponse = {
     slottingCache.asgs.get(asgName) match {
       case Some(slottedAsgDetails) =>
         mkResponse(compress, StatusCodes.OK, slottedAsgDetails)
       case None =>
         mkResponse(compress, StatusCodes.NotFound, Map("message" -> "Not Found"))
     }
+  }
+
+  def indexClusterList(
+    compress: Boolean,
+    slottingCache: SlottingCache,
+    clusterName: String
+  ): HttpResponse = {
+    mkResponse(
+      compress,
+      StatusCodes.OK,
+      slottingCache.asgs.keySet.filter { asgName =>
+        ServerGroup.parse(asgName).cluster() == clusterName
+      }
+    )
+  }
+
+  def verboseClusterList(
+    compress: Boolean,
+    slottingCache: SlottingCache,
+    clusterName: String
+  ): HttpResponse = {
+    mkResponse(
+      compress,
+      StatusCodes.OK,
+      slottingCache.asgs.values.toList.filter { asg =>
+        ServerGroup.parse(asg.name).cluster() == clusterName
+      }
+    )
   }
 
   def serviceDescription(request: HttpRequest): HttpResponse = {
