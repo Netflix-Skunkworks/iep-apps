@@ -110,8 +110,6 @@ The following Atlas metrics are published:
 
 ## API
 
-### Standard
-
 <table>
     <tr><th>Action <th>Specification
     <tr>
@@ -129,34 +127,12 @@ The following Atlas metrics are published:
     <tr>
         <td width="30%">Single AutoScalingGroup Details
         <td><code>GET /api/v1/autoScalingGroups/:asgName</code>
-</table>
-
-### Edda Compatibility
-
-This API is designed to ease the transition from using Edda for slotting data. Any matrix args and
-field selectors will be stripped from the request URL and standard slotting service payloads will
-be returned.
-
-<table>
-    <tr><th>Action <th>Specification
     <tr>
-        <td width="30%">List of Available AutoScalingGroups
-        <td><code>GET /api/v2/group/autoScalingGroups</code>
+        <td width="30%">List of AutoScalingGroups Matching a Cluster Name
+        <td><code>GET /api/v1/clusters/:clusterName</code>
     <tr>
-        <td width="30%">All AutoScalingGroup Details
-        <td><code>GET /api/v2/group/autoScalingGroups;_expand</code>
-    <tr>
-        <td width="30%">Single AutoScalingGroup Details
-        <td><code>GET /api/v2/group/autoScalingGroups/:asgName</code>
-    <tr>
-        <td width="30%">List of Available AutoScalingGroups
-        <td><code>GET /REST/v2/group/autoScalingGroups</code>
-    <tr>
-        <td width="30%">All AutoScalingGroup Details
-        <td><code>GET /REST/v2/group/autoScalingGroups;_expand</code>
-    <tr>
-        <td width="30%">Single AutoScalingGroup Details
-        <td><code>GET /REST/v2/group/autoScalingGroups/:asgName</code>
+        <td width="30%">All AutoScalingGroup Details Matching a Cluster Name
+        <td><code>GET /api/v1/clusters/:clusterName?verbose=true</code>
 </table>
 
 ## Local Development

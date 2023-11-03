@@ -93,59 +93,42 @@ class SlottingApiSuite extends MUnitRouteSuite {
       val res = Json.decode[Message](responseAs[String])
       assertEquals(res, Message("Not Found"))
     }
-  }
-
-  test("no cache data (edda api)") {
-    Get("/api/v2/group/autoScalingGroups") ~> routes ~> check {
-      assertResponse(response, StatusCodes.OK)
-      val res = Json.decode[List[String]](responseAs[String])
-      assertEquals(res, List.empty[String])
-    }
-    Get("/api/v2/group/autoScalingGroups;_expand") ~> routes ~> check {
-      assertResponse(response, StatusCodes.OK)
-      val res = Json.decode[List[String]](responseAs[String])
-      assertEquals(res, List.empty[String])
-    }
-    Get("/api/v2/group/autoScalingGroups/atlas_app-main-all-v001") ~> routes ~> check {
+    Get("/api/v1/clusters") ~> routes ~> check {
       assertResponse(response, StatusCodes.NotFound)
       val res = Json.decode[Message](responseAs[String])
-      assertEquals(res, Message("Not Found"))
+      assertEquals(res, Message("path not found: /api/v1/clusters"))
     }
-    Get("/REST/v2/group/autoScalingGroups") ~> routes ~> check {
+    Get("/api/v1/clusters/atlas_app-main-all") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val res = Json.decode[List[String]](responseAs[String])
       assertEquals(res, List.empty[String])
     }
-    Get("/REST/v2/group/autoScalingGroups;_expand") ~> routes ~> check {
+    Get("/api/v1/clusters/atlas_app-main-all?verbose=true") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val res = Json.decode[List[String]](responseAs[String])
       assertEquals(res, List.empty[String])
-    }
-    Get("/REST/v2/group/autoScalingGroups/atlas_app-main-all-v001") ~> routes ~> check {
-      assertResponse(response, StatusCodes.NotFound)
-      val res = Json.decode[Message](responseAs[String])
-      assertEquals(res, Message("Not Found"))
     }
   }
 
   test("load cache") {
     slottingCache.asgs = SortedMap(
-      "atlas_app-main-all-v001" -> loadSlottedAsgDetails("/atlas_app-main-all-v001.json")
+      "atlas_app-main-all-v001"  -> loadSlottedAsgDetails("/atlas_app-main-all-v001.json"),
+      "atlas_app-main-none-v001" -> loadSlottedAsgDetails("/atlas_app-main-none-v001.json")
     )
 
-    assertEquals(slottingCache.asgs.size, 1)
+    assertEquals(slottingCache.asgs.size, 2)
   }
 
   test("cache data (standard api)") {
     Get("/api/v1/autoScalingGroups") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val res = Json.decode[List[String]](responseAs[String])
-      assertEquals(res, List("atlas_app-main-all-v001"))
+      assertEquals(res, List("atlas_app-main-all-v001", "atlas_app-main-none-v001"))
     }
     Get("/api/v1/autoScalingGroups?verbose=true") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val res = Json.decode[List[SlottedAsgDetails]](responseAs[String])
-      assertEquals(res.map(_.name), List("atlas_app-main-all-v001"))
+      assertEquals(res.map(_.name), List("atlas_app-main-all-v001", "atlas_app-main-none-v001"))
     }
     Get("/api/v1/autoScalingGroups/atlas_app-main-all-v001") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
@@ -168,71 +151,25 @@ class SlottingApiSuite extends MUnitRouteSuite {
       assertEquals(res.instances.head.instanceType, "r4.large")
       assertEquals(res.instances.head.lifecycleState, "InService")
     }
-  }
-
-  test("cache data (edda api)") {
-    val fieldSelector =
-      ":(autoScalingGroupName,instances:(instanceId,slot,lifecycleState,privateIpAddress))"
-
-    Get("/api/v2/group/autoScalingGroups") ~> routes ~> check {
+    Get("/api/v1/clusters/atlas_app-main") ~> routes ~> check {
+      assertResponse(response, StatusCodes.OK)
+      val res = Json.decode[List[String]](responseAs[String])
+      assertEquals(res, List.empty[String])
+    }
+    Get("/api/v1/clusters/atlas_app-main-all") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val res = Json.decode[List[String]](responseAs[String])
       assertEquals(res, List("atlas_app-main-all-v001"))
     }
-    Get("/api/v2/group/autoScalingGroups;_expand") ~> routes ~> check {
-      assertResponse(response, StatusCodes.OK)
-      val res = Json.decode[List[SlottedAsgDetails]](responseAs[String])
-      assertEquals(res.map(_.name), List("atlas_app-main-all-v001"))
-    }
-    Get(s"/api/v2/group/autoScalingGroups;_expand$fieldSelector") ~> routes ~> check {
-      assertResponse(response, StatusCodes.OK)
-      val res = Json.decode[List[SlottedAsgDetails]](responseAs[String])
-      assertEquals(res.map(_.name), List("atlas_app-main-all-v001"))
-    }
-    Get("/api/v2/group/autoScalingGroups;_pp;_expand") ~> routes ~> check {
-      assertResponse(response, StatusCodes.OK)
-      val res = Json.decode[List[SlottedAsgDetails]](responseAs[String])
-      assertEquals(res.map(_.name), List("atlas_app-main-all-v001"))
-    }
-    Get(s"/api/v2/group/autoScalingGroups;_pp;_expand$fieldSelector") ~> routes ~> check {
-      assertResponse(response, StatusCodes.OK)
-      val res = Json.decode[List[SlottedAsgDetails]](responseAs[String])
-      assertEquals(res.map(_.name), List("atlas_app-main-all-v001"))
-    }
-    Get("/api/v2/group/autoScalingGroups/atlas_app-main-all-v001") ~> routes ~> check {
-      assertResponse(response, StatusCodes.OK)
-      val res = Json.decode[SlottedAsgDetails](responseAs[String])
-      assertEquals(res.name, "atlas_app-main-all-v001")
-    }
-    Get("/REST/v2/group/autoScalingGroups") ~> routes ~> check {
+    Get("/api/v1/clusters/atlas_app-main-none") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val res = Json.decode[List[String]](responseAs[String])
-      assertEquals(res, List("atlas_app-main-all-v001"))
+      assertEquals(res, List("atlas_app-main-none-v001"))
     }
-    Get("/REST/v2/group/autoScalingGroups;_expand") ~> routes ~> check {
+    Get("/api/v1/clusters/atlas_app-main-all?verbose=true") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val res = Json.decode[List[SlottedAsgDetails]](responseAs[String])
       assertEquals(res.map(_.name), List("atlas_app-main-all-v001"))
-    }
-    Get(s"/REST/v2/group/autoScalingGroups;_expand$fieldSelector") ~> routes ~> check {
-      assertResponse(response, StatusCodes.OK)
-      val res = Json.decode[List[SlottedAsgDetails]](responseAs[String])
-      assertEquals(res.map(_.name), List("atlas_app-main-all-v001"))
-    }
-    Get("/REST/v2/group/autoScalingGroups;_pp;_expand") ~> routes ~> check {
-      assertResponse(response, StatusCodes.OK)
-      val res = Json.decode[List[SlottedAsgDetails]](responseAs[String])
-      assertEquals(res.map(_.name), List("atlas_app-main-all-v001"))
-    }
-    Get(s"/REST/v2/group/autoScalingGroups;_pp;_expand$fieldSelector") ~> routes ~> check {
-      assertResponse(response, StatusCodes.OK)
-      val res = Json.decode[List[SlottedAsgDetails]](responseAs[String])
-      assertEquals(res.map(_.name), List("atlas_app-main-all-v001"))
-    }
-    Get("/REST/v2/group/autoScalingGroups/atlas_app-main-all-v001") ~> routes ~> check {
-      assertResponse(response, StatusCodes.OK)
-      val res = Json.decode[SlottedAsgDetails](responseAs[String])
-      assertEquals(res.name, "atlas_app-main-all-v001")
     }
   }
 }
