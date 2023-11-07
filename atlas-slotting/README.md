@@ -46,26 +46,59 @@ use the Spectator IPC [ServerGroup] utility instead, which provides 274X more th
 [frigga]: https://github.com/netflix/frigga
 [ServerGroup]: https://github.com/Netflix/spectator/pull/551
 
-## Initial Synchronization
-
-If you have an existing set of slotting information available, and you need a new deployment of the
-slotting service to synchronize with it, then you can perform a one-time upload of data directly to
-DynamoDB. Subsequent iterations of the slotting service will reload data from DynamoDB and continue
-processing with the updated numbers.
-
-A [lift-data.py](./src/scripts/lift-data.py) script is available, which will load slot numbers from
-an Edda endpoint and put them into DynamoDB, for a given set of app names and regions. This is used
-to assist with internal migration efforts at Netflix.
-
 ## Configuration
 
-* Establish an [IAM Role](./iamrole-example.md) for the service.
+* Establish IAM roles for the service.
+    * Two roles are expected: a service role and an instance profile.
+    * The instance profile should provide the following permissions:
+        * `sts:AssumeRole` to the service role, in the target accounts.
+        * `dynamodb:*` to the `table/atlas_slotting*` namespace.
+    * The service role should provide the following permissions, for a given account:
+        * `sts:AssumeRole` from the instance profile role.
+        * `autoscaling:DescribeAutoScalingGroups` on all resources.
+        * `ec2:DescribeInstances` on all resources. 
+    * The `INSIGHT_ACCOUNT_ID` environment variable should be set to id of the account that will be crawled.
 * Review [application.conf](./src/main/resources/application.conf)
-    * aws
+    * `aws`
         * Set the crawl interval and page size for autoScaling and ec2.
         * Set the dynamodb table name, read capacity and write capacity.
-    * slotting
+    * `slotting`
         * Set the list of app names and the background thread intervals.
+
+## API
+
+This application is deployed with a single instance to each region and account combination. In the case of
+instance failure and replacement, the service may be unavailable for up to 10 minutes. In practice, this is
+a rare occurrence. Thus, users of the slotting API should cache results locally, and only update this cache
+when a successful result is received.
+
+The purpose of this deployment strategy is to ensure that results are always correct and consistent, from the
+point at which slots are calculated. The instance is sized appropriately for the data and query load. 
+
+<table>
+    <tr><th>Action <th>Specification
+    <tr>
+        <td width="30%">List of Available Endpoints
+        <td><code>GET /</code>
+    <tr>
+        <td width="30%">Healthcheck
+        <td><code>GET /healthcheck</code>
+    <tr>
+        <td width="30%">List of Available AutoScalingGroups
+        <td><code>GET /api/v1/autoScalingGroups</code>
+    <tr>
+        <td width="30%">All AutoScalingGroup Details
+        <td><code>GET /api/v1/autoScalingGroups?verbose=true</code>
+    <tr>
+        <td width="30%">Single AutoScalingGroup Details
+        <td><code>GET /api/v1/autoScalingGroups/:asgName</code>
+    <tr>
+        <td width="30%">List of AutoScalingGroups Matching a Cluster Name
+        <td><code>GET /api/v1/clusters/:clusterName</code>
+    <tr>
+        <td width="30%">All AutoScalingGroup Details Matching a Cluster Name
+        <td><code>GET /api/v1/clusters/:clusterName?verbose=true</code>
+</table>
 
 ## Metrics
 
@@ -108,32 +141,16 @@ The following Atlas metrics are published:
         <td>Number of ASGs where slot assignments failed validation checks
 </table>
 
-## API
+## Initial Synchronization
 
-<table>
-    <tr><th>Action <th>Specification
-    <tr>
-        <td width="30%">List of Available Endpoints
-        <td><code>GET /</code>
-    <tr>
-        <td width="30%">Healthcheck
-        <td><code>GET /healthcheck</code>
-    <tr>
-        <td width="30%">List of Available AutoScalingGroups
-        <td><code>GET /api/v1/autoScalingGroups</code>
-    <tr>
-        <td width="30%">All AutoScalingGroup Details
-        <td><code>GET /api/v1/autoScalingGroups?verbose=true</code>
-    <tr>
-        <td width="30%">Single AutoScalingGroup Details
-        <td><code>GET /api/v1/autoScalingGroups/:asgName</code>
-    <tr>
-        <td width="30%">List of AutoScalingGroups Matching a Cluster Name
-        <td><code>GET /api/v1/clusters/:clusterName</code>
-    <tr>
-        <td width="30%">All AutoScalingGroup Details Matching a Cluster Name
-        <td><code>GET /api/v1/clusters/:clusterName?verbose=true</code>
-</table>
+If you have an existing set of slotting information available, and you need a new deployment of the
+slotting service to synchronize with it, then you can perform a one-time upload of data directly to
+DynamoDB. Subsequent iterations of the slotting service will reload data from DynamoDB and continue
+processing with the updated numbers.
+
+A [lift-data.py](./src/scripts/lift-data.py) script is available, which will load slot numbers from
+an Edda endpoint and put them into DynamoDB, for a given set of app names and regions. This is used
+to assist with internal migration efforts at Netflix.
 
 ## Local Development
 
