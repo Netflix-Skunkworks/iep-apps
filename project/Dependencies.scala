@@ -5,17 +5,17 @@ import sbt._
 object Dependencies {
   object Versions {
     val atlas      = "1.8.0-SNAPSHOT"
-    val aws2       = "2.20.136"
-    val iep        = "5.0.7"
-    val log4j      = "2.20.0"
+    val aws2       = "2.21.19"
+    val iep        = "5.0.14"
+    val log4j      = "2.21.1"
     val pekko      = "1.0.1"
     val pekkoHttpV = "1.0.0"
-    val scala      = "2.13.11"
+    val scala      = "2.13.12"
     val servo      = "0.13.2"
     val slf4j      = "1.7.36"
-    val spectator  = "1.6.10"
+    val spectator  = "1.7.2"
     val spring     = "6.0.7"
-    val avroV      = "1.11.2"
+    val avroV      = "1.11.3"
 
     val crossScala = Seq(scala)
   }
@@ -50,7 +50,7 @@ object Dependencies {
   val iepSpringAws2      = "com.netflix.iep" % "iep-spring-aws2" % iep
   val iepSpringJmx       = "com.netflix.iep" % "iep-spring-jmxport" % iep
   val iepSpringLeader    = "com.netflix.iep" % "iep-spring-leader" % iep
-  val jedis              = "redis.clients" % "jedis" % "4.3.2"
+  val jedis              = "redis.clients" % "jedis" % "5.0.2"
   val jsonSchema         = "com.github.java-json-tools" % "json-schema-validator" % "2.2.14"
   val jsr305             = "com.google.code.findbugs" % "jsr305" % "3.0.2"
   val log4jApi           = "org.apache.logging.log4j" % "log4j-api" % log4j
@@ -58,8 +58,8 @@ object Dependencies {
   val log4jJcl           = "org.apache.logging.log4j" % "log4j-jcl" % log4j
   val log4jJul           = "org.apache.logging.log4j" % "log4j-jul" % log4j
   val log4jSlf4j         = "org.apache.logging.log4j" % "log4j-slf4j-impl" % log4j
-  val mockitoCore        = "org.mockito" % "mockito-core" % "5.5.0"
-  val mockitoScala       = "org.mockito" % "mockito-scala_2.13" % "1.17.22"
+  val mockitoCore        = "org.mockito" % "mockito-core" % "5.7.0"
+  val mockitoScala       = "org.mockito" % "mockito-scala_2.13" % "1.17.29"
   val munit              = "org.scalameta" %% "munit" % "0.7.29"
   val openHFT            = "net.openhft" % "zero-allocation-hashing" % "0.16"
   val pekkoActor         = "org.apache.pekko" %% "pekko-actor" % pekko
@@ -68,7 +68,7 @@ object Dependencies {
   val pekkoHttpTestkit   = "org.apache.pekko" %% "pekko-http-testkit" % pekkoHttpV
   val pekkoSlf4j         = "org.apache.pekko" %% "pekko-slf4j" % pekko
   val pekkoTestkit       = "org.apache.pekko" %% "pekko-testkit" % pekko
-  val protobuf           = "com.google.protobuf" % "protobuf-java" % "3.24.2"
+  val protobuf           = "com.google.protobuf" % "protobuf-java" % "3.25.0"
   val scalaCompiler      = "org.scala-lang" % "scala-compiler" % scala
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
   val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
@@ -77,7 +77,7 @@ object Dependencies {
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
   val slf4jLog4j         = "org.slf4j" % "slf4j-log4j12" % slf4j
   val slf4jSimple        = "org.slf4j" % "slf4j-simple" % slf4j
-  val snappy             = "org.xerial.snappy" % "snappy-java" % "1.1.10.3"
+  val snappy             = "org.xerial.snappy" % "snappy-java" % "1.1.10.5"
   val spectatorApi       = "com.netflix.spectator" % "spectator-api" % spectator
   val spectatorAws2      = "com.netflix.spectator" % "spectator-ext-aws2" % spectator
   val spectatorAtlas     = "com.netflix.spectator" % "spectator-reg-atlas" % spectator
@@ -85,7 +85,7 @@ object Dependencies {
   val spectatorM2        = "com.netflix.spectator" % "spectator-reg-metrics2" % spectator
   val spectatorSandbox   = "com.netflix.spectator" % "spectator-ext-sandbox" % spectator
   val springContext      = "org.springframework" % "spring-context" % spring
-  val typesafeConfig     = "com.typesafe" % "config" % "1.4.2"
+  val typesafeConfig     = "com.typesafe" % "config" % "1.4.3"
 }
 
 // format: on
