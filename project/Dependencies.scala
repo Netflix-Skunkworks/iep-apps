@@ -10,7 +10,7 @@ object Dependencies {
     val log4j      = "2.20.0"
     val pekko      = "1.0.1"
     val pekkoHttpV = "1.0.0"
-    val scala      = "2.13.11"
+    val scala      = "2.13.12"
     val servo      = "0.13.2"
     val slf4j      = "1.7.36"
     val spectator  = "1.7.2"
