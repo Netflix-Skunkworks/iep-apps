@@ -38,7 +38,7 @@ class AppConfiguration {
   ): S3CopyService = {
     val c = config.orElseGet(() => ConfigFactory.load())
     val r = registry.orElseGet(() => new NoopRegistry)
-    new S3CopyService(c, r, system)
+    new S3CopyService(awsFactory, c, r, system)
   }
 
   @Bean
