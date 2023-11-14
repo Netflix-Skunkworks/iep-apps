@@ -89,6 +89,7 @@ lazy val `atlas-persistence` = project
       Dependencies.avro,
       Dependencies.aws2S3,
       Dependencies.iepSpring,
+      Dependencies.iepSpringAws2,
       Dependencies.log4jApi,
       Dependencies.log4jCore,
       Dependencies.log4jSlf4j,
