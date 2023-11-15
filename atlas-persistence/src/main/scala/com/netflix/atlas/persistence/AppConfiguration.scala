@@ -15,6 +15,7 @@
  */
 package com.netflix.atlas.persistence
 
+import com.netflix.iep.aws2.AwsClientFactory
 import org.apache.pekko.actor.ActorSystem
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
@@ -30,13 +31,14 @@ class AppConfiguration {
 
   @Bean
   def s3CopyService(
+    awsFactory: AwsClientFactory,
     config: Optional[Config],
     registry: Optional[Registry],
     system: ActorSystem
   ): S3CopyService = {
     val c = config.orElseGet(() => ConfigFactory.load())
     val r = registry.orElseGet(() => new NoopRegistry)
-    new S3CopyService(c, r, system)
+    new S3CopyService(awsFactory, c, r, system)
   }
 
   @Bean

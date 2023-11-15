@@ -15,10 +15,11 @@
  */
 package com.netflix.atlas.persistence
 
+import com.netflix.iep.aws2.AwsClientFactory
+
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
-
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.KillSwitch
@@ -34,6 +35,7 @@ import scala.concurrent.duration.*
 import scala.util.Using
 
 class S3CopyService(
+  val awsFactory: AwsClientFactory,
   val config: Config,
   val registry: Registry,
   implicit val system: ActorSystem
@@ -62,7 +64,7 @@ class S3CopyService(
       .tick(1.second, 5.seconds, NotUsed)
       .viaMat(KillSwitches.single)(Keep.right)
       .flatMapMerge(Int.MaxValue, _ => Source(FileUtil.listFiles(new File(dataDir))))
-      .toMat(new S3CopySink(s3Config, registry, system))(Keep.left)
+      .toMat(new S3CopySink(awsFactory, s3Config, registry, system))(Keep.left)
       .run()
   }
 

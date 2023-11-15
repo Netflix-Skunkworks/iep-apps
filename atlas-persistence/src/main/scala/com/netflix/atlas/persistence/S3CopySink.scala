@@ -15,11 +15,12 @@
  */
 package com.netflix.atlas.persistence
 
+import com.netflix.iep.aws2.AwsClientFactory
+
 import java.io.File
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
-
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Attributes
 import org.apache.pekko.stream.Inlet
@@ -39,6 +40,7 @@ import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
 
+import java.util.Optional
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.TimeoutException
@@ -48,6 +50,7 @@ import scala.util.Failure
 import scala.util.Success
 
 class S3CopySink(
+  val awsFactory: AwsClientFactory,
   val s3Config: Config,
   val registry: Registry,
   implicit val system: ActorSystem
@@ -103,12 +106,9 @@ class S3CopySink(
 
       setHandler(in, this)
 
-      // TODO use iep/iep-module-aws2
       private def initS3Client(): Unit = {
-        s3Client = S3Client
-          .builder()
-          .region(Region.of(region))
-          .build()
+        s3Client =
+          awsFactory.getInstance("s3", classOf[S3Client], null, Optional.of(Region.of(region)))
       }
 
       def shouldProcess(f: File): Boolean = {
