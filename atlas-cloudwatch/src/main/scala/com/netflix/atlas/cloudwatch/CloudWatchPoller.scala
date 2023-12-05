@@ -167,7 +167,7 @@ class CloudWatchPoller(
                     Optional.of(region)
                   )
                   val catFutures = filtered.map { category =>
-                    val runner = Poller(now, category, client, account, region)
+                    val runner = Poller(now, category, client, account, region, offset)
                     this.synchronized {
                       runners += runner
                       runner.execute
@@ -246,7 +246,8 @@ class CloudWatchPoller(
     category: MetricCategory,
     client: CloudWatchClient,
     account: String,
-    region: Region
+    region: Region,
+    offset: Int
   ) {
 
     private val nowMillis = now.toEpochMilli
@@ -254,7 +255,9 @@ class CloudWatchPoller(
     private[cloudwatch] val got = new AtomicInteger()
 
     private[cloudwatch] def execute: Future[Done] = {
-      logger.info(s"Polling for account ${account} and category ${category.namespace} in ${region}")
+      logger.info(
+        s"Polling for account ${account} at ${offset}s and category ${category.namespace} in ${region}"
+      )
       val futures = category.toListRequests.map { tuple =>
         val (definition, request) = tuple
         val promise = Promise[Done]()
@@ -265,7 +268,7 @@ class CloudWatchPoller(
       Future.reduceLeft(futures)((_, _) => Done).andThen {
         case Success(_) =>
           logger.info(
-            s"Finished polling with ${got.get()} of ${expecting.get()} for ${account} and ${
+            s"Finished polling with ${got.get()} of ${expecting.get()} for ${account} at ${offset} and ${
                 category.namespace
               } in region ${region} in ${(System.currentTimeMillis() - nowMillis) / 1000.0} s"
           )
@@ -399,7 +402,9 @@ class CloudWatchPoller(
         } catch {
           case ex: Exception =>
             logger.error(
-              s"Error getting metric ${metric.metricName()} for ${account} and ${category.namespace} ${definition.name} in region ${region}",
+              s"Error getting metric ${metric.metricName()} for ${account} at ${offset} and ${
+                  category.namespace
+                } ${definition.name} in region ${region}",
               ex
             )
             registry

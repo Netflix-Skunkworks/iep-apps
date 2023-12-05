@@ -453,7 +453,8 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
       category,
       client,
       account,
-      region
+      region,
+      60
     )
   }
 
