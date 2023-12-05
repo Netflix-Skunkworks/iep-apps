@@ -168,6 +168,7 @@ class AwsConfigAccountSupplier(
     logger.info(
       s"Finished loading ${rawAccountResources.size} (${filtered.size} filtered) AWS accounts and resources in ${(System.currentTimeMillis() - start) / 1000.0} seconds"
     )
+    logger.info(s"Final AWS accounts: ${filtered}")
     registry
       .timer("atlas.cloudwatch.account.supplier.aws.loadTime")
       .record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS)
