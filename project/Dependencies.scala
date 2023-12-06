@@ -58,7 +58,7 @@ object Dependencies {
   val log4jJcl           = "org.apache.logging.log4j" % "log4j-jcl" % log4j
   val log4jJul           = "org.apache.logging.log4j" % "log4j-jul" % log4j
   val log4jSlf4j         = "org.apache.logging.log4j" % "log4j-slf4j-impl" % log4j
-  val mockitoCore        = "org.mockito" % "mockito-core" % "5.7.0"
+  val mockitoCore        = "org.mockito" % "mockito-core" % "5.8.0"
   val mockitoScala       = "org.mockito" % "mockito-scala_2.13" % "1.17.29"
   val munit              = "org.scalameta" %% "munit" % "0.7.29"
   val openHFT            = "net.openhft" % "zero-allocation-hashing" % "0.16"
