@@ -29,6 +29,8 @@ import com.netflix.spectator.atlas.impl.TagsValuePair
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
+import java.util.Collections
+
 /**
   * Evaluate a set of data expressions from the LWC API service. This performs the same
   * basic role as the Evaluator class from the Spectator Atlas registry, but leverages the
@@ -113,7 +115,7 @@ class ExpressionsEvaluator(config: Config, registry: Registry) extends StrictLog
   }
 
   private def newAggregator(sub: Subscription): Aggregator = {
-    val tags = sub.dataExpr().query().exactTags()
+    val tags = sub.dataExpr().resultTags(Collections.emptyMap())
     sub.dataExpr().aggregator(tags, false)
   }
 
