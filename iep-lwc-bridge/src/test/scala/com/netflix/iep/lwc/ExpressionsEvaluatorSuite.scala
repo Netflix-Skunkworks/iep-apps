@@ -16,6 +16,7 @@
 package com.netflix.iep.lwc
 
 import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spectator.atlas.impl.EvalPayload
 import com.netflix.spectator.atlas.impl.Subscription
 import com.typesafe.config.ConfigFactory
 import munit.FunSuite
@@ -78,6 +79,8 @@ class ExpressionsEvaluatorSuite extends FunSuite {
     val m = payload.getMetrics.get(0)
     assertEquals(m.getId, "0")
     assertEquals(m.getValue, 5.0)
+    assertEquals(m.getTags.size, 1)
+    assertEquals(m.getTags.get("node"), "i-00")
   }
 
   test("eval with multiple datapoints ignores NaN values") {
@@ -90,6 +93,31 @@ class ExpressionsEvaluatorSuite extends FunSuite {
     val m = payload.getMetrics.get(0)
     assertEquals(m.getId, "0")
     assertEquals(m.getValue, 7.0)
+  }
+
+  test("eval with no exact tags and simple aggregate") {
+    val evaluator = new ExpressionsEvaluator(config, registry)
+    evaluator.sync(createSubs("node,(,i-00,i-01,),:in,:sum"))
+    val payload = evaluator.eval(timestamp, data(1.0) ::: data(4.0))
+    assertEquals(payload.getTimestamp, timestamp)
+    assertEquals(payload.getMetrics.size(), 1)
+
+    val m = payload.getMetrics.get(0)
+    assertEquals(m.getId, "0")
+    assertEquals(m.getValue, 5.0)
+    assert(!m.getTags.isEmpty)
+    assertEquals(m.getTags.get("name"), "unknown")
+  }
+
+  test("eval with no exact tags and group by") {
+    val evaluator = new ExpressionsEvaluator(config, registry)
+    evaluator.sync(createSubs("node,(,i-00,i-01,),:in,:sum,(,node,),:by"))
+    val payload = evaluator.eval(timestamp, data(1.0) ::: data(4.0, 10.0))
+    assertEquals(payload.getTimestamp, timestamp)
+    assertEquals(payload.getMetrics.size(), 2)
+
+    val nodes = payload.getMetrics.asScala.map(_.getTags.get("node")).toSet
+    assertEquals(nodes, Set("i-00", "i-01"))
   }
 
   test("eval with multiple expressions") {
