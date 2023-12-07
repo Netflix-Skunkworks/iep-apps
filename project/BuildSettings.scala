@@ -8,7 +8,7 @@ object BuildSettings {
     "-unchecked",
     "-Xlint:_,-infer-any",
     "-feature",
-    "-release", "17",
+    "-release", "21",
     "-Xsource:3"
   )
 
@@ -21,7 +21,7 @@ object BuildSettings {
     organization := "com.netflix.iep-apps",
     scalaVersion := Dependencies.Versions.scala,
     scalacOptions ++= compilerFlags,
-    javacOptions ++= Seq("--release", "17"),
+    javacOptions ++= Seq("--release", "21"),
     crossPaths := true,
     crossScalaVersions := Dependencies.Versions.crossScala,
     sourcesInBase := false,
