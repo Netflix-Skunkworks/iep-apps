@@ -28,6 +28,7 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.patterns.PolledMeter
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.pekko.stream.scaladsl.Source
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
@@ -45,6 +46,7 @@ import java.util.concurrent.atomic.AtomicLong
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.Promise
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.duration.FiniteDuration
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 import scala.jdk.StreamConverters.StreamHasToScala
@@ -119,6 +121,12 @@ class CloudWatchPoller(
     map
   }
 
+  private[cloudwatch] val fastPollingAccounts =
+    config.getStringList("atlas.cloudwatch.account.polling.fastPolling")
+
+  private[cloudwatch] val awsRequestLimit =
+    config.getInt("atlas.cloudwatch.account.polling.requestLimit")
+
   {
     offsetMap.foreachEntry { (offset, categories) =>
       logger.info(s"Scheduling poller for offset ${offset}s")
@@ -152,51 +160,58 @@ class CloudWatchPoller(
           if (namespaces.size > 0) {
             val filtered = categories.filter(c => namespaces.contains(c.namespace))
             if (filtered.size > 0) {
-              val nextRun = timeToRun(filtered.head.period, offset, account, region)
-              if (nextRun > 0) {
-                // flag check
-                val flag = flagMap.computeIfAbsent(
-                  runKey(offset, account, region),
-                  _ => new AtomicBoolean(false)
-                )
-                if (flag.compareAndSet(false, true)) {
-                  val client = clientFactory.getInstance(
-                    account + "." + region.toString,
-                    classOf[CloudWatchClient],
-                    account,
-                    Optional.of(region)
+              var skip = false
+              if (offset == 60 && !fastPollingAccounts.contains(account)) {
+                skip = true
+              }
+
+              if (!skip) {
+                val nextRun = timeToRun(filtered.head.period, offset, account, region)
+                if (nextRun > 0) {
+                  // flag check
+                  val flag = flagMap.computeIfAbsent(
+                    runKey(offset, account, region),
+                    _ => new AtomicBoolean(false)
                   )
-                  val catFutures = filtered.map { category =>
-                    val runner = Poller(now, category, client, account, region, offset)
-                    this.synchronized {
-                      runners += runner
-                      runner.execute
+                  if (flag.compareAndSet(false, true)) {
+                    val client = clientFactory.getInstance(
+                      account + "." + region.toString,
+                      classOf[CloudWatchClient],
+                      account,
+                      Optional.of(region)
+                    )
+                    val catFutures = filtered.map { category =>
+                      val runner = Poller(now, category, client, account, region, offset)
+                      this.synchronized {
+                        runners += runner
+                        runner.execute
+                      }
                     }
+                    futures += Future.reduceLeft(catFutures)((_, _) => Done).andThen {
+                      case Success(_) =>
+                        val key = runKey(offset, account, region)
+                        processor.updateLastSuccessfulPoll(key, nextRun)
+                        val flag = flagMap.get(key)
+                        if (flag == null) {
+                          logger.error(s"No flag found for key ${key}")
+                        } else {
+                          flag.set(false)
+                        }
+                      case Failure(_) =>
+                        val key = runKey(offset, account, region)
+                        val flag = flagMap.get(key)
+                        if (flag == null) {
+                          logger.error(s"No flag found for key ${key}")
+                        } else {
+                          flag.set(false)
+                        }
+                      // let it bubble up. We'll retry all categories which should be ok as the polling should be idempotent
+                    }
+                  } else {
+                    logger.warn(
+                      s"Skipping polling for period ${offset}s ${account} in ${region} as it was already running."
+                    )
                   }
-                  futures += Future.reduceLeft(catFutures)((_, _) => Done).andThen {
-                    case Success(_) =>
-                      val key = runKey(offset, account, region)
-                      processor.updateLastSuccessfulPoll(key, nextRun)
-                      val flag = flagMap.get(key)
-                      if (flag == null) {
-                        logger.error(s"No flag found for key ${key}")
-                      } else {
-                        flag.set(false)
-                      }
-                    case Failure(_) =>
-                      val key = runKey(offset, account, region)
-                      val flag = flagMap.get(key)
-                      if (flag == null) {
-                        logger.error(s"No flag found for key ${key}")
-                      } else {
-                        flag.set(false)
-                      }
-                    // let it bubble up. We'll retry all categories which should be ok as the polling should be idempotent
-                  }
-                } else {
-                  logger.warn(
-                    s"Skipping polling for period ${offset}s ${account} in ${region} as it was already running."
-                  )
                 }
               }
             }
@@ -302,35 +317,43 @@ class CloudWatchPoller(
         }
         val futures = new Array[Future[Done]](metricsList.size)
         var idx = 0
-        metricsList.foreach { metric =>
-          if (!category.dimensionsMatch(metric.dimensions().asScala.toList)) {
-            debugger.debugPolled(metric, IncomingMatch.DroppedTag, nowMillis, category)
-            dpsDroppedTags.increment()
-            futures(idx) = Future.successful(Done)
-          } else if (category.filter.map(_.matches(toTagMap(metric))).getOrElse(false)) {
-            debugger.debugPolled(metric, IncomingMatch.DroppedFilter, nowMillis, category)
-            dpsDroppedFilter.increment()
-            futures(idx) = Future.successful(Done)
-          } else {
-            val promise = Promise[Done]()
-            futures(idx) = promise.future
-            expecting.incrementAndGet()
-            executionContext.execute(FetchMetricStats(definition, metric, promise))
+        val wtf = Source
+          .fromIterator(() => metricsList.iterator)
+          .throttle(awsRequestLimit, 1.second)
+          .runForeach { metric =>
+            if (!category.dimensionsMatch(metric.dimensions().asScala.toList)) {
+              debugger.debugPolled(metric, IncomingMatch.DroppedTag, nowMillis, category)
+              dpsDroppedTags.increment()
+              futures(idx) = Future.successful(Done)
+            } else if (category.filter.map(_.matches(toTagMap(metric))).getOrElse(false)) {
+              debugger.debugPolled(metric, IncomingMatch.DroppedFilter, nowMillis, category)
+              dpsDroppedFilter.increment()
+              futures(idx) = Future.successful(Done)
+            } else {
+              val promise = Promise[Done]()
+              futures(idx) = promise.future
+              expecting.incrementAndGet()
+              executionContext.execute(FetchMetricStats(definition, metric, promise))
+            }
+            idx += 1
           }
-          idx += 1
+
+        wtf.onComplete {
+          case Success(_) =>
+            // completes on an empty metric list as well.
+            Future.sequence(futures.toList).onComplete {
+              case Success(_) =>
+                promise.success(Done)
+              case Failure(ex) =>
+                logger.error(
+                  s"Failed at least one polling for ${account} and ${category.namespace} ${definition.name} in region ${region}",
+                  ex
+                )
+                promise.failure(ex)
+            }
+          case Failure(ex) => promise.failure(ex)
         }
 
-        // completes on an empty metric list as well.
-        Future.sequence(futures.toList).onComplete {
-          case Success(_) =>
-            promise.success(Done)
-          case Failure(ex) =>
-            logger.error(
-              s"Failed at least one polling for ${account} and ${category.namespace} ${definition.name} in region ${region}",
-              ex
-            )
-            promise.failure(ex)
-        }
       }
 
       @Override def run(): Unit = {
@@ -454,4 +477,5 @@ object CloudWatchPoller {
   private[cloudwatch] def runKey(offset: Int, account: String, region: Region): String = {
     s"${account}_${region.toString}_${offset.toString}"
   }
+
 }

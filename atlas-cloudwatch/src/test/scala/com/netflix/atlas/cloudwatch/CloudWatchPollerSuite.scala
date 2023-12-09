@@ -114,6 +114,8 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val cfg = ConfigFactory.parseString("""
         |atlas {
         |  cloudwatch {
+        |    account.polling.requestLimit = 100
+        |    account.polling.fastPolling = []
         |    categories = ["cfg1", "cfg2"]
         |    poller.frequency = "5m"
         |
@@ -302,8 +304,8 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     mockMetricStats()
     child.ListMetrics(req, mdef, promise).process(metrics)
 
-    assertCounters(droppedTags = 1, droppedFilter = 1)
     Await.result(promise.future, 1.seconds)
+    assertCounters(droppedTags = 1, droppedFilter = 1)
   }
 
   test("Poller#ListMetrics empty") {
@@ -325,10 +327,10 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val metrics = getListResponse(req)
     child.ListMetrics(req, mdef, promise).process(metrics)
 
-    assertCounters(droppedTags = 1, droppedFilter = 1)
     intercept[RuntimeException] {
       Await.result(promise.future, 1.seconds)
     }
+    assertCounters(droppedTags = 1, droppedFilter = 1)
   }
 
   test("Poller#ListMetrics client throws") {
