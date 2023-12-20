@@ -362,7 +362,7 @@ class SlottingService(
       ddbClient.updateItem(deactivateAsgItemRequest(tableName, name))
     } catch {
       case e: Exception =>
-        logger.error(s"failed to update item $name: ${e.getMessage}")
+        logger.error(s"failed to deactivate item $name: ${e.getMessage}")
         dynamodbErrors.increment()
     }
   }
@@ -378,7 +378,7 @@ class SlottingService(
         logger.error(s"failed to assign slots, not updating item $name: ${e.getMessage}")
         registry.counter(slotsErrorsId.withTag("asg", name)).increment()
       case e: Exception =>
-        logger.error(s"failed to update item $name: ${e.getMessage}")
+        logger.error(s"failed to put item $name: ${e.getMessage}")
         dynamodbErrors.increment()
     }
   }
