@@ -28,6 +28,7 @@ import software.amazon.awssdk.services.autoscaling.AutoScalingClient
 import software.amazon.awssdk.services.autoscaling.model.DescribeAutoScalingGroupsRequest
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
+import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest
 import software.amazon.awssdk.services.ec2.Ec2Client
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest
@@ -348,6 +349,12 @@ class SlottingService(
         registry.counter(slotsChangedId.withTag("asg", name)).increment()
       }
     } catch {
+      case cas: ConditionalCheckFailedException =>
+        logger.error(
+          s"failed to update item $name: ${cas.getMessage}. " +
+            s"oldData: ${Util.decode(oldData)}, newData: ${Util.decode(newData)}"
+        )
+        dynamodbErrors.increment()
       case e: Exception =>
         logger.error(s"failed to update item $name: ${e.getMessage}")
         dynamodbErrors.increment()

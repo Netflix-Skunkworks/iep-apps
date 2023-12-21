@@ -15,10 +15,11 @@
  */
 package com.netflix.atlas.slotting
 
+import com.netflix.atlas.json.Json
+
 import java.nio.ByteBuffer
 import java.time.Duration
 import java.util.concurrent.ScheduledFuture
-
 import com.netflix.iep.config.NetflixEnvironment
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.impl.Scheduler
@@ -26,6 +27,10 @@ import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
 object Util extends StrictLogging {
+
+  def decode(buf: ByteBuffer): SlottedAsgDetails = {
+    Json.decode[SlottedAsgDetails](Util.decompress(buf))
+  }
 
   def getLongOrDefault(config: Config, basePath: String): Long = {
     val env = NetflixEnvironment.accountEnv()
