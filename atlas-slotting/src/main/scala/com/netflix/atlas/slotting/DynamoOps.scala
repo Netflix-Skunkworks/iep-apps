@@ -15,7 +15,6 @@
  */
 package com.netflix.atlas.slotting
 
-import java.nio.ByteBuffer
 import java.time.Duration
 import com.netflix.iep.config.NetflixEnvironment
 import com.netflix.spectator.api.Counter
@@ -58,8 +57,8 @@ trait DynamoOps extends StrictLogging {
     javaMap[String, AttributeValue](pairs)
   }
 
-  private def binary(value: ByteBuffer): AttributeValue = {
-    AttributeValue.builder().b(SdkBytes.fromByteBuffer(value)).build()
+  private def binary(value: Array[Byte]): AttributeValue = {
+    AttributeValue.builder().b(SdkBytes.fromByteArray(value)).build()
   }
 
   private def bool(value: Boolean): AttributeValue = {
@@ -122,7 +121,7 @@ trait DynamoOps extends StrictLogging {
       .build()
   }
 
-  def putAsgItemRequest(table: String, name: String, newData: ByteBuffer): PutItemRequest = {
+  def putAsgItemRequest(table: String, name: String, newData: Array[Byte]): PutItemRequest = {
     PutItemRequest
       .builder()
       .tableName(table)
@@ -140,8 +139,8 @@ trait DynamoOps extends StrictLogging {
   def updateAsgItemRequest(
     table: String,
     name: String,
-    oldData: ByteBuffer,
-    newData: ByteBuffer
+    oldData: Array[Byte],
+    newData: Array[Byte]
   ): UpdateItemRequest = {
     val nameMap = createNameMap(
       "#d" -> Data,

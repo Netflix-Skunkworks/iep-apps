@@ -23,7 +23,6 @@ import software.amazon.awssdk.services.autoscaling.model.AutoScalingGroup
 import software.amazon.awssdk.services.autoscaling.model.Instance as AsgInstance
 import software.amazon.awssdk.services.ec2.model.Instance as Ec2Instance
 
-import java.nio.ByteBuffer
 import java.time.Instant
 import scala.jdk.CollectionConverters.*
 
@@ -265,19 +264,17 @@ trait Grouping extends StrictLogging {
   def mkNewDataAssignSlots(
     newAsgDetails: AsgDetails,
     instanceInfo: Map[String, Ec2InstanceDetails]
-  ): ByteBuffer = {
-    Util.compress(
-      Json.encode(
-        SlottedAsgDetails(
-          newAsgDetails.name,
-          newAsgDetails.cluster,
-          newAsgDetails.createdTime,
-          newAsgDetails.desiredCapacity,
-          newAsgDetails.maxSize,
-          newAsgDetails.minSize,
-          newAsgDetails.isDisabled,
-          assignSlots(newAsgDetails, instanceInfo)
-        )
+  ): String = {
+    Json.encode(
+      SlottedAsgDetails(
+        newAsgDetails.name,
+        newAsgDetails.cluster,
+        newAsgDetails.createdTime,
+        newAsgDetails.desiredCapacity,
+        newAsgDetails.maxSize,
+        newAsgDetails.minSize,
+        newAsgDetails.isDisabled,
+        assignSlots(newAsgDetails, instanceInfo)
       )
     )
   }
@@ -359,33 +356,31 @@ trait Grouping extends StrictLogging {
     * continue uninterrupted.
     *
     * @param oldData
-    *   A Gzip compressed JSON payload of old ASG data with slot numbers, from DynamoDB.
+    *   A JSON payload string of old ASG data with slot numbers, from DynamoDB.
     * @param newAsgDetails
     *   An AutoScalingGroup from a recent AWS API crawl, without slot numbers.
     * @return
     *   A Gzip compressed JSON payload of ASG data with merged slot numbers, for DynamoDB.
     */
   def mkNewDataMergeSlots(
-    oldData: ByteBuffer,
+    oldData: String,
     newAsgDetails: AsgDetails,
     instanceInfo: Map[String, Ec2InstanceDetails],
     slotsErrors: Counter
-  ): ByteBuffer = {
-    val oldAsgDetails = Json.decode[SlottedAsgDetails](Util.decompress(oldData))
+  ): String = {
+    val oldAsgDetails = Json.decode[SlottedAsgDetails](oldData)
 
     try {
-      Util.compress(
-        Json.encode(
-          SlottedAsgDetails(
-            newAsgDetails.name,
-            newAsgDetails.cluster,
-            newAsgDetails.createdTime,
-            newAsgDetails.desiredCapacity,
-            newAsgDetails.maxSize,
-            newAsgDetails.minSize,
-            newAsgDetails.isDisabled,
-            mergeSlots(oldAsgDetails, newAsgDetails, instanceInfo)
-          )
+      Json.encode(
+        SlottedAsgDetails(
+          newAsgDetails.name,
+          newAsgDetails.cluster,
+          newAsgDetails.createdTime,
+          newAsgDetails.desiredCapacity,
+          newAsgDetails.maxSize,
+          newAsgDetails.minSize,
+          newAsgDetails.isDisabled,
+          mergeSlots(oldAsgDetails, newAsgDetails, instanceInfo)
         )
       )
     } catch {
