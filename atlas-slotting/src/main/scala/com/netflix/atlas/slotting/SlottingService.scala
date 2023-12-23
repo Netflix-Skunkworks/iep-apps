@@ -217,7 +217,7 @@ class SlottingService(
       .map { item =>
         val name = item.get(Name).s()
         val data =
-          Json.decode[SlottedAsgDetails](Util.decompress(item.get(Data).b().asByteBuffer()))
+          Json.decode[SlottedAsgDetails](Gzip.decompressString(item.get(Data).b().asByteArray()))
         name -> data
       }
       .toScala(List)
@@ -252,7 +252,7 @@ class SlottingService(
           count += 1
         } catch {
           case e: Exception =>
-            logger.error(s"failed to delete item $name: ${e.getMessage}")
+            logger.error(s"failed to delete item $name", e)
             dynamodbErrors.increment()
         }
       }
@@ -312,7 +312,7 @@ class SlottingService(
         if (remainingAsgs.contains(name))
           updateItem(name, item, asgs(name))
         else if (active)
-          deactivateItem(name, item)
+          deactivateItem(name)
       }
 
     remainingAsgs.foreach { name =>
@@ -333,7 +333,7 @@ class SlottingService(
     item: Item,
     newAsgDetails: AsgDetails
   ): Unit = {
-    val oldData = item.get(Data).b().asByteBuffer()
+    val oldData = Gzip.decompressString(item.get(Data).b().asByteArray())
     val slotsErrors = registry.counter(slotsErrorsId.withTag("asg", name))
     val newData = mkNewDataMergeSlots(oldData, newAsgDetails, instanceInfo, slotsErrors)
 
@@ -344,41 +344,48 @@ class SlottingService(
         ddbClient.updateItem(updateTimestampItemRequest(tableName, name, timestamp))
       } else {
         logger.info(s"merge slots for asg $name")
-        ddbClient.updateItem(updateAsgItemRequest(tableName, name, oldData, newData))
+        ddbClient.updateItem(
+          updateAsgItemRequest(
+            tableName,
+            name,
+            Gzip.compressString(oldData),
+            Gzip.compressString(newData)
+          )
+        )
         registry.counter(slotsChangedId.withTag("asg", name)).increment()
       }
     } catch {
       case e: Exception =>
-        logger.error(s"failed to update item $name: ${e.getMessage}")
+        logger.error(s"failed to update item $name: new: $newData, old: $oldData", e)
         dynamodbErrors.increment()
     }
 
     remainingAsgs = remainingAsgs - name
   }
 
-  def deactivateItem(name: String, item: Item): Unit = {
+  def deactivateItem(name: String): Unit = {
     try {
       logger.info(s"deactivate asg $name")
       ddbClient.updateItem(deactivateAsgItemRequest(tableName, name))
     } catch {
       case e: Exception =>
-        logger.error(s"failed to deactivate item $name: ${e.getMessage}")
+        logger.error(s"failed to deactivate item $name", e)
         dynamodbErrors.increment()
     }
   }
 
   def addItem(name: String, newAsgDetails: AsgDetails): Unit = {
+    val newData = mkNewDataAssignSlots(newAsgDetails, instanceInfo)
     try {
-      val newData = mkNewDataAssignSlots(newAsgDetails, instanceInfo)
       logger.info(s"assign slots for asg $name")
-      ddbClient.putItem(putAsgItemRequest(tableName, name, newData))
+      ddbClient.putItem(putAsgItemRequest(tableName, name, Gzip.compressString(newData)))
       registry.counter(slotsChangedId.withTag("asg", name)).increment()
     } catch {
       case e: IllegalArgumentException =>
-        logger.error(s"failed to assign slots, not updating item $name: ${e.getMessage}")
+        logger.error(s"failed to assign slots, not updating item $name: $newData", e)
         registry.counter(slotsErrorsId.withTag("asg", name)).increment()
       case e: Exception =>
-        logger.error(s"failed to put item $name: ${e.getMessage}")
+        logger.error(s"failed to put item $name: $newData", e)
         dynamodbErrors.increment()
     }
   }

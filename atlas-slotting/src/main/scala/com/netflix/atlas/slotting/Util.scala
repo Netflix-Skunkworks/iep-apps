@@ -15,7 +15,6 @@
  */
 package com.netflix.atlas.slotting
 
-import java.nio.ByteBuffer
 import java.time.Duration
 import java.util.concurrent.ScheduledFuture
 
@@ -35,21 +34,6 @@ object Util extends StrictLogging {
       config.getLong(s"$basePath.$env.$region")
     else
       config.getLong(s"$basePath.default")
-  }
-
-  def compress(s: String): ByteBuffer = {
-    ByteBuffer.wrap(Gzip.compressString(s))
-  }
-
-  def decompress(buf: ByteBuffer): String = {
-    Gzip.decompressString(toByteArray(buf))
-  }
-
-  def toByteArray(buf: ByteBuffer): Array[Byte] = {
-    val bytes = new Array[Byte](buf.remaining)
-    buf.get(bytes, 0, bytes.length)
-    buf.clear()
-    bytes
   }
 
   def startScheduler(

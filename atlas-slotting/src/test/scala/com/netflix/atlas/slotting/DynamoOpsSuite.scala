@@ -23,16 +23,6 @@ import munit.FunSuite
 
 class DynamoOpsSuite extends FunSuite with DynamoOps {
 
-  def mkByteBuffer(s: String): ByteBuffer = {
-    ByteBuffer.wrap(s.getBytes(StandardCharsets.UTF_8))
-  }
-
-  test("compress and decompress") {
-    val input = "Atlas Slotting Service"
-    val compressed = Util.compress(input)
-    assertEquals(input, Util.decompress(compressed))
-  }
-
   test("active items spec") {
     val scanSpec = activeItemsScanRequest("test")
     assertEquals(scanSpec.filterExpression, "#a = :v1")
@@ -48,7 +38,8 @@ class DynamoOpsSuite extends FunSuite with DynamoOps {
   }
 
   test("new asg item") {
-    val newData = mkByteBuffer("""{"name": "atlas_app-main-all-v001", "desiredCapacity": 3}""")
+    val newData =
+      Gzip.compressString("""{"name": "atlas_app-main-all-v001", "desiredCapacity": 3}""")
     val item = putAsgItemRequest("test", "atlas_app-main-all-v001", newData).item()
     assert(item.containsKey(Name))
     assert(item.containsKey(Data))
@@ -57,8 +48,10 @@ class DynamoOpsSuite extends FunSuite with DynamoOps {
   }
 
   test("update asg spec") {
-    val oldData = mkByteBuffer("""{"name": "atlas_app-main-all-v001", "desiredCapacity": 3}""")
-    val newData = mkByteBuffer("""{"name": "atlas_app-main-all-v001", "desiredCapacity": 6}""")
+    val oldData =
+      Gzip.compressString("""{"name": "atlas_app-main-all-v001", "desiredCapacity": 3}""")
+    val newData =
+      Gzip.compressString("""{"name": "atlas_app-main-all-v001", "desiredCapacity": 6}""")
     val updateSpec = updateAsgItemRequest("test", "atlas_app-main-all-v001", oldData, newData)
     assertEquals(updateSpec.conditionExpression, "#d = :v1")
     assertEquals(updateSpec.updateExpression, s"set #d = :v2, #a = :v3, #t = :v4")
