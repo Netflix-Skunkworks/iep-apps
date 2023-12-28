@@ -1,6 +1,8 @@
 {
   "instanceId": "i-003",
+  "ipv6Address": "0:0:0:0:0:FFFF:C0A8:0103",
   "privateIpAddress": "192.168.1.3",
+  "publicIpAddress": "10.0.0.3",
   "slot": 2,
   "launchTime": 1555430010290,
   "imageId": "ami-001",

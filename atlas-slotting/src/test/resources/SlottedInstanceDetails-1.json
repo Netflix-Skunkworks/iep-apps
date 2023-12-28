@@ -1,6 +1,7 @@
 {
   "instanceId": "i-002",
   "privateIpAddress": "192.168.1.2",
+  "publicIpAddress": "10.0.0.2",
   "slot": 1,
   "launchTime": 1555430010290,
   "imageId": "ami-001",
