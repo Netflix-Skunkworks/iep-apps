@@ -168,8 +168,6 @@ class SlottingService(
       logger.info(s"crawled ${instanceInfo.size} instances in ${fmtTime(elapsed)}")
       lastUpdateInstances.set(clock.wallTime())
     }
-
-    if (allDataAvailable) updateSlots()
   }
 
   /** Crawl Ec2 Instances and return a map of instanceId -> Ec2InstanceDetails.
@@ -299,7 +297,17 @@ class SlottingService(
       Functions.AGE
     )
 
+  /** Update the slot mappings. This should only be invoked by a single thread at a given time. Since the
+    * set of remaining ASGs is updated while updating slots, this operation will be performed after crawling
+    * ASGs if the instance data is available.
+    */
   def updateSlots(): Unit = {
+    // Instance data is updated in another thread. Capture it to ensure there is a consistent copy used for
+    // this update operation.
+    val instanceData = instanceInfo
+    asgsAvailable = false
+    instanceInfoAvailable = false
+
     val request = ScanRequest.builder().tableName(tableName).build()
     ddbClient
       .scan(request)
@@ -310,7 +318,7 @@ class SlottingService(
         val active = item.get(Active).bool()
 
         if (remainingAsgs.contains(name))
-          updateItem(name, item, asgs(name))
+          updateItem(name, item, asgs(name), instanceData)
         else if (active)
           deactivateItem(name)
       }
@@ -320,9 +328,6 @@ class SlottingService(
     }
 
     lastUpdateSlots.set(clock.wallTime)
-
-    asgsAvailable = false
-    instanceInfoAvailable = false
   }
 
   private val slotsChangedId = registry.createId("slots.changed")
@@ -331,11 +336,12 @@ class SlottingService(
   def updateItem(
     name: String,
     item: Item,
-    newAsgDetails: AsgDetails
+    newAsgDetails: AsgDetails,
+    instanceData: Map[String, Ec2InstanceDetails]
   ): Unit = {
     val oldData = Gzip.decompressString(item.get(Data).b().asByteArray())
     val slotsErrors = registry.counter(slotsErrorsId.withTag("asg", name))
-    val newData = mkNewDataMergeSlots(oldData, newAsgDetails, instanceInfo, slotsErrors)
+    val newData = mkNewDataMergeSlots(oldData, newAsgDetails, instanceData, slotsErrors)
 
     try {
       if (newData == oldData) {
