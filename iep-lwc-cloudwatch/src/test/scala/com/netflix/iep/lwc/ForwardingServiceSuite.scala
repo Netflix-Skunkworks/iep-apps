@@ -266,6 +266,7 @@ class ForwardingServiceSuite extends FunSuite {
     assertEquals(actual.id, Json.decode[ExpressionId](id))
     assertEquals(actual.accountDatum.get.account, "1234567890")
     assertEquals(actual.accountDatum.get.datum.metricName(), "ssCpuUser")
+    assertEquals(actual.accountDatum.get.datum.storageResolution().toInt, 60)
   }
 
   test("toMetricDatum: filter out NaN values") {
@@ -295,6 +296,39 @@ class ForwardingServiceSuite extends FunSuite {
     val env = new Evaluator.MessageEnvelope(id, msg)
     val actual = runToMetricDatum(env).accountDatum
     assertEquals(actual, None)
+  }
+
+  test("toMetricDatum: high resolution") {
+    val msg = TimeSeriesMessage(
+      id = "abc",
+      query = "name,ssCpuUser,:eq,:sum",
+      groupByKeys = Nil,
+      start = 0L,
+      end = 60000L,
+      step = 5000L,
+      label = "test",
+      tags = Map("name" -> "ssCpuUser"),
+      data = ArrayData(Array(1.0))
+    )
+    val id =
+      """
+        |{
+        |  "key": "cluster1",
+        |  "expression": {
+        |    "atlasUri": "http://atlas/api/v1/graph?q=name,ssCpuUser,:eq,:sum",
+        |    "account": "1234567890",
+        |    "metricName": "ssCpuUser",
+        |    "dimensions": []
+        |  }
+        |}
+      """.stripMargin
+    val env = new Evaluator.MessageEnvelope(id, msg)
+    val actual = runToMetricDatum(env)
+
+    assertEquals(actual.id, Json.decode[ExpressionId](id))
+    assertEquals(actual.accountDatum.get.account, "1234567890")
+    assertEquals(actual.accountDatum.get.datum.metricName(), "ssCpuUser")
+    assertEquals(actual.accountDatum.get.datum.storageResolution().toInt, 1)
   }
 
   //
