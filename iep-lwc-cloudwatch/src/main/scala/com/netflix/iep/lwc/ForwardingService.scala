@@ -313,6 +313,9 @@ object ForwardingService extends StrictLogging {
     val regionStr =
       Strings.substitute(expression.region.getOrElse(dfltRegionStr), msg.tags)
 
+    // CloudWatch only supports 1 or 60, 1 being high resolution.
+    val resolution = if (msg.step >= 60_000) 60 else 1
+
     msg.data match {
       case data: ArrayData if !data.values(0).isNaN =>
         val datum = MetricDatum
@@ -323,6 +326,7 @@ object ForwardingService extends StrictLogging {
           )
           .timestamp(Instant.ofEpochMilli(msg.start))
           .value(truncate(data.values(0)))
+          .storageResolution(resolution)
           .build()
         Some(AccountDatum(regionStr, accountId, datum))
       case _ =>
