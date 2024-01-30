@@ -163,6 +163,8 @@ class PayloadDecoder(
         // incorrectly flagged as missing name if another check fails
         name = v
         numUserTags += 1
+        if (result == TagRule.Pass)
+          result = validator.validate("name", v)
       } else if (result == TagRule.Pass) {
         // Avoid doing unnecessary work if it has already failed validation. We still need
         // to process the entry as subsequent entries may be fine.
