@@ -248,7 +248,10 @@ class UpdateApiSuite extends FunSuite {
     val tags = SmallHashMap("name" -> name)
     val msg = validationTest(tags, StatusCodes.BadRequest)
     assertEquals(msg.errorCount, 1)
-    assertEquals(msg.message, List(s"value too long: name = [$name] (300 > 255) (tags={\"name\":\"$name\"})"))
+    assertEquals(
+      msg.message,
+      List(s"value too long: name = [$name] (300 > 255) (tags={\"name\":\"$name\"})")
+    )
   }
 
   test("validation: too many user tags") {
