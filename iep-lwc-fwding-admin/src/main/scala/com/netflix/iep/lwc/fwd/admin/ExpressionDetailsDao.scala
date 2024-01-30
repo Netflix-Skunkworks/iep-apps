@@ -102,6 +102,7 @@ class ExpressionDetailsDaoImpl(
   override def read(id: ExpressionId): Option[ExpressionDetails] = {
     val request = GetItemRequest
       .builder()
+      .tableName(TableName)
       .key(createValueMap(ExpressionIdAttr -> string(Json.encode(id))))
       .build()
     val itemResponse = record(
