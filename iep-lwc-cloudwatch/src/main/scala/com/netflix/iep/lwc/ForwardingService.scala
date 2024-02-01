@@ -273,7 +273,7 @@ object ForwardingService extends StrictLogging {
 
   def toDataSource(expression: ForwardingExpression, key: String): Evaluator.DataSource = {
     val id = Json.encode(ExpressionId(key, expression))
-    new Evaluator.DataSource(id, Duration.ofSeconds(60L), expression.atlasUri)
+    new Evaluator.DataSource(id, expression.atlasUri)
   }
 
   def toMetricDatum(
