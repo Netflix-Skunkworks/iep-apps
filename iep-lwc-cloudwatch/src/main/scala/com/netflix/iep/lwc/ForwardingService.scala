@@ -233,8 +233,8 @@ object ForwardingService extends StrictLogging {
 
     Flow[ByteString]
       .via(Framing.delimiter(ByteString("\n"), MaxFrameLength, allowTruncation = true))
-      .map(_.decodeString(StandardCharsets.UTF_8))
-      .filter(s => s.trim.nonEmpty)
+      .map(_.decodeString(StandardCharsets.UTF_8).trim)
+      .filter(_.nonEmpty)
       .map { s =>
         val msg = Message(s)
         logger.debug(s"message [${msg.str}]")
