@@ -89,6 +89,16 @@ class ForwardingService(
     .withName("forwarding.timeSinceLastPut")
     .monitorValue(new AtomicLong(clock.wallTime()), Functions.age(clock))
 
+  private val numConfigs = PolledMeter
+    .using(registry)
+    .withName("forwarding.numConfigs")
+    .monitorValue(new AtomicLong())
+
+  private val numDataSources = PolledMeter
+    .using(registry)
+    .withName("forwarding.numDataSources")
+    .monitorValue(new AtomicLong())
+
   private var killSwitch: KillSwitch = _
 
   override def startImpl(): Unit = {
@@ -109,7 +119,15 @@ class ForwardingService(
 
     killSwitch = autoReconnectHttpSource(uri, client)
       .via(configInput(registry))
+      .map { configs =>
+        numConfigs.set(configs.size)
+        configs
+      }
       .via(toDataSources(pattern))
+      .map { dss =>
+        numDataSources.set(dss.sources().size())
+        dss
+      }
       .via(Flow.fromProcessor(() => evaluator.createStreamsProcessor()))
       .via(toMetricDatum(config, registry))
       .via(sendToCloudWatch(lastSuccessfulPutTime, namespace, put))
@@ -223,6 +241,7 @@ object ForwardingService extends StrictLogging {
     val updates = registry.counter(baseId.withTag("id", "update"))
     val deletes = registry.counter(baseId.withTag("id", "delete"))
     val done = registry.counter(baseId.withTag("id", "done"))
+    val start = registry.counter(baseId.withTag("id", "start"))
     val repoVersion = registry.gauge("forwarding.repoVersion")
 
     val clock = registry.clock()
@@ -246,6 +265,7 @@ object ForwardingService extends StrictLogging {
             repoVersion.set(m.repoVersion.toDouble)
           case m if m.isInvalid => invalid.increment()
           case m if m.isUpdate  => (if (m.response.isDelete) deletes else updates).increment()
+          case m if m.isStart   => start.increment()
           case m if m.isDone    => done.increment()
           case _                =>
         }
@@ -486,6 +506,8 @@ object ForwardingService extends StrictLogging {
 
     def isInvalid: Boolean =
       !isDone && (isNullOrEmpty(data.key) || !data.data.fieldNames().hasNext)
+
+    def isStart: Boolean = data.dataType == "start"
 
     def isDone: Boolean = data.dataType == "done"
 
