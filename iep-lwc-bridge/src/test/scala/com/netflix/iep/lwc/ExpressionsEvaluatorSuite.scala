@@ -16,7 +16,6 @@
 package com.netflix.iep.lwc
 
 import com.netflix.spectator.api.NoopRegistry
-import com.netflix.spectator.atlas.impl.EvalPayload
 import com.netflix.spectator.atlas.impl.Subscription
 import com.typesafe.config.ConfigFactory
 import munit.FunSuite

@@ -44,7 +44,6 @@ import redis.clients.jedis.resps.ScanResult
 
 import java.nio.ByteBuffer
 import java.util
-import java.util
 import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.ArrayBuffer

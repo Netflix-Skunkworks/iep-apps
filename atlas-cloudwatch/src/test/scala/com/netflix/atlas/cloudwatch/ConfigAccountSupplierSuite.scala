@@ -20,9 +20,6 @@ import com.typesafe.config.ConfigFactory
 import munit.FunSuite
 import software.amazon.awssdk.regions.Region
 
-import scala.concurrent.Await
-import scala.concurrent.duration.DurationInt
-
 class ConfigAccountSupplierSuite extends FunSuite {
 
   val rules = new CloudWatchRules(ConfigFactory.load())
