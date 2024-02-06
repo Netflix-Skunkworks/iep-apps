@@ -102,6 +102,7 @@ class ForwardingService(
   private var killSwitch: KillSwitch = _
 
   override def startImpl(): Unit = {
+    val putEnabled = config.getBoolean("iep.lwc.cloudwatch.put-enabled")
     val pattern = Pattern.compile(config.getString("iep.lwc.cloudwatch.filter"))
     val uri = config.getString("iep.lwc.cloudwatch.uri")
     val namespace = config.getString("iep.lwc.cloudwatch.namespace")
@@ -113,8 +114,12 @@ class ForwardingService(
       account: String,
       request: PutMetricDataRequest
     ): PutMetricDataResponse = {
-      val cwClient = clientFactory.getInstance(region, classOf[CloudWatchClient], account)
-      cwClient.putMetricData(request)
+      if (putEnabled) {
+        val cwClient = clientFactory.getInstance(region, classOf[CloudWatchClient], account)
+        cwClient.putMetricData(request)
+      } else {
+        PutMetricDataResponse.builder().build()
+      }
     }
 
     killSwitch = autoReconnectHttpSource(uri, client)
