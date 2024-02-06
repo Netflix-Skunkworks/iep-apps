@@ -15,8 +15,6 @@
  */
 package com.netflix.atlas.slotting
 
-import java.nio.ByteBuffer
-import java.nio.charset.StandardCharsets
 import java.time.Duration
 
 import munit.FunSuite

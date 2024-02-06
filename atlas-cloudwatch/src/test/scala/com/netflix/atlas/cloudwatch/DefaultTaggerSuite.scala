@@ -21,8 +21,6 @@ import com.typesafe.config.ConfigFactory
 import munit.FunSuite
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
 
-import java.util.regex.Pattern
-
 class DefaultTaggerSuite extends FunSuite {
 
   private val dimensions = List(

@@ -30,64 +30,64 @@ class PublishRouterSuite extends FunSuite with TestKitBase {
 
   override implicit def system: ActorSystem = ActorSystem(getClass.getSimpleName)
 
-  var registry: Registry = new DefaultRegistry()
-  val config = ConfigFactory.load()
-  val tagger = new NetflixTagger(config.getConfig("atlas.cloudwatch.tagger"))
-  val httpClient = mock[PekkoHttpClient]
-  val router = new PublishRouter(config, registry, tagger, httpClient)
+  private val registry: Registry = new DefaultRegistry()
+  private val config = ConfigFactory.load()
+  private val tagger = new NetflixTagger(config.getConfig("atlas.cloudwatch.tagger"))
+  private val httpClient = mock[PekkoHttpClient]
+  private val router = new PublishRouter(config, registry, tagger, httpClient)
 
   test("initialize") {
     assertEquals(router.mainQueue.uri, "https://publish-main.us-east-1.foo.com/api/v1/publish")
     assertEquals(router.accountMap.size, 3)
-    router.shutdown
+    router.shutdown()
   }
 
   test("publish main same region") {
     val dp = Datapoint(Map("nf.account" -> "42", "nf.region" -> "us-east-1"), timestamp, 42.0)
     val queue = router.getQueue(dp).get
     assertEquals(queue.uri, "https://publish-main.us-east-1.foo.com/api/v1/publish")
-    router.shutdown
+    router.shutdown()
   }
 
   test("publish main same any region") {
     val dp = Datapoint(Map("nf.account" -> "42", "nf.region" -> "ap-south-1"), timestamp, 42.0)
     val queue = router.getQueue(dp).get
     assertEquals(queue.uri, "https://publish-main.us-east-1.foo.com/api/v1/publish")
-    router.shutdown
+    router.shutdown()
   }
 
   test("publish stackA acct 1 default") {
     val dp = Datapoint(Map("nf.account" -> "1", "nf.region" -> "us-east-1"), timestamp, 42.0)
     val queue = router.getQueue(dp).get
     assertEquals(queue.uri, "https://publish-stackA.us-east-1.foo.com/api/v1/publish")
-    router.shutdown
+    router.shutdown()
   }
 
   test("publish stackA acct 2 default") {
     val dp = Datapoint(Map("nf.account" -> "2", "nf.region" -> "us-east-1"), timestamp, 42.0)
     val queue = router.getQueue(dp).get
     assertEquals(queue.uri, "https://publish-stackA.us-east-1.foo.com/api/v1/publish")
-    router.shutdown
+    router.shutdown()
   }
 
   test("publish stackA us-west") {
     val dp = Datapoint(Map("nf.account" -> "1", "nf.region" -> "us-west-1"), timestamp, 42.0)
     val queue = router.getQueue(dp).get
     assertEquals(queue.uri, "https://publish-stackA.us-west-1.foo.com/api/v1/publish")
-    router.shutdown
+    router.shutdown()
   }
 
   test("publish stackB us-west") {
     val dp = Datapoint(Map("nf.account" -> "3", "nf.region" -> "us-west-1"), timestamp, 42.0)
     val queue = router.getQueue(dp).get
     assertEquals(queue.uri, "https://publish-stackB.us-east-1.foo.com/api/v1/publish")
-    router.shutdown
+    router.shutdown()
   }
 
   test("publish missing account tag") {
     val dp = Datapoint(Map("no" -> "account"), 1677628800000L, 42.0)
     val router = new PublishRouter(config, registry, tagger, httpClient)
-    router.shutdown
+    router.shutdown()
     router.publish(dp)
     assertEquals(
       registry.counter("atlas.cloudwatch.queue.dps.dropped", "reason", "missingAccount").count(),
