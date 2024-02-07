@@ -418,9 +418,9 @@ class ForwardingServiceSuite extends FunSuite {
   }
 
   test("toCloudWatchPut: multiple batches") {
-    val data = createDataSet(27)
+    val data = createDataSet(1700)
     val actual = runCloudWatchPut("Netflix/Namespace", data)
-    val expected = data.grouped(20).toList.map { vs =>
+    val expected = data.grouped(1000).toList.map { vs =>
       AccountRequest(
         "us-east-1",
         "12345",
@@ -507,12 +507,12 @@ class ForwardingServiceSuite extends FunSuite {
   }
 
   test("toCloudWatchPut: multiple accounts and batching") {
-    val data = createMultiAccountDataSet(2, 47)
+    val data = createMultiAccountDataSet(2, 2700)
     val actual = runCloudWatchPut("Netflix/Namespace", data)
     assertEquals(actual.size, 4)
     assertEquals(actual.map(_.account).toSet, Set("0", "1"))
-    assertEquals(actual.filter(_.account == "0").map(_.request.metricData.size()).sum, 24)
-    assertEquals(actual.filter(_.account == "1").map(_.request.metricData.size()).sum, 23)
+    assertEquals(actual.filter(_.account == "0").map(_.request.metricData.size()).sum, 1350)
+    assertEquals(actual.filter(_.account == "1").map(_.request.metricData.size()).sum, 1350)
   }
 
   def createMultiRegionDataSet(mod: Int, n: Int): List[AccountDatum] = {
