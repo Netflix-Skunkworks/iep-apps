@@ -57,8 +57,6 @@ import software.amazon.awssdk.services.cloudwatch.model.PutMetricDataResponse
 
 import java.time.Instant
 import java.util.concurrent.Executors
-import java.util.concurrent.ThreadFactory
-import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.duration.*
@@ -162,14 +160,7 @@ class ForwardingService(
 object ForwardingService extends StrictLogging {
 
   // Pool for CloudWatch requests
-  private val executor = Executors.newCachedThreadPool(new ThreadFactory {
-
-    private val nextId = new AtomicInteger()
-
-    override def newThread(runnable: Runnable): Thread = {
-      new Thread(runnable, s"aws-publisher-${nextId.getAndIncrement()}")
-    }
-  })
+  private val executor = Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("aws-publisher").factory())
   private val awsEC: ExecutionContext = ExecutionContext.fromExecutor(executor)
 
   //
@@ -406,14 +397,16 @@ object ForwardingService extends StrictLogging {
     doPut: PutFunction
   ): Flow[ForwardingMsgEnvelope, ForwardingMsgEnvelope, NotUsed] = {
 
+    // groupedWithin based on CloudWatch limits of 1000 metrics per put
+    // https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_PutMetricData.html
     import scala.jdk.CollectionConverters.*
     Flow[ForwardingMsgEnvelope]
       .groupBy(
         Int.MaxValue,
         d => s"${d.accountDatum.map(_.region)}.${d.accountDatum.map(_.account)}"
       ) // one client per region/account or no client when accountDatum is empty
-      .groupedWithin(20, 5.seconds)
-      .flatMapConcat { data =>
+      .groupedWithin(1000, 5.seconds)
+      .flatMapMerge(Int.MaxValue, { data =>
         if (data.head.accountDatum.isDefined) {
           val request = PutMetricDataRequest
             .builder()
@@ -445,7 +438,7 @@ object ForwardingService extends StrictLogging {
         } else {
           Source(data)
         }
-      }
+      })
       .mergeSubstreams
   }
 
