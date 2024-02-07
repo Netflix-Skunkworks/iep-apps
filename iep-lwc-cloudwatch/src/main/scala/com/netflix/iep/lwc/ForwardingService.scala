@@ -160,7 +160,8 @@ class ForwardingService(
 object ForwardingService extends StrictLogging {
 
   // Pool for CloudWatch requests
-  private val executor = Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("aws-publisher").factory())
+  private val executor =
+    Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("aws-publisher").factory())
   private val awsEC: ExecutionContext = ExecutionContext.fromExecutor(executor)
 
   //
@@ -406,39 +407,43 @@ object ForwardingService extends StrictLogging {
         d => s"${d.accountDatum.map(_.region)}.${d.accountDatum.map(_.account)}"
       ) // one client per region/account or no client when accountDatum is empty
       .groupedWithin(1000, 5.seconds)
-      .flatMapMerge(Int.MaxValue, { data =>
-        if (data.head.accountDatum.isDefined) {
-          val request = PutMetricDataRequest
-            .builder()
-            .namespace(namespace)
-            .metricData(data.map(_.accountDatum.get.datum).asJava)
-            .build()
+      .flatMapMerge(
+        Int.MaxValue,
+        { data =>
+          if (data.head.accountDatum.isDefined) {
+            val request = PutMetricDataRequest
+              .builder()
+              .namespace(namespace)
+              .metricData(data.map(_.accountDatum.get.datum).asJava)
+              .build()
 
-          val region = data.head.accountDatum.get.region
-          val account = data.head.accountDatum.get.account
-          val future = Future(doPut(region, account, request))(awsEC)
-          Source
-            .future(future)
-            .map { _ =>
-              logger.whenDebugEnabled {
-                val context = s"(region=$region, account=$account, request=$request)"
-                logger.debug(s"cloudwatch put succeeded $context")
+            val region = data.head.accountDatum.get.region
+            val account = data.head.accountDatum.get.account
+            val future = Future(doPut(region, account, request))(awsEC)
+            Source
+              .future(future)
+              .map { _ =>
+                logger.whenDebugEnabled {
+                  val context = s"(region=$region, account=$account, request=$request)"
+                  logger.debug(s"cloudwatch put succeeded $context")
+                }
+                lastSuccessfulPutTime.set(System.currentTimeMillis())
+                data
               }
-              lastSuccessfulPutTime.set(System.currentTimeMillis())
-              data
-            }
-            .recover {
-              case t: Throwable =>
-                val exprs = Json.encode(data.map(_.id))
-                val context = s"(region=$region, account=$account, request=$request, exprs=$exprs)"
-                logger.warn(s"cloudwatch request failed $context", t)
-                data.map(_.copy(error = Some(t)))
-            }
-            .mapConcat(identity)
-        } else {
-          Source(data)
+              .recover {
+                case t: Throwable =>
+                  val exprs = Json.encode(data.map(_.id))
+                  val context =
+                    s"(region=$region, account=$account, request=$request, exprs=$exprs)"
+                  logger.warn(s"cloudwatch request failed $context", t)
+                  data.map(_.copy(error = Some(t)))
+              }
+              .mapConcat(identity)
+          } else {
+            Source(data)
+          }
         }
-      })
+      )
       .mergeSubstreams
   }
 
