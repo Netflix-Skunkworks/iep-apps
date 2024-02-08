@@ -231,7 +231,7 @@ class ForwardingServiceSuite extends FunSuite {
   def runToMetricDatum(env: Evaluator.MessageEnvelope): ForwardingMsgEnvelope = {
     val future = Source
       .single(env)
-      .via(toMetricDatum(ConfigFactory.load(), new NoopRegistry))
+      .via(toMetricDatum(ConfigFactory.load(), new NoopRegistry, new ConfigStats))
       .runWith(Sink.head)
     Await.result(future, Duration.Inf)
   }
