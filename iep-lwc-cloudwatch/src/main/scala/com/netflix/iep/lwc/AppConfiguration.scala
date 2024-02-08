@@ -31,15 +31,21 @@ import java.util.Optional
 class AppConfiguration {
 
   @Bean
+  def configStats: ConfigStats = {
+    new ConfigStats
+  }
+
+  @Bean
   def forwardingService(
     config: Optional[Config],
     registry: Optional[Registry],
+    configStats: ConfigStats,
     evaluator: Evaluator,
     factory: AwsClientFactory,
     system: ActorSystem
   ): ForwardingService = {
     val c = config.orElseGet(() => ConfigFactory.load())
     val r = registry.orElseGet(() => new NoopRegistry)
-    new ForwardingService(c, r, evaluator, factory, system)
+    new ForwardingService(c, r, configStats, evaluator, factory, system)
   }
 }

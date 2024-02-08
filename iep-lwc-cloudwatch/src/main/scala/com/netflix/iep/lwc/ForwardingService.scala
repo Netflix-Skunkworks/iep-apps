@@ -57,6 +57,7 @@ import software.amazon.awssdk.services.cloudwatch.model.PutMetricDataResponse
 
 import java.time.Instant
 import java.util.concurrent.Executors
+import java.util.function.ToDoubleFunction
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.duration.*
@@ -67,6 +68,7 @@ import scala.util.Try
 class ForwardingService(
   config: Config,
   registry: Registry,
+  configStats: ConfigStats,
   evaluator: Evaluator,
   clientFactory: AwsClientFactory,
   implicit val system: ActorSystem
@@ -96,6 +98,12 @@ class ForwardingService(
     .withName("forwarding.numDataSources")
     .monitorValue(new AtomicLong())
 
+  PolledMeter
+    .using(registry)
+    .withName("forwarding.staleDataSources")
+    .withDelay(java.time.Duration.ofMinutes(1))
+    .monitorValue(configStats, (_.staleExpressions): ToDoubleFunction[ConfigStats])
+
   private var killSwitch: KillSwitch = _
 
   override def startImpl(): Unit = {
@@ -123,15 +131,21 @@ class ForwardingService(
       .via(configInput(registry))
       .map { configs =>
         numConfigs.set(configs.size)
-        configs
+        val filtered = configs.map {
+          case (key, config) =>
+            val exprs = config.expressions.filter(e => pattern.matcher(e.atlasUri).matches())
+            key -> config.copy(expressions = exprs)
+        }
+        configStats.updateConfigs(filtered)
+        filtered
       }
-      .via(toDataSources(pattern))
+      .via(toDataSources)
       .map { dss =>
         numDataSources.set(dss.sources().size())
         dss
       }
       .via(Flow.fromProcessor(() => evaluator.createStreamsProcessor()))
-      .via(toMetricDatum(config, registry))
+      .via(toMetricDatum(config, registry, configStats))
       .via(sendToCloudWatch(lastSuccessfulPutTime, namespace, put))
       .via(sendToAdmin(adminUri, client))
       .watchTermination() { (_, f) =>
@@ -271,17 +285,12 @@ object ForwardingService extends StrictLogging {
       .via(new ConfigManager)
   }
 
-  def toDataSources(
-    pattern: Pattern
-  ): Flow[Map[String, ClusterConfig], Evaluator.DataSources, NotUsed] = {
+  def toDataSources: Flow[Map[String, ClusterConfig], Evaluator.DataSources, NotUsed] = {
     Flow[Map[String, ClusterConfig]]
       .map { configs =>
         import scala.jdk.CollectionConverters.*
         val exprs = configs.flatMap {
-          case (key, config) =>
-            config.expressions
-              .filter(e => pattern.matcher(e.atlasUri).matches())
-              .map(toDataSource(_, key))
+          case (key, config) => config.expressions.map(toDataSource(_, key))
         }
         new Evaluator.DataSources(exprs.toSet.asJava)
       }
@@ -294,14 +303,16 @@ object ForwardingService extends StrictLogging {
 
   def toMetricDatum(
     config: Config,
-    registry: Registry
+    registry: Registry,
+    configStats: ConfigStats
   ): Flow[Evaluator.MessageEnvelope, ForwardingMsgEnvelope, NotUsed] = {
     val datapoints = registry.counter("forwarding.cloudWatchDatapoints")
 
     Flow[Evaluator.MessageEnvelope]
       .filter { env =>
         env.message() match {
-          case _: TimeSeriesMessage =>
+          case ts: TimeSeriesMessage =>
+            logger.trace(s"time series message: ${ts.toJson}")
             datapoints.increment()
             true
           case other: JsonSupport =>
@@ -312,6 +323,12 @@ object ForwardingService extends StrictLogging {
       .map { env =>
         val id = Json.decode[ExpressionId](env.id())
         val msg = env.message().asInstanceOf[TimeSeriesMessage]
+        msg.data match {
+          case d: ArrayData if !d.values(0).isNaN =>
+            configStats.updateStats(id.key, id.expression.atlasUri, msg.end)
+          case _ =>
+          // Ignore if data is NaN
+        }
         ForwardingMsgEnvelope(id, createMetricDatum(config, id.expression, msg), None)
       }
   }
