@@ -246,7 +246,8 @@ class ForwardingServiceSuite extends FunSuite {
       step = 60000L,
       label = "test",
       tags = Map("name" -> "ssCpuUser"),
-      data = ArrayData(Array(1.0))
+      data = ArrayData(Array(1.0)),
+      None
     )
     val id =
       """
@@ -279,7 +280,8 @@ class ForwardingServiceSuite extends FunSuite {
       step = 60000L,
       label = "test",
       tags = Map("name" -> "ssCpuUser"),
-      data = ArrayData(Array(Double.NaN))
+      data = ArrayData(Array(Double.NaN)),
+      None
     )
     val id =
       """
@@ -308,7 +310,8 @@ class ForwardingServiceSuite extends FunSuite {
       step = 5000L,
       label = "test",
       tags = Map("name" -> "ssCpuUser"),
-      data = ArrayData(Array(1.0))
+      data = ArrayData(Array(1.0)),
+      None
     )
     val id =
       """
