@@ -279,7 +279,12 @@ abstract class CloudWatchMetricsProcessor(
       new util.LinkedList[CloudWatchValue](data.asScala.filter(_.getTimestamp >= oldest).asJava)
     val ts = normalize(datapoint.datapoint.timestamp().toEpochMilli, 60)
     if (ts < oldest) {
-      registry.counter(droppedOld.withTag("aws.namespace", category.namespace)).increment()
+      registry
+        .counter(
+          droppedOld
+            .withTags("aws.namespace", category.namespace, "aws.metric", datapoint.metricName)
+        )
+        .increment()
       debugger.debugIncoming(datapoint, IncomingMatch.DroppedOld, receivedTimestamp, Some(category))
     } else {
       if (filtered.isEmpty) {
@@ -295,7 +300,12 @@ abstract class CloudWatchMetricsProcessor(
       } else if (filtered.get(0).getTimestamp > ts) {
         // prepend
         filtered.add(0, newValue(ts, datapoint.datapoint))
-        registry.counter(outOfOrder.withTag("aws.namespace", category.namespace)).increment()
+        registry
+          .counter(
+            outOfOrder
+              .withTags("aws.namespace", category.namespace, "aws.metric", datapoint.metricName)
+          )
+          .increment()
         debugger.debugIncoming(
           datapoint,
           IncomingMatch.Accepted,
@@ -311,7 +321,12 @@ abstract class CloudWatchMetricsProcessor(
         while (i < filtered.size() && !added) {
           val dp = filtered.get(i)
           if (dp.getTimestamp == ts) {
-            registry.counter(dupes.withTag("aws.namespace", category.namespace)).increment()
+            registry
+              .counter(
+                dupes
+                  .withTags("aws.namespace", category.namespace, "aws.metric", datapoint.metricName)
+              )
+              .increment()
             filtered.set(i, newValue(ts, datapoint.datapoint))
             debugger.debugIncoming(
               datapoint,
@@ -324,7 +339,12 @@ abstract class CloudWatchMetricsProcessor(
             added = true
           } else if (dp.getTimestamp > ts) {
             filtered.add(i, newValue(ts, datapoint.datapoint))
-            registry.counter(outOfOrder.withTag("aws.namespace", category.namespace)).increment()
+            registry
+              .counter(
+                outOfOrder
+                  .withTags("aws.namespace", category.namespace, "aws.metric", datapoint.metricName)
+              )
+              .increment()
             debugger.debugIncoming(
               datapoint,
               IncomingMatch.Accepted,
@@ -398,7 +418,10 @@ abstract class CloudWatchMetricsProcessor(
                 val dp = entry.getData(entry.getDataCount - 1)
                 val delta = (timestamp - dp.getTimestamp) / 1000
                 registry
-                  .distributionSummary(staleAge.withTag("aws.namespace", category.namespace))
+                  .distributionSummary(
+                    staleAge
+                      .withTags("aws.namespace", category.namespace, "aws.metric", entry.getMetric)
+                  )
                   .record(delta)
                 category.timeout match {
                   case Some(timeout) =>
@@ -406,7 +429,14 @@ abstract class CloudWatchMetricsProcessor(
                     // was a value within the timeout period
                     if (timestamp - dp.getTimestamp < timeout.toMillis) {
                       registry
-                        .counter(staleWTimeout.withTag("aws.namespace", category.namespace))
+                        .counter(
+                          staleWTimeout.withTags(
+                            "aws.namespace",
+                            category.namespace,
+                            "aws.metric",
+                            entry.getMetric
+                          )
+                        )
                         .increment()
                       debugger.debugScrape(
                         entry,
@@ -444,7 +474,12 @@ abstract class CloudWatchMetricsProcessor(
                 if (dp.getTimestamp > offsetTimestamp) {
                   registry
                     .distributionSummary(
-                      publishFuture.withTags("aws.namespace", category.namespace)
+                      publishFuture.withTags(
+                        "aws.namespace",
+                        category.namespace,
+                        "aws.metric",
+                        entry.getMetric
+                      )
                     )
                     .record(dp.getTimestamp - offsetTimestamp)
                   debugger.debugScrape(
@@ -457,7 +492,14 @@ abstract class CloudWatchMetricsProcessor(
                   )
                 } else {
                   registry
-                    .counter(publishAtOffset.withTags("aws.namespace", category.namespace))
+                    .counter(
+                      publishAtOffset.withTags(
+                        "aws.namespace",
+                        category.namespace,
+                        "aws.metric",
+                        entry.getMetric
+                      )
+                    )
                     .increment()
                   debugger.debugScrape(
                     entry,

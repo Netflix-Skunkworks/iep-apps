@@ -1018,7 +1018,13 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
 
     assertEquals(
       registry
-        .counter("atlas.cloudwatch.datapoints.dupes", "aws.namespace", "AWS/DynamoDB")
+        .counter(
+          "atlas.cloudwatch.datapoints.dupes",
+          "aws.namespace",
+          "AWS/DynamoDB",
+          "aws.metric",
+          "SumRate"
+        )
         .count(),
       dupes
     )
@@ -1029,13 +1035,23 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
           "reason",
           "tooOld",
           "aws.namespace",
-          "AWS/DynamoDB"
+          "AWS/DynamoDB",
+          "aws.metric",
+          "SumRate"
         )
         .count(),
       droppedOld
     )
     assertEquals(
-      registry.counter("atlas.cloudwatch.datapoints.ooo", "aws.namespace", "AWS/DynamoDB").count(),
+      registry
+        .counter(
+          "atlas.cloudwatch.datapoints.ooo",
+          "aws.namespace",
+          "AWS/DynamoDB",
+          "aws.metric",
+          "SumRate"
+        )
+        .count(),
       ooo
     )
 
@@ -1052,7 +1068,13 @@ class CloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with Imp
     )
     assertEquals(
       registry
-        .distributionSummary("atlas.cloudwatch.publish.future", "aws.namespace", "AWS/UT1")
+        .distributionSummary(
+          "atlas.cloudwatch.publish.future",
+          "aws.namespace",
+          "AWS/UT1",
+          "aws.metric",
+          "SumRate"
+        )
         .count(),
       publishFuture
     )
