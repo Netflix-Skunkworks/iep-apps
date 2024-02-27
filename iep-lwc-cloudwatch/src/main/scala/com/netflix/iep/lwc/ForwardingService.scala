@@ -351,13 +351,16 @@ object ForwardingService extends StrictLogging {
 
     msg.data match {
       case data: ArrayData if !data.values(0).isNaN =>
+        // For Atlas, the timestamp indicates the end of the interval, for CW the corresponding
+        // time would be one step interval earlier.
+        val timestamp = Instant.ofEpochMilli(msg.start - msg.step)
         val datum = MetricDatum
           .builder()
           .metricName(name)
           .dimensions(
             expression.dimensions.map(toDimension(_, msg.tags)).asJava
           )
-          .timestamp(Instant.ofEpochMilli(msg.start))
+          .timestamp(timestamp)
           .value(truncate(data.values(0)))
           .storageResolution(resolution)
           .build()
