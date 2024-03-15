@@ -85,7 +85,7 @@ class CwExprValidations(interpreter: ExprInterpreter, evaluator: Evaluator) exte
 
   def validStreamingExpr(expr: ForwardingExpression, styleExprs: List[StyleExpr]): Unit = {
     evaluator.validate(
-      new Evaluator.DataSource("_", Duration.ZERO, expr.atlasUri)
+      new Evaluator.DataSource("_", expr.atlasUri)
     )
   }
 
