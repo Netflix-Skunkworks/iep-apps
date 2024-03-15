@@ -98,17 +98,16 @@ class PayloadDecoder(
       numDatapoints += 1
       val numTags = parser.getIntValue
       val result = loadTags(numTags, strings, nameIdx, parser)
-      val op = nextInt(parser)
       val value = nextDouble(parser)
       result match {
         case Left(vr) =>
           validationResults += vr
-        case Right(id) =>
+        case Right((id, op)) =>
           op match {
             case ADD =>
               // Add the aggr tag to avoid values getting deduped on the backend
               logger.debug(s"received updated, ADD $id $value")
-              aggregator.add(id.withTag(aggrTag), value)
+              aggregator.add(id, value)
             case MAX =>
               logger.debug(s"received updated, MAX $id $value")
               aggregator.max(id, value)
@@ -147,11 +146,11 @@ class PayloadDecoder(
     strings: Array[String],
     nameIdx: Int,
     parser: JsonParser
-  ): Either[ValidationResult, Id] = {
+  ): Either[ValidationResult, (Id, Int)] = {
     var result: String = TagRule.Pass
     var numUserTags = 0
     var name: String = null
-    val tags = new Array[String](2 * n)
+    val tags = new Array[String](2 * n + 2)
     var pos = 0
     var i = 0
     while (i < n) {
@@ -179,9 +178,18 @@ class PayloadDecoder(
       i += 1
     }
 
+    val op = nextInt(parser)
+    val dsType = op match {
+      case ADD => "sum"
+      case MAX => "gauge"
+    }
+    tags(pos) = TagKey.dsType
+    tags(pos + 1) = dsType
+    pos += 2
+
     if (name == null) {
       // This should never happen if clients are working properly
-      val builder = new SmallHashMap.Builder[String, String](n)
+      val builder = new SmallHashMap.Builder[String, String](n + 1)
       var i = 0
       while (i < pos) {
         builder.add(tags(i), tags(i + 1))
@@ -202,7 +210,7 @@ class PayloadDecoder(
             )
           )
         } else {
-          Right(rollupFunction(id))
+          Right(rollupFunction(id) -> op)
         }
       } else {
         // Tag rule check failed
@@ -247,13 +255,6 @@ object PayloadDecoder {
       idx.add(query, policy)
     }
     rollupPolicies = idx
-  }
-
-  private val aggrTag = {
-    if (config.getBoolean("include-aggr-tag"))
-      Tag.of("atlas.aggr", NetflixEnvironment.instanceId())
-    else
-      Tag.of(TagKey.dsType, "sum")
   }
 
   private val maxUserTags = config.getInt("validation.max-user-tags")
