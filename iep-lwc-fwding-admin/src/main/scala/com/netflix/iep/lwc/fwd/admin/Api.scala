@@ -59,7 +59,6 @@ class Api(
           complete {
             schemaValidation.validate(key, json)
             cwExprValidations.validate(key, json)
-
             HttpResponse(StatusCodes.OK)
           }
         }
