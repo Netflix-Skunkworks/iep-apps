@@ -240,7 +240,10 @@ class UpdateApiSuite extends FunSuite {
     val tags = SmallHashMap("foo" -> "bar")
     val msg = validationTest(tags, StatusCodes.BadRequest)
     assertEquals(msg.errorCount, 1)
-    assertEquals(msg.message, List("missing key 'name' (tags={\"foo\":\"bar\",\"atlas.dstype\":\"sum\"})"))
+    assertEquals(
+      msg.message,
+      List("missing key 'name' (tags={\"foo\":\"bar\",\"atlas.dstype\":\"sum\"})")
+    )
   }
 
   test("validation: name too long") {
@@ -250,7 +253,9 @@ class UpdateApiSuite extends FunSuite {
     assertEquals(msg.errorCount, 1)
     assertEquals(
       msg.message,
-      List(s"value too long: name = [$name] (300 > 255) (tags={\"name\":\"$name\",\"atlas.dstype\":\"sum\"})")
+      List(
+        s"value too long: name = [$name] (300 > 255) (tags={\"name\":\"$name\",\"atlas.dstype\":\"sum\"})"
+      )
     )
   }
 
