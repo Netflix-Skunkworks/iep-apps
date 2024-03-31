@@ -164,7 +164,7 @@ class MarkerServiceTest(implicit
 
   var result = List.newBuilder[Report]
 
-  override var queue: SourceQueue[Report] = StreamOps
+  override val queue: SourceQueue[Report] = StreamOps
     .blockingQueue[Report](new NoopRegistry(), "fwdingAdminCwReports", 1)
     .map(result += _)
     .toMat(Sink.ignore)(Keep.left)

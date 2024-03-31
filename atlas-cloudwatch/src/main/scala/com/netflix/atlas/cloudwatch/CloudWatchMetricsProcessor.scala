@@ -538,7 +538,6 @@ abstract class CloudWatchMetricsProcessor(
                       publishRouter.publish(atlasDp)
                     }
                   }
-                case (_, _) => // no-op
               }
             }
         }

@@ -25,12 +25,10 @@ import com.netflix.atlas.core.validation.CompositeTagRule
 import com.netflix.atlas.core.validation.Rule
 import com.netflix.atlas.core.validation.TagRule
 import com.netflix.atlas.core.validation.ValidationResult
-import com.netflix.iep.config.NetflixEnvironment
 import com.netflix.iep.config.ConfigListener
 import com.netflix.iep.config.ConfigManager
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.NoopRegistry
-import com.netflix.spectator.api.Tag
 import com.netflix.spectator.atlas.impl.Parser
 import com.netflix.spectator.atlas.impl.Query
 import com.netflix.spectator.atlas.impl.QueryIndex
