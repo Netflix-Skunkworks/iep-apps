@@ -272,20 +272,23 @@ class RedisClusterCloudWatchMetricsProcessor(
           Using.resource(jedis.getClusterNodes.get(node).getResource) { jedis =>
             try {
               var cursor: Array[Byte] = ScanParams.SCAN_POINTER_START_BINARY
-              do {
+              while ({
+                // do
                 val scanResult = jedis.executeCommand(commandObjects.scan(cursor, scanParams))
                 val keys = scanResult.getResult.asScala.toSeq
                 logger.debug(s"Scanned keys ${keys.size} from node ${node}")
                 if (keys.nonEmpty) {
-                  keys.foreach(k => {
+                  keys.foreach { k =>
                     val slot = JedisClusterCRC16.getSlot(k)
                     val slotKeys = slotToKeys.getOrElseUpdate(slot, new ArrayBuffer[Array[Byte]]())
                     slotKeys += k
-                  })
+                  }
                   sum += keys.size
                 }
                 cursor = scanResult.getCursorAsBytes
-              } while (!util.Arrays.equals(cursor, ScanParams.SCAN_POINTER_START_BINARY))
+                // while
+                !util.Arrays.equals(cursor, ScanParams.SCAN_POINTER_START_BINARY)
+              }) ()
               true
             } catch {
               case ex: Exception =>

@@ -6,10 +6,8 @@ object BuildSettings {
   val compilerFlags = Seq(
     "-deprecation",
     "-unchecked",
-    "-Xlint:_,-infer-any",
     "-feature",
     "-release", "21",
-    "-Xsource:3"
   )
 
   lazy val checkLicenseHeaders = taskKey[Unit]("Check the license headers for all source files.")
@@ -20,7 +18,12 @@ object BuildSettings {
   lazy val buildSettings = baseSettings ++ Seq(
     organization := "com.netflix.iep-apps",
     scalaVersion := Dependencies.Versions.scala,
-    scalacOptions ++= compilerFlags,
+    scalacOptions := {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, _)) => compilerFlags ++ Seq("-Xlint:_,-infer-any", "-Xsource:3")
+        case _            => compilerFlags ++ Seq("-source", "3.3")
+      }
+    },
     javacOptions ++= Seq("--release", "21"),
     crossPaths := true,
     crossScalaVersions := Dependencies.Versions.crossScala,
