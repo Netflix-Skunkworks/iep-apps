@@ -5,15 +5,15 @@ import sbt._
 object Dependencies {
   object Versions {
     val atlas      = "1.8.0-SNAPSHOT"
-    val aws2       = "2.25.2"
-    val iep        = "5.0.18"
-    val log4j      = "2.23.0"
+    val aws2       = "2.25.23"
+    val iep        = "5.0.19"
+    val log4j      = "2.23.1"
     val pekko      = "1.0.2"
     val pekkoHttpV = "1.0.1"
     val scala      = "2.13.13"
     val servo      = "0.13.2"
     val slf4j      = "1.7.36"
-    val spectator  = "1.7.8"
+    val spectator  = "1.7.11"
     val spring     = "6.0.7"
     val avroV      = "1.11.3"
 
@@ -50,7 +50,7 @@ object Dependencies {
   val iepSpringAws2      = "com.netflix.iep" % "iep-spring-aws2" % iep
   val iepSpringJmx       = "com.netflix.iep" % "iep-spring-jmxport" % iep
   val iepSpringLeader    = "com.netflix.iep" % "iep-spring-leader" % iep
-  val jedis              = "redis.clients" % "jedis" % "5.1.1"
+  val jedis              = "redis.clients" % "jedis" % "5.1.2"
   val jsonSchema         = "com.github.java-json-tools" % "json-schema-validator" % "2.2.14"
   val jsr305             = "com.google.code.findbugs" % "jsr305" % "3.0.2"
   val log4jApi           = "org.apache.logging.log4j" % "log4j-api" % log4j
