@@ -25,15 +25,11 @@ import org.apache.pekko.http.scaladsl.server.Route
 import com.fasterxml.jackson.core.JsonParser
 import com.netflix.atlas.pekko.CustomDirectives.*
 import com.netflix.atlas.pekko.WebApi
-import com.netflix.atlas.core.validation.ValidationResult
-import com.netflix.atlas.eval.stream.Evaluator
+import com.netflix.spectator.api.Counter
+import com.netflix.spectator.api.Spectator
 import com.typesafe.scalalogging.StrictLogging
 
-class UpdateApi(
-  evaluator: Evaluator,
-  aggrService: AtlasAggregatorService
-) extends WebApi
-    with StrictLogging {
+class UpdateApi(aggrService: AtlasAggregatorService) extends WebApi with StrictLogging {
 
   import UpdateApi.*
 
@@ -52,14 +48,22 @@ class UpdateApi(
 
 object UpdateApi {
 
+  private val registry = Spectator.globalRegistry()
+  private val success = counter("success")
+  private val dropped = counter("dropped")
+  private val invalid = counter("invalid")
+
+  private def counter(id: String): Counter = {
+    registry.counter("atlas.aggr.datapoints", "id", id)
+  }
+
   private val decoder = PayloadDecoder.default
 
   private[aggregator] def processPayload(
     parser: JsonParser,
     service: AtlasAggregatorService
   ): HttpResponse = {
-    val result = decoder.decode(parser, service)
-    createResponse(result.numDatapoints, result.failures)
+    createResponse(decoder.decode(parser, service))
   }
 
   private val okResponse = {
@@ -72,18 +76,21 @@ object UpdateApi {
     HttpResponse(status, entity = entity)
   }
 
-  private def createResponse(numDatapoints: Int, failures: List[ValidationResult]): HttpResponse = {
-    if (failures.isEmpty) {
+  private def createResponse(result: PayloadDecoder.Result): HttpResponse = {
+    val numFailures = result.failures.size
+    success.increment(result.numDatapoints - result.numDropped - numFailures)
+    dropped.increment(result.numDropped)
+    invalid.increment(numFailures)
+    if (result.failures.isEmpty) {
       okResponse
     } else {
-      val numFailures = failures.size
-      if (numDatapoints > numFailures) {
+      if (result.numDatapoints > numFailures) {
         // Partial failure
-        val msg = FailureMessage.partial(failures, numFailures)
+        val msg = FailureMessage.partial(result.failures, numFailures)
         createErrorResponse(StatusCodes.Accepted, msg)
       } else {
         // All datapoints dropped
-        val msg = FailureMessage.error(failures, numFailures)
+        val msg = FailureMessage.error(result.failures, numFailures)
         createErrorResponse(StatusCodes.BadRequest, msg)
       }
     }

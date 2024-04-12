@@ -25,12 +25,10 @@ import com.netflix.atlas.core.validation.CompositeTagRule
 import com.netflix.atlas.core.validation.Rule
 import com.netflix.atlas.core.validation.TagRule
 import com.netflix.atlas.core.validation.ValidationResult
-import com.netflix.iep.config.NetflixEnvironment
 import com.netflix.iep.config.ConfigListener
 import com.netflix.iep.config.ConfigManager
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.NoopRegistry
-import com.netflix.spectator.api.Tag
 import com.netflix.spectator.atlas.impl.Parser
 import com.netflix.spectator.atlas.impl.Query
 import com.netflix.spectator.atlas.impl.QueryIndex
@@ -87,6 +85,7 @@ class PayloadDecoder(
   def decode(parser: JsonParser, aggregator: Aggregator): Result = {
     val validationResults = List.newBuilder[ValidationResult]
     var numDatapoints = 0
+    var numDropped = 0
 
     requireNextToken(parser, JsonToken.START_ARRAY)
     val numStrings = nextInt(parser)
@@ -102,7 +101,7 @@ class PayloadDecoder(
       result match {
         case Left(vr) =>
           validationResults += vr
-        case Right((id, op)) =>
+        case Right((id, op)) if id != null =>
           op match {
             case ADD =>
               // Add the aggr tag to avoid values getting deduped on the backend
@@ -116,10 +115,12 @@ class PayloadDecoder(
                 s"unknown operation $unk, expected add ($ADD) or max ($MAX)"
               )
           }
+        case _ =>
+          numDropped += 1
       }
       t = parser.nextToken()
     }
-    Result(numDatapoints, validationResults.result())
+    Result(numDatapoints, numDropped, validationResults.result())
   }
 
   private def loadStringTable(n: Int, parser: JsonParser): Array[String] = {
@@ -226,9 +227,9 @@ object PayloadDecoder {
     override def validate(k: String, v: String): String = TagRule.Pass
   }
 
-  case class Result(numDatapoints: Int, failures: List[ValidationResult])
+  case class Result(numDatapoints: Int, numDropped: Int, failures: List[ValidationResult])
 
-  case class RollupPolicy(query: Query, rollup: java.util.List[String])
+  case class RollupPolicy(query: Query, rollup: java.util.List[String], shouldDrop: Boolean)
 
   private val ADD = 0
   private val MAX = 10
@@ -251,7 +252,8 @@ object PayloadDecoder {
     policies.forEach { c =>
       val query = Parser.parseQuery(c.getString("query"))
       val rollup = c.getStringList("rollup")
-      val policy = RollupPolicy(query, rollup)
+      val drop = c.hasPath("drop") && c.getBoolean("drop")
+      val policy = RollupPolicy(query, rollup, drop)
       idx.add(query, policy)
     }
     rollupPolicies = idx
@@ -302,10 +304,18 @@ object PayloadDecoder {
     * Handle any automatic rollups on the id.
     */
   private def rollup(id: Id): Id = {
+    var shouldDrop = false
     val rollup = new java.util.HashSet[String]()
-    val consumer: Consumer[RollupPolicy] = p => rollup.addAll(p.rollup)
+    val consumer: Consumer[RollupPolicy] = policy => {
+      shouldDrop = shouldDrop || policy.shouldDrop
+      if (!shouldDrop)
+        rollup.addAll(policy.rollup)
+    }
     rollupPolicies.forEachMatch(id, consumer)
-    if (rollup.isEmpty)
+
+    if (shouldDrop)
+      null
+    else if (rollup.isEmpty)
       id
     else
       id.filterByKey(k => !rollup.contains(k))

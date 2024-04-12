@@ -35,6 +35,8 @@ class AtlasAggregatorService(
 
   private val aggrRegistry = new AtlasRegistry(clock, aggrCfg)
 
+  def atlasRegistry: Registry = aggrRegistry
+
   override def startImpl(): Unit = {
     aggrRegistry.start()
   }
