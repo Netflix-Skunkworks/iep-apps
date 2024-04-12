@@ -25,8 +25,8 @@ import org.apache.pekko.http.scaladsl.model.headers.RawHeader
 import com.fasterxml.jackson.core.io.JsonEOFException
 import com.netflix.atlas.pekko.testkit.MUnitRouteSuite
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor
-import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessorSuite.CWDP
-import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessorSuite.timestamp
+import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.CWDP
+import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.ts
 import com.netflix.atlas.cloudwatch.FirehoseMetric
 import com.netflix.atlas.core.util.FastGzipOutputStream
 import com.netflix.atlas.json.Json
@@ -324,7 +324,7 @@ class CloudWatchFirehoseEndpointSuite extends MUnitRouteSuite {
       assertEquals(decoded.timestamp, 0L)
     } else {
       assertEquals(decoded.requestId, "0001")
-      assertEquals(decoded.timestamp, timestamp + 35_000)
+      assertEquals(decoded.timestamp, ts + 35_000)
     }
     if (withException) {
       val string = new String(bs.toArray)
@@ -358,7 +358,7 @@ object CloudWatchFirehoseEndpointSuite {
       ),
       Datapoint
         .builder()
-        .timestamp(Instant.ofEpochMilli(timestamp))
+        .timestamp(Instant.ofEpochMilli(ts))
         .sum(42.0)
         .minimum(10.0)
         .maximum(32.0)
@@ -376,7 +376,7 @@ object CloudWatchFirehoseEndpointSuite {
       ),
       Datapoint
         .builder()
-        .timestamp(Instant.ofEpochMilli(timestamp))
+        .timestamp(Instant.ofEpochMilli(ts))
         .sum(1.0)
         .minimum(1.0)
         .maximum(1.0)
@@ -398,7 +398,7 @@ object CloudWatchFirehoseEndpointSuite {
       ),
       Datapoint
         .builder()
-        .timestamp(Instant.ofEpochMilli(timestamp))
+        .timestamp(Instant.ofEpochMilli(ts))
         .sum(2.0)
         .minimum(2.0)
         .maximum(2.0)
@@ -420,7 +420,7 @@ object CloudWatchFirehoseEndpointSuite {
       json.writeStartObject()
       if (!missingHeader) {
         json.writeStringField("requestId", "0001")
-        json.writeNumberField("timestamp", timestamp + 35_000)
+        json.writeNumberField("timestamp", ts + 35_000)
       }
       json.writeArrayFieldStart("records")
 

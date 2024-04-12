@@ -116,7 +116,7 @@ class MetricCategorySuite extends FunSuite {
     assertEquals(category.filter, None)
   }
 
-  test("category without timeout") {
+  test("category without grace override") {
     val cfg = ConfigFactory.parseString("""
         |namespace = "AWS/ELB"
         |period = 1 m
@@ -125,21 +125,20 @@ class MetricCategorySuite extends FunSuite {
       """.stripMargin)
 
     val category = MetricCategory.fromConfig(cfg)
-    assert(category.timeout.isEmpty)
+    assertEquals(category.graceOverride, -1)
   }
 
-  test("category with timeout") {
+  test("category with grace override") {
     val cfg = ConfigFactory.parseString("""
         |namespace = "AWS/ELB"
         |period = 1 m
-        |timeout = 1d
+        |grace-override = 4
         |dimensions = ["LoadBalancerName"]
         |metrics = []
       """.stripMargin)
 
     val category = MetricCategory.fromConfig(cfg)
-    assert(category.timeout.nonEmpty)
-    assertEquals(category.timeout.get, Duration.ofDays(1))
+    assertEquals(category.graceOverride, 4)
   }
 
   test("config with filter") {

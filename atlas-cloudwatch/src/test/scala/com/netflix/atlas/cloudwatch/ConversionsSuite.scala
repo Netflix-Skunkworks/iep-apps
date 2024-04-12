@@ -79,7 +79,7 @@ class ConversionsSuite extends FunSuite {
   test("rate") {
     val cnv = Conversions.fromName("sum,rate")
     val meta = MetricMetadata(
-      MetricCategory("NFLX/Test", 300, 1, 3, None, Nil, Nil, Some(Query.True)),
+      MetricCategory("NFLX/Test", 300, -1, Nil, Nil, Some(Query.True)),
       MetricDefinition("test", "test-alias", cnv, false, Map.empty),
       Nil
     )
@@ -90,7 +90,7 @@ class ConversionsSuite extends FunSuite {
   test("rate already") {
     val cnv = Conversions.fromName("sum,rate")
     val meta = MetricMetadata(
-      MetricCategory("NFLX/Test", 300, 1, 3, None, Nil, Nil, Some(Query.True)),
+      MetricCategory("NFLX/Test", 300, -1, Nil, Nil, Some(Query.True)),
       MetricDefinition("test", "test-alias", cnv, false, Map.empty),
       Nil
     )

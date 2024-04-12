@@ -77,16 +77,12 @@ class RulesEndpoint(
           val (category, definitions) = tuple
           json.writeObjectFieldStart(metric)
           json.writeNumberField("period", category.period)
-          json.writeNumberField("periodCount", category.periodCount)
-          json.writeNumberField("endPeriodOffset", category.endPeriodOffset)
+          json.writeNumberField("graceOverride", category.graceOverride)
 
           json.writeArrayFieldStart("dimensions")
           category.dimensions.foreach(json.writeString(_))
           json.writeEndArray()
 
-          if (category.timeout.isDefined) {
-            json.writeStringField("timeout", category.timeout.get.toString)
-          }
           if (category.filter.isDefined) {
             json.writeStringField("filter", category.filter.get.toString)
           }

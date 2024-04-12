@@ -17,7 +17,6 @@ package com.netflix.atlas.cloudwatch
 
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
-import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.expirationSeconds
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.newCacheEntry
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
@@ -64,30 +63,30 @@ class LocalCloudWatchMetricsProcessor(
   ): Unit = {
     val hash = datapoint.xxHash
     val existing = cache.get(hash)
-    val data = if (existing != null) {
+    val cacheEntry = if (existing != null) {
       val (ts, exp, data) = existing
       if (ts + (exp * 1000) > receivedTimestamp) {
-        insertDatapoint(data, datapoint, category, receivedTimestamp).toByteArray
+        insertDatapoint(data, datapoint, category, receivedTimestamp)
       } else {
-        newCacheEntry(datapoint, category).toByteArray
+        newCacheEntry(datapoint, category, receivedTimestamp)
       }
     } else {
-      newCacheEntry(datapoint, category).toByteArray
+      newCacheEntry(datapoint, category, receivedTimestamp)
     }
 
-    cache.put(hash, (receivedTimestamp, expirationSeconds(category), data))
+    cache.put(hash, (receivedTimestamp, expSeconds(category.period), cacheEntry.toByteArray))
   }
 
-  override protected[cloudwatch] def publish(now: Long): Future[NotUsed] = {
+  override protected[cloudwatch] def publish(scrapeTimestamp: Long): Future[NotUsed] = {
     val iterator = cache.entrySet().iterator()
     while (iterator.hasNext) {
       val entry = iterator.next()
       val hash = entry.getKey
       val (ts, exp, data) = entry.getValue
-      if (ts + (exp * 1000) < now) {
+      if (ts + (exp * 1000) < scrapeTimestamp) {
         cache.remove(hash)
       } else {
-        sendToRouter(hash, data, now)
+        sendToRouter(hash, data, scrapeTimestamp)
       }
     }
     Future.successful(NotUsed)
@@ -113,5 +112,14 @@ class LocalCloudWatchMetricsProcessor(
     exp: Long
   ): Unit = {
     cache.put(key, (timestamp, exp, payload))
+  }
+
+  override protected[cloudwatch] def updateCache(
+    key: Any,
+    prev: CloudWatchCacheEntry,
+    entry: CloudWatchCacheEntry,
+    expiration: Long
+  ): Unit = {
+    cache.put(key.asInstanceOf[Long], (0, expiration, entry.toByteArray))
   }
 }

@@ -265,6 +265,7 @@ class CloudWatchPoller(
     offset: Int
   ) {
 
+    private val minCacheEntries = config.getInt("atlas.cloudwatch.min-cache-entries")
     private val nowMillis = now.toEpochMilli
     private[cloudwatch] val expecting = new AtomicInteger()
     private[cloudwatch] val got = new AtomicInteger()
@@ -387,7 +388,7 @@ class CloudWatchPoller(
 
       @Override def run(): Unit = {
         try {
-          val start = now.minusSeconds(category.periodCount * category.period)
+          val start = now.minusSeconds(minCacheEntries * category.period)
           val request = MetricMetadata(category, definition, metric.dimensions.asScala.toList)
             .toGetRequest(start, now)
           val response = client.getMetricStatistics(request)

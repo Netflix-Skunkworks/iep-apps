@@ -18,7 +18,7 @@ package com.netflix.atlas.cloudwatch
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKitBase
 import com.netflix.atlas.pekko.PekkoHttpClient
-import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessorSuite.timestamp
+import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.ts
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.Registry
@@ -43,42 +43,42 @@ class PublishRouterSuite extends FunSuite with TestKitBase {
   }
 
   test("publish main same region") {
-    val dp = Datapoint(Map("nf.account" -> "42", "nf.region" -> "us-east-1"), timestamp, 42.0)
+    val dp = Datapoint(Map("nf.account" -> "42", "nf.region" -> "us-east-1"), ts, 42.0)
     val queue = router.getQueue(dp).get
     assertEquals(queue.uri, "https://publish-main.us-east-1.foo.com/api/v1/publish")
     router.shutdown()
   }
 
   test("publish main same any region") {
-    val dp = Datapoint(Map("nf.account" -> "42", "nf.region" -> "ap-south-1"), timestamp, 42.0)
+    val dp = Datapoint(Map("nf.account" -> "42", "nf.region" -> "ap-south-1"), ts, 42.0)
     val queue = router.getQueue(dp).get
     assertEquals(queue.uri, "https://publish-main.us-east-1.foo.com/api/v1/publish")
     router.shutdown()
   }
 
   test("publish stackA acct 1 default") {
-    val dp = Datapoint(Map("nf.account" -> "1", "nf.region" -> "us-east-1"), timestamp, 42.0)
+    val dp = Datapoint(Map("nf.account" -> "1", "nf.region" -> "us-east-1"), ts, 42.0)
     val queue = router.getQueue(dp).get
     assertEquals(queue.uri, "https://publish-stackA.us-east-1.foo.com/api/v1/publish")
     router.shutdown()
   }
 
   test("publish stackA acct 2 default") {
-    val dp = Datapoint(Map("nf.account" -> "2", "nf.region" -> "us-east-1"), timestamp, 42.0)
+    val dp = Datapoint(Map("nf.account" -> "2", "nf.region" -> "us-east-1"), ts, 42.0)
     val queue = router.getQueue(dp).get
     assertEquals(queue.uri, "https://publish-stackA.us-east-1.foo.com/api/v1/publish")
     router.shutdown()
   }
 
   test("publish stackA us-west") {
-    val dp = Datapoint(Map("nf.account" -> "1", "nf.region" -> "us-west-1"), timestamp, 42.0)
+    val dp = Datapoint(Map("nf.account" -> "1", "nf.region" -> "us-west-1"), ts, 42.0)
     val queue = router.getQueue(dp).get
     assertEquals(queue.uri, "https://publish-stackA.us-west-1.foo.com/api/v1/publish")
     router.shutdown()
   }
 
   test("publish stackB us-west") {
-    val dp = Datapoint(Map("nf.account" -> "3", "nf.region" -> "us-west-1"), timestamp, 42.0)
+    val dp = Datapoint(Map("nf.account" -> "3", "nf.region" -> "us-west-1"), ts, 42.0)
     val queue = router.getQueue(dp).get
     assertEquals(queue.uri, "https://publish-stackB.us-east-1.foo.com/api/v1/publish")
     router.shutdown()

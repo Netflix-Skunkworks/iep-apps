@@ -27,6 +27,8 @@ import software.amazon.awssdk.services.cloudwatch.model.DimensionFilter
 import software.amazon.awssdk.services.cloudwatch.model.ListMetricsRequest
 import software.amazon.awssdk.services.cloudwatch.model.RecentlyActive
 
+import scala.concurrent.duration.DurationInt
+
 /**
   * Category of metrics to fetch from CloudWatch. This will typically correspond with
   * a CloudWatch namespace, though there may be multiple categories per namespace if
@@ -41,18 +43,9 @@ import software.amazon.awssdk.services.cloudwatch.model.RecentlyActive
   *     for CloudWatch data we use the last reported value in CloudWatch as long as it
   *     is within one period from the polling time. The period is also needed for
   *     performing rate conversions on some metrics.
-  * @param endPeriodOffset
-  *     How many periods back from `now` to set the end of the time range.
-  * @param periodCount
-  *     How many periods total to retrieve.
-  * @param timeout
-  *     How long the system should interpolate a base value for unreported CloudWatch
-  *     metrics before ceasing to send them. CloudWatch will return 0 metrics for at
-  *     least two cases:
-  *     - No metrics were recorded.
-  *     - The resource has been removed, metrics still show up when listing metrics due
-  *       to the retention window, but the specified time interval for the metric
-  *       statistics request is after the removal.
+  * @param graceOverride
+  *     How many periods to look back for unpublished data. The default is defined in
+  *     'atlas.cloudwatch.grace'
   * @param dimensions
   *     The dimensions to query for when getting data from CloudWatch. For the
   *     GetMetricData calls we have to explicitly specify all of the dimensions. In some
@@ -75,9 +68,7 @@ import software.amazon.awssdk.services.cloudwatch.model.RecentlyActive
 case class MetricCategory(
   namespace: String,
   period: Int,
-  endPeriodOffset: Int,
-  periodCount: Int,
-  timeout: Option[Duration],
+  graceOverride: Int,
   dimensions: List[String],
   metrics: List[MetricDefinition],
   filter: Option[Query],
@@ -156,19 +147,20 @@ object MetricCategory extends StrictLogging {
       else {
         Some(parseQuery(config.getString("filter")))
       }
-    val timeout = if (config.hasPath("timeout")) Some(config.getDuration("timeout")) else None
-    val endPeriodOffset =
-      if (config.hasPath("end-period-offset")) config.getInt("end-period-offset") else 1
-    val periodCount = if (config.hasPath("period-count")) config.getInt("period-count") else 6
+    val period = if (config.hasPath("period")) {
+      config.getDuration("period", TimeUnit.SECONDS).toInt
+    } else {
+      1.minute.toSeconds.toInt
+    }
+    val graceOverride =
+      if (config.hasPath("grace-override")) config.getInt("grace-override") else -1
     val pollOffset =
       if (config.hasPath("poll-offset")) Some(config.getDuration("poll-offset")) else None
 
     apply(
       namespace = config.getString("namespace"),
-      period = config.getDuration("period", TimeUnit.SECONDS).toInt,
-      endPeriodOffset = endPeriodOffset,
-      periodCount = periodCount,
-      timeout = timeout,
+      period = period,
+      graceOverride = graceOverride,
       dimensions = config.getStringList("dimensions").asScala.toList,
       metrics = metrics.flatMap(MetricDefinition.fromConfig),
       filter = filter,
