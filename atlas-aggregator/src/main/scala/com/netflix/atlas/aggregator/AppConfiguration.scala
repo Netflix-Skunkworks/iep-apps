@@ -15,6 +15,8 @@
  */
 package com.netflix.atlas.aggregator
 
+import com.netflix.iep.admin.EndpointMapping
+import com.netflix.iep.admin.endpoints.SpectatorEndpoint
 import org.apache.pekko.actor.ActorSystem
 import com.netflix.spectator.api.Clock
 import com.netflix.spectator.api.NoopRegistry
@@ -38,5 +40,10 @@ class AppConfiguration {
     val c = config.orElseGet(() => ConfigFactory.load())
     val r = registry.orElseGet(() => new NoopRegistry)
     new AtlasAggregatorService(c, Clock.SYSTEM, r, system)
+  }
+
+  @Bean
+  def aggrRegistryEndpoint(service: AtlasAggregatorService): EndpointMapping = {
+    new EndpointMapping("/aggregates", new SpectatorEndpoint(service.atlasRegistry))
   }
 }
