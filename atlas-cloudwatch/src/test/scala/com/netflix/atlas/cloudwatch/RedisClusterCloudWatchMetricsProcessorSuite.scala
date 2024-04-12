@@ -15,11 +15,14 @@
  */
 package com.netflix.atlas.cloudwatch
 
+import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.ce
+import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.cwv
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKitBase
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.newCacheEntry
-import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessorSuite.makeFirehoseMetric
-import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessorSuite.timestamp
+import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.normalize
+import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.makeFirehoseMetric
+import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.ts
 import com.netflix.atlas.cloudwatch.RedisClusterCloudWatchMetricsProcessor.keyArrays
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.DefaultRegistry
@@ -27,6 +30,7 @@ import com.netflix.spectator.api.Registry
 import com.typesafe.config.ConfigFactory
 import munit.FunSuite
 import org.mockito.ArgumentMatchersSugar.any
+import org.mockito.ArgumentMatchersSugar.eqTo
 import org.mockito.MockitoSugar.doAnswer
 import org.mockito.MockitoSugar.mock
 import org.mockito.MockitoSugar.times
@@ -40,6 +44,7 @@ import redis.clients.jedis.JedisCluster
 import redis.clients.jedis.Protocol.Command
 import redis.clients.jedis.args.RawableFactory.Raw
 import redis.clients.jedis.params.ScanParams
+import redis.clients.jedis.params.SetParams
 import redis.clients.jedis.resps.ScanResult
 
 import java.nio.ByteBuffer
@@ -50,7 +55,6 @@ import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Await
 import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters.*
-import scala.language.postfixOps
 
 class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase {
 
@@ -69,7 +73,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
   val rules: CloudWatchRules = new CloudWatchRules(config)
 
   val category =
-    MetricCategory("AWS/UTRedis", 60, 0, 2, None, List("node", "key"), List.empty, null)
+    MetricCategory("AWS/UTRedis", 60, -1, List("node", "key"), List.empty, null)
 
   val firehoseMetric = makeFirehoseMetric(
     "AWS/UTRedis",
@@ -77,7 +81,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
     List.empty,
     Array(39.0, 1.0, 7.0, 19),
     "Count",
-    timestamp
+    ts
   )
 
   override def beforeEach(context: BeforeEach): Unit = {
@@ -103,12 +107,12 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    proc.updateCache(firehoseMetric, category, timestamp + 60_000)
+    proc.updateCache(firehoseMetric, category, ts + 60_000)
     assertCounters(updatesNew = 1)
   }
 
   test("updateCache existing success") {
-    val cwDP = newCacheEntry(firehoseMetric, category)
+    val cwDP = newCacheEntry(firehoseMetric, category, normalize(System.currentTimeMillis(), 60))
     mockRedis(firehoseMetric.xxHash, cwDP.toByteArray)
     val proc = new RedisClusterCloudWatchMetricsProcessor(
       config,
@@ -120,7 +124,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    proc.updateCache(firehoseMetric, category, timestamp + 60_000)
+    proc.updateCache(firehoseMetric, category, ts + 60_000)
     assertCounters(updatesExisting = 1)
   }
 
@@ -136,7 +140,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    proc.updateCache(firehoseMetric, category, timestamp + 60_000)
+    proc.updateCache(firehoseMetric, category, ts + 60_000)
     assertCounters(readExs = Map("get" -> 1L))
   }
 
@@ -152,7 +156,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    proc.updateCache(firehoseMetric, category, timestamp + 60_000)
+    proc.updateCache(firehoseMetric, category, ts + 60_000)
     assertCounters(writeExsSet = 1)
   }
 
@@ -168,7 +172,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    proc.updateCache(null, category, timestamp + 60_000)
+    proc.updateCache(null, category, ts + 60_000)
     assertCounters(updateExs = 1)
   }
 
@@ -184,7 +188,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(timestamp), 5.seconds)
+    Await.result(proc.publish(ts), 5.seconds)
     assertCounters(batchCallsL1 = 4, keysReadL1 = 4, entriesScrapedL1 = 4)
     assertPublished(
       List(
@@ -209,7 +213,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(timestamp), 5.seconds)
+    Await.result(proc.publish(ts), 5.seconds)
     assertCounters()
     assertPublished(List())
     assertResourceClose(redis)
@@ -227,7 +231,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(timestamp), 5.seconds)
+    Await.result(proc.publish(ts), 5.seconds)
     assertCounters(readExs = Map("info" -> 1L))
     assertPublished(List())
     assertResourceClose(redis)
@@ -245,7 +249,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(timestamp), 5.seconds)
+    Await.result(proc.publish(ts), 5.seconds)
     assertCounters(scanFailureL1 = 1, readExs = Map("scan" -> 1L))
     assertPublished(List())
     assertResourceClose(redis)
@@ -263,7 +267,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(timestamp), 5.seconds)
+    Await.result(proc.publish(ts), 5.seconds)
     assertCounters(
       keysReadL1 = 4,
       batchCallsL1 = 4,
@@ -291,7 +295,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(timestamp), 5.seconds)
+    Await.result(proc.publish(ts), 5.seconds)
     assertCounters(keysReadL1 = 4, batchCallsL1 = 4, entriesScrapedL1 = 3)
     assertPublished(
       List(
@@ -317,7 +321,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(timestamp), 5.seconds)
+    Await.result(proc.publish(ts), 5.seconds)
     assertCounters(keysReadL1 = 4, batchCallsL1 = 4, entriesScrapedL1 = 3)
     assertPublished(
       List(
@@ -340,7 +344,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(timestamp), 5.seconds)
+    Await.result(proc.publish(ts), 5.seconds)
     assertCounters(
       batchCallsL1 = 4,
       batchCallsL2 = 2,
@@ -374,7 +378,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(timestamp), 5.seconds)
+    Await.result(proc.publish(ts), 5.seconds)
     assertCounters(
       batchCallsL1 = 4,
       keysReadL1 = 4,
@@ -404,7 +408,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(timestamp), 5.seconds)
+    Await.result(proc.publish(ts), 5.seconds)
     assertCounters(
       batchCallsL1 = 4,
       keysReadL1 = 4,
@@ -435,7 +439,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(timestamp), 5.seconds)
+    Await.result(proc.publish(ts), 5.seconds)
     assertCounters(
       batchCallsL1 = 4,
       batchCallsL2 = 2,
@@ -469,7 +473,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(timestamp), 5.seconds)
+    Await.result(proc.publish(ts), 5.seconds)
     assertCounters(
       batchCallsL1 = 4,
       batchCallsL2 = 2,
@@ -502,7 +506,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(timestamp), 5.seconds)
+    Await.result(proc.publish(ts), 5.seconds)
     assertCounters()
   }
 
@@ -519,7 +523,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       debugger
     )(system)
     clusterNodes.remove("l1")
-    Await.result(proc.publish(timestamp), 5.seconds)
+    Await.result(proc.publish(ts), 5.seconds)
     assertCounters()
     assertResourceClose(redis)
   }
@@ -570,6 +574,131 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
     )(system)
     proc.delete(getKey(firehoseMetric.xxHash))
     assertCounters(writeExsDel = 1)
+  }
+
+  test("cas success, new value") {
+    val newEntry = ce(
+      List(cwv(-3.minutes, -1.minutes, false))
+    )
+    val key = getKey(1)
+    when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
+      .thenReturn(null)
+    val proc = getProcessor
+    proc.cas(null, newEntry, key, 1000)
+    verify(client, times(1)).setGet(eqTo(key), eqTo(newEntry.toByteArray), any[SetParams])
+    assertEquals(proc.casCounter.count(), 0L)
+    assertEquals(proc.casFailure.count(), 0L)
+  }
+
+  test("cas success, previous value") {
+    val prev = ce(
+      List(cwv(-3.minutes, -1.minutes, false))
+    )
+    val newEntry = ce(
+      List(cwv(-3.minutes, -1.minutes, false), cwv(-2.minutes, -1.minutes, false))
+    )
+    val key = getKey(1)
+    when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
+      .thenReturn(prev.toByteArray)
+    val proc = getProcessor
+    proc.cas(prev.toByteArray, newEntry, key, 1000)
+    verify(client, times(1)).setGet(eqTo(key), eqTo(newEntry.toByteArray), any[SetParams])
+    assertEquals(proc.casCounter.count(), 0L)
+    assertEquals(proc.casFailure.count(), 0L)
+  }
+
+  test("cas merge success, new value race") {
+    val race = ce(
+      List(cwv(-2.minutes, -1.minutes, false))
+    )
+    val newEntry = ce(
+      List(cwv(-3.minutes, -1.minutes, false))
+    )
+    val merged = ce(
+      List(cwv(-3.minutes, -1.minutes, false), cwv(-2.minutes, -1.minutes, false))
+    )
+    val key = getKey(1)
+    when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
+      .thenReturn(race.toByteArray, newEntry.toByteArray)
+    val proc = getProcessor
+    proc.cas(null, newEntry, key, 1000)
+    verify(client, times(1)).setGet(eqTo(key), eqTo(merged.toByteArray), any[SetParams])
+    assertEquals(proc.casCounter.count(), 1L)
+    assertEquals(proc.casFailure.count(), 0L)
+  }
+
+  test("cas merge success, publish flag race") {
+    val prev = ce(
+      List(cwv(-2.minutes, -1.minutes, false))
+    )
+    val published = ce(
+      List(cwv(-2.minutes, -1.minutes, true))
+    )
+    val newEntry = ce(
+      List(cwv(-2.minutes, -1.minutes, false), cwv(-3.minutes, -1.minutes, false))
+    )
+    val merged = ce(
+      List(cwv(-2.minutes, -1.minutes, true), cwv(-3.minutes, -1.minutes, false))
+    )
+    val key = getKey(1)
+    when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
+      .thenReturn(published.toByteArray, newEntry.toByteArray)
+    val proc = getProcessor
+    proc.cas(prev.toByteArray, newEntry, key, 1000)
+    verify(client, times(1)).setGet(eqTo(key), eqTo(merged.toByteArray), any[SetParams])
+    assertEquals(proc.casCounter.count(), 1L)
+    assertEquals(proc.casFailure.count(), 0L)
+  }
+
+  test("cas merge success, expiration") {
+    val prev = ce(
+      List(cwv(-2.minutes, -1.minutes, false))
+    )
+    val newEntry = ce(
+      List(cwv(-2.minutes, -1.minutes, false), cwv(-3.minutes, -1.minutes, false))
+    )
+    val key = getKey(1)
+    when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
+      .thenReturn(null, newEntry.toByteArray)
+    val proc = getProcessor
+    proc.cas(prev.toByteArray, newEntry, key, 1000)
+    verify(client, times(2)).setGet(eqTo(key), eqTo(newEntry.toByteArray), any[SetParams])
+    assertEquals(proc.casCounter.count(), 1L)
+    assertEquals(proc.casFailure.count(), 0L)
+  }
+
+  test("cas failure, always something else") {
+    val prev = ce(
+      List(cwv(-2.minutes, -1.minutes, false))
+    )
+    val newEntry = ce(
+      List(cwv(-2.minutes, -1.minutes, false), cwv(-3.minutes, -1.minutes, false))
+    )
+    val key = getKey(1)
+    when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
+      .thenReturn(prev.toByteArray)
+    val proc = getProcessor
+    proc.cas(null, newEntry, key, 1000)
+    verify(client, times(6)).setGet(eqTo(key), eqTo(newEntry.toByteArray), any[SetParams])
+    assertEquals(proc.casCounter.count(), 5L)
+    assertEquals(proc.casFailure.count(), 1L)
+  }
+
+  test("cas failure, always null") {
+    val prev = ce(
+      List(cwv(-2.minutes, -1.minutes, false))
+    )
+    val newEntry = ce(
+      List(cwv(-2.minutes, -1.minutes, false), cwv(-3.minutes, -1.minutes, false))
+    )
+    val key = getKey(1)
+    when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
+      .thenReturn(null)
+    val proc = getProcessor
+    proc.cas(prev.toByteArray, newEntry, key, 1000)
+    verify(client, times(6)).setGet(eqTo(key), eqTo(newEntry.toByteArray), any[SetParams])
+    assertEquals(proc.casCounter.count(), 5L)
+    assertEquals(proc.casFailure.count(), 1L)
   }
 
   def assertPublished(expected: List[(String, String, Int)]): Unit = {
@@ -716,11 +845,11 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
     }
 
     if (setEx) {
-      when(client.setex(org.mockito.ArgumentMatchersSugar.eqTo(key), any[Long], any[Array[Byte]]))
+      when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
         .thenThrow(new UTException("UT"))
     } else {
-      when(client.setex(org.mockito.ArgumentMatchersSugar.eqTo(key), any[Long], any[Array[Byte]]))
-        .thenReturn("OK")
+      when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
+        .thenReturn(existing)
     }
   }
 
@@ -842,7 +971,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
 
     def makePayload(node: String, key: Long): Array[Byte] = {
       val category =
-        MetricCategory("AWS/UTRedis", 60, 0, 2, None, List("node", "key"), List.empty, null)
+        MetricCategory("AWS/UTRedis", 60, -1, List("node", "key"), List.empty, null)
       val cwDP = newCacheEntry(
         makeFirehoseMetric(
           "AWS/UTRedis",
@@ -850,9 +979,10 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
           List.empty,
           Array(39.0, 1.0, 7.0, 19),
           "Count",
-          timestamp
+          ts
         ),
-        category
+        category,
+        normalize(System.currentTimeMillis(), 60)
       )
       cwDP.toBuilder
         .addDimensions(
@@ -872,6 +1002,19 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
         .build()
         .toByteArray
     }
+  }
+
+  def getProcessor: RedisClusterCloudWatchMetricsProcessor = {
+    new RedisClusterCloudWatchMetricsProcessor(
+      config,
+      registry,
+      tagger,
+      client,
+      leaderStatus,
+      rules,
+      publishRouter,
+      debugger
+    )(system)
   }
 
   class UTException(msg: String) extends RuntimeException(msg)

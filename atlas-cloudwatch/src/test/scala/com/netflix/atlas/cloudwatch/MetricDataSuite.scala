@@ -15,9 +15,9 @@
  */
 package com.netflix.atlas.cloudwatch
 
-import java.time.Duration
 import java.time.Instant
 import com.netflix.atlas.core.model.Query
+import junit.framework.TestCase.assertTrue
 import munit.FunSuite
 import software.amazon.awssdk.services.cloudwatch.model.Datapoint
 import software.amazon.awssdk.services.cloudwatch.model.StandardUnit
@@ -31,9 +31,7 @@ class MetricDataSuite extends FunSuite {
     MetricCategory(
       "namespace",
       60,
-      1,
-      5,
-      None,
+      -1,
       List("dimension"),
       List(definition),
       Some(Query.True)
@@ -41,9 +39,6 @@ class MetricDataSuite extends FunSuite {
   private val metadata = MetricMetadata(category, definition, Nil)
 
   private val monotonicMetadata = metadata.copy(definition = definition.copy(monotonicValue = true))
-
-  private val metadataWithTimeout =
-    metadata.copy(category = category.copy(timeout = Some(Duration.ofMinutes(2))))
 
   private def datapoint(v: Double, c: Double = 1.0): Option[Datapoint] = {
     val d = Datapoint
@@ -60,72 +55,12 @@ class MetricDataSuite extends FunSuite {
 
   test("access datapoint with no current value") {
     val data = MetricData(metadata, None, None, None)
-    assertEquals(data.datapoint().sum.doubleValue(), 0.0)
+    assertTrue(data.datapoint().sum.doubleValue().isNaN)
   }
 
   test("access datapoint with current value") {
     val data = MetricData(metadata, None, datapoint(1.0), None)
     assertEquals(data.datapoint().sum.doubleValue(), 1.0)
-  }
-
-  test("category with timeout, first datapoint not yet received") {
-    val now = Instant.now()
-    val data = MetricData(metadataWithTimeout, None, None, None)
-    assert(data.datapoint(now).sum.isNaN)
-  }
-
-  test("category with timeout, datapoint with current value and not timed out") {
-    val now = Instant.now()
-    val data = MetricData(metadataWithTimeout, None, datapoint(1.0), Some(now.minusSeconds(60)))
-    assertEquals(data.datapoint(now).sum.doubleValue(), 1.0)
-  }
-
-  // current and timed out shouldn't be possible, but fail open by ensuring the current value is
-  // reported
-  test("category with timeout, datapoint with current value and timed out") {
-    val now = Instant.now()
-    val data = MetricData(metadataWithTimeout, None, datapoint(1.0), Some(now.minusSeconds(600)))
-    assertEquals(data.datapoint(now).sum.doubleValue(), 1.0)
-  }
-
-  test("category with timeout, datapoint with current and previous value and not timed out") {
-    val now = Instant.now()
-    val data =
-      MetricData(metadataWithTimeout, datapoint(2.0), datapoint(1.0), Some(now.minusSeconds(60)))
-    assertEquals(data.datapoint(now).sum.doubleValue(), 1.0)
-  }
-
-  // current and timed out shouldn't be possible, but fail open by ensuring the current value is
-  // reported
-  test("category with timeout, datapoint with current and previous value and timed out") {
-    val now = Instant.now()
-    val data =
-      MetricData(metadataWithTimeout, datapoint(2.0), datapoint(1.0), Some(now.minusSeconds(600)))
-    assertEquals(data.datapoint(now).sum.doubleValue(), 1.0)
-  }
-
-  test("category with timeout, datapoint with only previous value and not timed out") {
-    val now = Instant.now()
-    val data = MetricData(metadataWithTimeout, datapoint(1.0), None, Some(now.minusSeconds(60)))
-    assertEquals(data.datapoint(now).sum.doubleValue(), 0.0)
-  }
-
-  test("category with timeout, datapoint with only previous value and timed out") {
-    val now = Instant.now()
-    val data = MetricData(metadataWithTimeout, datapoint(1.0), None, Some(now.minusSeconds(600)))
-    assert(data.datapoint(now).sum.isNaN)
-  }
-
-  test("category with timeout, datapoint with no current or previous value and not timed out") {
-    val now = Instant.now()
-    val data = MetricData(metadataWithTimeout, None, None, Some(now.minusSeconds(60)))
-    assertEquals(data.datapoint(now).sum.doubleValue(), 0.0)
-  }
-
-  test("category with timeout, datapoint with no current or previous value and timed out") {
-    val now = Instant.now()
-    val data = MetricData(metadataWithTimeout, None, None, Some(now.minusSeconds(600)))
-    assert(data.datapoint(now).sum.isNaN)
   }
 
   test("access monotonic datapoint with no previous or current value") {

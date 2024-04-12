@@ -15,9 +15,9 @@
  */
 package com.netflix.atlas.cloudwatch
 
+import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.merge
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
-import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.expirationSeconds
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.newCacheEntry
 import com.netflix.atlas.cloudwatch.RedisClusterCloudWatchMetricsProcessor.getHash
 import com.netflix.atlas.cloudwatch.RedisClusterCloudWatchMetricsProcessor.getKey
@@ -29,6 +29,7 @@ import redis.clients.jedis.CommandObjects
 import redis.clients.jedis.JedisCluster
 import redis.clients.jedis.Protocol.Command
 import redis.clients.jedis.params.ScanParams
+import redis.clients.jedis.params.SetParams
 import redis.clients.jedis.util.JedisClusterCRC16
 
 import java.nio.ByteBuffer
@@ -89,6 +90,8 @@ class RedisClusterCloudWatchMetricsProcessor(
   private val deletes = registry.counter("atlas.cloudwatch.redis.deletes")
   private val deleteFailures = registry.counter("atlas.cloudwatch.redis.deleteFailures")
   private val entriesScraped = registry.createId("atlas.cloudwatch.redis.entriesScraped")
+  private[cloudwatch] val casCounter = registry.counter("atlas.cloudwatch.redis.cas")
+  private[cloudwatch] val casFailure = registry.counter("atlas.cloudwatch.redis.cas.failure")
 
   private val scrapeTime = registry.timer("atlas.cloudwatch.redis.scrapeTime")
   private val keysPerBatch = registry.distributionSummary("atlas.cloudwatch.redis.keysPerBatch")
@@ -128,22 +131,22 @@ class RedisClusterCloudWatchMetricsProcessor(
         }
 
       var isNew: Boolean = false
-      val payload: Array[Byte] = if (existing == null || existing.isEmpty) {
+      val cacheEntry = if (existing == null || existing.isEmpty) {
         isNew = true
-        newCacheEntry(datapoint, category).toByteArray
+        newCacheEntry(datapoint, category, receivedTimestamp)
       } else {
-        insertDatapoint(existing, datapoint, category, receivedTimestamp).toByteArray
+        insertDatapoint(existing, datapoint, category, receivedTimestamp)
       }
 
       try {
-        jedis.setex(key, expirationSeconds(category), payload)
+        cas(existing, cacheEntry, key, expSeconds(category.period))
         if (isNew) updatesNew.increment() else updatesExisting.increment()
       } catch {
         case ex: Exception =>
           // TODO - watch out, this could be really nasty if the cluster or node  is down
           val slot = JedisClusterCRC16.getSlot(key)
           val hash = getHash(key)
-          logger.debug(s"Failed to set key ${hash} in Redis for slot ${slot}", ex)
+          logger.warn(s"Failed to set key ${hash} in Redis for slot ${slot}", ex)
           registry
             .counter(writeExs.withTags("call", "set", "ex", ex.getClass.getSimpleName))
             .increment()
@@ -155,7 +158,27 @@ class RedisClusterCloudWatchMetricsProcessor(
     }
   }
 
-  override def publish(ts: Long): Future[NotUsed] = {
+  override def updateCache(
+    key: Any,
+    prev: CloudWatchCacheEntry,
+    entry: CloudWatchCacheEntry,
+    expiration: Long
+  ): Unit = {
+    try {
+      cas(prev.toByteArray, entry, key.asInstanceOf[Array[Byte]], expiration)
+    } catch {
+      case ex: Exception =>
+        // TODO - watch out, this could be really nasty if the cluster or node  is down
+        val slot = JedisClusterCRC16.getSlot(key.asInstanceOf[Array[Byte]])
+        val hash = getHash(key.asInstanceOf[Array[Byte]])
+        logger.warn(s"Failed to set key ${hash} in Redis for slot ${slot}", ex)
+        registry
+          .counter(writeExs.withTags("call", "setGet", "ex", ex.getClass.getSimpleName))
+          .increment()
+    }
+  }
+
+  override def publish(scrapeTimestamp: Long): Future[NotUsed] = {
     if (!leaderStatus.hasLeadership) {
       logger.debug("Not the leader, skipping publishing.")
       return Future.successful(NotUsed)
@@ -166,7 +189,7 @@ class RedisClusterCloudWatchMetricsProcessor(
 
     if (!running.compareAndSet(false, true)) {
       scrapeFailure.increment()
-      logger.error(s"Failed to run the scrape at @${ts} as another scrape is running.")
+      logger.error(s"Failed to run the scrape at @${scrapeTimestamp} as another scrape is running.")
       return Future.failed(new RuntimeException("Another scrape is currently running."))
     }
 
@@ -174,7 +197,7 @@ class RedisClusterCloudWatchMetricsProcessor(
     try {
       pubCounter.set(0)
       val scanners = Vector.newBuilder[Future[NotUsed]]
-      logger.info(s"Starting Redis scrape and publish for ${ts}")
+      logger.info(s"Starting Redis scrape and publish for ${scrapeTimestamp}")
 
       jedis.getClusterNodes.forEach((node, pool) => {
         // TODO / WARNING - This is brittle but I know of no other way to determine
@@ -195,7 +218,7 @@ class RedisClusterCloudWatchMetricsProcessor(
                   logger.debug(s"Finished slot to keys call with ${slotToKeys.size} slots")
                   val batches = ArrayBuffer[Future[NotUsed]]()
                   slotToKeys.values.foreach(keys => {
-                    batches += getAndPublish(node, keys, ts)
+                    batches += getAndPublish(node, keys, scrapeTimestamp)
                   })
 
                   Future.sequence(batches).onComplete {
@@ -314,7 +337,7 @@ class RedisClusterCloudWatchMetricsProcessor(
   def getAndPublish(
     node: String,
     keys: ArrayBuffer[Array[Byte]],
-    timestamp: Long
+    scrapeTimestamp: Long
   ): Future[NotUsed] = {
     val promise = Promise[NotUsed]()
     executionContext.execute(new Runnable() {
@@ -328,12 +351,13 @@ class RedisClusterCloudWatchMetricsProcessor(
               val data = Using.resource(jedis.getClusterNodes.get(node).getResource) { jedis =>
                 jedis.executeCommand(commandObjects.mget(batch.toSeq*))
               }
+
               var nonNull = 0
               batch
                 .zip(data.asScala)
                 .filter(_._2 != null)
                 .foreach { t =>
-                  sendToRouter(t._1, t._2, timestamp)
+                  sendToRouter(t._1, t._2, scrapeTimestamp)
                   nonNull += 1
                 }
               registry.counter(entriesScraped.withTag("node", node)).increment(nonNull)
@@ -395,6 +419,76 @@ class RedisClusterCloudWatchMetricsProcessor(
     }
   }
 
+  /**
+    * Psuedo compare and swap without having to try and install a Lua script in Redis. Simply sets the
+    * value and compares the previous until it matches or we've tried 5 times. If a result is
+    * returned that we didn't expect, we keep merging with the current value.
+    *
+    * @param prevBytes
+    *     The previous value, may be null if we don't think anything existed.
+    * @param current
+    *     The current entry.
+    * @param key
+    *     The key to update.
+    * @param expiration
+    *     The expiration duration.
+    */
+  private[cloudwatch] def cas(
+    prevBytes: Array[Byte],
+    current: CloudWatchCacheEntry,
+    key: Array[Byte],
+    expiration: Long
+  ): Unit = {
+    var prev = prevBytes
+    var newArray = current.toByteArray
+    var fetched = jedis.setGet(key, newArray, SetParams.setParams().ex(expiration))
+    var cntr = 0
+    while (
+      cntr < 5 &&
+      casValidation(prev, fetched)
+    ) {
+      val merged = if (fetched == null) {
+        current
+      } else {
+        merge(current, CloudWatchCacheEntry.parseFrom(fetched))
+      }
+      prev = newArray
+      newArray = merged.toByteArray
+      fetched = jedis.setGet(key, newArray, SetParams.setParams().ex(expiration))
+      casCounter.increment()
+      cntr += 1
+    }
+
+    if (casValidation(prev, fetched)) {
+      val got = if (fetched == null) {
+        "null"
+      } else {
+        CloudWatchCacheEntry.parseFrom(fetched).toString
+      }
+      val expected = if (prev == null) {
+        "null"
+      } else {
+        CloudWatchCacheEntry.parseFrom(prev).toString
+      }
+      val original = if (prevBytes == null) {
+        "null"
+      } else {
+        CloudWatchCacheEntry.parseFrom(prevBytes).toString
+      }
+      logger.warn(
+        s"CAS Failure: Got $got but expected $expected. Current: $current.  Originally expected: $original"
+      )
+      casFailure.increment()
+    }
+  }
+
+  private def casValidation(prev: Array[Byte], fetched: Array[Byte]): Boolean = {
+    (prev, fetched) match {
+      case (null, f) => f != null
+      case (p, null) => p != null
+      case (p, f)    => !p.sameElements(f)
+    }
+  }
 }
 
 object RedisClusterCloudWatchMetricsProcessor extends StrictLogging {

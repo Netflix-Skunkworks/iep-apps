@@ -31,7 +31,6 @@ import software.amazon.awssdk.services.cloudwatch.model.Datapoint
 import software.amazon.awssdk.services.cloudwatch.model.Metric
 
 import java.io.ByteArrayOutputStream
-import java.time.Duration
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import scala.jdk.CollectionConverters.*
@@ -44,7 +43,6 @@ class CloudWatchDebugger(
 
   private val debugTags = config.getBoolean("atlas.cloudwatch.debug.dropped.tags")
   private val debugAge = config.getBoolean("atlas.cloudwatch.debug.dropped.age")
-  private val debugStale = config.getBoolean("atlas.cloudwatch.debug.scrape.stale")
   private val configRules = config.getStringList("atlas.cloudwatch.debug.rules").asScala
 
   private val rules: QueryIndex[Boolean] = QueryIndex.create(
@@ -126,6 +124,7 @@ class CloudWatchDebugger(
             .record((timestamp - dp.datapoint.timestamp().toEpochMilli).toInt / 1000)
         case IncomingMatch.Accepted =>
           registry.counter(accepted.withTags(tags)).increment()
+        case _ => // no-op
       }
       if (prevReport == ts) return // here's our limiter
 
@@ -160,8 +159,7 @@ class CloudWatchDebugger(
           val cat = category.get
           json.writeObjectFieldStart("cat")
           json.writeNumberField("p", cat.period)
-          json.writeNumberField("off", cat.endPeriodOffset)
-          json.writeNumberField("to", cat.timeout.getOrElse(Duration.ofSeconds(0)).getSeconds)
+          json.writeNumberField("go", cat.graceOverride)
           json.writeArrayFieldStart("tags")
           cat.dimensions.foreach(d => json.writeString(d))
           json.writeEndArray()
@@ -244,6 +242,7 @@ class CloudWatchDebugger(
           registry.counter(filteredEmpty.withTags(tags)).increment()
         case IncomingMatch.Accepted =>
           registry.counter(accepted.withTags(tags)).increment()
+        case _ => // no-op
       }
       if (prevReport == ts) return // here's our limiter
 
@@ -262,8 +261,7 @@ class CloudWatchDebugger(
         json.writeStringField("filtered", incomingMatch.toString)
         json.writeObjectFieldStart("cat")
         json.writeNumberField("p", category.period)
-        json.writeNumberField("off", category.endPeriodOffset)
-        json.writeNumberField("to", category.timeout.getOrElse(Duration.ofSeconds(0)).getSeconds)
+        json.writeNumberField("go", category.graceOverride)
         json.writeArrayFieldStart("tags")
         category.dimensions.foreach(d => json.writeString(d))
         json.writeEndArray()
@@ -352,6 +350,7 @@ class CloudWatchDebugger(
               .distributionSummary(scrapeFuture.withTags(tags))
               .record((value.get.getTimestamp - scrapeTimestamp).toInt / 1000)
           }
+        case _ => // no-op
       }
 
       if (prevReport == ts) return // here's our limiter
@@ -386,8 +385,7 @@ class CloudWatchDebugger(
           val cat = category.get
           json.writeObjectFieldStart("cat")
           json.writeNumberField("p", cat.period)
-          json.writeNumberField("off", cat.endPeriodOffset)
-          json.writeNumberField("to", cat.timeout.getOrElse(Duration.ofSeconds(0)).getSeconds)
+          json.writeNumberField("go", cat.graceOverride)
           json.writeArrayFieldStart("tags")
           cat.dimensions.foreach(d => json.writeString(d))
           json.writeEndArray()

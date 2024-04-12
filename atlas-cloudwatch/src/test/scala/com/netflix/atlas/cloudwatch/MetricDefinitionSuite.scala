@@ -27,7 +27,7 @@ import java.time.Instant
 class MetricDefinitionSuite extends FunSuite {
 
   private val meta = MetricMetadata(
-    MetricCategory("AWS/ELB", 60, 1, 5, None, Nil, Nil, Some(Query.True)),
+    MetricCategory("AWS/ELB", 60, -1, Nil, Nil, Some(Query.True)),
     null,
     Nil
   )
@@ -97,17 +97,17 @@ class MetricDefinitionSuite extends FunSuite {
       .timestamp(Instant.now())
       .build()
 
-    definitions.find(_.tags("statistic") == "totalTime").foreach { d =>
+    definitions.find(_.tags("statistic") == "totalTime").map { d =>
       val m = meta.copy(definition = d)
       assertEquals(m.convert(dp), 10.0)
     }
 
-    definitions.find(_.tags("statistic") == "count").foreach { d =>
+    definitions.find(_.tags("statistic") == "count").map { d =>
       val m = meta.copy(definition = d)
       assertEquals(m.convert(dp), 1000.0 / 60.0)
     }
 
-    definitions.find(_.tags("statistic") == "max").foreach { d =>
+    definitions.find(_.tags("statistic") == "max").map { d =>
       val m = meta.copy(definition = d)
       assertEquals(m.convert(dp), 6.0)
     }
@@ -134,17 +134,17 @@ class MetricDefinitionSuite extends FunSuite {
       .timestamp(Instant.now())
       .build()
 
-    definitions.find(_.tags("statistic") == "totalTime").foreach { d =>
+    definitions.find(_.tags("statistic") == "totalTime").map { d =>
       val m = meta.copy(definition = d)
       assertEquals(m.convert(dp), 10.0 / 1000.0)
     }
 
-    definitions.find(_.tags("statistic") == "count").foreach { d =>
+    definitions.find(_.tags("statistic") == "count").map { d =>
       val m = meta.copy(definition = d)
       assertEquals(m.convert(dp), 1000.0 / 60.0)
     }
 
-    definitions.find(_.tags("statistic") == "max").foreach { d =>
+    definitions.find(_.tags("statistic") == "max").map { d =>
       val m = meta.copy(definition = d)
       assertEquals(m.convert(dp), 6.0 / 1000.0)
     }
@@ -171,17 +171,17 @@ class MetricDefinitionSuite extends FunSuite {
       .timestamp(Instant.now())
       .build()
 
-    definitions.find(_.tags("statistic") == "totalTime").foreach { d =>
+    definitions.find(_.tags("statistic") == "totalTime").map { d =>
       val m = meta.copy(definition = d)
       assertEquals(m.convert(dp), 10.0 / 1000.0)
     }
 
-    definitions.find(_.tags("statistic") == "count").foreach { d =>
+    definitions.find(_.tags("statistic") == "count").map { d =>
       val m = meta.copy(definition = d)
       assertEquals(m.convert(dp), 1000.0 / 60.0)
     }
 
-    definitions.find(_.tags("statistic") == "max").foreach { d =>
+    definitions.find(_.tags("statistic") == "max").map { d =>
       val m = meta.copy(definition = d)
       assertEquals(m.convert(dp), 6.0 / 1000.0)
     }
@@ -208,17 +208,17 @@ class MetricDefinitionSuite extends FunSuite {
       .timestamp(Instant.now())
       .build()
 
-    definitions.find(_.tags("statistic") == "totalAmount").foreach { d =>
+    definitions.find(_.tags("statistic") == "totalAmount").map { d =>
       val m = meta.copy(definition = d)
       assertEquals(m.convert(dp), 10.0)
     }
 
-    definitions.find(_.tags("statistic") == "count").foreach { d =>
+    definitions.find(_.tags("statistic") == "count").map { d =>
       val m = meta.copy(definition = d)
       assertEquals(m.convert(dp), 1000.0 / 60.0)
     }
 
-    definitions.find(_.tags("statistic") == "max").foreach { d =>
+    definitions.find(_.tags("statistic") == "max").map { d =>
       val m = meta.copy(definition = d)
       assertEquals(m.convert(dp), 6.0)
     }
@@ -248,7 +248,7 @@ class MetricDefinitionSuite extends FunSuite {
       .build()
 
     val metadata = MetricMetadata(
-      MetricCategory("AWS/RDS", 60, 1, 5, None, Nil, Nil, Some(Query.True)),
+      MetricCategory("AWS/RDS", 60, -1, Nil, Nil, Some(Query.True)),
       definition,
       Nil
     )

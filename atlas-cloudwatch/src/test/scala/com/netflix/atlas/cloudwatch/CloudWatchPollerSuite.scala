@@ -15,10 +15,10 @@
  */
 package com.netflix.atlas.cloudwatch
 
+import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.makeFirehoseMetric
 import org.apache.pekko.Done
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKitBase
-import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessorSuite.makeFirehoseMetric
 import com.netflix.atlas.cloudwatch.CloudWatchPoller.runKey
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.leader.api.LeaderStatus
@@ -61,7 +61,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
 
   override implicit def system: ActorSystem = ActorSystem("Test")
 
-  val timestamp = Instant.ofEpochMilli(CloudWatchMetricsProcessorSuite.timestamp)
+  val timestamp = Instant.ofEpochMilli(BaseCloudWatchMetricsProcessorSuite.ts)
   val account = "123456789012"
   val region = Region.US_EAST_1
   val offset = Duration.ofHours(8).getSeconds.toInt

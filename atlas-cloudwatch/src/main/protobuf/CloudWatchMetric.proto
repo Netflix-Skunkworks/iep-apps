@@ -12,11 +12,13 @@ message CloudWatchDimension {
 }
 
 message CloudWatchValue {
-  required int64 timestamp = 1;
+  required int64 timestamp = 1; // epoch millis
   optional double sum = 2;
   optional double min = 3;
   optional double max = 4;
   optional double count = 5;
+  optional int64 updateTimestamp = 6; // 60s normalized epoch millis
+  optional bool published = 7;
 }
 
 message CloudWatchCacheEntry {

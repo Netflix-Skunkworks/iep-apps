@@ -103,14 +103,14 @@ class CloudWatchFirehoseEndpoint(
                     incrementException(ex, true)
                 }
               case unknown => // Ignore unknown fields
-                logger.debug("Skipping unknown firehose record field: {}", unknown)
+                logger.warn("Skipping unknown firehose record field: {}", unknown)
                 parser.nextToken()
                 parser.skipChildren()
                 unknownField.increment()
             }
           }
         case unknown => // Ignore unknown fields
-          logger.debug("Skipping unknown firehose field: {}", unknown)
+          logger.warn("Skipping unknown firehose field: {}", unknown)
           parser.nextToken()
           parser.skipChildren()
           unknownField.increment()
@@ -160,7 +160,7 @@ object CloudWatchFirehoseEndpoint extends StrictLogging {
           dp.timestamp(Instant.ofEpochMilli(parser.nextLongValue(0L)))
         case "value" => decodeValue(parser, dp)
         case unknown => // Ignore unknown fields
-          logger.debug("Skipping unknown firehose metric field: {}", unknown)
+          logger.warn("Skipping unknown firehose metric field: {}", unknown)
           parser.nextToken()
           parser.skipChildren()
       }
@@ -238,7 +238,7 @@ object CloudWatchFirehoseEndpoint extends StrictLogging {
       case unknown => // Ignore unknown fields
         // TODO - Extend this if we need to record any of the other fields offered by AWS.
         // Note that each field is an additional financial cost though.
-        logger.debug("Skipping unknown value field: {}", unknown)
+        logger.warn("Skipping unknown value field: {}", unknown)
         parser.nextToken()
         parser.skipChildren()
     }
