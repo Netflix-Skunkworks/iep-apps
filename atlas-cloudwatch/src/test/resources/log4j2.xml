@@ -9,7 +9,7 @@
         </Console>
     </Appenders>
     <Loggers>
-        <Logger name="com.netflix.spectator" level="debug"/>
+        <Logger name="com.netflix.spectator" level="info"/>
         <Logger name="com.netflix.atlas" level="info"/>
         <Root level="info">
             <AppenderRef ref="STDERR"/>
