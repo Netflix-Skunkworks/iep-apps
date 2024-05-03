@@ -176,12 +176,12 @@ abstract class CloudWatchMetricsProcessor(
         case Some(namespaceRules) =>
           namespaceRules.get(dp.metricName) match {
             case None =>
-              registry.counter(filteredMetric.withTag("aws.namespace", dp.namespace)).increment()
+              registry.counter(filteredMetric.withTag("aws.namespace", dp.namespace).withTag("aws.metric", dp.metricName)).increment()
               debugger.debugIncoming(dp, IncomingMatch.DroppedMetric, receivedTimestamp)
             case Some(tuple) =>
               val (category, _) = tuple
               if (!category.dimensionsMatch(dp.dimensions)) {
-                registry.counter(filteredTags.withTag("aws.namespace", dp.namespace)).increment()
+                registry.counter(filteredTags.withTag("aws.namespace", dp.namespace).withTag("aws.metric", dp.metricName)).increment()
                 debugger.debugIncoming(
                   dp,
                   IncomingMatch.DroppedTag,
