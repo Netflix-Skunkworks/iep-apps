@@ -53,7 +53,10 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
       ts
     )
     assertPublished(List.empty)
-    assertCounters(1, filtered = Map("namespace" -> (1, "AWS/SomeNoneExistingNS")))
+    assertCounters(
+      1,
+      filtered = Map("namespace" -> (1, "AWS/SomeNoneExistingNS"), "metric" -> (0, "MyMetric"))
+    )
   }
 
   test("processDatapoints no metric match") {
@@ -70,7 +73,10 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
       ts
     )
     assertPublished(List.empty)
-    assertCounters(1, filtered = Map("metric" -> (1, "AWS/UT1")))
+    assertCounters(
+      1,
+      filtered = Map("namespace" -> (0, "AWS/UT1"), "metric" -> (1, "SomeUnknownMetric"))
+    )
   }
 
   test("processDatapoints missing tag") {
@@ -87,7 +93,7 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
       ts
     )
     assertPublished(List.empty)
-    assertCounters(1, filtered = Map("tags" -> (1, "AWS/UT1")))
+    assertCounters(1, filtered = Map("namespace" -> (0, "AWS/UT1"), "tags" -> (1, "SumRate")))
   }
 
   test("processDatapoints Filter by query") {
@@ -559,13 +565,33 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
     scraped: Long = 0
   ): Unit = {
     assertEquals(processor.received.count(), received)
-    List("namespace", "metric", "tags", "query").foreach { reason =>
+    List("namespace", "query").foreach { reason =>
       val (count, ns) = filtered.getOrElse(reason, (0L, "NA"))
       assertEquals(
         registry
           .counter("atlas.cloudwatch.datapoints.filtered", "aws.namespace", ns, "reason", reason)
           .count(),
         count,
+        s"Count differs for ${reason}"
+      )
+    }
+
+    List("metric", "tags").foreach { reason =>
+      val (nsCount, ns) = filtered.getOrElse("namespace", (0L, "NA"))
+      val (metricCount, metric) = filtered.getOrElse(reason, (0L, "NA"))
+      assertEquals(
+        registry
+          .counter(
+            "atlas.cloudwatch.datapoints.filtered",
+            "aws.metric",
+            metric,
+            "aws.namespace",
+            ns,
+            "reason",
+            reason
+          )
+          .count(),
+        metricCount,
         s"Count differs for ${reason}"
       )
     }
