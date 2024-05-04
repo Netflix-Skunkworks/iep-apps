@@ -53,8 +53,10 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
       ts
     )
     assertPublished(List.empty)
-    assertCounters(1, filtered = Map("namespace" -> (1, "AWS/SomeNoneExistingNS"),
-      "metric" -> (0, "MyMetric")))
+    assertCounters(
+      1,
+      filtered = Map("namespace" -> (1, "AWS/SomeNoneExistingNS"), "metric" -> (0, "MyMetric"))
+    )
   }
 
   test("processDatapoints no metric match") {
@@ -71,8 +73,10 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
       ts
     )
     assertPublished(List.empty)
-    assertCounters(1, filtered = Map("namespace" -> (0, "AWS/UT1"),
-      "metric" -> (1, "SomeUnknownMetric")))
+    assertCounters(
+      1,
+      filtered = Map("namespace" -> (0, "AWS/UT1"), "metric" -> (1, "SomeUnknownMetric"))
+    )
   }
 
   test("processDatapoints missing tag") {
@@ -89,8 +93,7 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
       ts
     )
     assertPublished(List.empty)
-    assertCounters(1, filtered = Map("namespace" -> (0, "AWS/UT1"),
-      "tags" -> (1, "SumRate")))
+    assertCounters(1, filtered = Map("namespace" -> (0, "AWS/UT1"), "tags" -> (1, "SumRate")))
   }
 
   test("processDatapoints Filter by query") {
@@ -578,7 +581,15 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
       val (metricCount, metric) = filtered.getOrElse(reason, (0L, "NA"))
       assertEquals(
         registry
-          .counter("atlas.cloudwatch.datapoints.filtered", "aws.metric", metric, "aws.namespace", ns, "reason", reason)
+          .counter(
+            "atlas.cloudwatch.datapoints.filtered",
+            "aws.metric",
+            metric,
+            "aws.namespace",
+            ns,
+            "reason",
+            reason
+          )
           .count(),
         metricCount,
         s"Count differs for ${reason}"
