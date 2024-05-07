@@ -15,9 +15,14 @@
  */
 package com.netflix.iep.archaius
 
+import com.fasterxml.jackson.annotation.JsonInclude
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
+
 import java.io.StringWriter
 import java.util.Properties
-
 import org.apache.pekko.actor.ActorRefFactory
 import org.apache.pekko.http.scaladsl.model.HttpCharsets
 import org.apache.pekko.http.scaladsl.server.Directives.*
@@ -37,6 +42,15 @@ class PropertiesApi(
   implicit val actorRefFactory: ActorRefFactory
 ) extends WebApi {
 
+  import PropertiesApi.*
+
+  private val index = Map(
+    "description" -> "Read-Only Fast Properties for Atlas Deploy",
+    "endpoints" -> List(
+      "/api/v1/property?asg=ASG_NAME"
+    )
+  )
+
   def routes: Route = {
     endpointPath("api" / "v1" / "property") {
       get {
@@ -52,6 +66,14 @@ class PropertiesApi(
           }
         }
       }
+    } ~
+    pathEndOrSingleSlash {
+      complete(
+        HttpResponse(
+          StatusCodes.OK,
+          entity = HttpEntity(MediaTypes.`application/json`, mapper.writeValueAsString(index))
+        )
+      )
     }
   }
 
@@ -78,5 +100,17 @@ class PropertiesApi(
 }
 
 object PropertiesApi {
+
   case class Property(id: String, cluster: String, key: String, value: String, timestamp: Long)
+
+  private val mapper: ObjectMapper = {
+    val m = new ObjectMapper()
+    m.setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
+    m.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+    m.disable(DeserializationFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
+    m.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS)
+    m.disable(SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS)
+    m.registerModule(DefaultScalaModule)
+    m
+  }
 }
