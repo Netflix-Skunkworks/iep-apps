@@ -314,8 +314,9 @@ object DruidClient {
   ) {
 
     def toDatasource: Datasource = {
-      val dimensions = columns.filter(_._2.isDimension).keys.toList.sorted
+      val dimensions = columns.filter(c => c._2 != null && c._2.isDimension).keys.toList.sorted
       val metrics = aggregators
+        .filterNot(_._2 == null)
         .map {
           case (name, column) => Metric(name, column.`type`)
         }
