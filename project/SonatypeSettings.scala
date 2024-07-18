@@ -15,10 +15,11 @@ object SonatypeSettings {
   lazy val settings: Seq[Def.Setting[_]] = sonatypeSettings ++ Seq(
     sonatypeProfileName := "com.netflix",
     sonatypeProjectHosting := Some(GitHubHosting("Netflix-Skunkworks", "iep-apps", "netflixoss@netflix.com")),
+    sonatypeCredentialHost := sonatypeCentralHost,
 
     publishMavenStyle := true,
     licenses += ("APL2" -> url("https://www.apache.org/licenses/LICENSE-2.0.txt")),
-    credentials += Credentials("Sonatype Nexus Repository Manager", "oss.sonatype.org", user, pass),
+    credentials += Credentials("Sonatype Nexus Repository Manager", sonatypeCentralHost, user, pass),
 
     publishTo := sonatypePublishToBundle.value
   )
