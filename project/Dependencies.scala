@@ -6,7 +6,7 @@ object Dependencies {
   object Versions {
     val atlas      = "1.8.0-SNAPSHOT"
     val aws2       = "2.25.23"
-    val iep        = "5.0.21"
+    val iep        = "5.0.24"
     val log4j      = "2.23.1"
     val pekko      = "1.0.3"
     val pekkoHttpV = "1.0.1"
