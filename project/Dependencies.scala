@@ -5,15 +5,15 @@ import sbt._
 object Dependencies {
   object Versions {
     val atlas      = "1.8.0-SNAPSHOT"
-    val aws2       = "2.25.23"
-    val iep        = "5.0.21"
+    val aws2       = "2.26.21"
+    val iep        = "5.0.24"
     val log4j      = "2.23.1"
-    val pekko      = "1.0.2"
+    val pekko      = "1.0.3"
     val pekkoHttpV = "1.0.1"
     val scala      = "2.13.14"
     val servo      = "0.13.2"
     val slf4j      = "1.7.36"
-    val spectator  = "1.7.11"
+    val spectator  = "1.7.17"
     val spring     = "6.0.7"
     val avroV      = "1.11.3"
 
@@ -60,7 +60,7 @@ object Dependencies {
   val log4jSlf4j         = "org.apache.logging.log4j" % "log4j-slf4j-impl" % log4j
   val mockitoCore        = "org.mockito" % "mockito-core" % "5.10.0"
   val mockitoScala       = "org.mockito" % "mockito-scala_2.13" % "1.17.30"
-  val munit              = "org.scalameta" %% "munit" % "0.7.29"
+  val munit              = "org.scalameta" %% "munit" % "1.0.0"
   val openHFT            = "net.openhft" % "zero-allocation-hashing" % "0.16"
   val pekkoActor         = "org.apache.pekko" %% "pekko-actor" % pekko
   val pekkoHttpCaching   = "org.apache.pekko" %% "pekko-http-caching" % pekkoHttpV
@@ -68,7 +68,7 @@ object Dependencies {
   val pekkoHttpTestkit   = "org.apache.pekko" %% "pekko-http-testkit" % pekkoHttpV
   val pekkoSlf4j         = "org.apache.pekko" %% "pekko-slf4j" % pekko
   val pekkoTestkit       = "org.apache.pekko" %% "pekko-testkit" % pekko
-  val protobuf           = "com.google.protobuf" % "protobuf-java" % "3.25.3"
+  val protobuf           = "com.google.protobuf" % "protobuf-java" % "4.27.2"
   val scalaCompiler      = "org.scala-lang" % "scala-compiler" % scala
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
   val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
