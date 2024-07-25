@@ -34,6 +34,7 @@ import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.core.StreamReadFeature
 import com.fasterxml.jackson.core.StreamWriteFeature
 import com.fasterxml.jackson.dataformat.smile.SmileFactory
+import com.netflix.atlas.core.util.FastGzipOutputStream
 import com.netflix.atlas.pekko.AccessLogger
 import com.netflix.atlas.pekko.CustomMediaTypes
 import com.netflix.atlas.pekko.StreamOps
@@ -45,10 +46,7 @@ import com.netflix.spectator.atlas.impl.EvalPayload
 import com.netflix.spectator.atlas.impl.PublishPayload
 
 import java.io.ByteArrayOutputStream
-import java.io.OutputStream
 import java.util.concurrent.CompletableFuture
-import java.util.zip.Deflater
-import java.util.zip.GZIPOutputStream
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.concurrent.Promise
@@ -184,7 +182,7 @@ object PekkoPublisher {
   /** Encode publish payload to a byte array. */
   private def encode(payload: AnyRef): ByteString = {
     val baos = getOrCreateStream
-    Using.resource(new GzipLevelOutputStream(baos)) { out =>
+    Using.resource(new FastGzipOutputStream(baos)) { out =>
       Using.resource(factory.createGenerator(out)) { gen =>
         payload match {
           case p: PublishPayload => encode(gen, p)
@@ -279,10 +277,5 @@ object PekkoPublisher {
       gen.writeEndObject()
       i += 1
     }
-  }
-
-  /** Wrap GZIPOutputStream to set the best speed compression level. */
-  final class GzipLevelOutputStream(out: OutputStream) extends GZIPOutputStream(out) {
-    `def`.setLevel(Deflater.BEST_SPEED)
   }
 }
