@@ -30,14 +30,14 @@ import java.util.Optional
 class AppConfiguration {
 
   @Bean
-  def loadGenWsService(
+  def loadGenService(
     config: Optional[Config],
     registry: Optional[Registry],
     evaluator: Evaluator,
     system: ActorSystem
-  ): LoadGenWsService = {
+  ): LoadGenService = {
     val c = config.orElseGet(() => ConfigFactory.load())
     val r = registry.orElseGet(() => new NoopRegistry)
-    new LoadGenWsService(c, r, evaluator, system)
+    new LoadGenService(c, r, evaluator, system)
   }
 }
