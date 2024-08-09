@@ -17,7 +17,6 @@ package com.netflix.atlas.spring
 
 import org.apache.pekko.actor.ActorSystem
 import com.netflix.atlas.pekko.PekkoHttpClient
-import com.netflix.atlas.pekko.DefaultPekkoHttpClient
 import com.netflix.atlas.cloudwatch.AwsAccountSupplier
 import com.netflix.atlas.cloudwatch.CloudWatchDebugger
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor
@@ -119,17 +118,13 @@ class CloudWatchConfiguration extends StrictLogging {
   }
 
   @Bean
-  def getTagger(
-    config: Config
-  ): NetflixTagger = {
+  def getTagger(config: Config): NetflixTagger = {
     new NetflixTagger(config.getConfig("atlas.cloudwatch.tagger"))
   }
 
   @Bean
-  def httpClient(
-    system: ActorSystem
-  ): DefaultPekkoHttpClient = {
-    new DefaultPekkoHttpClient("PubProxy")(system)
+  def httpClient(system: ActorSystem): PekkoHttpClient = {
+    PekkoHttpClient.create("PubProxy", system)
   }
 
   /**
@@ -142,9 +137,7 @@ class CloudWatchConfiguration extends StrictLogging {
     *   A Jedis cluster client.
     */
   @Bean
-  def getJedisClient(
-    config: Config
-  ): JedisCluster = {
+  def getJedisClient(config: Config): JedisCluster = {
     val poolConfig = new GenericObjectPoolConfig[Connection]()
     poolConfig.setMaxTotal(config.getInt("atlas.cloudwatch.redis.connection.pool.max"))
     val cluster =
@@ -158,10 +151,7 @@ class CloudWatchConfiguration extends StrictLogging {
   }
 
   @Bean
-  def debugger(
-    config: Config,
-    registry: Optional[Registry]
-  ): CloudWatchDebugger = {
+  def debugger(config: Config, registry: Optional[Registry]): CloudWatchDebugger = {
     val r = registry.orElseGet(() => globalRegistry())
     new CloudWatchDebugger(config, r)
   }
