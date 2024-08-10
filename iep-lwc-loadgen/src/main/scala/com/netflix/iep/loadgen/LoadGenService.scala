@@ -34,10 +34,12 @@ import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.histogram.PercentileDistributionSummary
 import com.netflix.spectator.api.Registry
+import com.netflix.spectator.api.histogram.PercentileTimer
 import com.netflix.spectator.api.patterns.CardinalityLimiters
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
+import java.util.concurrent.TimeUnit
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 import scala.util.Failure
@@ -116,7 +118,7 @@ class LoadGenService(
   private def updateStats(envelope: Evaluator.MessageEnvelope): Unit = {
     val id = limiter(envelope.id())
     envelope.message() match {
-      case tsm: TimeSeriesMessage => record(id, "timeseries", value(tsm))
+      case tsm: TimeSeriesMessage => record(id, "timeseries", value(tsm), tsm.start)
       case msg: DiagnosticMessage => record(id, msg.typeName)
       case _                      => record(id, "unknown")
     }
@@ -129,11 +131,17 @@ class LoadGenService(
     }
   }
 
-  private def record(id: String, msgType: String, value: Double = Double.NaN): Unit = {
+  private def record(
+    id: String,
+    msgType: String,
+    value: Double = Double.NaN,
+    timestamp: Long = 0L
+  ): Unit = {
     val resultMessages = registry
       .createId("loadgen.resultMessages")
       .withTags("id", id, "msgType", msgType)
     registry.counter(resultMessages).increment()
+
     if (!value.isNaN) {
       // Fractional amounts between 0 and 1 are more common for our use-cases than numbers
       // large enough to overflow the long when multiplied by 1M. Since the distribution summary
@@ -147,6 +155,15 @@ class LoadGenService(
         .withTags(resultMessages.tags())
         .build()
         .record(longValue)
+    }
+
+    if (value > 0L) {
+      val age = registry.clock().wallTime() - timestamp
+      PercentileTimer
+        .builder(registry)
+        .withName("loadgen.ageDistribution")
+        .build()
+        .record(age, TimeUnit.MILLISECONDS)
     }
   }
 }
