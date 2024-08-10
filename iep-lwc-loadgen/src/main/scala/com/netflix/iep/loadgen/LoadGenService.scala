@@ -131,7 +131,12 @@ class LoadGenService(
     }
   }
 
-  private def record(id: String, msgType: String, value: Double = Double.NaN, timestamp: Long = 0L): Unit = {
+  private def record(
+    id: String,
+    msgType: String,
+    value: Double = Double.NaN,
+    timestamp: Long = 0L
+  ): Unit = {
     val resultMessages = registry
       .createId("loadgen.resultMessages")
       .withTags("id", id, "msgType", msgType)
