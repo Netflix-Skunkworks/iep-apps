@@ -17,6 +17,8 @@ package com.netflix.atlas.aggregator
 
 import com.netflix.iep.admin.EndpointMapping
 import com.netflix.iep.admin.endpoints.SpectatorEndpoint
+import com.netflix.iep.config.ConfigManager
+import com.netflix.iep.config.DynamicConfigManager
 import org.apache.pekko.actor.ActorSystem
 import com.netflix.spectator.api.Clock
 import com.netflix.spectator.api.NoopRegistry
@@ -32,14 +34,35 @@ import java.util.Optional
 class AppConfiguration {
 
   @Bean
+  def pekkoClient(
+    registry: Optional[Registry],
+    system: ActorSystem
+  ): PekkoClient = {
+    val r = registry.orElseGet(() => new NoopRegistry)
+    new PekkoClient(r, system)
+  }
+
+  @Bean
   def atlasAggregatorService(
     config: Optional[Config],
     registry: Optional[Registry],
-    system: ActorSystem
+    client: PekkoClient
   ): AtlasAggregatorService = {
     val c = config.orElseGet(() => ConfigFactory.load())
     val r = registry.orElseGet(() => new NoopRegistry)
-    new AtlasAggregatorService(c, Clock.SYSTEM, r, system)
+    new AtlasAggregatorService(c, Clock.SYSTEM, r, client)
+  }
+
+  @Bean
+  def shardedAggregatorService(
+    configManager: Optional[DynamicConfigManager],
+    registry: Optional[Registry],
+    client: PekkoClient,
+    atlasAggregatorService: AtlasAggregatorService
+  ): ShardedAggregatorService = {
+    val c = configManager.orElseGet(() => ConfigManager.dynamicConfigManager())
+    val r = registry.orElseGet(() => new NoopRegistry)
+    new ShardedAggregatorService(c, r, client, atlasAggregatorService)
   }
 
   @Bean

@@ -15,7 +15,6 @@
  */
 package com.netflix.atlas.aggregator
 
-import org.apache.pekko.actor.ActorSystem
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Clock
 import com.netflix.spectator.api.Id
@@ -27,11 +26,11 @@ class AtlasAggregatorService(
   config: Config,
   clock: Clock,
   registry: Registry,
-  system: ActorSystem
+  client: PekkoClient
 ) extends AbstractService
     with Aggregator {
 
-  private val aggrCfg = new AggrConfig(config, registry, system)
+  private val aggrCfg = new AggrConfig(config, registry, client)
 
   private val aggrRegistry = new AtlasRegistry(clock, aggrCfg)
 

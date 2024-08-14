@@ -41,7 +41,9 @@ class UpdateApiSuite extends FunSuite {
   private val aggrTag = Tag.of("atlas.dstype", "sum")
 
   private def createAggrService(clock: Clock): AtlasAggregatorService = {
-    new AtlasAggregatorService(ConfigFactory.load(), clock, new NoopRegistry, system)
+    val registry = new NoopRegistry
+    val client = new PekkoClient(registry, system)
+    new AtlasAggregatorService(ConfigFactory.load(), clock, registry, client)
   }
 
   test("simple payload") {

@@ -15,8 +15,6 @@
  */
 package com.netflix.atlas.aggregator
 
-import org.apache.pekko.actor.ActorSystem
-
 import java.security.SecureRandom
 import com.netflix.spectator.api.Clock
 import com.netflix.spectator.api.Registry
@@ -30,7 +28,7 @@ import com.typesafe.config.Config
 class AggrConfig(
   val config: Config,
   registry: Registry,
-  system: ActorSystem
+  client: PekkoClient
 ) extends AtlasConfig
     with EvaluatorConfig {
 
@@ -75,7 +73,7 @@ class AggrConfig(
   override def validTagCharacters(): String = null
 
   override def publisher(): Publisher = {
-    new PekkoPublisher(registry, this, system)
+    new PekkoPublisher(this, client)
   }
 
   override def evaluatorStepSize(): Long = {
