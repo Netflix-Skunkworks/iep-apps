@@ -183,6 +183,7 @@ class PayloadDecoder(
     val dsType = op match {
       case ADD => "sum"
       case MAX => "gauge"
+      case _   => "gauge"
     }
     tags(pos) = TagKey.dsType
     tags(pos + 1) = dsType

@@ -15,8 +15,6 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import java.time.Duration
-
 import com.fasterxml.jackson.databind.JsonNode
 import com.netflix.atlas.core.model.DataExpr
 import com.netflix.atlas.core.model.Query.*

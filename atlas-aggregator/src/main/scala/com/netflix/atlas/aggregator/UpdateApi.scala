@@ -29,16 +29,29 @@ import com.netflix.spectator.api.Counter
 import com.netflix.spectator.api.Spectator
 import com.typesafe.scalalogging.StrictLogging
 
-class UpdateApi(aggrService: AtlasAggregatorService) extends WebApi with StrictLogging {
+class UpdateApi(shardedService: ShardedAggregatorService, atlasService: AtlasAggregatorService)
+    extends WebApi
+    with StrictLogging {
 
   import UpdateApi.*
 
-  require(aggrService != null, "no binding for aggregate registry")
+  require(shardedService != null, "no binding for ShardedAggregatorService")
+  require(atlasService != null, "no binding for AtlasAggregatorService")
 
   def routes: Route = {
     endpointPath("api" / "v4" / "update") {
+      // Public endpoint used by clients
       post {
-        parseEntity(customJson(p => processPayload(p, aggrService))) { response =>
+        parseEntity(customJson(p => processPayload(p, shardedService))) { response =>
+          complete(response)
+        }
+      }
+    } ~
+    endpointPath("api" / "v4" / "update-internal") {
+      // Internal endpoint without validation or other checks used when running
+      // in sharded configuration.
+      post {
+        parseEntity(customJson(p => processInternal(p, atlasService))) { response =>
           complete(response)
         }
       }
@@ -57,13 +70,18 @@ object UpdateApi {
     registry.counter("atlas.aggr.datapoints", "id", id)
   }
 
-  private val decoder = PayloadDecoder.default
-
   private[aggregator] def processPayload(
+    parser: JsonParser,
+    service: Aggregator
+  ): HttpResponse = {
+    createResponse(PayloadDecoder.default.decode(parser, service))
+  }
+
+  private[aggregator] def processInternal(
     parser: JsonParser,
     service: AtlasAggregatorService
   ): HttpResponse = {
-    createResponse(decoder.decode(parser, service))
+    createResponse(PayloadDecoder.internal.decode(parser, service))
   }
 
   private val okResponse = {
