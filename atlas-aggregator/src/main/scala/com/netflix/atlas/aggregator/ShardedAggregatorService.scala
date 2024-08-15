@@ -159,7 +159,7 @@ object ShardedAggregatorService {
     }
 
     private def encode(batch: AnyRef): ByteString = {
-      encodeEntries(batch.asInstanceOf[List[UpdateEntry]])
+      encodeEntries(batch.asInstanceOf[Seq[UpdateEntry]])
     }
 
     def offer(entry: UpdateEntry): Unit = {
@@ -169,7 +169,7 @@ object ShardedAggregatorService {
     }
   }
 
-  def encodeEntries(batch: List[UpdateEntry]): ByteString = {
+  def encodeEntries(batch: Seq[UpdateEntry]): ByteString = {
     // Create string table
     val stringTable = new RefIntHashMap[String]()
     batch.foreach { entry =>
