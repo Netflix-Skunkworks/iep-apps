@@ -96,6 +96,42 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
     assertCounters(1, filtered = Map("namespace" -> (0, "AWS/UT1"), "tags" -> (1, "SumRate")))
   }
 
+  test("processDatapoints match namespace without details") {
+    processor.processDatapoints(
+      List(
+        makeFirehoseMetric(
+          "AWS/DetailsMeMaybe",
+          "MyTestMetric",
+          List(Dimension.builder().name("Key").value("Value").build()),
+          Array(39.0, 1.0, 7.0, 19),
+          "Sum"
+        )
+      ),
+      ts
+    )
+    assertPublished(List.empty)
+    assertCounters(1)
+  }
+
+  test("processDatapoints match namespace with details") {
+    processor.processDatapoints(
+      List(
+        makeFirehoseMetric(
+          "AWS/DetailsMeMaybe",
+          "MyTestMetric",
+          List(
+            Dimension.builder().name("Key").value("Value").name("Details").value("Test").build()
+          ),
+          Array(39.0, 1.0, 7.0, 19),
+          "Sum"
+        )
+      ),
+      ts
+    )
+    assertPublished(List.empty)
+    assertCounters(1)
+  }
+
   test("processDatapoints Filter by query") {
     processor.processDatapoints(
       List(
@@ -420,7 +456,7 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
     val ruleSpy = spy(rules)
     when(ruleSpy.rules)
       .thenCallRealMethod()
-      .thenReturn(Map("AWS/UT1" -> Map("SomeMetric" -> (category, List.empty))))
+      .thenReturn(Map("AWS/UT1" -> Map("SomeMetric" -> List((category, List.empty)))))
     processor = new LocalCloudWatchMetricsProcessor(
       config,
       registry,
@@ -446,7 +482,7 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
         Map(
           "AWS/UT1" -> Map(
             "SumRate" ->
-              (category.copy(dimensions = List("SomeOtherTag")), List.empty)
+              List((category.copy(dimensions = List("SomeOtherTag")), List.empty))
           )
         )
       )
@@ -475,7 +511,7 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
         Map(
           "AWS/UT1" -> Map(
             "SumRate" ->
-              (category.copy(filter = Some(Query.HasKey("MyTag"))), List.empty)
+              List((category.copy(filter = Some(Query.HasKey("MyTag"))), List.empty))
           )
         )
       )

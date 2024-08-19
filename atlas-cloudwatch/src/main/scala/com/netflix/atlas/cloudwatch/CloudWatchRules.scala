@@ -27,23 +27,38 @@ class CloudWatchRules(config: Config) {
 
   private val nsMap = {
     //                      ns          metric                       definitions to apply to metric
-    var ruleMap = Map.empty[String, Map[String, (MetricCategory, List[MetricDefinition])]]
-    getCategories(config).foreach { c =>
-      c.metrics.foreach { m =>
+    var ruleMap = Map.empty[String, Map[String, List[(MetricCategory, List[MetricDefinition])]]]
+    getCategories(config).foreach { category =>
+      category.metrics.foreach { metricDef =>
         var inner = ruleMap.getOrElse(
-          c.namespace,
-          Map.empty[String, (MetricCategory, List[MetricDefinition])]
+          category.namespace,
+          Map.empty[String, List[(MetricCategory, List[MetricDefinition])]]
         )
-        val (_, list) = inner.getOrElse(m.name, (c, List.empty[MetricDefinition]))
-        inner += m.name         -> (c, list :+ m)
-        ruleMap += (c.namespace -> inner)
+        // val (_, list) = inner.getOrElse(m.name, List((c, List.empty[MetricDefinition])))
+        var entry =
+          inner.getOrElse(metricDef.name, List.empty[(MetricCategory, List[MetricDefinition])])
+
+        var updated = false
+        for (i <- 0 until entry.size) {
+          val (cat, defs) = entry(i)
+          if (cat == category) {
+            entry = entry.updated(i, (cat, defs :+ metricDef))
+            updated = true
+          }
+        }
+
+        if (!updated) {
+          entry = entry :+ (category, List(metricDef))
+        }
+        inner += metricDef.name        -> entry
+        ruleMap += (category.namespace -> inner)
       }
     }
     ruleMap
   }
 
   // converted to a method for unit testing.
-  def rules: Map[String, Map[String, (MetricCategory, List[MetricDefinition])]] = nsMap
+  def rules: Map[String, Map[String, List[(MetricCategory, List[MetricDefinition])]]] = nsMap
 
   private[cloudwatch] def getCategories(config: Config): List[MetricCategory] = {
     import scala.jdk.CollectionConverters.*
