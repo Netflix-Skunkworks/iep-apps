@@ -50,7 +50,7 @@ class RulesEndpoint(
     parameters("namespace".optional, "metric".optional) { (ns, m) =>
       val namespace = ns.getOrElse("")
       val metric = m.getOrElse("")
-      val result: Map[String, Map[String, (MetricCategory, List[MetricDefinition])]] =
+      val result: Map[String, Map[String, List[(MetricCategory, List[MetricDefinition])]]] =
         (namespace.nonEmpty, metric.nonEmpty) match {
           case (true, true) =>
             rules.rules
@@ -64,7 +64,7 @@ class RulesEndpoint(
   }
 
   private def encode(
-    result: Map[String, Map[String, (MetricCategory, List[MetricDefinition])]]
+    result: Map[String, Map[String, List[(MetricCategory, List[MetricDefinition])]]]
   ): Array[Byte] = {
     val stream = new ByteArrayOutputStream()
     Using.resource(Json.newJsonGenerator(stream)) { json =>
@@ -73,32 +73,36 @@ class RulesEndpoint(
         json.writeStringField("ns", ns)
         json.writeObjectFieldStart("metrics")
 
-        metrics.foreachEntry { (metric, tuple) =>
-          val (category, definitions) = tuple
-          json.writeObjectFieldStart(metric)
-          json.writeNumberField("period", category.period)
-          json.writeNumberField("graceOverride", category.graceOverride)
+        metrics.foreachEntry { (metric, list) =>
+          json.writeArrayFieldStart("categories")
+          list.foreach { tuple =>
+            val (category, definitions) = tuple
+            json.writeObjectFieldStart(metric)
+            json.writeNumberField("period", category.period)
+            json.writeNumberField("graceOverride", category.graceOverride)
 
-          json.writeArrayFieldStart("dimensions")
-          category.dimensions.foreach(json.writeString(_))
-          json.writeEndArray()
+            json.writeArrayFieldStart("dimensions")
+            category.dimensions.foreach(json.writeString(_))
+            json.writeEndArray()
 
-          if (category.filter.isDefined) {
-            json.writeStringField("filter", category.filter.get.toString)
-          }
+            if (category.filter.isDefined) {
+              json.writeStringField("filter", category.filter.get.toString)
+            }
 
-          json.writeArrayFieldStart("definitions")
-          definitions.foreach { d =>
-            json.writeStartObject()
-            json.writeStringField("alias", d.alias)
-            if (d.monotonicValue) json.writeBooleanField("monotonicValue", true)
-            json.writeObjectFieldStart("tags")
-            d.tags.foreachEntry((k, v) => json.writeStringField(k, v))
+            json.writeArrayFieldStart("definitions")
+            definitions.foreach { d =>
+              json.writeStartObject()
+              json.writeStringField("alias", d.alias)
+              if (d.monotonicValue) json.writeBooleanField("monotonicValue", true)
+              json.writeObjectFieldStart("tags")
+              d.tags.foreachEntry((k, v) => json.writeStringField(k, v))
+              json.writeEndObject()
+              json.writeEndObject()
+            }
+            json.writeEndArray()
             json.writeEndObject()
-            json.writeEndObject()
           }
           json.writeEndArray()
-          json.writeEndObject()
         }
         json.writeEndObject()
       }
