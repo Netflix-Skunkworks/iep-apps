@@ -102,10 +102,11 @@ than the configuration will be dropped. The dimensions may be verified in docume
 checking the groupings in the AWS Console. Within some AWS metrics namespaces, the different
 metrics have different dimensions, so you may need to break up the definition of metrics.
 
-**Warning**
-Do not configure categories for the same metrics with different dimensions. E.g. LBs post aggregated
-values with the `LoadBalancer` and `LoadBalancer`, `AvailabilityZone` dimensions. Choose one
-combination of tags or users are likely to see errant data in Atlas when the tags are combined.
+**NOTE**
+Be careful when defining configurations with multiple dimension sets for the same data. Cloudwatch has
+multiple aggregates. Some metrics are emitted with a standard set of dimensions and users can opt-in to
+a set of more detailed metrics that include extra dimensions. Generally, choose the standard set and
+add the detailed set if users request.
 
 See [route53.conf](src/main/resources/route53.conf) as an example.
 
