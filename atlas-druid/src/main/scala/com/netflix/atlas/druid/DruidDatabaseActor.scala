@@ -31,6 +31,7 @@ import com.netflix.atlas.core.model.DataExpr
 import com.netflix.atlas.core.model.DefaultSettings
 import com.netflix.atlas.core.model.DsType
 import com.netflix.atlas.core.model.EvalContext
+import com.netflix.atlas.core.model.LazyTimeSeries
 import com.netflix.atlas.core.model.Query
 import com.netflix.atlas.core.model.Query.KeyQuery
 import com.netflix.atlas.core.model.Query.KeyValueQuery
@@ -320,14 +321,16 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
 
     val druidQueries = toDruidQueries(metadata, id, fetchContext, expr).map {
       case (tags, metric, groupByQuery) =>
+        val druidStep = math.max(metric.primaryStep, fetchContext.step)
+        val metricContext = withStep(fetchContext, druidStep)
         // For sketches just use the distinct count, other types are assumed to be counters.
         val valueMapper =
           if (metric.isSketch)
             (v: Double) => v
           else
-            createValueMapper(normalizeRates, fetchContext, expr)
+            createValueMapper(normalizeRates, metricContext, expr)
         client.data(groupByQuery).map { result =>
-          val candidates = toTimeSeries(tags, fetchContext, result, maxDataSize, valueMapper)
+          val candidates = toTimeSeries(tags, metricContext, result, maxDataSize, valueMapper)
           // See behavior on multi-value dimensions:
           // http://druid.io/docs/latest/querying/groupbyquery.html
           //
@@ -336,7 +339,21 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
           // and regex filters. Some queries, e.g., greater than, cannot be done with the
           // server side filter so we filter candidates locally to ensure the correct
           // results are included.
-          val series = candidates.filter(ts => query.couldMatch(ts.tags))
+          val matchingSeries = candidates.filter(ts => query.couldMatch(ts.tags))
+
+          // Some data may be at a higher resolution than others, if the step for the
+          // output is higher resolution than a metric supports, spread it out so it
+          // can be compared with the other signals.
+          val series =
+            if (fetchContext.step == metricContext.step) matchingSeries
+            else {
+              matchingSeries.map { ts =>
+                val seq = new ReduceStepTimeSeq(ts.data, fetchContext.step)
+                LazyTimeSeries(ts.tags, ts.label, seq)
+              }
+            }
+
+          // Apply offset if present
           if (offset == 0L) series else series.map(_.offset(offset))
         }
     }
@@ -390,6 +407,16 @@ object DruidDatabaseActor {
   }
 
   case class MetricMetadata(metric: DruidClient.Metric, tags: Map[String, String])
+
+  private def withStep(ctx: EvalContext, step: Long): EvalContext = {
+    if (step == ctx.step) {
+      ctx
+    } else {
+      val s = ctx.start / step * step
+      val e = ctx.end / step * step + step
+      ctx.copy(start = s, end = e, step = step)
+    }
+  }
 
   def isSpecial(k: String): Boolean = {
     // statistic is included to support adding a percentile dimension for histogram
@@ -535,7 +562,7 @@ object DruidDatabaseActor {
     }
     arrays.toList.map {
       case (tags, vs) =>
-        val seq = new ArrayTimeSeq(DsType.Rate, context.start, context.step, vs)
+        val seq = new ArrayTimeSeq(DsType.Rate, context.start + context.step, context.step, vs)
         TimeSeries(commonTags ++ tags, seq)
     }
   }
@@ -552,12 +579,15 @@ object DruidDatabaseActor {
         m -> ds.datasource.dimensions
       }
     }
-    val intervals = List(toInterval(context))
 
     metrics.flatMap {
       case (m, ds) =>
         val name = m.tags("name")
         val datasource = m.tags("nf.datasource")
+
+        val druidStep = math.max(m.metric.primaryStep, context.step)
+        val druidContext = withStep(context, druidStep)
+        val intervals = List(toInterval(druidContext))
 
         // Common tags should be extracted for the simplified query rather than the raw
         // query. The simplified query may have additional exact matches due to simplified
@@ -595,7 +625,7 @@ object DruidDatabaseActor {
             intervals = intervals,
             aggregations = List(toAggregation(m.metric, expr)),
             filter = DruidFilter.forQuery(finalQueryWithFilter),
-            granularity = Granularity.millis(context.step)
+            granularity = Granularity.millis(druidStep)
           )
           val druidQuery =
             if (groupByQuery.dimensions.isEmpty && !m.metric.isHistogram)

@@ -34,6 +34,8 @@ import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.core.JsonToken
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.module.scala.JavaTypeable
 import com.netflix.atlas.pekko.AccessLogger
 import com.netflix.atlas.pekko.ByteStringInputStream
@@ -253,7 +255,7 @@ object DruidClient {
 
   case class Datasource(dimensions: List[String], metrics: List[Metric])
 
-  case class Metric(name: String, dataType: String = "doubleSum") {
+  case class Metric(name: String, dataType: String = "doubleSum", primaryStep: Long = 60000L) {
 
     def isSketch: Boolean = {
       dataType == "HLLSketchMerge"
@@ -285,7 +287,7 @@ object DruidClient {
     intervals: List[String] = null,
     toInclude: Option[ToInclude] = None,
     merge: Boolean = true,
-    analysisTypes: List[String] = List("aggregators"),
+    analysisTypes: List[String] = List("aggregators", "queryGranularity"),
     aggregatorMergeStrategy: String = "latest"
   ) {
     val queryType: String = "segmentMetadata"
@@ -309,20 +311,42 @@ object DruidClient {
     intervals: List[String] = Nil,
     columns: Map[String, Column] = Map.empty,
     aggregators: Map[String, Aggregator] = Map.empty,
+    queryGranularity: JsonNode,
     size: Long = 0L,
     numRows: Long = 0L
   ) {
 
     def toDatasource: Datasource = {
+      val step = stepSize
       val dimensions = columns.filter(c => c._2 != null && c._2.isDimension).keys.toList.sorted
       val metrics = aggregators
         .filterNot(_._2 == null)
         .map {
-          case (name, column) => Metric(name, column.`type`)
+          case (name, column) => Metric(name, column.`type`, step)
         }
         .filter(_.isSupported)
         .toList
       Datasource(dimensions, metrics)
+    }
+
+    def stepSize: Long = {
+      val defaultStep = 60000
+      // https://druid.apache.org/docs/latest/querying/granularities
+      queryGranularity match {
+        case g if g.isTextual =>
+          // none is up to millisecond, use 1s. For all others treat as 1m
+          g.textValue().toLowerCase(Locale.US) match {
+            case "none" | "second" => 1000
+            case _                 => defaultStep
+          }
+        case g: ObjectNode =>
+          g.get("type").textValue() match {
+            case "duration" => g.get("duration").asLong()
+            case _          => defaultStep
+          }
+        case _ =>
+          defaultStep
+      }
     }
   }
 

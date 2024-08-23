@@ -19,6 +19,7 @@ import java.time.Duration
 import java.time.Instant
 import com.netflix.atlas.core.model.ConsolidationFunction
 import com.netflix.atlas.core.model.DataExpr
+import com.netflix.atlas.core.model.DefaultSettings
 import com.netflix.atlas.core.model.EvalContext
 import com.netflix.atlas.core.model.Query
 import com.netflix.atlas.core.model.QueryVocabulary
@@ -339,7 +340,8 @@ class DruidDatabaseActorSuite extends FunSuite {
   test("createValueMapper: avg consolidation") {
     val expr = DataExpr.Sum(Query.Equal("a", "1"))
     val mapper = createValueMapper(false, context.copy(step = 300000), expr)
-    assertEquals(mapper(1.0), 1.0 / 5)
+    val multiple = 300000 / DefaultSettings.stepSize
+    assertEquals(mapper(1.0), 1.0 / multiple)
   }
 
   test("createValueMapper: max consolidation") {
