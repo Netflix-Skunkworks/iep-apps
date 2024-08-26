@@ -569,9 +569,9 @@ abstract class CloudWatchMetricsProcessor(
     } catch {
       case ex: Exception =>
         registry
-          .counter(publishEx.withTags("aws.namespace", "ex", ex.getClass.getSimpleName))
+          .counter(publishEx.withTags("ex", ex.getClass.getSimpleName))
           .increment()
-        logger.error("Unexpected exception publishing", ex)
+        logger.error(s"Unexpected exception publishing from key: ${key}", ex)
     }
   }
 
