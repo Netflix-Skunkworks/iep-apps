@@ -28,6 +28,8 @@ import com.netflix.atlas.druid.DruidClient.*
 import com.netflix.atlas.json.Json
 import munit.FunSuite
 
+import java.util.UUID
+
 class DruidDatabaseActorSuite extends FunSuite {
 
   import DruidDatabaseActor.*
@@ -229,9 +231,17 @@ class DruidDatabaseActorSuite extends FunSuite {
     Duration.ofMinutes(1).toMillis
   )
 
+  private def toTestDruidQueryContext(expr: DataExpr): Map[String, String] = {
+    Map(
+      "atlasQuerySource"     -> "test",
+      "atlasQueriesCombined" -> expr.toString(),
+      "atlasQueryGuid"       -> "asdf"
+    )
+  }
+
   test("toDruidQueries: simple sum") {
     val expr = DataExpr.Sum(Query.Equal("a", "1"))
-    val queries = toDruidQueries(metadata, "test", context, expr)
+    val queries = toDruidQueries(metadata, toTestDruidQueryContext(expr), context, expr)
 
     assertEquals(queries.size, 4)
     assertEquals(queries.map(_._1("name")).toSet, Set("m1", "m2", "m3"))
@@ -240,7 +250,7 @@ class DruidDatabaseActorSuite extends FunSuite {
 
   test("toDruidQueries: unknown dimensions") {
     val expr = DataExpr.Sum(Query.HasKey("c"))
-    val queries = toDruidQueries(metadata, "test", context, expr)
+    val queries = toDruidQueries(metadata, toTestDruidQueryContext(expr), context, expr)
 
     assertEquals(queries.size, 2)
     assertEquals(queries.map(_._1("name")).toSet, Set("m1", "m3"))
@@ -249,7 +259,7 @@ class DruidDatabaseActorSuite extends FunSuite {
 
   test("toDruidQueries: unknown dimensions missing") {
     val expr = DataExpr.Sum(Query.Not(Query.HasKey("c")))
-    val queries = toDruidQueries(metadata, "test", context, expr)
+    val queries = toDruidQueries(metadata, toTestDruidQueryContext(expr), context, expr)
 
     assertEquals(queries.size, 4)
     assertEquals(queries.map(_._1("name")).toSet, Set("m1", "m2", "m3"))
@@ -258,7 +268,7 @@ class DruidDatabaseActorSuite extends FunSuite {
 
   test("toDruidQueries: or with one missing dimension") {
     val expr = DataExpr.Sum(Query.Or(Query.Equal("a", "1"), Query.Equal("d", "2")))
-    val queries = toDruidQueries(metadata, "test", context, expr)
+    val queries = toDruidQueries(metadata, toTestDruidQueryContext(expr), context, expr)
     assert(queries.forall(_._1.contains("a")))
   }
 
@@ -272,7 +282,7 @@ class DruidDatabaseActorSuite extends FunSuite {
         Query.Equal("name", "m3")
       )
     )
-    val queries = toDruidQueries(metadata, "test", context, expr)
+    val queries = toDruidQueries(metadata, toTestDruidQueryContext(expr), context, expr)
     val m1 = queries.filter(t => t._2.name == "m1").head
     val json = Json.encode(m1._3)
     assert(json.contains("""{"dimension":"b","value":"foo","type":"selector"}"""))

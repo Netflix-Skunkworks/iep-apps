@@ -42,11 +42,13 @@ import com.netflix.atlas.core.model.TimeSeries
 import com.netflix.atlas.core.util.ArrayHelper
 import com.netflix.atlas.core.util.ListHelper
 import com.netflix.atlas.json.Json
+import com.netflix.atlas.webapi.GraphApi.DataRequest
 import com.netflix.spectator.impl.PatternMatcher
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
 import java.time.temporal.ChronoUnit
+import java.util.UUID
 import scala.concurrent.duration.*
 import scala.util.Failure
 import scala.util.Success
@@ -267,8 +269,8 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
   }
 
   private def explain(ref: ActorRef, request: DataRequest): Unit = {
-    val id = request.config.map(_.id).getOrElse("unknown")
     val context = request.context
+    val druidQueryContext = toDruidQueryContext(request)
     val explanation = request.exprs
       .flatMap { expr =>
         val offset = expr.offset.toMillis
@@ -278,7 +280,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
             context.copy(context.start - offset, context.end - offset)
           }
         val exprStr = expr.toString()
-        toDruidQueries(metadata, id, fetchContext, expr)
+        toDruidQueries(metadata, druidQueryContext, fetchContext, expr)
           .map {
             case (tags, _, q) => Map("data-expr" -> exprStr, "tags" -> tags, "druid-query" -> q)
           }
@@ -290,9 +292,9 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
   }
 
   private def fetchData(ref: ActorRef, request: DataRequest): Unit = {
-    val id = request.config.map(_.id).getOrElse("unknown")
+    val druidQueryContext = toDruidQueryContext(request)
     val druidQueries = request.exprs.map { expr =>
-      fetchData(id, request.context, expr).map(ts => expr -> ts)
+      fetchData(druidQueryContext, request.context, expr).map(ts => expr -> ts)
     }
     Source(druidQueries)
       .flatMapMerge(Int.MaxValue, v => v)
@@ -307,7 +309,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
   }
 
   private def fetchData(
-    id: String,
+    druidQueryContext: Map[String, String],
     context: EvalContext,
     expr: DataExpr
   ): Source[List[TimeSeries], NotUsed] = {
@@ -319,7 +321,7 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
       }
     val query = expr.query
 
-    val druidQueries = toDruidQueries(metadata, id, fetchContext, expr).map {
+    val druidQueries = toDruidQueries(metadata, druidQueryContext, fetchContext, expr).map {
       case (tags, metric, groupByQuery) =>
         val druidStep = math.max(metric.primaryStep, fetchContext.step)
         val metricContext = withStep(fetchContext, druidStep)
@@ -567,9 +569,17 @@ object DruidDatabaseActor {
     }
   }
 
+  def toDruidQueryContext(request: DataRequest): Map[String, String] = {
+    Map(
+      "atlasQuerySource"     -> request.config.map(_.id).getOrElse("unknown"),
+      "atlasQueriesCombined" -> request.exprs.mkString(" "),
+      "atlasQueryGuid"       -> UUID.randomUUID().toString
+    )
+  }
+
   def toDruidQueries(
     metadata: Metadata,
-    id: String,
+    druidQueryContext: Map[String, String],
     context: EvalContext,
     expr: DataExpr
   ): List[(Map[String, String], DruidClient.Metric, DataQuery)] = {
@@ -632,7 +642,7 @@ object DruidDatabaseActor {
               groupByQuery.toTimeseriesQuery
             else
               groupByQuery
-          Some((tags, m.metric, druidQuery.withAdditionalContext(Map("atlasQuerySource" -> id))))
+          Some((tags, m.metric, druidQuery.withAdditionalContext(druidQueryContext)))
         }
     }
   }
