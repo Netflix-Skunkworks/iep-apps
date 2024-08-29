@@ -448,6 +448,42 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
     )
   }
 
+  test("getPublishPoint - need two, one value too old") {
+    val cache = ce(
+      List(cwv(-6.minutes, -5.minutes, false))
+    )
+    val mono = MetricCategory(
+      "AWS/DynamoDB",
+      60,
+      -1,
+      List("MyTag"),
+      List(MetricDefinition("SumRate", "sum.rate", null, true, Map.empty)),
+      null
+    )
+    assertPublishPoint(processor.getPublishPoint(cache, nts, mono), -1, cache, false)
+    assertMetrics(
+      needTwo = 1
+    )
+  }
+
+  test("getPublishPoint - need two, one of two values too old") {
+    val cache = ce(
+      List(cwv(-6.minutes, -5.minutes, false), cwv(-2.minutes, -1.minutes, false))
+    )
+    val mono = MetricCategory(
+      "AWS/DynamoDB",
+      60,
+      -1,
+      List("MyTag"),
+      List(MetricDefinition("SumRate", "sum.rate", null, true, Map.empty)),
+      null
+    )
+    assertPublishPoint(processor.getPublishPoint(cache, nts, mono), -1, cache, false)
+    assertMetrics(
+      needTwo = 1
+    )
+  }
+
   test("getPublishPoint - need two") {
     val cache = ce(
       List(cwv(-3.minutes, -2.minutes, false), cwv(-2.minutes, -1.minutes, false))
