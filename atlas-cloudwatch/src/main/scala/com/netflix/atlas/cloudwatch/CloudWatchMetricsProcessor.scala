@@ -640,7 +640,11 @@ abstract class CloudWatchMetricsProcessor(
     }
 
     if (needTwoValues) {
-      if (idx + 1 < cache.getDataCount) {
+      if (
+        idx >= 0 &&
+        cache.getDataCount >= 2 &&
+        idx + 1 < cache.getDataCount
+      ) {
         idx += 1
         // validate the previous is within step. Otherwise not particularly useful
         val prev = cache.getData(idx - 1)
