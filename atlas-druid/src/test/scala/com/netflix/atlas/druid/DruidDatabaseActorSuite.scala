@@ -235,33 +235,27 @@ class DruidDatabaseActorSuite extends FunSuite {
 
   private def toTestDruidQueryContext(expr: DataExpr): Map[String, String] = {
     Map(
-      "atlasQuerySource"     -> "test",
-      "atlasQueriesCombined" -> expr.toString(),
-      "atlasQueryGuid"       -> "test-query-guid"
+      "atlasQuerySource" -> "test",
+      "atlasQueryString" -> expr.toString(),
+      "atlasQueryGuid"   -> "test-query-guid"
     )
   }
 
   test("toDruidQueryContext: should produce valid map from request") {
     val mockConfig = mock[GraphConfig]
-    // Stub the id field
+    // Stub the id and query fields
     when(mockConfig.id).thenReturn("mocked-id")
+    when(mockConfig.query).thenReturn("b,foo,:eq,:sum b,bar,:eq,:sum")
 
     val druidQueryContext = toDruidQueryContext(
       DataRequest(
         context: EvalContext,
-        List(
-          DataExpr.Sum(
-            Query.Equal("b", "foo")
-          ),
-          DataExpr.Sum(
-            Query.Equal("b", "bar")
-          )
-        ),
+        List(),
         Some(mockConfig)
       )
     )
     assertEquals(druidQueryContext("atlasQuerySource"), "mocked-id")
-    assertEquals(druidQueryContext("atlasQueriesCombined"), "b,foo,:eq,:sum b,bar,:eq,:sum")
+    assertEquals(druidQueryContext("atlasQueryString"), "b,foo,:eq,:sum b,bar,:eq,:sum")
     assert(druidQueryContext("atlasQueryGuid").nonEmpty)
   }
 

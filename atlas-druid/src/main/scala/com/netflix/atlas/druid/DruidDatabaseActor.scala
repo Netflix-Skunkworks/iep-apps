@@ -571,9 +571,9 @@ object DruidDatabaseActor {
 
   def toDruidQueryContext(request: DataRequest): Map[String, String] = {
     Map(
-      "atlasQuerySource"     -> request.config.map(_.id).getOrElse("unknown"),
-      "atlasQueriesCombined" -> request.exprs.mkString(" "),
-      "atlasQueryGuid"       -> UUID.randomUUID().toString
+      "atlasQuerySource" -> request.config.map(_.id).getOrElse("unknown"),
+      "atlasQueryString" -> request.config.map(_.query).getOrElse("unknown"),
+      "atlasQueryGuid"   -> UUID.randomUUID().toString
     )
   }
 
