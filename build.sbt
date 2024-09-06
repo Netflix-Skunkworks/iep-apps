@@ -77,7 +77,10 @@ lazy val `atlas-druid` = project
     Dependencies.iepSpring,
     Dependencies.log4jApi,
     Dependencies.log4jCore,
-    Dependencies.log4jSlf4j
+    Dependencies.log4jSlf4j,
+
+    Dependencies.mockitoCore % "test",
+    Dependencies.mockitoScala % "test",
   ))
 
 lazy val `atlas-persistence` = project
