@@ -155,70 +155,47 @@ class CloudWatchPoller(
     val runners = List.newBuilder[Poller]
 
     try {
-      accountSupplier.accounts.foreachEntry { (account, regions) =>
-        regions.foreachEntry { (region, namespaces) =>
-          if (namespaces.size > 0) {
+      accountSupplier.accounts.foreach { case (account, regions) =>
+        regions.foreach { case (region, namespaces) =>
+          if (namespaces.nonEmpty) {
             val filtered = categories.filter(c => namespaces.contains(c.namespace))
-            if (filtered.size > 0) {
-              var skip = false
-              if (offset == 60 && !fastPollingAccounts.contains(account)) {
-                skip = true
-              }
-
-              if (!skip) {
-                val nextRun = timeToRun(filtered.head.period, offset, account, region)
-                if (nextRun > 0) {
-                  // flag check
-                  val flag = flagMap.computeIfAbsent(
-                    runKey(offset, account, region),
-                    _ => new AtomicBoolean(false)
-                  )
-                  if (flag.compareAndSet(false, true)) {
-                    val client = clientFactory.getInstance(
-                      account + "." + region.toString,
-                      classOf[CloudWatchClient],
-                      account,
-                      Optional.of(region)
-                    )
-                    val catFutures = filtered.map { category =>
-                      val runner = Poller(now, category, client, account, region, offset)
-                      this.synchronized {
-                        runners += runner
-                        runner.execute
-                      }
-                    }
-                    futures += Future.reduceLeft(catFutures)((_, _) => Done).andThen {
-                      case Success(_) =>
-                        val key = runKey(offset, account, region)
-                        processor.updateLastSuccessfulPoll(key, nextRun)
-                        val flag = flagMap.get(key)
-                        if (flag == null) {
-                          logger.error(s"No flag found for key ${key}")
-                        } else {
-                          flag.set(false)
-                        }
-                      case Failure(_) =>
-                        val key = runKey(offset, account, region)
-                        val flag = flagMap.get(key)
-                        if (flag == null) {
-                          logger.error(s"No flag found for key ${key}")
-                        } else {
-                          flag.set(false)
-                        }
-                      // let it bubble up. We'll retry all categories which should be ok as the polling should be idempotent
-                    }
-                  } else {
-                    logger.warn(
-                      s"Skipping polling for period ${offset}s ${account} in ${region} as it was already running."
-                    )
+            if (filtered.nonEmpty && shouldPoll(offset, account, region, filtered.head.period)) {
+              val key = runKey(offset, account, region)
+              val flag = flagMap.computeIfAbsent(key, _ => new AtomicBoolean(false))
+              if (flag.compareAndSet(false, true)) {
+                val client = createClient(account, region)
+                val catFutures = categories.map { category =>
+                  val runner = Poller(now, category, client, account, region, offset)
+                  this.synchronized {
+                    runners += runner
+                    runner.execute
                   }
                 }
+                futures += Future.reduceLeft(catFutures)((_, _) => Done).andThen {
+                  case Success(_) => handleSuccess(key, timeToRun(filtered.head.period, offset, account, region))
+                  case Failure(_) => handleFailure(key)
+                }
+              } else {
+                logger.warn(s"Skipping polling for period ${offset}s ${account} in ${region} as it was already running.")
               }
             }
           }
         }
       }
 
+      finalizeFutureResponse()
+      accountsUt.map(_.success(Done))
+    } catch {
+      case ex: Exception =>
+        logger.error("Unexpected exception polling for CloudWatch data.", ex)
+        registry
+          .counter(errorSetup.withTags("exception", ex.getClass.getSimpleName))
+          .increment()
+        accountsUt.map(_.failure(ex))
+        fullRunUt.map(_.failure(ex))
+    }
+
+    def finalizeFutureResponse(): Unit = {
       Future.sequence(futures.result()).onComplete {
         case Success(_) =>
           var expecting = 0
@@ -244,18 +221,38 @@ class CloudWatchPoller(
           pollTime.record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS)
           fullRunUt.map(_.failure(ex))
       }
-      accountsUt.map(_.success(Done))
-    } catch {
-      case ex: Exception =>
-        logger.error("Unexpected exception polling for CloudWatch data.", ex)
-        registry
-          .counter(errorSetup.withTags("exception", ex.getClass.getSimpleName))
-          .increment()
-        accountsUt.map(_.failure(ex))
-        fullRunUt.map(_.failure(ex))
     }
   }
 
+  private def shouldPoll(offset: Int, account: String, region: Region, period: Int): Boolean = {
+    if (offset <= 60 && !fastPollingAccounts.contains(account)) false
+    else timeToRun(period, offset, account, region) > 0
+  }
+
+  private def createClient(account: String, region: Region): CloudWatchClient = {
+    clientFactory.getInstance(
+      s"$account.$region",
+      classOf[CloudWatchClient],
+      account,
+      Optional.of(region)
+    )
+  }
+
+  private def handleSuccess(key: String, nextRun: Long): Unit = {
+    processor.updateLastSuccessfulPoll(key, nextRun)
+    getFlag(key).foreach(_.set(false))
+  }
+
+  private def handleFailure(key: String): Unit = {
+    getFlag(key).foreach(_.set(false))
+  }
+
+  private def getFlag(key: String): Option[AtomicBoolean] = {
+    Option(flagMap.get(key)).orElse {
+      logger.error(s"No flag found for key $key")
+      None
+    }
+  }
   case class Poller(
     now: Instant,
     category: MetricCategory,
