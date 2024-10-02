@@ -103,6 +103,7 @@ class CloudWatchPoller(
   private val dpsExpected = registry.counter("atlas.cloudwatch.poller.dps.expected")
   private val dpsPolled = registry.counter("atlas.cloudwatch.poller.dps.polled")
   private val frequency = config.getDuration("atlas.cloudwatch.poller.frequency").getSeconds
+  private val hrmFrequency = config.getDuration("atlas.cloudwatch.poller.hrmFrequency").getSeconds
 
   private[cloudwatch] val flagMap = new ConcurrentHashMap[String, AtomicBoolean]()
 
@@ -128,12 +129,15 @@ class CloudWatchPoller(
     config.getInt("atlas.cloudwatch.account.polling.requestLimit")
 
   {
-    offsetMap.foreachEntry { (offset, categories) =>
-      logger.info(s"Scheduling poller for offset ${offset}s")
-      system.scheduler.scheduleAtFixedRate(
-        FiniteDuration.apply(frequency, TimeUnit.SECONDS),
-        FiniteDuration.apply(frequency, TimeUnit.SECONDS)
-      )(() => poll(offset, categories))(system.dispatcher)
+    // Scheduling Pollers Based on Offset
+    offsetMap.foreach {
+      case (offset, categories) =>
+        logger.info(s"Scheduling poller for offset ${offset}s")
+        val scheduleFrequency = if (offset < 60) hrmFrequency else frequency
+        system.scheduler.scheduleAtFixedRate(
+          FiniteDuration(scheduleFrequency, TimeUnit.SECONDS),
+          FiniteDuration(scheduleFrequency, TimeUnit.SECONDS)
+        )(() => poll(offset, categories))(system.dispatcher)
     }
   }
 
