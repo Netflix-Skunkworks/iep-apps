@@ -844,7 +844,7 @@ abstract class CloudWatchMetricsProcessor(
     // NOTE - the polling CW code uses now for the timestamp, likely for LWC. BUT data could be off by
     // minutes potentially. And it didn't account for the offset value as far as I could tell. Now we'll at least
     // use the offset value.
-    new AtlasDatapoint(ts, timestamp, newValue)
+    new AtlasDatapoint(ts, timestamp, newValue, step)
   }
 
   def expSeconds(step: Int): Int = {

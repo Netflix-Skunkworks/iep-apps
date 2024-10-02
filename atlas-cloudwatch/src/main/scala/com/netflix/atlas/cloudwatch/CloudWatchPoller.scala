@@ -116,7 +116,9 @@ class CloudWatchPoller(
         val offset = category.pollOffset.get.getSeconds.toInt
         val categories = map.getOrElse(offset, List.empty)
         map += offset -> (categories :+ category)
-        logger.info(s"Setting offset of ${offset}s for categories ${category.namespace}")
+        logger.info(
+          s"Setting offset of ${offset}s for ns ${category.namespace} period ${category.period}"
+        )
       }
     logger.info(s"Loaded ${map.size} polling offsets")
     map
@@ -281,7 +283,7 @@ class CloudWatchPoller(
 
     private[cloudwatch] def execute: Future[Done] = {
       logger.info(
-        s"Polling for account ${account} at ${offset}s and category ${category.namespace} in ${region}"
+        s"Polling for account ${account} at ${offset}s and ns ${category.namespace} period ${category.period} in ${region}"
       )
       val futures = category.toListRequests.map { tuple =>
         val (definition, request) = tuple
