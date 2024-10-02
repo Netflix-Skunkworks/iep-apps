@@ -155,32 +155,39 @@ class CloudWatchPoller(
     val runners = List.newBuilder[Poller]
 
     try {
-      accountSupplier.accounts.foreach { case (account, regions) =>
-        regions.foreach { case (region, namespaces) =>
-          if (namespaces.nonEmpty) {
-            val filtered = categories.filter(c => namespaces.contains(c.namespace))
-            if (filtered.nonEmpty && shouldPoll(offset, account, region, filtered.head.period)) {
-              val key = runKey(offset, account, region)
-              val flag = flagMap.computeIfAbsent(key, _ => new AtomicBoolean(false))
-              if (flag.compareAndSet(false, true)) {
-                val client = createClient(account, region)
-                val catFutures = categories.map { category =>
-                  val runner = Poller(now, category, client, account, region, offset)
-                  this.synchronized {
-                    runners += runner
-                    runner.execute
+      accountSupplier.accounts.foreach {
+        case (account, regions) =>
+          regions.foreach {
+            case (region, namespaces) =>
+              if (namespaces.nonEmpty) {
+                val filtered = categories.filter(c => namespaces.contains(c.namespace))
+                if (
+                  filtered.nonEmpty && shouldPoll(offset, account, region, filtered.head.period)
+                ) {
+                  val key = runKey(offset, account, region)
+                  val flag = flagMap.computeIfAbsent(key, _ => new AtomicBoolean(false))
+                  if (flag.compareAndSet(false, true)) {
+                    val client = createClient(account, region)
+                    val catFutures = categories.map { category =>
+                      val runner = Poller(now, category, client, account, region, offset)
+                      this.synchronized {
+                        runners += runner
+                        runner.execute
+                      }
+                    }
+                    futures += Future.reduceLeft(catFutures)((_, _) => Done).andThen {
+                      case Success(_) =>
+                        handleSuccess(key, timeToRun(filtered.head.period, offset, account, region))
+                      case Failure(_) => handleFailure(key)
+                    }
+                  } else {
+                    logger.warn(
+                      s"Skipping polling for period ${offset}s ${account} in ${region} as it was already running."
+                    )
                   }
                 }
-                futures += Future.reduceLeft(catFutures)((_, _) => Done).andThen {
-                  case Success(_) => handleSuccess(key, timeToRun(filtered.head.period, offset, account, region))
-                  case Failure(_) => handleFailure(key)
-                }
-              } else {
-                logger.warn(s"Skipping polling for period ${offset}s ${account} in ${region} as it was already running.")
               }
-            }
           }
-        }
       }
 
       finalizeFutureResponse()
@@ -253,6 +260,7 @@ class CloudWatchPoller(
       None
     }
   }
+
   case class Poller(
     now: Instant,
     category: MetricCategory,
