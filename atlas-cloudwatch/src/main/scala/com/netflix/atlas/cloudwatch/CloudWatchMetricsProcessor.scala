@@ -534,7 +534,8 @@ abstract class CloudWatchMetricsProcessor(
                           else None
                         )
 
-                        val atlasDp = toAtlasDatapoint(metric, scrapeTimestamp, category.period)
+                        val stp = category.period * 1000
+                        val atlasDp = toAtlasDatapoint(metric, scrapeTimestamp, stp)
                         if (!atlasDp.value.isNaN) {
                           publishRouter.publish(atlasDp)
                         }
@@ -832,7 +833,7 @@ abstract class CloudWatchMetricsProcessor(
   private[cloudwatch] def toAtlasDatapoint(
     metric: MetricData,
     timestamp: Long,
-    step: Int
+    stp: Int
   ): AtlasDatapoint = {
     val definition = metric.meta.definition
     val ts = tagger(metric.meta.dimensions) ++ definition.tags + ("name" ->
@@ -844,7 +845,7 @@ abstract class CloudWatchMetricsProcessor(
     // NOTE - the polling CW code uses now for the timestamp, likely for LWC. BUT data could be off by
     // minutes potentially. And it didn't account for the offset value as far as I could tell. Now we'll at least
     // use the offset value.
-    new AtlasDatapoint(ts, timestamp, newValue, step)
+    new AtlasDatapoint(ts, timestamp, newValue, stp)
   }
 
   def expSeconds(step: Int): Int = {

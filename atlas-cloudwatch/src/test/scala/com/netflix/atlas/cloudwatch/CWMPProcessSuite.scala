@@ -423,7 +423,8 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
             "atlas.dstype" -> "rate"
           ),
           ts,
-          0.0033333333333333335
+          0.0033333333333333335,
+          5 * 60000
         )
       )
     )
