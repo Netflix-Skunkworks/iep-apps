@@ -22,6 +22,8 @@ import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.normalize
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.toAWSDatapoint
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.toAWSDimensions
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.toTagMap
+import com.netflix.atlas.cloudwatch.poller.GaugeValue
+import com.netflix.atlas.cloudwatch.poller.PublishClient
 import com.netflix.atlas.core.util.SmallHashMap
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
@@ -53,6 +55,7 @@ abstract class CloudWatchMetricsProcessor(
   rules: CloudWatchRules,
   tagger: Tagger,
   publishRouter: PublishRouter,
+  publishClient: PublishClient,
   debugger: CloudWatchDebugger
 )(implicit val system: ActorSystem)
     extends StrictLogging {
@@ -455,6 +458,24 @@ abstract class CloudWatchMetricsProcessor(
       .clearData()
       .addAllData(list)
       .build()
+  }
+
+  private[cloudwatch] def sendToRegistry(datapoint: FirehoseMetric): Unit = {
+    val atlasGaugeDp = toGaugeValue(datapoint)
+    atlasGaugeDp.foreach(g => publishClient.updateGauge(g.id, g.value))
+  }
+
+  // Helper method to convert a FirehoseMetric to a list of GaugeValues
+  private def toGaugeValue(
+    datapoint: FirehoseMetric
+  ): List[GaugeValue] = {
+    // Extract relevant information from the FirehoseMetric
+    val metricName = datapoint.metricName
+    val dimensions = datapoint.dimensions.map(d => d.name() -> d.value()).toMap
+    val value = datapoint.datapoint.maximum() // or another relevant value like average, etc.
+
+    // Construct the GaugeValue, using the metric name and dimensions as tags
+    List(GaugeValue(dimensions + ("name" -> metricName), value))
   }
 
   private[cloudwatch] def sendToRouter(key: Any, data: Array[Byte], scrapeTimestamp: Long): Unit = {
