@@ -36,7 +36,6 @@ import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Functions
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.Registry
-import com.netflix.spectator.api.Timer
 import com.netflix.spectator.api.patterns.PolledMeter
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging

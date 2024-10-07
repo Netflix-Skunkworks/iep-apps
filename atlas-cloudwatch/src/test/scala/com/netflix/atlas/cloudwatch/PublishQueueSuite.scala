@@ -77,7 +77,17 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
   test("publish success") {
     mockResponse(StatusCodes.OK)
     val queue =
-      new PublishQueue(config, registry, "main", "http://localhost","http://localhost","http://localhost", leaderStatus, httpClient, scheduler)
+      new PublishQueue(
+        config,
+        registry,
+        "main",
+        "http://localhost",
+        "http://localhost",
+        "http://localhost",
+        leaderStatus,
+        httpClient,
+        scheduler
+      )
     Await.ready(
       queue.publish(
         Seq(
@@ -99,7 +109,17 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
   test("publish 202") {
     mockResponse(StatusCodes.Accepted, Json.encode(FailureMessage("foo", 1, List("Err"))))
     val queue =
-      new PublishQueue(config, registry, "main", "http://localhost","http://localhost","http://localhost", leaderStatus, httpClient, scheduler)
+      new PublishQueue(
+        config,
+        registry,
+        "main",
+        "http://localhost",
+        "http://localhost",
+        "http://localhost",
+        leaderStatus,
+        httpClient,
+        scheduler
+      )
     Await.ready(
       queue.publish(
         Seq(
@@ -121,7 +141,17 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
   test("publish 400") {
     mockResponse(StatusCodes.BadRequest, Json.encode(FailureMessage("foo", 2, List("Err"))))
     val queue =
-      new PublishQueue(config, registry, "main", "http://localhost","http://localhost","http://localhost", leaderStatus, httpClient, scheduler)
+      new PublishQueue(
+        config,
+        registry,
+        "main",
+        "http://localhost",
+        "http://localhost",
+        "http://localhost",
+        leaderStatus,
+        httpClient,
+        scheduler
+      )
     Await.ready(
       queue.publish(
         Seq(
@@ -143,7 +173,17 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
   test("publish 500") {
     mockResponse(StatusCodes.InternalServerError)
     val queue =
-      new PublishQueue(config, registry, "main", "http://localhost","http://localhost","http://localhost", leaderStatus, httpClient, scheduler)
+      new PublishQueue(
+        config,
+        registry,
+        "main",
+        "http://localhost",
+        "http://localhost",
+        "http://localhost",
+        leaderStatus,
+        httpClient,
+        scheduler
+      )
     Await.ready(
       queue.publish(
         Seq(
@@ -165,7 +205,17 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
   test("publish 429") {
     mockResponse(StatusCodes.TooManyRequests)
     val queue =
-      new PublishQueue(config, registry, "main", "http://localhost","http://localhost","http://localhost", leaderStatus, httpClient, scheduler)
+      new PublishQueue(
+        config,
+        registry,
+        "main",
+        "http://localhost",
+        "http://localhost",
+        "http://localhost",
+        leaderStatus,
+        httpClient,
+        scheduler
+      )
     Await.ready(
       queue.publish(
         Seq(
@@ -188,7 +238,17 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
   test("publish 429 too many attempts") {
     mockResponse(StatusCodes.TooManyRequests)
     val queue =
-      new PublishQueue(config, registry, "main", "http://localhost","http://localhost","http://localhost", leaderStatus, httpClient, scheduler)
+      new PublishQueue(
+        config,
+        registry,
+        "main",
+        "http://localhost",
+        "http://localhost",
+        "http://localhost",
+        leaderStatus,
+        httpClient,
+        scheduler
+      )
     val payload = Json.smileEncode(
       MetricsPayload(
         Map.empty,
@@ -212,7 +272,17 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
   test("publish exception") {
     mockResponse(StatusCodes.OK, t = new UTException("UT"))
     val queue =
-      new PublishQueue(config, registry, "main", "http://localhost","http://localhost","http://localhost", leaderStatus, httpClient, scheduler)
+      new PublishQueue(
+        config,
+        registry,
+        "main",
+        "http://localhost",
+        "http://localhost",
+        "http://localhost",
+        leaderStatus,
+        httpClient,
+        scheduler
+      )
     Await.ready(
       queue.publish(
         Seq(

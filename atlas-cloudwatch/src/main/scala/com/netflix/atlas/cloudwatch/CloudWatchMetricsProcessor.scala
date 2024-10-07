@@ -22,7 +22,6 @@ import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.normalize
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.toAWSDatapoint
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.toAWSDimensions
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.toTagMap
-import com.netflix.atlas.cloudwatch.poller.GaugeValue
 import com.netflix.atlas.core.util.SmallHashMap
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
