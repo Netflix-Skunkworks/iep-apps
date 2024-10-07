@@ -19,7 +19,6 @@ import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.normalize
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.toTagMap
 import com.netflix.atlas.cloudwatch.CloudWatchPoller.runAfter
 import com.netflix.atlas.cloudwatch.CloudWatchPoller.runKey
-import com.netflix.atlas.cloudwatch.poller.PublishClient
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Functions
@@ -74,8 +73,7 @@ class CloudWatchPoller(
   rules: CloudWatchRules,
   clientFactory: AwsClientFactory,
   processor: CloudWatchMetricsProcessor,
-  debugger: CloudWatchDebugger,
-  val publishClient: PublishClient
+  debugger: CloudWatchDebugger
 )(implicit val system: ActorSystem)
     extends StrictLogging {
 

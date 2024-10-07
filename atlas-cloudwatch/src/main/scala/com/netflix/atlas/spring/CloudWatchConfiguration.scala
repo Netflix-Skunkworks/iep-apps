@@ -26,8 +26,6 @@ import com.netflix.atlas.cloudwatch.PublishRouter
 import com.netflix.atlas.cloudwatch.RedisClusterCloudWatchMetricsProcessor
 import com.netflix.atlas.cloudwatch.NetflixTagger
 import com.netflix.atlas.cloudwatch.Tagger
-import com.netflix.atlas.cloudwatch.poller.PublishClient
-import com.netflix.atlas.cloudwatch.poller.PublishConfig
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Registry
@@ -62,8 +60,7 @@ class CloudWatchConfiguration extends StrictLogging {
     clientFactory: AwsClientFactory,
     processor: CloudWatchMetricsProcessor,
     debugger: CloudWatchDebugger,
-    system: ActorSystem,
-    publishClient: PublishClient
+    system: ActorSystem
   ): CloudWatchPoller = {
     val r = registry.orElseGet(() => globalRegistry())
     new CloudWatchPoller(
@@ -74,8 +71,7 @@ class CloudWatchConfiguration extends StrictLogging {
       rules,
       clientFactory,
       processor,
-      debugger,
-      publishClient
+      debugger
     )(system)
   }
 
@@ -85,24 +81,16 @@ class CloudWatchConfiguration extends StrictLogging {
   )
 
   @Bean
-  def publishConfig(config: Config, status: LeaderStatus, registry: Registry): PublishConfig = {
-    new PublishConfig(config, status, registry)
-  }
-
-  @Bean
-  def publishClient(config: PublishConfig): PublishClient = {
-    new PublishClient(config)
-  }
-  @Bean
   def publishRouter(
     config: Config,
     registry: Optional[Registry],
     tagger: Tagger,
     httpClient: PekkoHttpClient,
-    system: ActorSystem
+    system: ActorSystem,
+    leaderStatus: LeaderStatus
   ): PublishRouter = {
     val r = registry.orElseGet(() => globalRegistry())
-    new PublishRouter(config, r, tagger, httpClient)(system)
+    new PublishRouter(config, r, tagger, httpClient, leaderStatus)(system)
   }
 
   @Bean

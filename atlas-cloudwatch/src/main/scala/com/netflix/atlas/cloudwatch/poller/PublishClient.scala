@@ -56,15 +56,34 @@ class PublishClient(config: PublishConfig) extends AbstractService {
   }
 }
 
-class PublishConfig(config: Config, status: LeaderStatus, registry: Registry)
-    extends AtlasConfig
+class PublishConfig(
+  config: Config,
+  uri: String,
+  configUri: String,
+  evalUri: String,
+  status: LeaderStatus,
+  registry: Registry
+) extends AtlasConfig
     with EvaluatorConfig {
 
   private val maxMeters = super.maxNumberOfMeters()
 
   override def get(k: String): String = {
-    val prop = s"atlas.cloudwatch.poller.publish.$k"
+    val prop = s"atlas.cloudwatch.account.routing.$k"
     if (config.hasPath(prop)) config.getString(prop) else null
+  }
+
+  override def uri: String = {
+    if (uri == null) "http://localhost:7101/api/v1/publish"
+    uri
+  }
+
+  override def configUri: String = {
+    configUri
+  }
+
+  override def evalUri: String = {
+    evalUri
   }
 
   override def enabled(): Boolean = {

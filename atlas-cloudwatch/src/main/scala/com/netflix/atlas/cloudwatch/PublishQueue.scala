@@ -15,6 +15,9 @@
  */
 package com.netflix.atlas.cloudwatch
 
+import com.netflix.atlas.cloudwatch.poller.GaugeValue
+import com.netflix.atlas.cloudwatch.poller.PublishClient
+import com.netflix.atlas.cloudwatch.poller.PublishConfig
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.model.HttpEntity
@@ -29,9 +32,11 @@ import com.netflix.atlas.pekko.CustomMediaTypes
 import com.netflix.atlas.pekko.StreamOps
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.json.Json
+import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Functions
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.Registry
+import com.netflix.spectator.api.Timer
 import com.netflix.spectator.api.patterns.PolledMeter
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
@@ -57,6 +62,9 @@ class PublishQueue(
   registry: Registry,
   val stack: String,
   val uri: String,
+  val configUri: String,
+  val evalUri: String,
+  val status: LeaderStatus,
   httpClient: PekkoHttpClient,
   scheduler: ScheduledExecutorService
 )(implicit system: ActorSystem)
@@ -75,6 +83,10 @@ class PublishQueue(
   private val batchSize = getSetting("batchSize")
   private val batchTimeout = getDurationSetting("batchTimeout")
 
+  private val registryPublishClient = new PublishClient(
+    new PublishConfig(config, uri, configUri, evalUri, status = status, registry = registry)
+  )
+
   private val lastUpdateTimestamp =
     PolledMeter
       .using(registry)
@@ -90,14 +102,13 @@ class PublishQueue(
     .map(publish)
     .toMat(Sink.ignore)(Keep.left)
     .run()
-  logger.info(s"Setup queue for stack ${stack} publishing URI ${uri}")
 
-  /**
-    * Adds the data point to the queue if there is room. Increments a metric if not.
-    *
-    * @param datapoint
-    *     The non-null data point to enqueue.
-    */
+  logger.info(
+    s"Setup queue for stack ${stack} publishing URI ${uri}, lwc-config URI ${configUri}, eval URI ${evalUri}"
+  )
+
+  def updateRegistry(g: GaugeValue): Unit = registryPublishClient.updateGauge(g.id, g.value)
+
   def enqueue(datapoint: AtlasDatapoint): Unit = publishQueue.offer(datapoint)
 
   private[cloudwatch] def publish(datapoints: Seq[AtlasDatapoint]): Future[NotUsed] = {
