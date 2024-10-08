@@ -438,7 +438,7 @@ class CloudWatchPoller(
                 dp
               )
               if (category.period < 60) {
-                processor.sendToRegistry(m)
+                processor.sendToRegistry(m, category, nowMillis)
               } else {
                 processor.updateCache(m, category, nowMillis)
               }

@@ -156,26 +156,20 @@ class PublishRouter(
    * @param datapoint
    *     The non-null data point.
    */
-  def publishToRegistry(datapoint: FirehoseMetric): Unit = {
+  def publishToRegistry(datapoint: AtlasDatapoint): Unit = {
     val atlasGaugeDp = toGaugeValue(datapoint)
-    atlasGaugeDp.foreach(g => {
-      getQueue(g) match {
-        case Some(queue) => queue.updateRegistry(g)
+
+      getQueue(atlasGaugeDp) match {
+        case Some(queue) => queue.updateRegistry(atlasGaugeDp)
         case None        => missingAccount.increment()
       }
-    })
+    }
   }
 
   private def toGaugeValue(
-    datapoint: FirehoseMetric
-  ): List[GaugeValue] = {
-    // Extract relevant information from the FirehoseMetric
-    val metricName = datapoint.metricName
-    val dimensions = datapoint.dimensions.map(d => d.name() -> d.value()).toMap
-    val value = datapoint.datapoint.maximum() // or another relevant value like average, etc.
-
-    // Construct the GaugeValue, using the metric name and dimensions as tags
-    List(GaugeValue(dimensions + ("name" -> metricName), value))
+    datapoint: AtlasDatapoint
+  ): GaugeValue = {
+    GaugeValue(datapoint.tags, datapoint.value)
   }
 
   private[cloudwatch] def getQueue(tags: Map[String, String]): Option[PublishQueue] = {
