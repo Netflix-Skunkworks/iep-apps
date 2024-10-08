@@ -158,11 +158,9 @@ class PublishRouter(
    */
   def publishToRegistry(datapoint: AtlasDatapoint): Unit = {
     val atlasGaugeDp = toGaugeValue(datapoint)
-
-      getQueue(atlasGaugeDp) match {
-        case Some(queue) => queue.updateRegistry(atlasGaugeDp)
-        case None        => missingAccount.increment()
-      }
+    getQueue(atlasGaugeDp) match {
+      case Some(queue) => queue.updateRegistry(atlasGaugeDp)
+      case None        => missingAccount.increment()
     }
   }
 
