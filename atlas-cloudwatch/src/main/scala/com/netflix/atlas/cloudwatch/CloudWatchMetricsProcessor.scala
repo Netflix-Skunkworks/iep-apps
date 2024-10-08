@@ -32,7 +32,6 @@ import software.amazon.awssdk.services.cloudwatch.model.Metric
 
 import java.time.Instant
 import java.util
-import java.util.Optional
 import java.util.concurrent.TimeUnit
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters.*
@@ -463,22 +462,22 @@ abstract class CloudWatchMetricsProcessor(
     category: MetricCategory,
     receivedTimestamp: Long
   ): Unit = {
+    category.metrics
+      .find(_.name == datapoint.metricName)
+      .foreach { md =>
+        val metric = MetricData(
+          MetricMetadata(category, md, toAWSDimensions(datapoint)),
+          None,
+          Option(datapoint.datapoint),
+          None
+        )
 
-    category.metrics.foreach(md => {
-      val metric = MetricData(
-        MetricMetadata(category, md, toAWSDimensions(datapoint)),
-        None,
-        Option.apply(datapoint.datapoint),
-        None
-      )
+        val atlasDp = toAtlasDatapoint(metric, receivedTimestamp, category.period)
 
-      val atlasDp = toAtlasDatapoint(metric, receivedTimestamp, category.period)
-
-      if (!atlasDp.value.isNaN) {
-        publishRouter.publishToRegistry(atlasDp)
+        if (!atlasDp.value.isNaN) {
+          publishRouter.publishToRegistry(atlasDp)
+        }
       }
-    })
-
   }
 
   private[cloudwatch] def sendToRouter(key: Any, data: Array[Byte], scrapeTimestamp: Long): Unit = {

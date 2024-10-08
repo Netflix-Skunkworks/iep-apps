@@ -58,7 +58,7 @@ class PublishClient(config: PublishConfig) extends AbstractService {
 
 class PublishConfig(
   config: Config,
-  uri: String,
+  publishUri: String,
   configUri: String,
   evalUri: String,
   status: LeaderStatus,
@@ -74,8 +74,10 @@ class PublishConfig(
   }
 
   override def uri: String = {
-    if (uri == null) "http://localhost:7101/api/v1/publish"
-    uri
+    if (publishUri == null)
+      "http://localhost:7101/api/v1/publish"
+    else
+      publishUri
   }
 
   override def configUri: String = {

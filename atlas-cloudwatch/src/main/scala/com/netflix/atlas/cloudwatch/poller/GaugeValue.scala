@@ -25,7 +25,7 @@ case class GaugeValue(tags: Map[String, String], value: Double) {
     val ts = (tags - "name").map {
       case (k, v) => k -> (if (v.length > 120) "VALUE_TOO_LONG" else v)
     }.asJava
-    Id.create(tags("name")).withTags(ts).withTag(Statistic.gauge)
+    Id.create(tags("name")).withTags(ts)
   }
 }
 
