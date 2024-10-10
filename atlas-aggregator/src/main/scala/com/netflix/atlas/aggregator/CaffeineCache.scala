@@ -16,7 +16,7 @@
 package com.netflix.atlas.aggregator
 
 import com.github.benmanes.caffeine.cache.Caffeine
-import com.netflix.atlas.core.index.QueryIndex
+import com.netflix.spectator.atlas.impl.QueryIndex
 import com.netflix.spectator.impl.Cache
 
 /** Cache implementation to use with the query index. */
