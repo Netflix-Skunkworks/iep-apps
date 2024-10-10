@@ -20,7 +20,7 @@ import com.fasterxml.jackson.core.JsonToken
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.netflix.atlas.core.model.TagKey
 import com.netflix.atlas.core.util.IdMap
-import com.netflix.atlas.core.util.SmallHashMap
+import com.netflix.atlas.core.util.SortedTagMap
 import com.netflix.atlas.core.validation.CompositeTagRule
 import com.netflix.atlas.core.validation.Rule
 import com.netflix.atlas.core.validation.TagRule
@@ -191,7 +191,7 @@ class PayloadDecoder(
 
     if (name == null) {
       // This should never happen if clients are working properly
-      val builder = new SmallHashMap.Builder[String, String](n + 1)
+      val builder = new SortedTagMap.Builder(n + 1)
       var i = 0
       while (i < pos) {
         builder.add(tags(i), tags(i + 1))

@@ -22,7 +22,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import com.fasterxml.jackson.core.JsonFactory
 import com.netflix.atlas.pekko.ByteStringInputStream
 import com.netflix.atlas.core.util.RefIntHashMap
-import com.netflix.atlas.core.util.SmallHashMap
+import com.netflix.atlas.core.util.SortedTagMap
 import com.netflix.atlas.core.util.Strings
 import com.netflix.atlas.json.Json
 import com.netflix.spectator.api.Clock
@@ -181,7 +181,7 @@ class UpdateApiSuite extends FunSuite {
     assertEquals(service.lookup(id).counter(id).actualCount(), 42.0)
   }
 
-  private def createPayload(ts: List[TagMap], op: Int, value: Double): String = {
+  private def createPayload(ts: List[SortedTagMap], op: Int, value: Double): String = {
     val stringTable = new RefIntHashMap[String]()
     ts.foreach { tags =>
       tags.foreachEntry { (k, v) =>
@@ -218,11 +218,11 @@ class UpdateApiSuite extends FunSuite {
     Json.encode(data)
   }
 
-  private def validationTest(tags: TagMap, expectedStatus: StatusCode): FailureMessage = {
+  private def validationTest(tags: SortedTagMap, expectedStatus: StatusCode): FailureMessage = {
     validationTest(List(tags), expectedStatus)
   }
 
-  private def validationTest(ts: List[TagMap], expectedStatus: StatusCode): FailureMessage = {
+  private def validationTest(ts: List[SortedTagMap], expectedStatus: StatusCode): FailureMessage = {
     val clock = new ManualClock()
     val service = createAggrService(clock)
     val parser = factory.createParser(createPayload(ts, 0, 1.0))
@@ -234,23 +234,23 @@ class UpdateApiSuite extends FunSuite {
   }
 
   test("validation: ok") {
-    val tags = SmallHashMap("name" -> "foo")
+    val tags = SortedTagMap("name" -> "foo")
     validationTest(tags, StatusCodes.OK)
   }
 
   test("validation: missing name") {
-    val tags = SmallHashMap("foo" -> "bar")
+    val tags = SortedTagMap("foo" -> "bar")
     val msg = validationTest(tags, StatusCodes.BadRequest)
     assertEquals(msg.errorCount, 1)
     assertEquals(
       msg.message,
-      List("missing key 'name' (tags={\"foo\":\"bar\",\"atlas.dstype\":\"sum\"})")
+      List("missing key 'name' (tags={\"atlas.dstype\":\"sum\",\"foo\":\"bar\"})")
     )
   }
 
   test("validation: name too long") {
     val name = "a" * 300
-    val tags = SmallHashMap("name" -> name)
+    val tags = SortedTagMap("name" -> name)
     val msg = validationTest(tags, StatusCodes.BadRequest)
     assertEquals(msg.errorCount, 1)
     assertEquals(
@@ -265,7 +265,7 @@ class UpdateApiSuite extends FunSuite {
     val tags = Map("name" -> "foo") ++ (0 until 20)
       .map(v => Strings.zeroPad(v, 5))
       .map(v => v -> v)
-    val msg = validationTest(SmallHashMap(tags), StatusCodes.BadRequest)
+    val msg = validationTest(SortedTagMap(tags), StatusCodes.BadRequest)
     assertEquals(msg.errorCount, 1)
     assert(msg.message.head.startsWith("too many user tags: 21 > 20 (tags={"))
   }
@@ -274,12 +274,12 @@ class UpdateApiSuite extends FunSuite {
     val tags = Map("name" -> "foo", "nf.app" -> "www") ++ (0 until 19)
       .map(v => Strings.zeroPad(v, 5))
       .map(v => v -> v)
-    val msg = validationTest(SmallHashMap(tags), StatusCodes.OK)
+    val msg = validationTest(SortedTagMap(tags), StatusCodes.OK)
     assertEquals(msg.errorCount, 0)
   }
 
   test("validation: tag rule") {
-    val tags = SmallHashMap("name" -> "test", "nf.foo" -> "bar")
+    val tags = SortedTagMap("name" -> "test", "nf.foo" -> "bar")
     val msg = validationTest(tags, StatusCodes.BadRequest)
     assertEquals(msg.errorCount, 1)
     assertEquals(
@@ -292,8 +292,8 @@ class UpdateApiSuite extends FunSuite {
 
   test("validation: partial failure") {
     val ts = List(
-      SmallHashMap("name" -> "test", "nf.foo" -> "bar"),
-      SmallHashMap("name" -> "test", "nf.app" -> "bar")
+      SortedTagMap("name" -> "test", "nf.foo" -> "bar"),
+      SortedTagMap("name" -> "test", "nf.app" -> "bar")
     )
     val msg = validationTest(ts, StatusCodes.Accepted)
     assertEquals(msg.errorCount, 1)
@@ -307,7 +307,7 @@ class UpdateApiSuite extends FunSuite {
 
   test("validation: truncate if there are too many errors") {
     val ts = (0 until 20).toList.map { i =>
-      SmallHashMap("name" -> i.toString, "nf.foo" -> "bar")
+      SortedTagMap("name" -> i.toString, "nf.foo" -> "bar")
     }
     val msg = validationTest(ts, StatusCodes.BadRequest)
     assertEquals(msg.errorCount, 20)

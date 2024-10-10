@@ -22,7 +22,7 @@ import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.normalize
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.toAWSDatapoint
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.toAWSDimensions
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.toTagMap
-import com.netflix.atlas.core.util.SmallHashMap
+import com.netflix.atlas.core.util.SortedTagMap
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
@@ -1035,8 +1035,7 @@ object CloudWatchMetricsProcessor {
     *     A non-null map with at least the `name` and `aws.namespace` tags.
     */
   private[cloudwatch] def toTagMap(entry: CloudWatchCacheEntry): Map[String, String] = {
-    SmallHashMap(
-      entry.getDimensionsCount + 2,
+    SortedTagMap(
       entry.getDimensionsList.asScala
         .map(d => d.getName -> d.getValue)
         .append("name" -> entry.getMetric)
@@ -1050,14 +1049,13 @@ object CloudWatchMetricsProcessor {
     * Query filter from a [MetricCategory] config. Note that the `name` and `aws.namespace` tags are populated per
     * Atlas standards.
     *
-    * @param entry
-    * The non-null entry to encode.
+    * @param datapoint
+    *     The non-null datapoint to encode.
     * @return
-    * A non-null map with at least the `name` and `aws.namespace` tags.
+    *     A non-null map with at least the `name` and `aws.namespace` tags.
     */
   private[cloudwatch] def toTagMap(datapoint: FirehoseMetric): Map[String, String] = {
-    SmallHashMap(
-      datapoint.dimensions.size + 2,
+    SortedTagMap(
       datapoint.dimensions
         .map(d => d.name() -> d.value())
         .appended("name" -> datapoint.metricName)
@@ -1077,8 +1075,7 @@ object CloudWatchMetricsProcessor {
     *     A non-null map with at least the `name` and `aws.namespace` tags.
     */
   private[cloudwatch] def toTagMap(metric: Metric): Map[String, String] = {
-    SmallHashMap(
-      metric.dimensions().size() + 2,
+    SortedTagMap(
       metric
         .dimensions()
         .asScala
