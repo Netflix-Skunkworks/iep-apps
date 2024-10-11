@@ -18,7 +18,6 @@ package com.netflix.atlas.cloudwatch
 import org.apache.pekko.actor.ActorSystem
 import com.netflix.atlas.pekko.PekkoHttpClient
 import com.netflix.atlas.cloudwatch.PublishRouter.defaultKey
-import com.netflix.atlas.cloudwatch.poller.GaugeValue
 import com.netflix.iep.config.NetflixEnvironment
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Registry
@@ -157,17 +156,10 @@ class PublishRouter(
    *     The non-null data point.
    */
   def publishToRegistry(datapoint: AtlasDatapoint): Unit = {
-    val atlasGaugeDp = toGaugeValue(datapoint)
-    getQueue(atlasGaugeDp) match {
-      case Some(queue) => queue.updateRegistry(atlasGaugeDp)
+    getQueue(datapoint) match {
+      case Some(queue) => queue.updateRegistry(datapoint)
       case None        => missingAccount.increment()
     }
-  }
-
-  private def toGaugeValue(
-    datapoint: AtlasDatapoint
-  ): GaugeValue = {
-    GaugeValue(datapoint.tags, datapoint.value)
   }
 
   private[cloudwatch] def getQueue(tags: Map[String, String]): Option[PublishQueue] = {
@@ -188,10 +180,6 @@ class PublishRouter(
 
   private[cloudwatch] def getQueue(datapoint: AtlasDatapoint): Option[PublishQueue] = {
     getQueue(datapoint.tags)
-  }
-
-  private[cloudwatch] def getQueue(gaugeValue: GaugeValue): Option[PublishQueue] = {
-    getQueue(gaugeValue.tags)
   }
 
   def shutdown(): Unit = {

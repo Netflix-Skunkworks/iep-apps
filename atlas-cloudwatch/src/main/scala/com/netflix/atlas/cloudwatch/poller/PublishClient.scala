@@ -32,19 +32,11 @@ class PublishClient(config: PublishConfig) extends AbstractService {
   private val publishRegistry = new AtlasRegistry(Clock.SYSTEM, config)
 
   def updateGauge(id: Id, value: Double): Unit = {
-    publishRegistry.gauge(id).set(value)
+    publishRegistry.maxGauge(id).set(value)
   }
 
-  def updateTimer(id: Id, value: Duration): Unit = {
-    publishRegistry.timer(id).record(value)
-  }
-
-  def updateCounter(id: Id): Unit = {
-    publishRegistry.counter(id).increment()
-  }
-
-  def updateDs(id: Id, value: Long): Unit = {
-    publishRegistry.distributionSummary(id).record(value)
+  def updateCounter(id: Id, value: Long): Unit = {
+    publishRegistry.counter(id).increment(value)
   }
 
   override def startImpl(): Unit = {

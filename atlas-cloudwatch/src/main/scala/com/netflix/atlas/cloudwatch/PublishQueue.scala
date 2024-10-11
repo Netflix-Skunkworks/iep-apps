@@ -15,7 +15,8 @@
  */
 package com.netflix.atlas.cloudwatch
 
-import com.netflix.atlas.cloudwatch.poller.GaugeValue
+import com.netflix.atlas.cloudwatch.poller.DoubleValue
+import com.netflix.atlas.cloudwatch.poller.LongValue
 import com.netflix.atlas.cloudwatch.poller.PublishClient
 import com.netflix.atlas.cloudwatch.poller.PublishConfig
 import org.apache.pekko.NotUsed
@@ -31,6 +32,7 @@ import com.netflix.atlas.pekko.PekkoHttpClient
 import com.netflix.atlas.pekko.CustomMediaTypes
 import com.netflix.atlas.pekko.StreamOps
 import com.netflix.atlas.core.model.Datapoint
+import com.netflix.atlas.core.model.DsType
 import com.netflix.atlas.json.Json
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Functions
@@ -106,7 +108,29 @@ class PublishQueue(
     s"Setup queue for stack ${stack} publishing URI ${uri}, lwc-config URI ${configUri}, eval URI ${evalUri}"
   )
 
-  def updateRegistry(g: GaugeValue): Unit = registryPublishClient.updateGauge(g.id, g.value)
+  def updateRegistry(dp: AtlasDatapoint): Unit = {
+    if (dp.dsType == DsType.Rate) {
+      val atlasCounterDp = toCounterValue(dp)
+      registryPublishClient.updateCounter(atlasCounterDp.id, atlasCounterDp.value)
+    } else if (dp.dsType == DsType.Gauge) {
+      val atlasGaugeDp = toDoubleValue(dp)
+      registryPublishClient.updateGauge(atlasGaugeDp.id, atlasGaugeDp.value)
+    } else {
+      logger.error(s"Unknown ds type, skip updating registry ${dp.dsType}")
+    }
+  }
+
+  private def toDoubleValue(
+    datapoint: AtlasDatapoint
+  ): DoubleValue = {
+    DoubleValue(datapoint.tags, datapoint.value)
+  }
+
+  private def toCounterValue(
+    datapoint: AtlasDatapoint
+  ): LongValue = {
+    LongValue(datapoint.tags, datapoint.value.longValue)
+  }
 
   def enqueue(datapoint: AtlasDatapoint): Unit = publishQueue.offer(datapoint)
 
