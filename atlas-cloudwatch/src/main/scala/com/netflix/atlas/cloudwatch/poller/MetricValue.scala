@@ -35,18 +35,9 @@ object MetricValue {
   def apply(name: String, value: Double): MetricValue = {
     DoubleValue(Map("name" -> name), value)
   }
-
-  def apply(name: String, value: Long): MetricValue = {
-    LongValue(Map("name" -> name), value)
-  }
 }
 
 // Case class for Double values
 case class DoubleValue(tags: Map[String, String], value: Double) extends MetricValue {
-  def id: Id = MetricValue.createId(tags("name"), tags)
-}
-
-// Case class for Long values
-case class LongValue(tags: Map[String, String], value: Long) extends MetricValue {
   def id: Id = MetricValue.createId(tags("name"), tags)
 }

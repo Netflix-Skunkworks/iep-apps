@@ -35,8 +35,8 @@ class PublishClient(config: PublishConfig) extends AbstractService {
     publishRegistry.maxGauge(id).set(value)
   }
 
-  def updateCounter(id: Id, value: Long): Unit = {
-    publishRegistry.counter(id).increment(value)
+  def updateCounter(id: Id, value: Double): Unit = {
+    publishRegistry.counter(id).add(value)
   }
 
   override def startImpl(): Unit = {
