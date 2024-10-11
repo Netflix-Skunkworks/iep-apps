@@ -19,12 +19,12 @@ import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.normalize
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.toTagMap
 import com.netflix.atlas.cloudwatch.IncomingMatch.IncomingMatch
 import com.netflix.atlas.cloudwatch.InsertState.InsertState
-import com.netflix.atlas.cloudwatch.MetricCategory.parseQuery
 import com.netflix.atlas.cloudwatch.ScrapeState.ScrapeState
-import com.netflix.atlas.core.index.QueryIndex
 import com.netflix.atlas.json.Json
 import com.netflix.atlas.util.XXHasher
 import com.netflix.spectator.api.Registry
+import com.netflix.spectator.atlas.impl.Parser
+import com.netflix.spectator.atlas.impl.QueryIndex
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import software.amazon.awssdk.services.cloudwatch.model.Datapoint
@@ -45,11 +45,14 @@ class CloudWatchDebugger(
   private val debugAge = config.getBoolean("atlas.cloudwatch.debug.dropped.age")
   private val configRules = config.getStringList("atlas.cloudwatch.debug.rules").asScala
 
-  private val rules: QueryIndex[Boolean] = QueryIndex.create(
-    configRules
-      .map(rule => QueryIndex.Entry(parseQuery(rule), true))
-      .toList
-  )
+  private val rules: QueryIndex[Boolean] = {
+    val idx = QueryIndex.newInstance[Boolean](registry)
+    configRules.foreach { rule =>
+      val query = Parser.parseQuery(rule)
+      idx.add(query, true)
+    }
+    idx
+  }
 
   private val incomingLimiter = new ConcurrentHashMap[Long, Long]
   private val outgoingLimiter = new ConcurrentHashMap[Long, Long]
@@ -81,6 +84,10 @@ class CloudWatchDebugger(
     registry.createId("atlas.cloudwatch.dbg.scrape.inTimeout")
   private[cloudwatch] val scrapeStep = registry.createId("atlas.cloudwatch.dbg.scrape.step")
 
+  private def matches(tags: Map[String, String]): Boolean = {
+    !rules.findMatches(k => tags.getOrElse(k, null)).isEmpty
+  }
+
   def debugIncoming(
     dp: FirehoseMetric,
     incomingMatch: IncomingMatch,
@@ -92,7 +99,7 @@ class CloudWatchDebugger(
     if (config.isEmpty) return
 
     if (
-      !rules.matches(toTagMap(dp)) &&
+      !matches(toTagMap(dp)) &&
       !(debugTags && incomingMatch == IncomingMatch.DroppedTag) &&
       !(debugAge && incomingMatch == IncomingMatch.DroppedOld)
     ) return
@@ -212,7 +219,7 @@ class CloudWatchDebugger(
     if (config.isEmpty) return
 
     if (
-      !rules.matches(toTagMap(metric)) &&
+      !matches(toTagMap(metric)) &&
       !(debugTags && incomingMatch == IncomingMatch.DroppedTag) &&
       !(debugAge && incomingMatch == IncomingMatch.DroppedOld)
     ) return
@@ -313,7 +320,7 @@ class CloudWatchDebugger(
   ): Unit = {
     if (config.isEmpty) return
 
-    if (!rules.matches(toTagMap(cacheEntry))) return
+    if (!matches(toTagMap(cacheEntry))) return
 
     try {
       // if we've already debugged a similar namespace metric and dimension key set. Purposely

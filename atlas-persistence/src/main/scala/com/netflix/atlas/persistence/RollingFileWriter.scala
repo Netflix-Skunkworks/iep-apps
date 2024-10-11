@@ -190,7 +190,7 @@ class RollingFileWriter(
   }
 
   private def toAvro(dp: Datapoint): GenericRecord = {
-    // Use custom wrapper for SmallHashMap if possible as it avoids allocations when
+    // Use custom wrapper for scala Map if possible as it avoids allocations when
     // iterating across the entries.
     val tags = toCompressedJavaMap(dp.tags)
     val record = new GenericData.Record(RollingFileWriter.AvroSchema)
