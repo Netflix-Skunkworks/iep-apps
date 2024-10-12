@@ -5,17 +5,17 @@ import sbt._
 object Dependencies {
   object Versions {
     val atlas      = "1.8.0-SNAPSHOT"
-    val aws2       = "2.26.21"
-    val iep        = "5.0.24"
-    val log4j      = "2.23.1"
-    val pekko      = "1.0.3"
-    val pekkoHttpV = "1.0.1"
-    val scala      = "2.13.14"
+    val aws2       = "2.28.20"
+    val iep        = "5.0.27"
+    val log4j      = "2.24.1"
+    val pekko      = "1.1.2"
+    val pekkoHttpV = "1.1.0"
+    val scala      = "2.13.15"
     val servo      = "0.13.2"
-    val slf4j      = "1.7.36"
-    val spectator  = "1.7.18"
+    val slf4j      = "2.0.16"
+    val spectator  = "1.8.0"
     val spring     = "6.0.7"
-    val avroV      = "1.11.3"
+    val avroV      = "1.12.0"
 
     val crossScala = Seq(scala)
   }
@@ -57,10 +57,10 @@ object Dependencies {
   val log4jCore          = "org.apache.logging.log4j" % "log4j-core" % log4j
   val log4jJcl           = "org.apache.logging.log4j" % "log4j-jcl" % log4j
   val log4jJul           = "org.apache.logging.log4j" % "log4j-jul" % log4j
-  val log4jSlf4j         = "org.apache.logging.log4j" % "log4j-slf4j-impl" % log4j
+  val log4jSlf4j         = "org.apache.logging.log4j" % "log4j-slf4j2-impl" % log4j
   val mockitoCore        = "org.mockito" % "mockito-core" % "5.10.0"
   val mockitoScala       = "org.mockito" % "mockito-scala_2.13" % "1.17.30"
-  val munit              = "org.scalameta" %% "munit" % "1.0.0"
+  val munit              = "org.scalameta" %% "munit" % "1.0.2"
   val openHFT            = "net.openhft" % "zero-allocation-hashing" % "0.16"
   val pekkoActor         = "org.apache.pekko" %% "pekko-actor" % pekko
   val pekkoHttpCaching   = "org.apache.pekko" %% "pekko-http-caching" % pekkoHttpV
@@ -68,7 +68,7 @@ object Dependencies {
   val pekkoHttpTestkit   = "org.apache.pekko" %% "pekko-http-testkit" % pekkoHttpV
   val pekkoSlf4j         = "org.apache.pekko" %% "pekko-slf4j" % pekko
   val pekkoTestkit       = "org.apache.pekko" %% "pekko-testkit" % pekko
-  val protobuf           = "com.google.protobuf" % "protobuf-java" % "4.27.2"
+  val protobuf           = "com.google.protobuf" % "protobuf-java" % "4.28.2"
   val scalaCompiler      = "org.scala-lang" % "scala-compiler" % scala
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
   val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
@@ -77,7 +77,7 @@ object Dependencies {
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
   val slf4jLog4j         = "org.slf4j" % "slf4j-log4j12" % slf4j
   val slf4jSimple        = "org.slf4j" % "slf4j-simple" % slf4j
-  val snappy             = "org.xerial.snappy" % "snappy-java" % "1.1.10.5"
+  val snappy             = "org.xerial.snappy" % "snappy-java" % "1.1.10.7"
   val spectatorApi       = "com.netflix.spectator" % "spectator-api" % spectator
   val spectatorAws2      = "com.netflix.spectator" % "spectator-ext-aws2" % spectator
   val spectatorAtlas     = "com.netflix.spectator" % "spectator-reg-atlas" % spectator
