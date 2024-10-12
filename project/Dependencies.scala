@@ -12,7 +12,7 @@ object Dependencies {
     val pekkoHttpV = "1.1.0"
     val scala      = "2.13.15"
     val servo      = "0.13.2"
-    val slf4j      = "1.7.36"
+    val slf4j      = "2.0.16"
     val spectator  = "1.8.0"
     val spring     = "6.0.7"
     val avroV      = "1.11.3"
@@ -57,7 +57,7 @@ object Dependencies {
   val log4jCore          = "org.apache.logging.log4j" % "log4j-core" % log4j
   val log4jJcl           = "org.apache.logging.log4j" % "log4j-jcl" % log4j
   val log4jJul           = "org.apache.logging.log4j" % "log4j-jul" % log4j
-  val log4jSlf4j         = "org.apache.logging.log4j" % "log4j-slf4j-impl" % log4j
+  val log4jSlf4j         = "org.apache.logging.log4j" % "log4j-slf4j2-impl" % log4j
   val mockitoCore        = "org.mockito" % "mockito-core" % "5.10.0"
   val mockitoScala       = "org.mockito" % "mockito-scala_2.13" % "1.17.30"
   val munit              = "org.scalameta" %% "munit" % "1.0.2"
