@@ -45,36 +45,42 @@ object Conversions {
     * In addition to the conversions specified by name, a unit conversion will automatically
     * be applied to the data. This ensures that a base unit is reported.
     */
-  def fromName(name: String): Conversion = {
+  def fromName(name: String, applyRateConversion: Boolean): Conversion = {
     val conversions = name.split(",").toList.reverse
-    unit(from(name, conversions))
+    unit(from(name, conversions, applyRateConversion))
   }
 
-  private def from(name: String, conversions: List[String]): Conversion = {
+  private def from(
+    name: String,
+    conversions: List[String],
+    applyRateConversion: Boolean
+  ): Conversion = {
     conversions match {
-      case "min" :: Nil    => min
-      case "max" :: Nil    => max
-      case "sum" :: Nil    => sum
-      case "count" :: Nil  => count
-      case "avg" :: Nil    => avg
-      case "rate" :: cs    => rate(from(name, cs))
-      case "percent" :: cs => multiply(from(name, cs), 100.0)
+      case "min" :: Nil   => min
+      case "max" :: Nil   => max
+      case "sum" :: Nil   => sum
+      case "count" :: Nil => count
+      case "avg" :: Nil   => avg
+      case "rate" :: cs =>
+        if (applyRateConversion) rate(from(name, cs, applyRateConversion), applyRateConversion)
+        else from(name, cs, applyRateConversion)
+      case "percent" :: cs => multiply(from(name, cs, applyRateConversion), 100.0)
       case v :: cs         => throw new IllegalArgumentException(s"unknown conversion '$v' ($name)")
       case Nil             => throw new IllegalArgumentException(s"empty conversion list ($name)")
     }
   }
 
-  private def min: Conversion = (_, d) => d.minimum
+  private def min: Conversion = (_, d, b) => d.minimum
 
-  private def max: Conversion = (_, d) => d.maximum
+  private def max: Conversion = (_, d, b) => d.maximum
 
-  private def sum: Conversion = (_, d) => d.sum
+  private def sum: Conversion = (_, d, b) => d.sum
 
-  private def count: Conversion = (_, d) => d.sampleCount
+  private def count: Conversion = (_, d, b) => d.sampleCount
 
-  private def avg: Conversion = (_, d) => d.sum / d.sampleCount
+  private def avg: Conversion = (_, d, b) => d.sum / d.sampleCount
 
-  private def unit(f: Conversion): Conversion = (m, d) => {
+  private def unit(f: Conversion): Conversion = (m, d, b) => {
     val factor = unitFactor(d.unit)
     val newDatapoint = Datapoint
       .builder()
@@ -85,7 +91,7 @@ object Conversions {
       .timestamp(d.timestamp)
       .unit(d.unit)
       .build()
-    f(m, newDatapoint)
+    f(m, newDatapoint, b)
   }
 
   /**
@@ -93,17 +99,23 @@ object Conversions {
     * for the datapoint indicates it is already a rate, then the value will not
     * be modified.
     */
-  private def rate(f: Conversion): Conversion = (m, d) => {
-    val v = f(m, d)
+  private def rate(f: Conversion, applyRateConversion: Boolean): Conversion = (m, d, b) => {
+    val v = f(m, d, b)
     val unit = d.unitAsString()
-    if (unit.endsWith("/Second")) v else v / m.category.period
+    if (!applyRateConversion && unit.endsWith("/Second")) {
+      v * m.category.period // Convert back to cumulative value
+    } else if (applyRateConversion && !unit.endsWith("/Second")) {
+      v / m.category.period // Convert to rate
+    } else {
+      v // No conversion needed
+    }
   }
 
   /** Modifies a conversion `f` to multiply the result by `v`. */
-  def multiply(f: Conversion, v: Double): Conversion = (m, d) => f(m, d) * v
+  def multiply(f: Conversion, v: Double): Conversion = (m, d, b) => f(m, d, b) * v
 
   /** Modifies a datapoint so that it has the specified unit. */
-  def toUnit(f: Conversion, unit: StandardUnit): Conversion = (m, d) => {
+  def toUnit(f: Conversion, unit: StandardUnit): Conversion = (m, d, b) => {
     val newDatapoint = Datapoint
       .builder()
       .minimum(d.minimum)
@@ -113,7 +125,7 @@ object Conversions {
       .timestamp(d.timestamp)
       .unit(unit)
       .build()
-    f(m, newDatapoint)
+    f(m, newDatapoint, b)
   }
 
   private def unitFactor(unit: StandardUnit): Double = {

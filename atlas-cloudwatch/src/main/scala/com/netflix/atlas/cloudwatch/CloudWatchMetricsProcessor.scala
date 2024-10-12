@@ -862,8 +862,17 @@ abstract class CloudWatchMetricsProcessor(
       // TODO - clean this out once tests are finished
       // (if (testMode) s"TEST.${definition.alias}" else definition.alias))
       definition.alias)
-    val newValue =
-      definition.conversion(metric.meta, metric.datapoint(Instant.ofEpochMilli(timestamp)))
+
+    // Determine if rate conversion should be applied based on the step value
+    val applyRateConversion = step >= 60
+
+    // Calculate the base value using the conversion function with the rate conversion flag
+    val newValue = definition.conversion(
+      metric.meta,
+      metric.datapoint(Instant.ofEpochMilli(timestamp)),
+      applyRateConversion
+    )
+
     // NOTE - the polling CW code uses now for the timestamp, likely for LWC. BUT data could be off by
     // minutes potentially. And it didn't account for the offset value as far as I could tell. Now we'll at least
     // use the offset value.

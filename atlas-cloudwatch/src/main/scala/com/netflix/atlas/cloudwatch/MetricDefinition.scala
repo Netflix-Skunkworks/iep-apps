@@ -39,9 +39,10 @@ import software.amazon.awssdk.services.cloudwatch.model.StandardUnit
 case class MetricDefinition(
   name: String,
   alias: String,
-  conversion: (MetricMetadata, Datapoint) => Double,
+  conversion: (MetricMetadata, Datapoint, Boolean) => Double,
   monotonicValue: Boolean,
-  tags: Map[String, String]
+  tags: Map[String, String],
+  applyRateConversion: Boolean
 )
 
 object MetricDefinition {
@@ -60,7 +61,7 @@ object MetricDefinition {
     * It is mostly intended for use with some latency values that do not explicitly mark the
     * unit.
     */
-  def fromConfig(config: Config): List[MetricDefinition] = {
+  def fromConfig(config: Config, applyRateConversion: Boolean): List[MetricDefinition] = {
     import scala.jdk.CollectionConverters.*
     val tags =
       if (!config.hasPath("tags")) Map.empty[String, String]
@@ -73,10 +74,10 @@ object MetricDefinition {
       }
 
     config.getString("conversion") match {
-      case "timer"        => newDist(config, "totalTime", tags)
-      case "timer-millis" => milliTimer(config, tags)
-      case "dist-summary" => newDist(config, "totalAmount", tags)
-      case cnv            => List(newMetricDef(config, cnv, tags))
+      case "timer"        => newDist(config, "totalTime", tags, applyRateConversion)
+      case "timer-millis" => milliTimer(config, tags, applyRateConversion)
+      case "dist-summary" => newDist(config, "totalAmount", tags, applyRateConversion)
+      case cnv            => List(newMetricDef(config, cnv, tags, applyRateConversion))
     }
   }
 
@@ -84,11 +85,16 @@ object MetricDefinition {
     * Note, count must come first so it is easy to skip for other unit conversions. See
     * [[milliTimer]] for example.
     */
-  private def newDist(config: Config, total: String, tags: Tags): List[MetricDefinition] = {
+  private def newDist(
+    config: Config,
+    total: String,
+    tags: Tags,
+    applyRateConversion: Boolean
+  ): List[MetricDefinition] = {
     List(
-      newMetricDef(config, "count,rate", tags + ("statistic" -> "count")),
-      newMetricDef(config, "sum,rate", tags + ("statistic"   -> total)),
-      newMetricDef(config, "max", tags + ("statistic"        -> "max"))
+      newMetricDef(config, "count,rate", tags + ("statistic" -> "count"), applyRateConversion),
+      newMetricDef(config, "sum,rate", tags + ("statistic"   -> total), applyRateConversion),
+      newMetricDef(config, "max", tags + ("statistic"        -> "max"), applyRateConversion)
     )
   }
 
@@ -96,22 +102,32 @@ object MetricDefinition {
     * Timer where the input unit is milliseconds and we need to perform an unit conversion
     * on the totalTime and max results.
     */
-  private def milliTimer(config: Config, tags: Tags): List[MetricDefinition] = {
-    val ms = newDist(config, "totalTime", tags)
+  private def milliTimer(
+    config: Config,
+    tags: Tags,
+    applyRateConversion: Boolean
+  ): List[MetricDefinition] = {
+    val ms = newDist(config, "totalTime", tags, applyRateConversion)
     ms.head :: ms.tail.map { m =>
       m.copy(conversion = Conversions.toUnit(m.conversion, StandardUnit.MILLISECONDS))
     }
   }
 
-  private def newMetricDef(config: Config, cnv: String, tags: Tags): MetricDefinition = {
+  private def newMetricDef(
+    config: Config,
+    cnv: String,
+    tags: Tags,
+    applyRateConversion: Boolean
+  ): MetricDefinition = {
     val dstype = Map(TagKey.dsType -> Conversions.determineDsType(cnv))
     val monotonic = config.hasPath("monotonic") && config.getBoolean("monotonic")
     MetricDefinition(
       name = config.getString("name"),
       alias = config.getString("alias"),
-      conversion = Conversions.fromName(cnv),
+      conversion = Conversions.fromName(cnv, applyRateConversion),
       monotonicValue = monotonic,
-      tags = tags ++ dstype
+      tags = tags ++ dstype,
+      applyRateConversion = applyRateConversion
     )
   }
 }
