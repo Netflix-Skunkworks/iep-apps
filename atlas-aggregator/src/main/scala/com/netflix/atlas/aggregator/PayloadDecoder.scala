@@ -197,7 +197,7 @@ class PayloadDecoder(
         builder.add(tags(i), tags(i + 1))
         i += 2
       }
-      Left(ValidationResult.Fail("HasKeyRule", s"missing key 'name'", builder.result))
+      Left(ValidationResult.Fail("HasKeyRule", s"missing key 'name'", builder.result()))
     } else {
       val id = Id.unsafeCreate(name, tags, pos)
       if (result == TagRule.Pass) {
