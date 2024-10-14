@@ -863,14 +863,9 @@ abstract class CloudWatchMetricsProcessor(
       // (if (testMode) s"TEST.${definition.alias}" else definition.alias))
       definition.alias)
 
-    // Determine if rate conversion should be applied based on the step value
-    val applyRateConversion = step >= 60
-
-    // Calculate the base value using the conversion function with the rate conversion flag
     val newValue = definition.conversion(
       metric.meta,
-      metric.datapoint(Instant.ofEpochMilli(timestamp)),
-      applyRateConversion
+      metric.datapoint(Instant.ofEpochMilli(timestamp))
     )
 
     // NOTE - the polling CW code uses now for the timestamp, likely for LWC. BUT data could be off by

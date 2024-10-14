@@ -26,6 +26,7 @@ import com.netflix.spectator.atlas.impl.EvaluatorConfig
 import com.typesafe.config.Config
 
 import java.time.Duration
+import scala.annotation.nowarn
 
 class PublishClient(config: PublishConfig) extends AbstractService {
 
@@ -72,10 +73,13 @@ class PublishConfig(
       publishUri
   }
 
+  @nowarn("msg=configUri per stack/env/account")
   override def configUri: String = {
     configUri
   }
 
+
+  @nowarn("msg=configUri per stack/env/account")
   override def evalUri: String = {
     evalUri
   }

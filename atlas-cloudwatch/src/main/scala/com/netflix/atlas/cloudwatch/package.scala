@@ -30,7 +30,7 @@ package object cloudwatch {
     * in to allow access to other information that can be useful, such as the period
     * used for reporting the data into cloudwatch.
     */
-  type Conversion = (MetricMetadata, Datapoint, Boolean) => Double
+  type Conversion = (MetricMetadata, Datapoint) => Double
 
   type AtlasDatapoint = com.netflix.atlas.core.model.Datapoint
 }
