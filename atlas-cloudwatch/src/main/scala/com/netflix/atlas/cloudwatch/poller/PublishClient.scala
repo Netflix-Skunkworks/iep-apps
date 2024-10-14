@@ -78,7 +78,6 @@ class PublishConfig(
     configUri
   }
 
-
   @nowarn("msg=configUri per stack/env/account")
   override def evalUri: String = {
     evalUri
