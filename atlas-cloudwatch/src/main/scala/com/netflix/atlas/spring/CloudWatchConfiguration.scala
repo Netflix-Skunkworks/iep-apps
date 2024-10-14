@@ -86,10 +86,11 @@ class CloudWatchConfiguration extends StrictLogging {
     registry: Optional[Registry],
     tagger: Tagger,
     httpClient: PekkoHttpClient,
-    system: ActorSystem
+    system: ActorSystem,
+    leaderStatus: LeaderStatus
   ): PublishRouter = {
     val r = registry.orElseGet(() => globalRegistry())
-    new PublishRouter(config, r, tagger, httpClient)(system)
+    new PublishRouter(config, r, tagger, httpClient, leaderStatus)(system)
   }
 
   @Bean

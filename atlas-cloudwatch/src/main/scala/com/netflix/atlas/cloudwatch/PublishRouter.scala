@@ -19,6 +19,7 @@ import org.apache.pekko.actor.ActorSystem
 import com.netflix.atlas.pekko.PekkoHttpClient
 import com.netflix.atlas.cloudwatch.PublishRouter.defaultKey
 import com.netflix.iep.config.NetflixEnvironment
+import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
@@ -30,12 +31,15 @@ class PublishRouter(
   config: Config,
   registry: Registry,
   tagger: Tagger,
-  httpClient: PekkoHttpClient
+  httpClient: PekkoHttpClient,
+  val status: LeaderStatus
 )(implicit system: ActorSystem)
     extends StrictLogging {
 
   private val schedulers = Executors.newScheduledThreadPool(2)
   private val baseURI = config.getString("atlas.cloudwatch.account.routing.uri")
+  private val baseConfigURI = config.getString("atlas.cloudwatch.account.routing.config-uri")
+  private val baseEvalURI = config.getString("atlas.cloudwatch.account.routing.eval-uri")
 
   private val missingAccount =
     registry.counter("atlas.cloudwatch.queue.dps.dropped", "reason", "missingAccount")
@@ -47,6 +51,13 @@ class PublishRouter(
     baseURI
       .replaceAll("\\$\\{STACK\\}", "main")
       .replaceAll("\\$\\{REGION}", NetflixEnvironment.region()),
+    baseConfigURI
+      .replaceAll("\\$\\{STACK\\}", "main")
+      .replaceAll("\\$\\{REGION}", NetflixEnvironment.region()),
+    baseEvalURI
+      .replaceAll("\\$\\{STACK\\}", "main")
+      .replaceAll("\\$\\{REGION}", NetflixEnvironment.region()),
+    status,
     httpClient,
     schedulers
   )
@@ -85,6 +96,13 @@ class PublishRouter(
                     baseURI
                       .replaceAll("\\$\\{STACK\\}", stack)
                       .replaceAll("\\$\\{REGION}", destination),
+                    baseConfigURI
+                      .replaceAll("\\$\\{STACK\\}", stack)
+                      .replaceAll("\\$\\{REGION}", destination),
+                    baseEvalURI
+                      .replaceAll("\\$\\{STACK\\}", stack)
+                      .replaceAll("\\$\\{REGION}", destination),
+                    status,
                     httpClient,
                     schedulers
                   )
@@ -99,6 +117,13 @@ class PublishRouter(
               baseURI
                 .replaceAll("\\$\\{STACK\\}", stack)
                 .replaceAll("\\$\\{REGION}", NetflixEnvironment.region()),
+              baseConfigURI
+                .replaceAll("\\$\\{STACK\\}", stack)
+                .replaceAll("\\$\\{REGION}", NetflixEnvironment.region()),
+              baseEvalURI
+                .replaceAll("\\$\\{STACK\\}", stack)
+                .replaceAll("\\$\\{REGION}", NetflixEnvironment.region()),
+              status,
               httpClient,
               schedulers
             )
@@ -124,12 +149,25 @@ class PublishRouter(
     }
   }
 
-  private[cloudwatch] def getQueue(datapoint: AtlasDatapoint): Option[PublishQueue] = {
-    datapoint.tags.get("nf.account") match {
+  /**
+   * Routes the data to the proper atlas registry instance based on the `nf.account` and region tag.
+   *
+   * @param datapoint
+   *     The non-null data point.
+   */
+  def publishToRegistry(datapoint: AtlasDatapoint): Unit = {
+    getQueue(datapoint) match {
+      case Some(queue) => queue.updateRegistry(datapoint)
+      case None        => missingAccount.increment()
+    }
+  }
+
+  private[cloudwatch] def getQueue(tags: Map[String, String]): Option[PublishQueue] = {
+    tags.get("nf.account") match {
       case Some(account) =>
         accountMap.get(account) match {
           case Some(regionMap) =>
-            val region = datapoint.tags.get("nf.region").getOrElse(defaultKey)
+            val region = tags.get("nf.region").getOrElse(defaultKey)
             regionMap.get(region) match {
               case Some(queue) => Some(queue)
               case None        => regionMap.get(defaultKey)
@@ -138,6 +176,10 @@ class PublishRouter(
         }
       case None => None
     }
+  }
+
+  private[cloudwatch] def getQueue(datapoint: AtlasDatapoint): Option[PublishQueue] = {
+    getQueue(datapoint.tags)
   }
 
   def shutdown(): Unit = {

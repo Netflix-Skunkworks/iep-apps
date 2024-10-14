@@ -15,8 +15,6 @@
  */
 package com.netflix.atlas.cloudwatch
 
-import org.apache.pekko.Done
-import org.apache.pekko.actor.ActorSystem
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.normalize
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.toTagMap
 import com.netflix.atlas.cloudwatch.CloudWatchPoller.runAfter
@@ -28,6 +26,8 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.patterns.PolledMeter
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.pekko.Done
+import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.Source
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient
@@ -101,6 +101,7 @@ class CloudWatchPoller(
   private val dpsDroppedFilter =
     registry.counter("atlas.cloudwatch.poller.dps.dropped", "reason", "filter")
   private val dpsExpected = registry.counter("atlas.cloudwatch.poller.dps.expected")
+  private val hrmRequest = registry.createId("atlas.cloudwatch.poller.hrm.request")
   private val dpsPolled = registry.counter("atlas.cloudwatch.poller.dps.polled")
   private val frequency = config.getDuration("atlas.cloudwatch.poller.frequency").getSeconds
   private val hrmFrequency = config.getDuration("atlas.cloudwatch.poller.hrmFrequency").getSeconds
@@ -116,7 +117,9 @@ class CloudWatchPoller(
         val offset = category.pollOffset.get.getSeconds.toInt
         val categories = map.getOrElse(offset, List.empty)
         map += offset -> (categories :+ category)
-        logger.info(s"Setting offset of ${offset}s for categories ${category.namespace}")
+        logger.info(
+          s"Setting offset of ${offset}s for ns ${category.namespace} period ${category.period}"
+        )
       }
     logger.info(s"Loaded ${map.size} polling offsets")
     map
@@ -281,7 +284,7 @@ class CloudWatchPoller(
 
     private[cloudwatch] def execute: Future[Done] = {
       logger.info(
-        s"Polling for account ${account} at ${offset}s and category ${category.namespace} in ${region}"
+        s"Polling for account ${account} at ${offset}s and ns ${category.namespace} period ${category.period} in ${region}"
       )
       val futures = category.toListRequests.map { tuple =>
         val (definition, request) = tuple
@@ -400,6 +403,12 @@ class CloudWatchPoller(
           val start = now.minusSeconds(minCacheEntries * category.period)
           val request = MetricMetadata(category, definition, metric.dimensions.asScala.toList)
             .toGetRequest(start, now)
+
+          if (request.period() < 60) {
+            registry
+              .counter(hrmRequest.withTags("period", request.period().toString))
+              .increment()
+          }
           val response = client.getMetricStatistics(request)
           val dimensions = request.dimensions().asScala.toList.toBuffer
           dimensions += Dimension.builder().name("nf.account").value(account).build()
@@ -428,7 +437,11 @@ class CloudWatchPoller(
                 dimensions.toList,
                 dp
               )
-              processor.updateCache(m, category, nowMillis)
+              if (category.period < 60) {
+                processor.sendToRegistry(m, category, nowMillis)
+              } else {
+                processor.updateCache(m, category, nowMillis)
+              }
             }
           got.incrementAndGet()
           promise.success(Done)

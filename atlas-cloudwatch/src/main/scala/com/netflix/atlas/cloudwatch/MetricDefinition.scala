@@ -84,7 +84,11 @@ object MetricDefinition {
     * Note, count must come first so it is easy to skip for other unit conversions. See
     * [[milliTimer]] for example.
     */
-  private def newDist(config: Config, total: String, tags: Tags): List[MetricDefinition] = {
+  private def newDist(
+    config: Config,
+    total: String,
+    tags: Tags
+  ): List[MetricDefinition] = {
     List(
       newMetricDef(config, "count,rate", tags + ("statistic" -> "count")),
       newMetricDef(config, "sum,rate", tags + ("statistic"   -> total)),
@@ -96,14 +100,21 @@ object MetricDefinition {
     * Timer where the input unit is milliseconds and we need to perform an unit conversion
     * on the totalTime and max results.
     */
-  private def milliTimer(config: Config, tags: Tags): List[MetricDefinition] = {
+  private def milliTimer(
+    config: Config,
+    tags: Tags
+  ): List[MetricDefinition] = {
     val ms = newDist(config, "totalTime", tags)
     ms.head :: ms.tail.map { m =>
       m.copy(conversion = Conversions.toUnit(m.conversion, StandardUnit.MILLISECONDS))
     }
   }
 
-  private def newMetricDef(config: Config, cnv: String, tags: Tags): MetricDefinition = {
+  private def newMetricDef(
+    config: Config,
+    cnv: String,
+    tags: Tags
+  ): MetricDefinition = {
     val dstype = Map(TagKey.dsType -> Conversions.determineDsType(cnv))
     val monotonic = config.hasPath("monotonic") && config.getBoolean("monotonic")
     MetricDefinition(

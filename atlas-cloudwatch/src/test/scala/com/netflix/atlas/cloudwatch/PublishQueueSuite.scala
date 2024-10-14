@@ -30,6 +30,7 @@ import com.netflix.atlas.pekko.CustomMediaTypes
 import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.json.Json
 import com.netflix.atlas.webapi.PublishApi.FailureMessage
+import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.ConfigFactory
@@ -61,18 +62,32 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
   val timestamp = 1672531200000L
   val config = ConfigFactory.load().getConfig("atlas.cloudwatch.account.routing")
   val threadSleep = 300
+  var leaderStatus: LeaderStatus = null
 
   override def beforeEach(context: BeforeEach): Unit = {
     registry = new DefaultRegistry()
     httpClient = mock[PekkoHttpClient]
     httpCaptor = ArgCaptor[HttpRequest]
     scheduler = mock[ScheduledExecutorService]
+    leaderStatus = mock[LeaderStatus]
+
+    when(leaderStatus.hasLeadership).thenReturn(true)
   }
 
   test("publish success") {
     mockResponse(StatusCodes.OK)
     val queue =
-      new PublishQueue(config, registry, "main", "http://localhost", httpClient, scheduler)
+      new PublishQueue(
+        config,
+        registry,
+        "main",
+        "http://localhost",
+        "http://localhost",
+        "http://localhost",
+        leaderStatus,
+        httpClient,
+        scheduler
+      )
     Await.ready(
       queue.publish(
         Seq(
@@ -94,7 +109,17 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
   test("publish 202") {
     mockResponse(StatusCodes.Accepted, Json.encode(FailureMessage("foo", 1, List("Err"))))
     val queue =
-      new PublishQueue(config, registry, "main", "http://localhost", httpClient, scheduler)
+      new PublishQueue(
+        config,
+        registry,
+        "main",
+        "http://localhost",
+        "http://localhost",
+        "http://localhost",
+        leaderStatus,
+        httpClient,
+        scheduler
+      )
     Await.ready(
       queue.publish(
         Seq(
@@ -116,7 +141,17 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
   test("publish 400") {
     mockResponse(StatusCodes.BadRequest, Json.encode(FailureMessage("foo", 2, List("Err"))))
     val queue =
-      new PublishQueue(config, registry, "main", "http://localhost", httpClient, scheduler)
+      new PublishQueue(
+        config,
+        registry,
+        "main",
+        "http://localhost",
+        "http://localhost",
+        "http://localhost",
+        leaderStatus,
+        httpClient,
+        scheduler
+      )
     Await.ready(
       queue.publish(
         Seq(
@@ -138,7 +173,17 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
   test("publish 500") {
     mockResponse(StatusCodes.InternalServerError)
     val queue =
-      new PublishQueue(config, registry, "main", "http://localhost", httpClient, scheduler)
+      new PublishQueue(
+        config,
+        registry,
+        "main",
+        "http://localhost",
+        "http://localhost",
+        "http://localhost",
+        leaderStatus,
+        httpClient,
+        scheduler
+      )
     Await.ready(
       queue.publish(
         Seq(
@@ -160,7 +205,17 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
   test("publish 429") {
     mockResponse(StatusCodes.TooManyRequests)
     val queue =
-      new PublishQueue(config, registry, "main", "http://localhost", httpClient, scheduler)
+      new PublishQueue(
+        config,
+        registry,
+        "main",
+        "http://localhost",
+        "http://localhost",
+        "http://localhost",
+        leaderStatus,
+        httpClient,
+        scheduler
+      )
     Await.ready(
       queue.publish(
         Seq(
@@ -183,7 +238,17 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
   test("publish 429 too many attempts") {
     mockResponse(StatusCodes.TooManyRequests)
     val queue =
-      new PublishQueue(config, registry, "main", "http://localhost", httpClient, scheduler)
+      new PublishQueue(
+        config,
+        registry,
+        "main",
+        "http://localhost",
+        "http://localhost",
+        "http://localhost",
+        leaderStatus,
+        httpClient,
+        scheduler
+      )
     val payload = Json.smileEncode(
       MetricsPayload(
         Map.empty,
@@ -207,7 +272,17 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
   test("publish exception") {
     mockResponse(StatusCodes.OK, t = new UTException("UT"))
     val queue =
-      new PublishQueue(config, registry, "main", "http://localhost", httpClient, scheduler)
+      new PublishQueue(
+        config,
+        registry,
+        "main",
+        "http://localhost",
+        "http://localhost",
+        "http://localhost",
+        leaderStatus,
+        httpClient,
+        scheduler
+      )
     Await.ready(
       queue.publish(
         Seq(

@@ -20,6 +20,7 @@ import org.apache.pekko.testkit.TestKitBase
 import com.netflix.atlas.pekko.PekkoHttpClient
 import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.ts
 import com.netflix.atlas.core.model.Datapoint
+import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.ConfigFactory
@@ -34,7 +35,8 @@ class PublishRouterSuite extends FunSuite with TestKitBase {
   private val config = ConfigFactory.load()
   private val tagger = new NetflixTagger(config.getConfig("atlas.cloudwatch.tagger"))
   private val httpClient = mock[PekkoHttpClient]
-  private val router = new PublishRouter(config, registry, tagger, httpClient)
+  var leaderStatus: LeaderStatus = mock[LeaderStatus]
+  private val router = new PublishRouter(config, registry, tagger, httpClient, leaderStatus)
 
   test("initialize") {
     assertEquals(router.mainQueue.uri, "https://publish-main.us-east-1.foo.com/api/v1/publish")
@@ -86,7 +88,7 @@ class PublishRouterSuite extends FunSuite with TestKitBase {
 
   test("publish missing account tag") {
     val dp = Datapoint(Map("no" -> "account"), 1677628800000L, 42.0)
-    val router = new PublishRouter(config, registry, tagger, httpClient)
+    val router = new PublishRouter(config, registry, tagger, httpClient, leaderStatus)
     router.shutdown()
     router.publish(dp)
     assertEquals(

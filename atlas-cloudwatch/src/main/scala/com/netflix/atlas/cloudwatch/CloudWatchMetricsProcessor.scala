@@ -457,6 +457,29 @@ abstract class CloudWatchMetricsProcessor(
       .build()
   }
 
+  private[cloudwatch] def sendToRegistry(
+    datapoint: FirehoseMetric,
+    category: MetricCategory,
+    receivedTimestamp: Long
+  ): Unit = {
+    category.metrics
+      .find(_.name == datapoint.metricName)
+      .foreach { md =>
+        val metric = MetricData(
+          MetricMetadata(category, md, toAWSDimensions(datapoint)),
+          None,
+          Option(datapoint.datapoint),
+          None
+        )
+
+        val atlasDp = toAtlasDatapoint(metric, receivedTimestamp, category.period)
+
+        if (!atlasDp.value.isNaN) {
+          publishRouter.publishToRegistry(atlasDp)
+        }
+      }
+  }
+
   private[cloudwatch] def sendToRouter(key: Any, data: Array[Byte], scrapeTimestamp: Long): Unit = {
     try {
       val entry = CloudWatchCacheEntry.parseFrom(data)
@@ -839,8 +862,12 @@ abstract class CloudWatchMetricsProcessor(
       // TODO - clean this out once tests are finished
       // (if (testMode) s"TEST.${definition.alias}" else definition.alias))
       definition.alias)
-    val newValue =
-      definition.conversion(metric.meta, metric.datapoint(Instant.ofEpochMilli(timestamp)))
+
+    val newValue = definition.conversion(
+      metric.meta,
+      metric.datapoint(Instant.ofEpochMilli(timestamp))
+    )
+
     // NOTE - the polling CW code uses now for the timestamp, likely for LWC. BUT data could be off by
     // minutes potentially. And it didn't account for the offset value as far as I could tell. Now we'll at least
     // use the offset value.
@@ -1020,6 +1047,16 @@ object CloudWatchMetricsProcessor {
         .builder()
         .name(d.getName)
         .value(d.getValue)
+        .build()
+    }.toList
+  }
+
+  private[cloudwatch] def toAWSDimensions(entry: FirehoseMetric): List[Dimension] = {
+    entry.dimensions.map { d =>
+      Dimension
+        .builder()
+        .name(d.name())
+        .value(d.value())
         .build()
     }.toList
   }

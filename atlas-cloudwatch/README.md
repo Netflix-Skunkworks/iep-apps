@@ -73,7 +73,7 @@ entire config directory. Fields under the key include:
   See [Configuring Timeouts](#configuring-timeouts)
 * `filter` an ASL query that will drop any data that matches.
 * `poll-offset` indicates the data must be polled instead of expected via Firehose. Used for daily
-  metrics like S3 bucket aggregates or those with timestamps 2 hours older than wall clock.
+  metrics like S3 bucket aggregates or those with timestamps 2 hours older than wall clock or high resolutions metrics.
 * `dimensions` a list of zero or more dimensions to match on incoming CloudWatch data. See
   [Configuring Dimensions](#configuring-dimensions)
 * `metrics` a list of one or more metric conversion definitions.

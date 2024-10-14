@@ -50,7 +50,10 @@ object Conversions {
     unit(from(name, conversions))
   }
 
-  private def from(name: String, conversions: List[String]): Conversion = {
+  private def from(
+    name: String,
+    conversions: List[String]
+  ): Conversion = {
     conversions match {
       case "min" :: Nil    => min
       case "max" :: Nil    => max
@@ -96,7 +99,15 @@ object Conversions {
   private def rate(f: Conversion): Conversion = (m, d) => {
     val v = f(m, d)
     val unit = d.unitAsString()
-    if (unit.endsWith("/Second")) v else v / m.category.period
+    val applyRateConversion = m.category.period >= 60
+
+    if (!applyRateConversion && unit.endsWith("/Second")) {
+      v * m.category.period // Convert back to cumulative value
+    } else if (applyRateConversion && !unit.endsWith("/Second")) {
+      v / m.category.period // Convert to rate
+    } else {
+      v // No conversion needed
+    }
   }
 
   /** Modifies a conversion `f` to multiply the result by `v`. */

@@ -1,4 +1,3 @@
-
 lazy val `iep-apps` = project.in(file("."))
   .configure(BuildSettings.profile)
   .aggregate(
@@ -60,6 +59,7 @@ lazy val `atlas-cloudwatch` = project
     Dependencies.openHFT,
     Dependencies.protobuf,
     Dependencies.spectatorAtlas,
+    Dependencies.spectatorApi,
 
     Dependencies.atlasPekkoTestkit % "test",
     Dependencies.atlasWebApi % "test",
@@ -99,29 +99,29 @@ lazy val `atlas-persistence` = project
       Dependencies.log4jSlf4j,
       Dependencies.snappy,
       Dependencies.spectatorAws2
-  ))
+    ))
 
 lazy val `atlas-slotting` = project
   .configure(BuildSettings.profile)
   .settings(libraryDependencies ++= Seq(
-      Dependencies.pekkoHttpCaching,
-      Dependencies.atlasSpringPekko,
-      Dependencies.aws2AutoScaling,
-      Dependencies.aws2DynamoDB,
-      Dependencies.aws2EC2,
-      Dependencies.iepDynConfig,
-      Dependencies.iepSpring,
-      Dependencies.iepSpringAdmin,
-      Dependencies.iepSpringAws2,
-      Dependencies.log4jApi,
-      Dependencies.log4jCore,
-      Dependencies.log4jSlf4j,
-      Dependencies.spectatorAws2,
+    Dependencies.pekkoHttpCaching,
+    Dependencies.atlasSpringPekko,
+    Dependencies.aws2AutoScaling,
+    Dependencies.aws2DynamoDB,
+    Dependencies.aws2EC2,
+    Dependencies.iepDynConfig,
+    Dependencies.iepSpring,
+    Dependencies.iepSpringAdmin,
+    Dependencies.iepSpringAws2,
+    Dependencies.log4jApi,
+    Dependencies.log4jCore,
+    Dependencies.log4jSlf4j,
+    Dependencies.spectatorAws2,
 
-      Dependencies.pekkoHttpTestkit % "test",
-      Dependencies.pekkoTestkit % "test",
-      Dependencies.atlasPekkoTestkit % "test",
-      Dependencies.munit % "test"
+    Dependencies.pekkoHttpTestkit % "test",
+    Dependencies.pekkoTestkit % "test",
+    Dependencies.atlasPekkoTestkit % "test",
+    Dependencies.munit % "test"
   ))
 
 lazy val `atlas-stream` = project
@@ -254,4 +254,3 @@ lazy val `iep-lwc-loadgen` = project
     Dependencies.pekkoTestkit % "test",
     Dependencies.munit % "test"
   ))
-
