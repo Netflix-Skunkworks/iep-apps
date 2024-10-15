@@ -68,6 +68,10 @@ abstract class CloudWatchMetricsProcessor(
   private[cloudwatch] val filteredNS =
     registry.createId("atlas.cloudwatch.datapoints.filtered", "reason", "namespace")
 
+  /** The number of data points filtered out before caching due to defined polling offset . */
+  private[cloudwatch] val pollingDefinedMetric =
+    registry.createId("atlas.cloudwatch.datapoints.filtered", "reason", "polling")
+
   /** The number of data points filtered out before caching due to not having a metric config. */
   private[cloudwatch] val filteredMetric =
     registry.createId("atlas.cloudwatch.datapoints.filtered", "reason", "metric")
@@ -188,25 +192,34 @@ abstract class CloudWatchMetricsProcessor(
               var matchedDimensions = false
               categories.foreach { tuple =>
                 val (category, _) = tuple
-                if (category.dimensionsMatch(dp.dimensions)) {
-                  matchedDimensions = true
-                  if (category.filter.isDefined && tuple._1.filter.get.matches(toTagMap(dp))) {
-                    registry
-                      .counter(filteredQuery.withTag("aws.namespace", dp.namespace))
-                      .increment()
-                    debugger.debugIncoming(
-                      dp,
-                      IncomingMatch.DroppedFilter,
-                      receivedTimestamp,
-                      Some(category)
+                if (category.pollOffset.isDefined) {
+                  registry
+                    .counter(
+                      pollingDefinedMetric
+                        .withTag("aws.namespace", dp.namespace)
+                        .withTag("aws.metric", dp.metricName)
                     )
-                  } else {
-                    // finally passed the checks.
-                    updateCache(dp, category, receivedTimestamp)
-                    val delay = receivedTimestamp - dp.datapoint.timestamp().toEpochMilli
-                    registry
-                      .distributionSummary(receivedAge.withTag("aws.namespace", dp.namespace))
-                      .record(delay)
+                } else {
+                  if (category.dimensionsMatch(dp.dimensions)) {
+                    matchedDimensions = true
+                    if (category.filter.isDefined && tuple._1.filter.get.matches(toTagMap(dp))) {
+                      registry
+                        .counter(filteredQuery.withTag("aws.namespace", dp.namespace))
+                        .increment()
+                      debugger.debugIncoming(
+                        dp,
+                        IncomingMatch.DroppedFilter,
+                        receivedTimestamp,
+                        Some(category)
+                      )
+                    } else {
+                      // finally passed the checks.
+                      updateCache(dp, category, receivedTimestamp)
+                      val delay = receivedTimestamp - dp.datapoint.timestamp().toEpochMilli
+                      registry
+                        .distributionSummary(receivedAge.withTag("aws.namespace", dp.namespace))
+                        .record(delay)
+                    }
                   }
                 }
               }
