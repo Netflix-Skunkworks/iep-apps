@@ -199,6 +199,7 @@ abstract class CloudWatchMetricsProcessor(
                         .withTag("aws.namespace", dp.namespace)
                         .withTag("aws.metric", dp.metricName)
                     )
+                    .increment()
                 } else {
                   if (category.dimensionsMatch(dp.dimensions)) {
                     matchedDimensions = true

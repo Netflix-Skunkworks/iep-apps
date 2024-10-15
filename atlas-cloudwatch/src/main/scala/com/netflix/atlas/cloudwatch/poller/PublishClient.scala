@@ -16,7 +16,6 @@
 package com.netflix.atlas.cloudwatch.poller
 
 import com.netflix.iep.leader.api.LeaderStatus
-import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Clock
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.Registry
@@ -24,12 +23,19 @@ import com.netflix.spectator.atlas.AtlasConfig
 import com.netflix.spectator.atlas.AtlasRegistry
 import com.netflix.spectator.atlas.impl.EvaluatorConfig
 import com.typesafe.config.Config
+import com.typesafe.scalalogging.StrictLogging
 
 import scala.annotation.nowarn
 
-class PublishClient(config: PublishConfig) extends AbstractService {
+class PublishClient(config: PublishConfig) extends StrictLogging {
 
   private val publishRegistry = new AtlasRegistry(Clock.SYSTEM, config)
+
+  publishRegistry.start()
+
+  logger.info(
+    s"registry started for step ${config.step()}, enabled : ${config.lwcEnabled()}, lwc-config URI ${config.configUri}, eval URI ${config.evalUri}"
+  )
 
   def updateGauge(id: Id, value: Double): Unit = {
     publishRegistry.maxGauge(id).set(value)
@@ -37,14 +43,6 @@ class PublishClient(config: PublishConfig) extends AbstractService {
 
   def updateCounter(id: Id, value: Double): Unit = {
     publishRegistry.counter(id).add(value)
-  }
-
-  override def startImpl(): Unit = {
-    publishRegistry.start()
-  }
-
-  override def stopImpl(): Unit = {
-    publishRegistry.stop()
   }
 }
 

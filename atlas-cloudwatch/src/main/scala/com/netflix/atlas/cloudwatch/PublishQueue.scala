@@ -78,6 +78,9 @@ class PublishQueue(
   private val retryAttempts = registry.counter("atlas.cloudwatch.queue.retries", "stack", stack)
   private val droppedRetries = registry.counter(datapointsDropped.withTags("reason", "maxRetries"))
 
+  private val registrySent =
+    registry.createId("atlas.cloudwatch.queue.registry.sent", "stack", stack)
+
   private val maxRetries = getSetting("maxRetries")
   private val queueSize = getSetting("queueSize")
   private val batchSize = getSetting("batchSize")
@@ -110,8 +113,10 @@ class PublishQueue(
   def updateRegistry(dp: AtlasDatapoint): Unit = {
     val atlasDp = toDoubleValue(dp)
     if (dp.dsType == DsType.Rate) {
+      registry.counter(registrySent.withTag("type", "counter")).increment()
       registryPublishClient.updateCounter(atlasDp.id, atlasDp.value)
     } else if (dp.dsType == DsType.Gauge) {
+      registry.counter(registrySent.withTag("type", "gauge")).increment()
       registryPublishClient.updateGauge(atlasDp.id, atlasDp.value)
     } else {
       logger.error(s"Unknown ds type, skip updating registry ${dp.dsType}")
