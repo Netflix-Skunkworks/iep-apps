@@ -79,6 +79,26 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
     )
   }
 
+  test("processDatapoints polling offset defined") {
+    processor.processDatapoints(
+      List(
+        makeFirehoseMetric(
+          "AWS/UT1",
+          "DailyMetricA",
+          List(Dimension.builder().name("MyTag").value("a").build()),
+          Array(24, 0, 3, 10),
+          "Count"
+        )
+      ),
+      ts
+    )
+    assertPublished(List.empty)
+    assertCounters(
+      1,
+      filtered = Map("namespace" -> (0, "AWS/UT1"), "polling" -> (1, "DailyMetricA"))
+    )
+  }
+
   test("processDatapoints missing tag") {
     processor.processDatapoints(
       List(
