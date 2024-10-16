@@ -178,6 +178,7 @@ lazy val `iep-lwc-bridge` = project
     Dependencies.atlasCore,
     Dependencies.atlasSpringPekko,
     Dependencies.frigga,
+    Dependencies.iepDynConfig,
     Dependencies.iepSpring,
     Dependencies.iepSpringAtlas,
     Dependencies.log4jApi,

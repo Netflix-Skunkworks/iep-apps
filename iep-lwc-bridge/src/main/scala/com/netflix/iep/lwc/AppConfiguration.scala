@@ -15,6 +15,7 @@
  */
 package com.netflix.iep.lwc
 
+import com.netflix.iep.config.DynamicConfigManager
 import org.apache.pekko.actor.ActorSystem
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
@@ -30,10 +31,10 @@ class AppConfiguration {
 
   @Bean
   def expressionsEvaluator(
-    config: Optional[Config],
+    config: Optional[DynamicConfigManager],
     registry: Optional[Registry]
   ): ExpressionsEvaluator = {
-    val c = config.orElseGet(() => ConfigFactory.load())
+    val c = config.orElseGet(() => DynamicConfigManager.create(ConfigFactory.load()))
     val r = registry.orElseGet(() => new NoopRegistry)
     new ExpressionsEvaluator(c, r)
   }
