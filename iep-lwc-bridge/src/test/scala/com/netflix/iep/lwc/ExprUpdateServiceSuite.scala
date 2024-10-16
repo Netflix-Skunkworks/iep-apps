@@ -15,6 +15,7 @@
  */
 package com.netflix.iep.lwc
 
+import com.netflix.iep.config.DynamicConfigManager
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.model.HttpResponse
 import org.apache.pekko.http.scaladsl.model.StatusCodes
@@ -39,9 +40,10 @@ class ExprUpdateServiceSuite extends FunSuite {
   private implicit val system: ActorSystem = ActorSystem()
 
   private val config = ConfigFactory.load()
+  private val configMgr = DynamicConfigManager.create(config)
   private val clock = new ManualClock()
   private val registry = new DefaultRegistry(clock)
-  private val evaluator = new ExpressionsEvaluator(config, registry)
+  private val evaluator = new ExpressionsEvaluator(configMgr, registry)
 
   private val service = new ExprUpdateService(config, registry, evaluator, system)
 

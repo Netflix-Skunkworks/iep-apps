@@ -19,6 +19,7 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.testkit.RouteTestTimeout
 import com.netflix.atlas.pekko.RequestHandler
 import com.netflix.atlas.pekko.testkit.MUnitRouteSuite
+import com.netflix.iep.config.DynamicConfigManager
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
@@ -29,7 +30,8 @@ class BridgeApiSuite extends MUnitRouteSuite {
   private implicit val routeTestTimeout: RouteTestTimeout = RouteTestTimeout(5.second)
 
   private val config = ConfigFactory.load()
-  private val evaluator = new ExpressionsEvaluator(config, new NoopRegistry)
+  private val configMgr = DynamicConfigManager.create(config)
+  private val evaluator = new ExpressionsEvaluator(configMgr, new NoopRegistry)
   private val endpoint = new BridgeApi(config, new NoopRegistry, evaluator, system)
   private val routes = RequestHandler.standardOptions(endpoint.routes)
 

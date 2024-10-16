@@ -23,6 +23,7 @@ import org.apache.pekko.http.scaladsl.testkit.RouteTestTimeout
 import com.netflix.atlas.pekko.RequestHandler
 import com.netflix.atlas.pekko.testkit.MUnitRouteSuite
 import com.netflix.atlas.json.Json
+import com.netflix.iep.config.DynamicConfigManager
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.atlas.impl.Subscription
 import com.typesafe.config.ConfigFactory
@@ -35,7 +36,8 @@ class StatsApiSuite extends MUnitRouteSuite {
   private implicit val routeTestTimeout: RouteTestTimeout = RouteTestTimeout(5.second)
 
   private val config = ConfigFactory.load()
-  private val evaluator = new ExpressionsEvaluator(config, new NoopRegistry)
+  private val configMgr = DynamicConfigManager.create(config)
+  private val evaluator = new ExpressionsEvaluator(configMgr, new NoopRegistry)
   private val endpoint = new StatsApi(evaluator)
   private val routes = RequestHandler.standardOptions(endpoint.routes)
 
