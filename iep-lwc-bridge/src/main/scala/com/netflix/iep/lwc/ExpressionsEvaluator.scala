@@ -15,6 +15,9 @@
  */
 package com.netflix.iep.lwc
 
+import com.netflix.iep.config.ConfigListener
+import com.netflix.iep.config.DynamicConfigManager
+
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicLong
@@ -26,7 +29,6 @@ import com.netflix.spectator.atlas.impl.EvalPayload
 import com.netflix.spectator.atlas.impl.QueryIndex
 import com.netflix.spectator.atlas.impl.Subscription
 import com.netflix.spectator.atlas.impl.TagsValuePair
-import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
 import java.util.Collections
@@ -36,14 +38,22 @@ import java.util.Collections
   * basic role as the Evaluator class from the Spectator Atlas registry, but leverages the
   * query index from Atlas so it can scale to a much larger set of expressions.
   */
-class ExpressionsEvaluator(config: Config, registry: Registry) extends StrictLogging {
+class ExpressionsEvaluator(configMgr: DynamicConfigManager, registry: Registry)
+    extends StrictLogging {
 
   import ExpressionsEvaluator.*
 
-  private val subIdsToLog = {
-    import scala.jdk.CollectionConverters.*
-    config.getStringList("netflix.iep.lwc.bridge.logging.subscriptions").asScala.toSet
-  }
+  @volatile private var subIdsToLog = Set.empty[String]
+
+  configMgr.addListener(
+    ConfigListener.forStringList(
+      "netflix.iep.lwc.bridge.logging.subscriptions",
+      vs => {
+        import scala.jdk.CollectionConverters.*
+        subIdsToLog = vs.asScala.toSet
+      }
+    )
+  )
 
   private val subsAdded = registry.distributionSummary("lwc.syncExprsAdded")
   private val subsRemoved = registry.distributionSummary("lwc.syncExprsRemoved")
@@ -91,7 +101,7 @@ class ExpressionsEvaluator(config: Config, registry: Registry) extends StrictLog
           val aggr = aggregates.getOrElseUpdate(sub.getId, newAggregator(sub))
           aggr.update(pair)
           if (subIdsToLog.contains(sub.getId)) {
-            logger.info(s"received value for $sub: $pair")
+            logger.info(s"received value for ${sub.getId}, ts=$timestamp: $pair")
           }
         }
       }
@@ -104,7 +114,7 @@ class ExpressionsEvaluator(config: Config, registry: Registry) extends StrictLog
           val m = new EvalPayload.Metric(id, pair.tags(), pair.value())
           metrics.add(m)
           if (subIdsToLog.contains(id)) {
-            logger.info(s"sending aggr value for $id: $m")
+            logger.info(s"sending aggr value for $id, ts=$timestamp: $m")
           }
         }
     }
