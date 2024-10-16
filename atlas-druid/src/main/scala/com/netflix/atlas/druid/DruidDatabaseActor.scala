@@ -53,7 +53,9 @@ import scala.concurrent.duration.*
 import scala.util.Failure
 import scala.util.Success
 
-class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
+class DruidDatabaseActor(config: Config, service: DruidMetadataService)
+    extends Actor
+    with StrictLogging {
 
   import DruidClient.*
   import DruidDatabaseActor.*
@@ -120,8 +122,11 @@ class DruidDatabaseActor(config: Config) extends Actor with StrictLogging {
       }
       .runWith(Sink.head)
       .onComplete {
-        case Success(m) => ref ! m
-        case Failure(t) => logger.warn("failed to refresh metadata", t)
+        case Success(m) =>
+          ref ! m
+          service.metadataRefreshed()
+        case Failure(t) =>
+          logger.warn("failed to refresh metadata", t)
       }
   }
 
