@@ -292,11 +292,6 @@ class CloudWatchPoller(
     private[cloudwatch] val got = new AtomicInteger()
 
     private[cloudwatch] def execute: Future[Done] = {
-      logger.info(
-        s"Polling for account ${account} at ${offset}s and ns ${category.namespace} period ${
-            category.period
-          } in ${region} for ${category.metrics.size} metrics"
-      )
       val futures = category.toListRequests.map { tuple =>
         val (definition, request) = tuple
         val promise = Promise[Done]()
@@ -322,13 +317,6 @@ class CloudWatchPoller(
     ) extends Runnable {
 
       def process(metricsList: List[Metric]): Unit = {
-        logger.info(
-          s"CloudWatch listed ${metricsList.size} metrics for ${request.metricName()} in ${
-              account
-            } and ${category.namespace} ${definition.name} statistic : ${
-              definition.tags.getOrElse("statistic", "NaN")
-            } dstype : ${definition.tags.getOrElse("dstype", "NaN")} in region ${region}"
-        )
         if (metricsList.isEmpty) {
           registry
             .counter(
