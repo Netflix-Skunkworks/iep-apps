@@ -16,6 +16,7 @@
 package com.netflix.atlas.cloudwatch
 
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.normalize
+import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.toAWSDimensions
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.toTagMap
 import com.netflix.atlas.cloudwatch.CloudWatchPoller.runAfter
 import com.netflix.atlas.cloudwatch.CloudWatchPoller.runKey
@@ -102,6 +103,7 @@ class CloudWatchPoller(
     registry.counter("atlas.cloudwatch.poller.dps.dropped", "reason", "filter")
   private val dpsExpected = registry.counter("atlas.cloudwatch.poller.dps.expected")
   private val hrmRequest = registry.createId("atlas.cloudwatch.poller.hrm.request")
+  private val polledPublishPath = registry.createId("atlas.cloudwatch.poller.publish")
   private val dpsPolled = registry.counter("atlas.cloudwatch.poller.dps.polled")
   private val frequency = config.getDuration("atlas.cloudwatch.poller.frequency").getSeconds
   private val hrmFrequency = config.getDuration("atlas.cloudwatch.poller.hrmFrequency").getSeconds
@@ -122,7 +124,7 @@ class CloudWatchPoller(
         )
         category.metrics.foreach(md => {
           logger.info(
-            s"${category.namespace} :: step: ${category.period}s, name: ${md.name}, tags: ${md.tags.keySet}"
+            s"${category.namespace} :: step: ${category.period}s, name: ${md.name}, tags: ${md.tags}"
           )
         })
       }
@@ -418,11 +420,10 @@ class CloudWatchPoller(
             registry
               .counter(hrmRequest.withTags("period", category.period.toString))
               .increment()
-            start = now.minusSeconds(category.period)
+            start = now.minusSeconds(1)
           }
-          val metricMetaData =
-            MetricMetadata(category, definition, metric.dimensions.asScala.toList)
-          val request = metricMetaData.toGetRequest(start, now)
+          val request = MetricMetadata(category, definition, metric.dimensions.asScala.toList)
+            .toGetRequest(start, now)
 
           val response = client.getMetricStatistics(request)
           val dimensions = request.dimensions().asScala.toList.toBuffer
@@ -453,8 +454,11 @@ class CloudWatchPoller(
                 dp
               )
               if (category.period < 60) {
-                processor.sendToRegistry(metricMetaData, firehoseMetric, nowMillis)
+                val metaData = MetricMetadata(category, definition, toAWSDimensions(firehoseMetric))
+                registry.counter(polledPublishPath.withTag("path", "registry")).increment()
+                processor.sendToRegistry(metaData, firehoseMetric, nowMillis)
               } else {
+                registry.counter(polledPublishPath.withTag("path", "cache")).increment()
                 processor.updateCache(firehoseMetric, category, nowMillis)
               }
             }

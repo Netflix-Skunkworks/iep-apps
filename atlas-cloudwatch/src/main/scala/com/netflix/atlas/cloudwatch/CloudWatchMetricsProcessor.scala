@@ -138,6 +138,8 @@ abstract class CloudWatchMetricsProcessor(
   /** How long to wait from the top of the publishPeriod before scraping. */
   private val publishDelay = config.getDuration("atlas.cloudwatch.publishOffset").getSeconds.toInt
 
+  private val polledDataPointValue = registry.createId("atlas.cloudwatch.polled.datapoint.registry")
+
   // ctor
   {
     val delay = {
@@ -481,7 +483,10 @@ abstract class CloudWatchMetricsProcessor(
     val atlasDp = toAtlasDatapoint(metric, receivedTimestamp, metricMetadata.category.period)
 
     if (!atlasDp.value.isNaN) {
+      registry.counter(polledDataPointValue.withTag("value", "valid")).increment()
       publishRouter.publishToRegistry(atlasDp, datapoint.datapoint)
+    } else {
+      registry.counter(polledDataPointValue.withTag("value", "NaN")).increment()
     }
   }
 
