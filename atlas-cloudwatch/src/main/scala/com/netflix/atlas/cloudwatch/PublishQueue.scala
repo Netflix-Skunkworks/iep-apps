@@ -112,8 +112,8 @@ class PublishQueue(
 
   def updateRegistry(dp: AtlasDatapoint, cwDatapoint: CloudWatchDatapoint): Unit = {
     val atlasDp = toDoubleValue(dp)
-    registryPublishClient.updateCounter(atlasDp.id, atlasDp.value)
     if (dp.dsType == DsType.Rate) {
+      registryPublishClient.updateCounter(atlasDp.id, atlasDp.value)
       registry
         .counter(
           updateSelfMetrics(dp, cwDatapoint)
