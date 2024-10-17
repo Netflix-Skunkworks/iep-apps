@@ -118,8 +118,13 @@ class CloudWatchPoller(
         val categories = map.getOrElse(offset, List.empty)
         map += offset -> (categories :+ category)
         logger.info(
-          s"Setting offset of ${offset}s for ns ${category.namespace} period ${category.period}"
+          s"Setting offset of ${offset}s for ns ${category.namespace} period ${category.period} for ${category.metrics.size} definition"
         )
+        category.metrics.foreach(md => {
+          logger.info(
+            s"${category.namespace} :: step: ${category.period}s, name: ${md.name}, tags: ${md.tags.keySet}"
+          )
+        })
       }
     logger.info(s"Loaded ${map.size} polling offsets")
     map
@@ -135,7 +140,9 @@ class CloudWatchPoller(
     // Scheduling Pollers Based on Offset
     offsetMap.foreach {
       case (offset, categories) =>
-        logger.info(s"Scheduling poller for offset ${offset}s")
+        logger.info(
+          s"Scheduling poller for offset ${offset}s for total ${categories.size} categories"
+        )
         val scheduleFrequency = if (offset < 60) hrmFrequency else frequency
         system.scheduler.scheduleAtFixedRate(
           FiniteDuration(scheduleFrequency, TimeUnit.SECONDS),
@@ -284,7 +291,9 @@ class CloudWatchPoller(
 
     private[cloudwatch] def execute: Future[Done] = {
       logger.info(
-        s"Polling for account ${account} at ${offset}s and ns ${category.namespace} period ${category.period} in ${region}"
+        s"Polling for account ${account} at ${offset}s and ns ${category.namespace} period ${
+            category.period
+          } in ${region} for ${category.metrics.size} metrics"
       )
       val futures = category.toListRequests.map { tuple =>
         val (definition, request) = tuple
@@ -311,9 +320,13 @@ class CloudWatchPoller(
     ) extends Runnable {
 
       def process(metricsList: List[Metric]): Unit = {
-        logger.info(s"CloudWatch listed ${metricsList.size} metrics for ${
-            request.metricName()
-          } in ${account} and ${category.namespace} ${definition.name} in region ${region}")
+        logger.info(
+          s"CloudWatch listed ${metricsList.size} metrics for ${request.metricName()} in ${
+              account
+            } and ${category.namespace} ${definition.name} statistic : ${
+              definition.tags.getOrElse("statistic", "NaN")
+            } dstype : ${definition.tags.getOrElse("dstype", "NaN")} in region ${region}"
+        )
         if (metricsList.isEmpty) {
           registry
             .counter(
@@ -400,15 +413,17 @@ class CloudWatchPoller(
 
       @Override def run(): Unit = {
         try {
-          val start = now.minusSeconds(minCacheEntries * category.period)
-          val request = MetricMetadata(category, definition, metric.dimensions.asScala.toList)
-            .toGetRequest(start, now)
-
-          if (request.period() < 60) {
+          var start = now.minusSeconds(minCacheEntries * category.period)
+          if (category.period < 60) {
             registry
-              .counter(hrmRequest.withTags("period", request.period().toString))
+              .counter(hrmRequest.withTags("period", category.period.toString))
               .increment()
+            start = now.minusSeconds(category.period)
           }
+          val metricMetaData =
+            MetricMetadata(category, definition, metric.dimensions.asScala.toList)
+          val request = metricMetaData.toGetRequest(start, now)
+
           val response = client.getMetricStatistics(request)
           val dimensions = request.dimensions().asScala.toList.toBuffer
           dimensions += Dimension.builder().name("nf.account").value(account).build()
@@ -429,8 +444,8 @@ class CloudWatchPoller(
           response
             .datapoints()
             .asScala
-            .map { dp =>
-              val m = FirehoseMetric(
+            .foreach { dp =>
+              val firehoseMetric = FirehoseMetric(
                 "",
                 metric.namespace(),
                 metric.metricName(),
@@ -438,9 +453,9 @@ class CloudWatchPoller(
                 dp
               )
               if (category.period < 60) {
-                processor.sendToRegistry(m, category, nowMillis)
+                processor.sendToRegistry(metricMetaData, firehoseMetric, nowMillis)
               } else {
-                processor.updateCache(m, category, nowMillis)
+                processor.updateCache(firehoseMetric, category, nowMillis)
               }
             }
           got.incrementAndGet()
