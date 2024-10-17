@@ -112,20 +112,20 @@ class PublishQueue(
 
   def updateRegistry(dp: AtlasDatapoint, cwDatapoint: CloudWatchDatapoint): Unit = {
     val atlasDp = toDoubleValue(dp)
+    registryPublishClient.updateCounter(atlasDp.id, atlasDp.value)
     if (dp.dsType == DsType.Rate) {
       registry
         .counter(
           updateSelfMetrics(dp, cwDatapoint)
         )
         .increment()
-      registryPublishClient.updateCounter(atlasDp.id, atlasDp.value)
     } else if (dp.dsType == DsType.Gauge) {
+      registryPublishClient.updateGauge(atlasDp.id, atlasDp.value)
       registry
         .counter(
           updateSelfMetrics(dp, cwDatapoint)
         )
         .increment()
-      registryPublishClient.updateGauge(atlasDp.id, atlasDp.value)
     } else {
       logger.error(s"Unknown ds type, skip updating registry ${dp.dsType}")
     }
@@ -138,7 +138,7 @@ class PublishQueue(
       "unit",
       cwDatapoint.unitAsString(),
       "stats",
-      dp.tags("statistic"),
+      dp.tags.getOrElse("statistic", "NO_STATS"),
       "metric",
       dp.tags("name")
     )
