@@ -155,9 +155,9 @@ class PublishRouter(
    * @param datapoint
    *     The non-null data point.
    */
-  def publishToRegistry(datapoint: AtlasDatapoint): Unit = {
+  def publishToRegistry(datapoint: AtlasDatapoint, cwDataPoint: CloudWatchDatapoint): Unit = {
     getQueue(datapoint) match {
-      case Some(queue) => queue.updateRegistry(datapoint)
+      case Some(queue) => queue.updateRegistry(datapoint, cwDataPoint)
       case None        => missingAccount.increment()
     }
   }

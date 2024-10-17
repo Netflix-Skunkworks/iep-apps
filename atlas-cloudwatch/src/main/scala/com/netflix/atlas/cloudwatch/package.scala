@@ -33,4 +33,6 @@ package object cloudwatch {
   type Conversion = (MetricMetadata, Datapoint) => Double
 
   type AtlasDatapoint = com.netflix.atlas.core.model.Datapoint
+
+  type CloudWatchDatapoint = software.amazon.awssdk.services.cloudwatch.model.Datapoint
 }

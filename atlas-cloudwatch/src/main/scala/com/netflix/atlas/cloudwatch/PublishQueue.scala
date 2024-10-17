@@ -18,6 +18,7 @@ package com.netflix.atlas.cloudwatch
 import com.netflix.atlas.cloudwatch.poller.DoubleValue
 import com.netflix.atlas.cloudwatch.poller.PublishClient
 import com.netflix.atlas.cloudwatch.poller.PublishConfig
+import com.netflix.atlas.core.model.Datapoint
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.model.HttpEntity
@@ -30,7 +31,6 @@ import org.apache.pekko.util.ByteString
 import com.netflix.atlas.pekko.PekkoHttpClient
 import com.netflix.atlas.pekko.CustomMediaTypes
 import com.netflix.atlas.pekko.StreamOps
-import com.netflix.atlas.core.model.Datapoint
 import com.netflix.atlas.core.model.DsType
 import com.netflix.atlas.json.Json
 import com.netflix.iep.leader.api.LeaderStatus
@@ -110,17 +110,38 @@ class PublishQueue(
     s"Setup queue for stack ${stack} publishing URI ${uri}, lwc-config URI ${configUri}, eval URI ${evalUri}"
   )
 
-  def updateRegistry(dp: AtlasDatapoint): Unit = {
+  def updateRegistry(dp: AtlasDatapoint, cwDatapoint: CloudWatchDatapoint): Unit = {
     val atlasDp = toDoubleValue(dp)
     if (dp.dsType == DsType.Rate) {
-      registry.counter(registrySent.withTag("type", "counter")).increment()
+      registry
+        .counter(
+          updateSelfMetrics(dp, cwDatapoint)
+        )
+        .increment()
       registryPublishClient.updateCounter(atlasDp.id, atlasDp.value)
     } else if (dp.dsType == DsType.Gauge) {
-      registry.counter(registrySent.withTag("type", "gauge")).increment()
+      registry
+        .counter(
+          updateSelfMetrics(dp, cwDatapoint)
+        )
+        .increment()
       registryPublishClient.updateGauge(atlasDp.id, atlasDp.value)
     } else {
       logger.error(s"Unknown ds type, skip updating registry ${dp.dsType}")
     }
+  }
+
+  private def updateSelfMetrics(dp: AtlasDatapoint, cwDatapoint: CloudWatchDatapoint) = {
+    registrySent.withTags(
+      "type",
+      dp.dsType.toString,
+      "unit",
+      cwDatapoint.unitAsString(),
+      "stats",
+      dp.tags("statistic"),
+      "metric",
+      dp.tags("name")
+    )
   }
 
   private def toDoubleValue(

@@ -472,26 +472,17 @@ abstract class CloudWatchMetricsProcessor(
   }
 
   private[cloudwatch] def sendToRegistry(
+    metricMetadata: MetricMetadata,
     datapoint: FirehoseMetric,
-    category: MetricCategory,
     receivedTimestamp: Long
   ): Unit = {
-    category.metrics
-      .find(_.name == datapoint.metricName)
-      .foreach { md =>
-        val metric = MetricData(
-          MetricMetadata(category, md, toAWSDimensions(datapoint)),
-          None,
-          Option(datapoint.datapoint),
-          None
-        )
+    val metric = MetricData(metricMetadata, None, Option(datapoint.datapoint), None)
 
-        val atlasDp = toAtlasDatapoint(metric, receivedTimestamp, category.period)
+    val atlasDp = toAtlasDatapoint(metric, receivedTimestamp, metricMetadata.category.period)
 
-        if (!atlasDp.value.isNaN) {
-          publishRouter.publishToRegistry(atlasDp)
-        }
-      }
+    if (!atlasDp.value.isNaN) {
+      publishRouter.publishToRegistry(atlasDp, datapoint.datapoint)
+    }
   }
 
   private[cloudwatch] def sendToRouter(key: Any, data: Array[Byte], scrapeTimestamp: Long): Unit = {
