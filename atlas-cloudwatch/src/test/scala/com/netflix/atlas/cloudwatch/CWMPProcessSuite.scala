@@ -188,7 +188,9 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
             "statistic"    -> "count",
             "nf.region"    -> "us-west-2",
             "aws.tag"      -> "Val",
-            "atlas.dstype" -> "rate"
+            "nf.app"       -> "cloudwatch",
+            "atlas.dstype" -> "rate",
+            "nf.cluster"   -> "cloudwatch"
           ),
           ts,
           0.31666666666666665
@@ -199,7 +201,9 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
             "statistic"    -> "totalAmount",
             "nf.region"    -> "us-west-2",
             "aws.tag"      -> "Val",
-            "atlas.dstype" -> "rate"
+            "nf.app"       -> "cloudwatch",
+            "atlas.dstype" -> "rate",
+            "nf.cluster"   -> "cloudwatch"
           ),
           ts,
           0.65
@@ -210,7 +214,9 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
             "statistic"    -> "max",
             "nf.region"    -> "us-west-2",
             "aws.tag"      -> "Val",
-            "atlas.dstype" -> "gauge"
+            "nf.app"       -> "cloudwatch",
+            "atlas.dstype" -> "gauge",
+            "nf.cluster"   -> "cloudwatch"
           ),
           ts,
           7.0
@@ -343,7 +349,9 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
             "name"         -> "aws.utm.max",
             "aws.tag"      -> "Val",
             "nf.region"    -> "us-west-2",
-            "atlas.dstype" -> "gauge"
+            "nf.app"       -> "cloudwatch",
+            "atlas.dstype" -> "gauge",
+            "nf.cluster"   -> "cloudwatch"
           ),
           ts,
           4.1320470343685605
@@ -380,7 +388,9 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
             "name"         -> "aws.utm.offset",
             "aws.tag"      -> "Val",
             "nf.region"    -> "us-west-2",
-            "atlas.dstype" -> "gauge"
+            "nf.app"       -> "cloudwatch",
+            "atlas.dstype" -> "gauge",
+            "nf.cluster"   -> "cloudwatch"
           ),
           ts(1.minute),
           1
@@ -412,7 +422,9 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
             "name"         -> "aws.utm.mono",
             "nf.region"    -> "us-west-2",
             "aws.tag"      -> "Val",
-            "atlas.dstype" -> "rate"
+            "nf.app"       -> "cloudwatch",
+            "atlas.dstype" -> "rate",
+            "nf.cluster"   -> "cloudwatch"
           ),
           ts,
           1.0
@@ -440,7 +452,9 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
             "name"         -> "aws.utm.5min",
             "nf.region"    -> "us-west-2",
             "aws.tag"      -> "Val",
-            "atlas.dstype" -> "rate"
+            "nf.app"       -> "cloudwatch",
+            "atlas.dstype" -> "rate",
+            "nf.cluster"   -> "cloudwatch"
           ),
           ts,
           0.0033333333333333335
@@ -575,7 +589,9 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
             "name"         -> "aws.utm.2rulematch",
             "nf.region"    -> "us-west-2",
             "aws.tag"      -> "Val",
-            "atlas.dstype" -> "gauge"
+            "nf.app"       -> "cloudwatch",
+            "atlas.dstype" -> "gauge",
+            "nf.cluster"   -> "cloudwatch"
           ),
           ts,
           1
@@ -585,7 +601,9 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
             "name"         -> "aws.utm.2rulematch",
             "nf.region"    -> "us-west-2",
             "aws.tag"      -> "Val",
-            "atlas.dstype" -> "gauge"
+            "nf.app"       -> "cloudwatch",
+            "atlas.dstype" -> "gauge",
+            "nf.cluster"   -> "cloudwatch"
           ),
           ts,
           7

@@ -36,13 +36,20 @@ class NetflixTagger(config: Config) extends DefaultTagger(config) {
   override def apply(dimensions: List[Dimension]): Map[String, String] = {
     val baseTags = super.apply(dimensions)
     val extractedTags = keys.flatMap { k =>
-      baseTags.get(k).map { v =>
-        val name = Names.parseName(v)
-        List(
-          opt("nf.app", name.getApp),
-          opt("nf.cluster", name.getCluster),
-          opt("nf.stack", name.getStack)
-        ).flatten
+      baseTags.get(k) match {
+        case Some(v) =>
+          val name = Names.parseName(v)
+          List(
+            opt("nf.app", name.getApp),
+            opt("nf.cluster", name.getCluster),
+            opt("nf.stack", name.getStack)
+          )
+        case None =>
+          // If baseTags.get(k) is empty, add default values
+          List(
+            Some("nf.app"     -> "cloudwatch"),
+            Some("nf.cluster" -> "cloudwatch")
+          )
       }
     }
     extractedTags.flatten.toMap ++ baseTags
