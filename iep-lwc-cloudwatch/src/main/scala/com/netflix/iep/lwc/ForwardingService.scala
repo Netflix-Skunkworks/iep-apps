@@ -49,7 +49,7 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.patterns.PolledMeter
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
-import software.amazon.awssdk.services.cloudwatch.CloudWatchClient
+import software.amazon.awssdk.services.cloudwatch.CloudWatchAsyncClient
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
 import software.amazon.awssdk.services.cloudwatch.model.MetricDatum
 import software.amazon.awssdk.services.cloudwatch.model.PutMetricDataRequest
@@ -118,12 +118,13 @@ class ForwardingService(
       region: String,
       account: String,
       request: PutMetricDataRequest
-    ): PutMetricDataResponse = {
+    ): Future[PutMetricDataResponse] = {
+      import scala.jdk.FutureConverters.*
       if (putEnabled) {
-        val cwClient = clientFactory.getInstance(region, classOf[CloudWatchClient], account)
-        cwClient.putMetricData(request)
+        val cwClient = clientFactory.getInstance(region, classOf[CloudWatchAsyncClient], account)
+        cwClient.putMetricData(request).asScala
       } else {
-        PutMetricDataResponse.builder().build()
+        Future.successful(PutMetricDataResponse.builder().build())
       }
     }
 
@@ -144,7 +145,7 @@ class ForwardingService(
         numDataSources.set(dss.sources().size())
         dss
       }
-      .via(Flow.fromProcessor(() => evaluator.createStreamsProcessor()))
+      .via(evaluator.createStreamsFlow)
       .via(toMetricDatum(config, registry, configStats))
       .via(sendToCloudWatch(lastSuccessfulPutTime, namespace, put))
       .via(sendToAdmin(adminUri, client))
@@ -172,11 +173,6 @@ class ForwardingService(
 }
 
 object ForwardingService extends StrictLogging {
-
-  // Pool for CloudWatch requests
-  private val executor =
-    Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("aws-publisher").factory())
-  private val awsEC: ExecutionContext = ExecutionContext.fromExecutor(executor)
 
   //
   // Constants for interacting with CloudWatch. For more details see:
@@ -206,7 +202,7 @@ object ForwardingService extends StrictLogging {
   // Helpers for constructing parts of the stream
   //
 
-  type PutFunction = (String, String, PutMetricDataRequest) => PutMetricDataResponse
+  type PutFunction = (String, String, PutMetricDataRequest) => Future[PutMetricDataResponse]
 
   type Client = Flow[(HttpRequest, AccessLogger), (Try[HttpResponse], AccessLogger), NotUsed]
 
@@ -439,7 +435,7 @@ object ForwardingService extends StrictLogging {
 
             val region = data.head.accountDatum.get.region
             val account = data.head.accountDatum.get.account
-            val future = Future(doPut(region, account, request))(awsEC)
+            val future = doPut(region, account, request)
             Source
               .future(future)
               .map { _ =>

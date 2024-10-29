@@ -361,9 +361,9 @@ class ForwardingServiceSuite extends FunSuite {
       region: String,
       account: String,
       request: PutMetricDataRequest
-    ): PutMetricDataResponse = {
+    ): Future[PutMetricDataResponse] = {
       requests += AccountRequest(region, account, request)
-      PutMetricDataResponse.builder().build()
+      Future.successful(PutMetricDataResponse.builder().build())
     }
     val future = Source(msgs)
       .via(sendToCloudWatch(new AtomicLong(), ns, doPut))
