@@ -327,6 +327,39 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
     assertCounters(1)
   }
 
+  test("processDatapoints ec2 bytes") {
+    val dp = makeFirehoseMetric(
+      "AWS/UT1",
+      "EBSReadBytes",
+      List(
+        Dimension.builder().name("AutoScalingGroupName").value("someApp-someStack-v001").build()
+      ),
+      Array(1, 1, 1, 1),
+      "Bytes",
+      ts(-5.minute)
+    )
+    processor.processDatapoints(List(dp), ts(-5.minute))
+
+    assertPublished(
+      List(
+        com.netflix.atlas.core.model.Datapoint(
+          Map(
+            "name"         -> "aws.ec2.ebs.ebsReadBytes",
+            "nf.region"    -> "us-west-2",
+            "atlas.dstype" -> "rate",
+            "nf.stack"     -> "someStack",
+            "nf.app"       -> "someApp",
+            "nf.asg"       -> "someApp-someStack-v001",
+            "nf.cluster"   -> "someApp-someStack"
+          ),
+          ts,
+          0.0033333333333333335
+        )
+      )
+    )
+    assertCounters(1)
+  }
+
   test("processDatapoints matched percent") {
     processor.processDatapoints(
       List(
