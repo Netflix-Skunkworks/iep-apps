@@ -35,23 +35,25 @@ class NetflixTagger(config: Config) extends DefaultTagger(config) {
 
   override def apply(dimensions: List[Dimension]): Map[String, String] = {
     val baseTags = super.apply(dimensions)
-    val extractedTags = keys.flatMap { k =>
+    val resultTags = scala.collection.mutable.Map[String, String]()
+
+    keys.foreach { k =>
       baseTags.get(k) match {
         case Some(v) =>
           val name = Names.parseName(v)
-          List(
+          resultTags ++= List(
             opt("nf.app", name.getApp),
             opt("nf.cluster", name.getCluster),
             opt("nf.stack", name.getStack)
-          )
+          ).flatten
         case None =>
-          // If baseTags.get(k) is empty, add default values
-          List(
-            Some("nf.app"     -> "cloudwatch"),
-            Some("nf.cluster" -> "cloudwatch")
-          )
+          // Only add default values if the keys are not already set
+          if (!resultTags.contains("nf.app")) resultTags("nf.app") = "cloudwatch"
+          if (!resultTags.contains("nf.cluster")) resultTags("nf.cluster") = "cloudwatch"
       }
     }
-    extractedTags.flatten.toMap ++ baseTags
+
+    // Merge resultTags with baseTags, giving priority to resultTags
+    resultTags.toMap ++ baseTags
   }
 }
