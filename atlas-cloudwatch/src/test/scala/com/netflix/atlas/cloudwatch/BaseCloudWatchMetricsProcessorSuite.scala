@@ -52,8 +52,8 @@ class BaseCloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with
   val config = ConfigFactory.load()
   val tagger = new NetflixTagger(config.getConfig("atlas.cloudwatch.tagger"))
   val rules: CloudWatchRules = new CloudWatchRules(config)
-  val category = MetricCategory("AWS/DynamoDB", 60, -1, List("MyTag"), List.empty, null)
-  val category5m = MetricCategory("AWS/DynamoDB", 300, -1, List("MyTag"), List.empty, null)
+  val category = MetricCategory("AWS/DynamoDB", 60, -1, List("MyTag"), null, List.empty, null)
+  val category5m = MetricCategory("AWS/DynamoDB", 300, -1, List("MyTag"), null, List.empty, null)
 
   val cwDP = newCacheEntry(
     makeFirehoseMetric(Array(39.0, 1.0, 7.0, 19), ts(-2.minutes)),

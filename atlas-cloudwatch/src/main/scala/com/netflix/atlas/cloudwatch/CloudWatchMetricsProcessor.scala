@@ -72,6 +72,10 @@ abstract class CloudWatchMetricsProcessor(
   private[cloudwatch] val pollingDefinedMetric =
     registry.createId("atlas.cloudwatch.datapoints.filtered", "reason", "polling")
 
+  /** The number of data points filtered out before caching due to defined account allow list . */
+  private[cloudwatch] val accountBlockedMetric =
+    registry.createId("atlas.cloudwatch.datapoints.filtered", "reason", "account")
+
   /** The number of data points filtered out before caching due to not having a metric config. */
   private[cloudwatch] val filteredMetric =
     registry.createId("atlas.cloudwatch.datapoints.filtered", "reason", "metric")
@@ -205,7 +209,22 @@ abstract class CloudWatchMetricsProcessor(
                 } else {
                   if (category.dimensionsMatch(dp.dimensions)) {
                     matchedDimensions = true
-                    if (category.filter.isDefined && tuple._1.filter.get.matches(toTagMap(dp))) {
+                    if (
+                      category.accounts.isDefined && !category.accountMatch(
+                        dp.dimensions,
+                        category.accounts.get
+                      )
+                    ) {
+                      registry
+                        .counter(
+                          accountBlockedMetric
+                            .withTag("aws.namespace", dp.namespace)
+                            .withTag("aws.metric", dp.metricName)
+                        )
+                        .increment()
+                    } else if (
+                      category.filter.isDefined && tuple._1.filter.get.matches(toTagMap(dp))
+                    ) {
                       registry
                         .counter(filteredQuery.withTag("aws.namespace", dp.namespace))
                         .increment()

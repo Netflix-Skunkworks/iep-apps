@@ -66,7 +66,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
     val cache = ce(
       List(cwv(-5.minutes, -4.minutes, false))
     )
-    val category = MetricCategory("AWS/DynamoDB", 60, 4, List("MyTag"), List.empty, null)
+    val category = MetricCategory("AWS/DynamoDB", 60, 4, List("MyTag"), null, List.empty, null)
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), 0, cache, true)
     assertMetrics(
       grace = 4.minutes.toMillis,
@@ -439,6 +439,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
       60,
       -1,
       List("MyTag"),
+      null,
       List(MetricDefinition("SumRate", "sum.rate", null, true, Map.empty)),
       null
     )
@@ -457,6 +458,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
       60,
       -1,
       List("MyTag"),
+      null,
       List(MetricDefinition("SumRate", "sum.rate", null, true, Map.empty)),
       null
     )
@@ -475,6 +477,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
       60,
       -1,
       List("MyTag"),
+      null,
       List(MetricDefinition("SumRate", "sum.rate", null, true, Map.empty)),
       null
     )
@@ -493,6 +496,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
       60,
       -1,
       List("MyTag"),
+      null,
       List(MetricDefinition("SumRate", "sum.rate", null, true, Map.empty)),
       null
     )
@@ -513,6 +517,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
       60,
       -1,
       List("MyTag"),
+      null,
       List(MetricDefinition("SumRate", "sum.rate", null, true, Map.empty)),
       null
     )

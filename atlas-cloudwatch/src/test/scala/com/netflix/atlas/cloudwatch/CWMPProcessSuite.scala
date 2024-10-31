@@ -39,6 +39,62 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
     assertCounters(0, publishEmpty = 1, scraped = 1)
   }
 
+  test("processDatapoints account blocked") {
+    processor.processDatapoints(
+      List(
+        makeFirehoseMetric(
+          "AWS/UT1",
+          "Ec2InstanceIdMetric",
+          List(Dimension.builder().name("InstanceId").value("123").build()),
+          Array(1.0, 1.0, 1.0, 1),
+          "Count"
+        )
+      ),
+      ts
+    )
+    assertPublished(List.empty)
+    assertCounters(
+      1,
+      filtered = Map("namespace" -> (0, "AWS/UT1"), "account" -> (1, "Ec2InstanceIdMetric"))
+    )
+  }
+
+  test("processDatapoints account allowed") {
+    processor.processDatapoints(
+      List(
+        makeFirehoseMetric(
+          "AWS/UT1",
+          "Ec2InstanceIdMetric",
+          List(
+            Dimension.builder().name("InstanceId").value("abc").build(),
+            Dimension.builder().name("nf.account").value("12345").build()
+          ),
+          Array(1.0, 1.0, 1.0, 1),
+          "Count"
+        )
+      ),
+      ts
+    )
+    assertPublished(
+      List(
+        com.netflix.atlas.core.model.Datapoint(
+          Map(
+            "name"         -> "aws.ec2.ec2InstanceIdMetric",
+            "nf.region"    -> "us-west-2",
+            "nf.app"       -> "cloudwatch",
+            "atlas.dstype" -> "rate",
+            "nf.cluster"   -> "cloudwatch",
+            "nf.node"      -> "abc",
+            "nf.account"   -> "12345"
+          ),
+          ts,
+          0.016666666666666666
+        )
+      )
+    )
+    assertCounters(1)
+  }
+
   test("processDatapoints No namespace config") {
     processor.processDatapoints(
       List(

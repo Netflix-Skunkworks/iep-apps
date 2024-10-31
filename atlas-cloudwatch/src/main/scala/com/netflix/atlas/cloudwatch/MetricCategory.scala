@@ -53,6 +53,9 @@ import scala.concurrent.duration.DurationInt
   *     ELB data is reported overall for the load balancer and by zone. For Atlas it
   *     is better to map in the most granular form and allow the aggregate to be done
   *     dynamically at query time.
+  * @param account
+  *     If defined, only provided list of accounts will be allowed for this category, 
+  *     default all accounts are allowed.
   * @param metrics
   *     The set of metrics to fetch and metadata for how to convert them.
   * @param filter
@@ -70,6 +73,7 @@ case class MetricCategory(
   period: Int,
   graceOverride: Int,
   dimensions: List[String],
+  accounts: Option[List[String]] = None,
   metrics: List[MetricDefinition],
   filter: Option[Query],
   pollOffset: Option[Duration] = None
@@ -124,6 +128,10 @@ case class MetricCategory(
     }
     !extraTag && matched == dimensions.size
   }
+
+  def accountMatch(tags: List[Dimension], allowList: List[String]): Boolean = {
+    tags.exists(d => d.name().equals("nf.account") && allowList.contains(d.value()))
+  }
 }
 
 object MetricCategory extends StrictLogging {
@@ -156,6 +164,9 @@ object MetricCategory extends StrictLogging {
       if (config.hasPath("grace-override")) config.getInt("grace-override") else -1
     val pollOffset =
       if (config.hasPath("poll-offset")) Some(config.getDuration("poll-offset")) else None
+    val accounts =
+      if (config.hasPath("accounts")) Some(config.getStringList("accounts").asScala.toList)
+      else None
 
     apply(
       namespace = config.getString("namespace"),
@@ -164,6 +175,7 @@ object MetricCategory extends StrictLogging {
       dimensions = config.getStringList("dimensions").asScala.toList,
       metrics = metrics.flatMap(MetricDefinition.fromConfig),
       filter = filter,
+      accounts = accounts,
       pollOffset = pollOffset
     )
   }
