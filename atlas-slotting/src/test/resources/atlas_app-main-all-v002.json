@@ -1,0 +1,40 @@
+{
+  "name": "atlas_app-main-all-v002",
+  "cluster": "atlas_app-main-all",
+  "createdTime": 1552023610994,
+  "desiredCapacity": 3,
+  "maxSize": 6,
+  "minSize": 0,
+  "instances": [
+    {
+      "availabilityZone": "us-west-2b",
+      "imageId": "ami-001",
+      "instanceId": "i-101",
+      "instanceType": "r4.large",
+      "launchTime": 1552023619000,
+      "lifecycleState": "InService",
+      "privateIpAddress": "192.168.2.1",
+      "slot": 0
+    },
+    {
+      "availabilityZone": "us-west-2a",
+      "imageId": "ami-001",
+      "instanceId": "i-102",
+      "instanceType": "r4.large",
+      "launchTime": 1552023619000,
+      "lifecycleState": "InService",
+      "privateIpAddress": "192.168.2.2",
+      "slot": 1
+    },
+    {
+      "availabilityZone": "us-west-2b",
+      "imageId": "ami-001",
+      "instanceId": "i-103",
+      "instanceType": "r4.large",
+      "launchTime": 1552023619000,
+      "lifecycleState": "InService",
+      "privateIpAddress": "192.168.2.3",
+      "slot": 2
+    }
+  ]
+}

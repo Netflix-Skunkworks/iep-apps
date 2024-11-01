@@ -245,7 +245,7 @@ trait DynamoOps extends StrictLogging {
     }
   }
 
-  def syncCapacity(
+  private def syncCapacity(
     ddbClient: DynamoDbClient,
     tableName: String,
     desiredRead: Long,
@@ -284,7 +284,7 @@ trait DynamoOps extends StrictLogging {
     table.tableStatusAsString()
   }
 
-  def createTable(
+  private def createTable(
     ddbClient: DynamoDbClient,
     tableName: String,
     desiredRead: Long,

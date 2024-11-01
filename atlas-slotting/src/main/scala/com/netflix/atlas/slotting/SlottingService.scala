@@ -49,7 +49,7 @@ class SlottingService(
     with DynamoOps
     with StrictLogging {
 
-  type Item = java.util.Map[String, AttributeValue]
+  private type Item = java.util.Map[String, AttributeValue]
 
   private val clock = registry.clock()
 
@@ -78,7 +78,7 @@ class SlottingService(
     .withId(registry.createId("last.update", "id", "asgs"))
     .monitorValue(new AtomicLong(clock.wallTime()), Functions.AGE)
 
-  def crawlAsgsTask(): Unit = {
+  private def crawlAsgsTask(): Unit = {
     if (!asgsAvailable) {
       val start = registry.clock().monotonicTime()
       var elapsed = 0L
@@ -109,7 +109,7 @@ class SlottingService(
     * on the minute boundary when the task runs.
     *
     */
-  def crawlAutoScalingGroups(
+  private def crawlAutoScalingGroups(
     pageSize: Int,
     includedApps: Set[String]
   ): Map[String, AsgDetails] = {
@@ -148,7 +148,7 @@ class SlottingService(
     .withId(registry.createId("last.update", "id", "instances"))
     .monitorValue(new AtomicLong(clock.wallTime()), Functions.AGE)
 
-  def crawlInstancesTask(): Unit = {
+  private def crawlInstancesTask(): Unit = {
     if (!instanceInfoAvailable) {
       val start = registry.clock().monotonicTime()
       var elapsed = 0L
@@ -181,7 +181,7 @@ class SlottingService(
     * on the minute boundary when the task runs.
     *
     */
-  def crawlInstances(pageSize: Int): Map[String, Ec2InstanceDetails] = {
+  private def crawlInstances(pageSize: Int): Map[String, Ec2InstanceDetails] = {
     val request = DescribeInstancesRequest
       .builder()
       .maxResults(pageSize)
@@ -235,7 +235,7 @@ class SlottingService(
 
   private val cutoffInterval = config.getDuration("slotting.cutoff-interval")
 
-  def janitorTask(): Unit = {
+  private def janitorTask(): Unit = {
     var count = 0
     val request = oldItemsScanRequest(tableName, cutoffInterval)
     ddbClient
@@ -281,11 +281,11 @@ class SlottingService(
 
   override def stopImpl(): Unit = {}
 
-  def allDataAvailable: Boolean = {
+  private def allDataAvailable: Boolean = {
     asgsAvailable && instanceInfoAvailable
   }
 
-  def fmtTime(elapsed: Long): String = {
+  private def fmtTime(elapsed: Long): String = {
     f"${elapsed / 1000000000d}%.2f seconds"
   }
 
@@ -301,7 +301,7 @@ class SlottingService(
     * set of remaining ASGs is updated while updating slots, this operation will be performed after crawling
     * ASGs if the instance data is available.
     */
-  def updateSlots(): Unit = {
+  private def updateSlots(): Unit = {
     // Instance data is updated in another thread. Capture it to ensure there is a consistent copy used for
     // this update operation.
     val instanceData = instanceInfo
@@ -333,7 +333,7 @@ class SlottingService(
   private val slotsChangedId = registry.createId("slots.changed")
   private val slotsErrorsId = registry.createId("slots.errors")
 
-  def updateItem(
+  private def updateItem(
     name: String,
     item: Item,
     newAsgDetails: AsgDetails,
@@ -369,7 +369,7 @@ class SlottingService(
     remainingAsgs = remainingAsgs - name
   }
 
-  def deactivateItem(name: String): Unit = {
+  private def deactivateItem(name: String): Unit = {
     try {
       logger.info(s"deactivate asg $name")
       ddbClient.updateItem(deactivateAsgItemRequest(tableName, name))
@@ -380,7 +380,7 @@ class SlottingService(
     }
   }
 
-  def addItem(name: String, newAsgDetails: AsgDetails): Unit = {
+  private def addItem(name: String, newAsgDetails: AsgDetails): Unit = {
     val newData = mkNewDataAssignSlots(newAsgDetails, instanceInfo)
     try {
       logger.info(s"assign slots for asg $name")

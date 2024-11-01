@@ -17,7 +17,7 @@ package com.netflix.atlas.slotting
 
 import scala.collection.immutable.SortedMap
 
-class SlottingCache() {
+class SlottingCache {
 
   @volatile
   var asgs: SortedMap[String, SlottedAsgDetails] = SortedMap.empty[String, SlottedAsgDetails]
