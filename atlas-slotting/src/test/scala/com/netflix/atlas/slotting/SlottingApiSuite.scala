@@ -58,11 +58,11 @@ class SlottingApiSuite extends MUnitRouteSuite {
       val endpoints = description("endpoints").asInstanceOf[List[String]]
       assertResponse(response, StatusCodes.OK)
       assertEquals(description("description"), "Atlas Slotting Service")
-      assertEquals(endpoints.size, 6)
+      assertEquals(endpoints.size, 8)
     }
   }
 
-  test("bad url parameters (standard api)") {
+  test("bad url parameters - known parameter with unexpected value is a bad request") {
     val malformed = "MalformedQueryParamRejection(verbose,'foo' is not a valid Boolean value,None)"
 
     Get("/api/v1/autoScalingGroups?verbose=foo") ~> routes ~> check {
@@ -70,6 +70,9 @@ class SlottingApiSuite extends MUnitRouteSuite {
       val res = Json.decode[Message](responseAs[String])
       assertEquals(res, Message(malformed))
     }
+  }
+
+  test("bad url parameters - unknown parameter is ignored") {
     Get("/api/v1/autoScalingGroups?foo=bar") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val res = Json.decode[List[String]](responseAs[String])
@@ -77,32 +80,55 @@ class SlottingApiSuite extends MUnitRouteSuite {
     }
   }
 
-  test("no cache data (standard api)") {
+  test("no cache data - all autoScalingGroups") {
     Get("/api/v1/autoScalingGroups") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val res = Json.decode[List[String]](responseAs[String])
       assertEquals(res, List.empty[String])
     }
+  }
+
+  test("no cache data - all autoScalingGroups, verbose") {
     Get("/api/v1/autoScalingGroups?verbose=true") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val res = Json.decode[List[String]](responseAs[String])
       assertEquals(res, List.empty[String])
     }
+  }
+
+  test("no cache data - one autoScalingGroup") {
     Get("/api/v1/autoScalingGroups/atlas_app-main-all-v001") ~> routes ~> check {
       assertResponse(response, StatusCodes.NotFound)
       val res = Json.decode[Message](responseAs[String])
       assertEquals(res, Message("Not Found"))
     }
+  }
+
+  test("no cache data - all clusters") {
     Get("/api/v1/clusters") ~> routes ~> check {
-      assertResponse(response, StatusCodes.NotFound)
-      val res = Json.decode[Message](responseAs[String])
-      assertEquals(res, Message("path not found: /api/v1/clusters"))
+      assertResponse(response, StatusCodes.OK)
+      val res = Json.decode[List[String]](responseAs[String])
+      assertEquals(res, List.empty[String])
     }
+  }
+
+  test("no cache data - all clusters, verbose") {
+    Get("/api/v1/clusters?verbose=true") ~> routes ~> check {
+      assertResponse(response, StatusCodes.OK)
+      val res = Json.decode[Map[String, List[SlottedAsgDetails]]](responseAs[String])
+      assertEquals(res, Map.empty[String, List[SlottedAsgDetails]])
+    }
+  }
+
+  test("no cache data - one cluster") {
     Get("/api/v1/clusters/atlas_app-main-all") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val res = Json.decode[List[String]](responseAs[String])
       assertEquals(res, List.empty[String])
     }
+  }
+
+  test("no cache data - one cluster, verbose") {
     Get("/api/v1/clusters/atlas_app-main-all?verbose=true") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val res = Json.decode[List[String]](responseAs[String])
@@ -113,23 +139,44 @@ class SlottingApiSuite extends MUnitRouteSuite {
   test("load cache") {
     slottingCache.asgs = SortedMap(
       "atlas_app-main-all-v001"  -> loadSlottedAsgDetails("/atlas_app-main-all-v001.json"),
+      "atlas_app-main-all-v002"  -> loadSlottedAsgDetails("/atlas_app-main-all-v002.json"),
       "atlas_app-main-none-v001" -> loadSlottedAsgDetails("/atlas_app-main-none-v001.json")
     )
 
-    assertEquals(slottingCache.asgs.size, 2)
+    assertEquals(slottingCache.asgs.size, 3)
   }
 
-  test("cache data (standard api)") {
+  test("cache data - all autoScalingGroups") {
     Get("/api/v1/autoScalingGroups") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val res = Json.decode[List[String]](responseAs[String])
-      assertEquals(res, List("atlas_app-main-all-v001", "atlas_app-main-none-v001"))
+      assertEquals(
+        res,
+        List(
+          "atlas_app-main-all-v001",
+          "atlas_app-main-all-v002",
+          "atlas_app-main-none-v001"
+        )
+      )
     }
+  }
+
+  test("cache data - all autoScalingGroups, verbose") {
     Get("/api/v1/autoScalingGroups?verbose=true") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val res = Json.decode[List[SlottedAsgDetails]](responseAs[String])
-      assertEquals(res.map(_.name), List("atlas_app-main-all-v001", "atlas_app-main-none-v001"))
+      assertEquals(
+        res.map(_.name),
+        List(
+          "atlas_app-main-all-v001",
+          "atlas_app-main-all-v002",
+          "atlas_app-main-none-v001"
+        )
+      )
     }
+  }
+
+  test("cache data - one autoScalingGroup") {
     Get("/api/v1/autoScalingGroups/atlas_app-main-all-v001") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val res = Json.decode[SlottedAsgDetails](responseAs[String])
@@ -151,25 +198,80 @@ class SlottingApiSuite extends MUnitRouteSuite {
       assertEquals(res.instances.head.instanceType, "r4.large")
       assertEquals(res.instances.head.lifecycleState, "InService")
     }
-    Get("/api/v1/clusters/atlas_app-main") ~> routes ~> check {
+  }
+
+  test("cache data - all clusters") {
+    Get("/api/v1/clusters") ~> routes ~> check {
+      assertResponse(response, StatusCodes.OK)
+      val res = Json.decode[List[String]](responseAs[String])
+      assertEquals(
+        res,
+        List(
+          "atlas_app-main-all",
+          "atlas_app-main-none"
+        )
+      )
+    }
+  }
+
+  test("cache data - all clusters, verbose") {
+    Get("/api/v1/clusters?verbose=true") ~> routes ~> check {
+      assertResponse(response, StatusCodes.OK)
+      println(responseAs[String])
+      val res = Json.decode[Map[String, List[SlottedAsgDetails]]](responseAs[String])
+      assertEquals(res.size, 2)
+      assertEquals(res("atlas_app-main-all").size, 2)
+      assertEquals(
+        res("atlas_app-main-all").map(_.name),
+        List(
+          "atlas_app-main-all-v001",
+          "atlas_app-main-all-v002"
+        )
+      )
+    }
+  }
+
+  test("cache data - one cluster, NOT exists") {
+    Get("/api/v1/clusters/atlas_app-foo") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val res = Json.decode[List[String]](responseAs[String])
       assertEquals(res, List.empty[String])
     }
+  }
+
+  test("cache data - one cluster, exists") {
     Get("/api/v1/clusters/atlas_app-main-all") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val res = Json.decode[List[String]](responseAs[String])
-      assertEquals(res, List("atlas_app-main-all-v001"))
+      assertEquals(
+        res,
+        List(
+          "atlas_app-main-all-v001",
+          "atlas_app-main-all-v002"
+        )
+      )
     }
+  }
+
+  test("cache data - another cluster, exists") {
     Get("/api/v1/clusters/atlas_app-main-none") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val res = Json.decode[List[String]](responseAs[String])
       assertEquals(res, List("atlas_app-main-none-v001"))
     }
+  }
+
+  test("cache data - one cluster, verbose") {
     Get("/api/v1/clusters/atlas_app-main-all?verbose=true") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
       val res = Json.decode[List[SlottedAsgDetails]](responseAs[String])
-      assertEquals(res.map(_.name), List("atlas_app-main-all-v001"))
+      assertEquals(
+        res.map(_.name),
+        List(
+          "atlas_app-main-all-v001",
+          "atlas_app-main-all-v002"
+        )
+      )
     }
   }
 }

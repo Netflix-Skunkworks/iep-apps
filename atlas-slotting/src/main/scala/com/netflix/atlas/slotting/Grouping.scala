@@ -139,7 +139,9 @@ trait Grouping extends StrictLogging {
     * @return
     *     A list of case classes with selected fields representing the Instances.
     */
-  def mkAsgInstanceDetailsList(instances: java.util.List[AsgInstance]): List[AsgInstanceDetails] = {
+  private def mkAsgInstanceDetailsList(
+    instances: java.util.List[AsgInstance]
+  ): List[AsgInstanceDetails] = {
     instances.asScala.toList
       .map { i =>
         AsgInstanceDetails(
@@ -286,7 +288,7 @@ trait Grouping extends StrictLogging {
     * @return
     *   A map of instanceIds to slot numbers.
     */
-  def mkSlotMap(asgDetails: SlottedAsgDetails): Map[String, Int] = {
+  private def mkSlotMap(asgDetails: SlottedAsgDetails): Map[String, Int] = {
     asgDetails.instances
       .map(i => i.instanceId -> i.slot)
       .toMap

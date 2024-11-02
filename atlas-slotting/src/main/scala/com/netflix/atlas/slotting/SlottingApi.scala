@@ -38,8 +38,6 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.server.RouteResult
 import org.apache.pekko.http.scaladsl.server.directives.CachingDirectives.*
 
-import scala.util.matching.Regex
-
 class SlottingApi(system: ActorSystem, slottingCache: SlottingCache)
     extends WebApi
     with StrictLogging {
@@ -69,7 +67,6 @@ class SlottingApi(system: ActorSystem, slottingCache: SlottingCache)
     extractRequest { request =>
       val compress = useGzip(request)
 
-      // standard endpoints
       pathPrefix("api" / "v1") {
         endpointPath("autoScalingGroups") {
           get {
@@ -87,13 +84,24 @@ class SlottingApi(system: ActorSystem, slottingCache: SlottingCache)
             complete(singleAsg(compress, slottingCache, asgName))
           }
         } ~
+        endpointPath("clusters") {
+          get {
+            parameters("verbose".as[Boolean].?) { verbose =>
+              if (verbose.contains(true)) {
+                complete(verboseClusterList(compress, slottingCache))
+              } else {
+                complete(indexClusterList(compress, slottingCache))
+              }
+            }
+          }
+        } ~
         endpointPath("clusters", Remaining) { clusterName =>
           get {
             parameters("verbose".as[Boolean].?) { verbose =>
               if (verbose.contains(true)) {
-                complete(verboseClusterList(compress, slottingCache, clusterName))
+                complete(verboseSingleClusterList(compress, slottingCache, clusterName))
               } else {
-                complete(indexClusterList(compress, slottingCache, clusterName))
+                complete(indexSingleClusterList(compress, slottingCache, clusterName))
               }
             }
           }
@@ -110,10 +118,6 @@ class SlottingApi(system: ActorSystem, slottingCache: SlottingCache)
 
 object SlottingApi {
 
-  val autoScalingGroupsExpand: Regex = "autoScalingGroups(?:;_expand.*|;_pp;_expand.*)".r
-
-  val stripEddaArgs: Regex = "(?:;_.*|:\\(.*)".r
-
   private def useGzip(request: HttpRequest): Boolean = {
     request.headers.exists {
       case enc: `Accept-Encoding` => enc.encodings.exists(_.matches(HttpEncodings.gzip))
@@ -121,7 +125,7 @@ object SlottingApi {
     }
   }
 
-  def mkResponse(compress: Boolean, statusCode: StatusCode, data: Any): HttpResponse = {
+  private def mkResponse(compress: Boolean, statusCode: StatusCode, data: Any): HttpResponse = {
     // We compress locally rather than relying on the encodeResponse directive to ensure the
     // cache will have a strict entity that can be reused.
     if (compress) {
@@ -138,15 +142,19 @@ object SlottingApi {
     }
   }
 
-  def indexAsgList(compress: Boolean, slottingCache: SlottingCache): HttpResponse = {
+  private def indexAsgList(compress: Boolean, slottingCache: SlottingCache): HttpResponse = {
     mkResponse(compress, StatusCodes.OK, slottingCache.asgs.keySet)
   }
 
-  def verboseAsgList(compress: Boolean, slottingCache: SlottingCache): HttpResponse = {
+  private def verboseAsgList(compress: Boolean, slottingCache: SlottingCache): HttpResponse = {
     mkResponse(compress, StatusCodes.OK, slottingCache.asgs.values.toList)
   }
 
-  def singleAsg(compress: Boolean, slottingCache: SlottingCache, asgName: String): HttpResponse = {
+  private def singleAsg(
+    compress: Boolean,
+    slottingCache: SlottingCache,
+    asgName: String
+  ): HttpResponse = {
     slottingCache.asgs.get(asgName) match {
       case Some(slottedAsgDetails) =>
         mkResponse(compress, StatusCodes.OK, slottedAsgDetails)
@@ -155,7 +163,31 @@ object SlottingApi {
     }
   }
 
-  def indexClusterList(
+  private def indexClusterList(
+    compress: Boolean,
+    slottingCache: SlottingCache
+  ): HttpResponse = {
+    mkResponse(
+      compress,
+      StatusCodes.OK,
+      slottingCache.asgs.keySet.map { asgName =>
+        ServerGroup.parse(asgName).cluster()
+      }
+    )
+  }
+
+  private def verboseClusterList(
+    compress: Boolean,
+    slottingCache: SlottingCache
+  ): HttpResponse = {
+    mkResponse(
+      compress,
+      StatusCodes.OK,
+      slottingCache.asgs.values.toList.groupBy(_.cluster)
+    )
+  }
+
+  private def indexSingleClusterList(
     compress: Boolean,
     slottingCache: SlottingCache,
     clusterName: String
@@ -169,7 +201,7 @@ object SlottingApi {
     )
   }
 
-  def verboseClusterList(
+  private def verboseSingleClusterList(
     compress: Boolean,
     slottingCache: SlottingCache,
     clusterName: String
@@ -183,7 +215,7 @@ object SlottingApi {
     )
   }
 
-  def serviceDescription(request: HttpRequest): HttpResponse = {
+  private def serviceDescription(request: HttpRequest): HttpResponse = {
     val scheme = request.uri.scheme
     val host = request.headers.filter(_.name == "Host").map(_.value).head
 
@@ -197,6 +229,8 @@ object SlottingApi {
           s"$scheme://$host/api/v1/autoScalingGroups",
           s"$scheme://$host/api/v1/autoScalingGroups?verbose=true",
           s"$scheme://$host/api/v1/autoScalingGroups/:name",
+          s"$scheme://$host/api/v1/clusters",
+          s"$scheme://$host/api/v1/clusters?verbose=true",
           s"$scheme://$host/api/v1/clusters/:name",
           s"$scheme://$host/api/v1/clusters/:name?verbose=true"
         )

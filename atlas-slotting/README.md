@@ -84,7 +84,7 @@ point at which slots are calculated. The instance is sized appropriately for the
         <td width="30%">Healthcheck
         <td><code>GET /healthcheck</code>
     <tr>
-        <td width="30%">List of Available AutoScalingGroups
+        <td width="30%">List of AutoScalingGroups
         <td><code>GET /api/v1/autoScalingGroups</code>
     <tr>
         <td width="30%">All AutoScalingGroup Details
@@ -93,10 +93,16 @@ point at which slots are calculated. The instance is sized appropriately for the
         <td width="30%">Single AutoScalingGroup Details
         <td><code>GET /api/v1/autoScalingGroups/:asgName</code>
     <tr>
-        <td width="30%">List of AutoScalingGroups Matching a Cluster Name
+        <td width="30%">List of Clusters
+        <td><code>GET /api/v1/clusters</code>
+    <tr>
+        <td width="30%">Map of Clusters to Lists of AutoScalingGroup Details
+        <td><code>GET /api/v1/clusters?verbose=true</code>
+    <tr>
+        <td width="30%">List of AutoScalingGroups Matching a Cluster
         <td><code>GET /api/v1/clusters/:clusterName</code>
     <tr>
-        <td width="30%">All AutoScalingGroup Details Matching a Cluster Name
+        <td width="30%">All AutoScalingGroup Details Matching a Cluster
         <td><code>GET /api/v1/clusters/:clusterName?verbose=true</code>
 </table>
 
@@ -168,7 +174,11 @@ export NETFLIX_STACK="local"
 ```
 
 ```
-sbt "project atlas-slotting" clean compile test
+# verbose form, from project root
+sbt "project atlas-slotting" test
+
+# short form, from project root
+sbt atlas-slotting/test
 ```
 
 Using `sbt` to `run` the project no longer works for version > 1.5.6, due to [sbt/issues/6767](https://github.com/sbt/sbt/issues/6767).
