@@ -33,6 +33,7 @@ class MetricDataSuite extends FunSuite {
       60,
       -1,
       List("dimension"),
+      null,
       List(definition),
       Some(Query.True)
     )

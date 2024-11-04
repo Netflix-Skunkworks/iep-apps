@@ -73,7 +73,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
   val rules: CloudWatchRules = new CloudWatchRules(config)
 
   val category =
-    MetricCategory("AWS/UTRedis", 60, -1, List("node", "key"), List.empty, null)
+    MetricCategory("AWS/UTRedis", 60, -1, List("node", "key"), null, List.empty, null)
 
   val firehoseMetric = makeFirehoseMetric(
     "AWS/UTRedis",
@@ -971,7 +971,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
 
     def makePayload(node: String, key: Long): Array[Byte] = {
       val category =
-        MetricCategory("AWS/UTRedis", 60, -1, List("node", "key"), List.empty, null)
+        MetricCategory("AWS/UTRedis", 60, -1, List("node", "key"), null, List.empty, null)
       val cwDP = newCacheEntry(
         makeFirehoseMetric(
           "AWS/UTRedis",
