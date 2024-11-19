@@ -56,7 +56,6 @@ import software.amazon.awssdk.services.cloudwatch.model.PutMetricDataRequest
 import software.amazon.awssdk.services.cloudwatch.model.PutMetricDataResponse
 
 import java.time.Instant
-import java.util.concurrent.Executors
 import java.util.function.ToDoubleFunction
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future

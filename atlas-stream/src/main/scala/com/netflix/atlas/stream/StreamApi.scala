@@ -38,7 +38,6 @@ import com.netflix.atlas.pekko.WebApi
 import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.eval.stream.Evaluator.DataSource
 import com.netflix.atlas.eval.stream.Evaluator.DataSources
-import com.netflix.atlas.eval.stream.Evaluator.MessageEnvelope
 import com.netflix.atlas.json.Json
 import com.typesafe.config.Config
 
@@ -164,7 +163,7 @@ class StreamApi(
       .tick(0.seconds, 1.minute, dataSources)
       .via(evaluator.createStreamsFlow)
       .map { messageEnvelope =>
-        prefix ++ ByteString(Json.encode[MessageEnvelope](messageEnvelope)) ++ suffix
+        prefix ++ ByteString(Json.encode(messageEnvelope)) ++ suffix
       }
       .merge(heartbeatSrc)
 
