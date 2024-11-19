@@ -5,16 +5,16 @@ import sbt._
 object Dependencies {
   object Versions {
     val atlas      = "1.8.0-SNAPSHOT"
-    val aws2       = "2.28.20"
-    val iep        = "5.0.27"
+    val aws2       = "2.29.11"
+    val iep        = "5.0.28"
     val log4j      = "2.24.1"
     val pekko      = "1.1.2"
     val pekkoHttpV = "1.1.0"
     val scala      = "2.13.15"
     val servo      = "0.13.2"
     val slf4j      = "2.0.16"
-    val spectator  = "1.8.0"
-    val spring     = "6.0.7"
+    val spectator  = "1.8.2"
+    val spring     = "6.1.14"
     val avroV      = "1.12.0"
 
     val crossScala = Seq(scala)
