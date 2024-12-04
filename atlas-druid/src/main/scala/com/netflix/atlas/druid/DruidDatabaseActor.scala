@@ -297,20 +297,25 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService)
   }
 
   private def fetchData(ref: ActorRef, request: DataRequest): Unit = {
-    val druidQueryContext = toDruidQueryContext(request)
-    val druidQueries = request.exprs.map { expr =>
-      fetchData(druidQueryContext, request.context, expr).map(ts => expr -> ts)
+    try {
+      request.exprs.foreach(expr => validate(expr.query))
+      val druidQueryContext = toDruidQueryContext(request)
+      val druidQueries = request.exprs.map { expr =>
+        fetchData(druidQueryContext, request.context, expr).map(ts => expr -> ts)
+      }
+      Source(druidQueries)
+        .flatMapMerge(Int.MaxValue, v => v)
+        .fold(Map.empty[DataExpr, List[TimeSeries]]) { (acc, t) =>
+          acc + t
+        }
+        .runWith(Sink.head)
+        .onComplete {
+          case Success(data) => ref ! DataResponse(data)
+          case Failure(t)    => ref ! Failure(t)
+        }
+    } catch {
+      case e: Exception => ref ! Failure(e)
     }
-    Source(druidQueries)
-      .flatMapMerge(Int.MaxValue, v => v)
-      .fold(Map.empty[DataExpr, List[TimeSeries]]) { (acc, t) =>
-        acc + t
-      }
-      .runWith(Sink.head)
-      .onComplete {
-        case Success(data) => ref ! DataResponse(data)
-        case Failure(t)    => ref ! Failure(t)
-      }
   }
 
   private def fetchData(
@@ -708,5 +713,20 @@ object DruidDatabaseActor {
       case _: Query          => Query.True
     }
     Query.simplify(simpleQuery)
+  }
+
+  private[druid] def validate(query: Query): Unit = {
+    Query.dnfList(query).foreach { q =>
+      // Without a name clause, it can result in many broad druid queries that are quite
+      // expensive. These vague queries can be common as intermediates when building a query,
+      // but are not typically useful.
+      require(hasNameClause(q), s"query does not restrict by name: $q")
+    }
+  }
+
+  private def hasNameClause(query: Query): Boolean = query match {
+    case Query.And(q1, q2) => hasNameClause(q1) || hasNameClause(q2)
+    case q: Query.KeyQuery => q.k == "name"
+    case _                 => false
   }
 }
