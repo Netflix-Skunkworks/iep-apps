@@ -36,6 +36,7 @@ import com.netflix.atlas.core.model.Query
 import com.netflix.atlas.core.model.Query.KeyQuery
 import com.netflix.atlas.core.model.Query.KeyValueQuery
 import com.netflix.atlas.core.model.Query.PatternQuery
+import com.netflix.atlas.core.model.SummaryStats
 import com.netflix.atlas.core.model.Tag
 import com.netflix.atlas.core.model.TagKey
 import com.netflix.atlas.core.model.TimeSeries
@@ -572,10 +573,16 @@ object DruidDatabaseActor {
         throw new IllegalStateException(s"data size exceeds $limit bytes")
       }
     }
-    arrays.toList.map {
+    arrays.toList.flatMap {
       case (tags, vs) =>
+        // Ignore entries with no non-NaN values, this sometimes occurs for groups if
+        // there is data for neighboring time segments
         val seq = new ArrayTimeSeq(DsType.Rate, context.start + context.step, context.step, vs)
-        TimeSeries(commonTags ++ tags, seq)
+        val stats = SummaryStats(seq, context.start, context.end)
+        if (stats.count == 0)
+          None
+        else
+          Some(TimeSeries(commonTags ++ tags, seq))
     }
   }
 
