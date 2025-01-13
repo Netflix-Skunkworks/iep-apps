@@ -341,8 +341,7 @@ class RedisClusterCloudWatchMetricsProcessor(
   def getAndPublish(
     node: String,
     keys: ArrayBuffer[Array[Byte]],
-    scrapeTimestamp: Long,
-    client: JedisCluster
+    scrapeTimestamp: Long
   ): Future[NotUsed] = {
     val promise = Promise[NotUsed]()
     executionContext.execute(new Runnable() {
@@ -353,7 +352,7 @@ class RedisClusterCloudWatchMetricsProcessor(
           keys.sliding(maxBatch, maxBatch).foreach { batch =>
             try {
               registry.counter(batchCalls.withTag("node", node)).increment()
-              val data = Using.resource(client.getClusterNodes.get(node).getResource) { jedis =>
+              val data = Using.resource(jedis.getClusterNodes.get(node).getResource) { jedis =>
                 jedis.executeCommand(commandObjects.mget(batch.toSeq*))
               }
 
@@ -370,6 +369,7 @@ class RedisClusterCloudWatchMetricsProcessor(
               pubCounter.addAndGet(batch.size)
             } catch {
               case ex: Exception =>
+                // logg and inc counter but keep going, don't fail the promise. At least we'll have _some_ data.
                 logger.error(s"Failed Redis MGET on node ${node}", ex)
                 registry
                   .counter(readExs.withTags("call", "mget", "ex", ex.getClass.getSimpleName))
