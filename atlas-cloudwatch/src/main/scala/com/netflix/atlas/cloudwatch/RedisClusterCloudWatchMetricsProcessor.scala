@@ -182,7 +182,6 @@ class RedisClusterCloudWatchMetricsProcessor(
     }
   }
 
-
   override def publish(scrapeTimestamp: Long): Future[NotUsed] = {
     if (!leaderStatus.hasLeadership) {
       logger.debug("Not the leader, skipping publishing.")
@@ -204,53 +203,54 @@ class RedisClusterCloudWatchMetricsProcessor(
       val scanners = Vector.newBuilder[Future[NotUsed]]
       logger.info(s"Starting Redis scrape and publish for ${scrapeTimestamp}")
 
-      // Perform publish for both jedis and valkeyJedis
-      List(jedis, valkeyJedis).foreach { client =>
-        client.getClusterNodes.forEach((node, pool) => {
-          try {
-            val info = Using.resource(pool.getResource) { jedis =>
-              jedis.sendCommand(Command.INFO, "Replication")
-              jedis.getBulkReply()
-            }
-            if (info.contains("role:master")) {
-              logger.info(s"Scanning Redis leader ${node}")
-              val batchPromise = Promise[NotUsed]()
-              scanners += batchPromise.future
-
-              scanKeys(node, client)
-                .onComplete {
-                  case Success(slotToKeys) =>
-                    logger.debug(s"Finished slot to keys call with ${slotToKeys.size} slots")
-                    val batches = ArrayBuffer[Future[NotUsed]]()
-                    slotToKeys.values.foreach(keys => {
-                      batches += getAndPublish(node, keys, scrapeTimestamp, client)
-                    })
-
-                    Future.sequence(batches).onComplete {
-                      case Success(_) =>
-                        batchPromise.complete(Try(NotUsed))
-                      case Failure(ex) =>
-                        logger.error("Failed on one or more batches", ex)
-                        registry.counter(batchFailure.withTag("node", node)).increment()
-                        batchPromise.failure(ex)
-                    }
-                  case Failure(ex) =>
-                    logger.error(s"Failed to scan for keys on node ${node}", ex)
-                    registry.counter(scanFailure.withTag("node", node)).increment()
-                    batchPromise.complete(Try(NotUsed))
-                }
-            } else {
-              logger.debug(s"Skipping Redis follower ${node}")
-            }
-          } catch {
-            case ex: Exception =>
-              logger.error(s"Failed to make info call for node ${node}", ex)
-              registry
-                .counter(readExs.withTags("call", "info", "ex", ex.getClass.getSimpleName))
-                .increment()
+      jedis.getClusterNodes.forEach((node, pool) => {
+        // TODO / WARNING - This is brittle but I know of no other way to determine
+        // if a node is a leader or not.
+        try {
+          val info = Using.resource(pool.getResource) { jedis =>
+            jedis.sendCommand(Command.INFO, "Replication")
+            jedis.getBulkReply()
           }
-        })
-      }
+          if (info.contains("role:master")) {
+            logger.info(s"Scanning Redis leader ${node}")
+            val batchPromise = Promise[NotUsed]()
+            scanners += batchPromise.future
+
+            scanKeys(node)
+              .onComplete {
+                case Success(slotToKeys) =>
+                  logger.debug(s"Finished slot to keys call with ${slotToKeys.size} slots")
+                  val batches = ArrayBuffer[Future[NotUsed]]()
+                  slotToKeys.values.foreach(keys => {
+                    batches += getAndPublish(node, keys, scrapeTimestamp)
+                  })
+
+                  Future.sequence(batches).onComplete {
+                    case Success(_) =>
+                      batchPromise.complete(Try(NotUsed))
+                    case Failure(ex) =>
+                      // shouldn't happen.
+                      logger.error("Failed on one or more batches", ex)
+                      registry.counter(batchFailure.withTag("node", node)).increment()
+                      batchPromise.failure(ex)
+                  }
+                case Failure(ex) =>
+                  logger.error(s"Failed to scan for keys on node ${node}", ex)
+                  // let the other leaders complete.
+                  registry.counter(scanFailure.withTag("node", node)).increment()
+                  batchPromise.complete(Try(NotUsed))
+              }
+          } else {
+            logger.debug(s"Skipping Redis follower ${node}")
+          }
+        } catch {
+          case ex: Exception =>
+            logger.error(s"Failed to make info call for node ${node}", ex)
+            registry
+              .counter(readExs.withTags("call", "info", "ex", ex.getClass.getSimpleName))
+              .increment()
+        }
+      })
 
       logger.info("Waiting on redis scrape to finish")
       Future.sequence(scanners.result()).onComplete {
@@ -289,15 +289,14 @@ class RedisClusterCloudWatchMetricsProcessor(
     promise.future
   }
 
-
-  private def scanKeys(node: String, client: JedisCluster): Future[mutable.HashMap[Int, ArrayBuffer[Array[Byte]]]] = {
+  private def scanKeys(node: String): Future[mutable.HashMap[Int, ArrayBuffer[Array[Byte]]]] = {
     val promise = Promise[mutable.HashMap[Int, ArrayBuffer[Array[Byte]]]]()
     executionContext.execute(new Runnable() {
       @Override def run(): Unit = {
         try {
           var sum = 0
           val slotToKeys = mutable.HashMap[Int, ArrayBuffer[Array[Byte]]]()
-          Using.resource(client.getClusterNodes.get(node).getResource) { jedis =>
+          Using.resource(jedis.getClusterNodes.get(node).getResource) { jedis =>
             try {
               var cursor: Array[Byte] = ScanParams.SCAN_POINTER_START_BINARY
               do {
@@ -338,7 +337,6 @@ class RedisClusterCloudWatchMetricsProcessor(
     })
     promise.future
   }
-
 
   def getAndPublish(
     node: String,
@@ -462,7 +460,7 @@ class RedisClusterCloudWatchMetricsProcessor(
     var cntr = 0
     while (
       cntr < 5 &&
-        casValidation(prev, fetched)
+      casValidation(prev, fetched)
     ) {
       val merged = if (fetched == null) {
         current
