@@ -25,6 +25,7 @@ import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
+import org.springframework.beans.factory.annotation.Qualifier
 import redis.clients.jedis.CommandObjects
 import redis.clients.jedis.JedisCluster
 import redis.clients.jedis.Protocol.Command
@@ -65,7 +66,8 @@ class RedisClusterCloudWatchMetricsProcessor(
   config: Config,
   registry: Registry,
   tagger: Tagger,
-  jedis: JedisCluster,
+  @Qualifier("jedisClient") jedis: JedisCluster,
+  @Qualifier("valkeyJedisClient") valkeyJedis: JedisCluster,
   leaderStatus: LeaderStatus,
   rules: CloudWatchRules,
   publishRouter: PublishRouter,
@@ -115,20 +117,10 @@ class RedisClusterCloudWatchMetricsProcessor(
     try {
       val hash = datapoint.xxHash
       val key = getKey(hash)
-      val existing =
-        try {
-          jedis.get(key)
-        } catch {
-          case ex: Exception =>
-            // TODO - watch out, this logging could be really nasty if the cluster or node is down
-            val slot = JedisClusterCRC16.getSlot(key)
-            val hash = getHash(key)
-            logger.debug(s"Failed to get key ${hash} from Redis for slot ${slot}", ex)
-            registry
-              .counter(readExs.withTags("call", "get", "ex", ex.getClass.getSimpleName))
-              .increment()
-            return
-        }
+      val existingJedis = getFromRedis(jedis, key)
+      val existingValkeyJedis = getFromRedis(valkeyJedis, key)
+
+      val existing = if (existingJedis != null) existingJedis else existingValkeyJedis
 
       var isNew: Boolean = false
       val cacheEntry = if (existing == null || existing.isEmpty) {
@@ -143,10 +135,7 @@ class RedisClusterCloudWatchMetricsProcessor(
         if (isNew) updatesNew.increment() else updatesExisting.increment()
       } catch {
         case ex: Exception =>
-          // TODO - watch out, this could be really nasty if the cluster or node  is down
-          val slot = JedisClusterCRC16.getSlot(key)
-          val hash = getHash(key)
-          logger.warn(s"Failed to set key ${hash} in Redis for slot ${slot}", ex)
+          logger.warn(s"Failed to set key in Redis", ex)
           registry
             .counter(writeExs.withTags("call", "set", "ex", ex.getClass.getSimpleName))
             .increment()
@@ -155,6 +144,21 @@ class RedisClusterCloudWatchMetricsProcessor(
       case ex: Exception =>
         logger.error("Unexpected exception on update", ex)
         registry.counter(updateExceptions.withTag("ex", ex.getClass.getSimpleName)).increment()
+    }
+  }
+
+  private def getFromRedis(client: JedisCluster, key: Array[Byte]): Array[Byte] = {
+    try {
+      client.get(key)
+    } catch {
+      case ex: Exception =>
+        val slot = JedisClusterCRC16.getSlot(key)
+        val hash = getHash(key)
+        logger.debug(s"Failed to get key ${hash} from Redis for slot ${slot}", ex)
+        registry
+          .counter(readExs.withTags("call", "get", "ex", ex.getClass.getSimpleName))
+          .increment()
+        null
     }
   }
 
@@ -178,6 +182,7 @@ class RedisClusterCloudWatchMetricsProcessor(
     }
   }
 
+
   override def publish(scrapeTimestamp: Long): Future[NotUsed] = {
     if (!leaderStatus.hasLeadership) {
       logger.debug("Not the leader, skipping publishing.")
@@ -199,54 +204,53 @@ class RedisClusterCloudWatchMetricsProcessor(
       val scanners = Vector.newBuilder[Future[NotUsed]]
       logger.info(s"Starting Redis scrape and publish for ${scrapeTimestamp}")
 
-      jedis.getClusterNodes.forEach((node, pool) => {
-        // TODO / WARNING - This is brittle but I know of no other way to determine
-        // if a node is a leader or not.
-        try {
-          val info = Using.resource(pool.getResource) { jedis =>
-            jedis.sendCommand(Command.INFO, "Replication")
-            jedis.getBulkReply()
-          }
-          if (info.contains("role:master")) {
-            logger.info(s"Scanning Redis leader ${node}")
-            val batchPromise = Promise[NotUsed]()
-            scanners += batchPromise.future
+      // Perform publish for both jedis and valkeyJedis
+      List(jedis, valkeyJedis).foreach { client =>
+        client.getClusterNodes.forEach((node, pool) => {
+          try {
+            val info = Using.resource(pool.getResource) { jedis =>
+              jedis.sendCommand(Command.INFO, "Replication")
+              jedis.getBulkReply()
+            }
+            if (info.contains("role:master")) {
+              logger.info(s"Scanning Redis leader ${node}")
+              val batchPromise = Promise[NotUsed]()
+              scanners += batchPromise.future
 
-            scanKeys(node)
-              .onComplete {
-                case Success(slotToKeys) =>
-                  logger.debug(s"Finished slot to keys call with ${slotToKeys.size} slots")
-                  val batches = ArrayBuffer[Future[NotUsed]]()
-                  slotToKeys.values.foreach(keys => {
-                    batches += getAndPublish(node, keys, scrapeTimestamp)
-                  })
+              scanKeys(node, client)
+                .onComplete {
+                  case Success(slotToKeys) =>
+                    logger.debug(s"Finished slot to keys call with ${slotToKeys.size} slots")
+                    val batches = ArrayBuffer[Future[NotUsed]]()
+                    slotToKeys.values.foreach(keys => {
+                      batches += getAndPublish(node, keys, scrapeTimestamp, client)
+                    })
 
-                  Future.sequence(batches).onComplete {
-                    case Success(_) =>
-                      batchPromise.complete(Try(NotUsed))
-                    case Failure(ex) =>
-                      // shouldn't happen.
-                      logger.error("Failed on one or more batches", ex)
-                      registry.counter(batchFailure.withTag("node", node)).increment()
-                      batchPromise.failure(ex)
-                  }
-                case Failure(ex) =>
-                  logger.error(s"Failed to scan for keys on node ${node}", ex)
-                  // let the other leaders complete.
-                  registry.counter(scanFailure.withTag("node", node)).increment()
-                  batchPromise.complete(Try(NotUsed))
-              }
-          } else {
-            logger.debug(s"Skipping Redis follower ${node}")
+                    Future.sequence(batches).onComplete {
+                      case Success(_) =>
+                        batchPromise.complete(Try(NotUsed))
+                      case Failure(ex) =>
+                        logger.error("Failed on one or more batches", ex)
+                        registry.counter(batchFailure.withTag("node", node)).increment()
+                        batchPromise.failure(ex)
+                    }
+                  case Failure(ex) =>
+                    logger.error(s"Failed to scan for keys on node ${node}", ex)
+                    registry.counter(scanFailure.withTag("node", node)).increment()
+                    batchPromise.complete(Try(NotUsed))
+                }
+            } else {
+              logger.debug(s"Skipping Redis follower ${node}")
+            }
+          } catch {
+            case ex: Exception =>
+              logger.error(s"Failed to make info call for node ${node}", ex)
+              registry
+                .counter(readExs.withTags("call", "info", "ex", ex.getClass.getSimpleName))
+                .increment()
           }
-        } catch {
-          case ex: Exception =>
-            logger.error(s"Failed to make info call for node ${node}", ex)
-            registry
-              .counter(readExs.withTags("call", "info", "ex", ex.getClass.getSimpleName))
-              .increment()
-        }
-      })
+        })
+      }
 
       logger.info("Waiting on redis scrape to finish")
       Future.sequence(scanners.result()).onComplete {
@@ -285,14 +289,15 @@ class RedisClusterCloudWatchMetricsProcessor(
     promise.future
   }
 
-  private def scanKeys(node: String): Future[mutable.HashMap[Int, ArrayBuffer[Array[Byte]]]] = {
+
+  private def scanKeys(node: String, client: JedisCluster): Future[mutable.HashMap[Int, ArrayBuffer[Array[Byte]]]] = {
     val promise = Promise[mutable.HashMap[Int, ArrayBuffer[Array[Byte]]]]()
     executionContext.execute(new Runnable() {
       @Override def run(): Unit = {
         try {
           var sum = 0
           val slotToKeys = mutable.HashMap[Int, ArrayBuffer[Array[Byte]]]()
-          Using.resource(jedis.getClusterNodes.get(node).getResource) { jedis =>
+          Using.resource(client.getClusterNodes.get(node).getResource) { jedis =>
             try {
               var cursor: Array[Byte] = ScanParams.SCAN_POINTER_START_BINARY
               do {
@@ -334,10 +339,12 @@ class RedisClusterCloudWatchMetricsProcessor(
     promise.future
   }
 
+
   def getAndPublish(
     node: String,
     keys: ArrayBuffer[Array[Byte]],
-    scrapeTimestamp: Long
+    scrapeTimestamp: Long,
+    client: JedisCluster
   ): Future[NotUsed] = {
     val promise = Promise[NotUsed]()
     executionContext.execute(new Runnable() {
@@ -348,7 +355,7 @@ class RedisClusterCloudWatchMetricsProcessor(
           keys.sliding(maxBatch, maxBatch).foreach { batch =>
             try {
               registry.counter(batchCalls.withTag("node", node)).increment()
-              val data = Using.resource(jedis.getClusterNodes.get(node).getResource) { jedis =>
+              val data = Using.resource(client.getClusterNodes.get(node).getResource) { jedis =>
                 jedis.executeCommand(commandObjects.mget(batch.toSeq*))
               }
 
@@ -365,7 +372,6 @@ class RedisClusterCloudWatchMetricsProcessor(
               pubCounter.addAndGet(batch.size)
             } catch {
               case ex: Exception =>
-                // logg and inc counter but keep going, don't fail the promise. At least we'll have _some_ data.
                 logger.error(s"Failed Redis MGET on node ${node}", ex)
                 registry
                   .counter(readExs.withTags("call", "mget", "ex", ex.getClass.getSimpleName))
@@ -439,13 +445,24 @@ class RedisClusterCloudWatchMetricsProcessor(
     key: Array[Byte],
     expiration: Long
   ): Unit = {
+    performCas(jedis, prevBytes, current, key, expiration)
+    performCas(valkeyJedis, prevBytes, current, key, expiration)
+  }
+
+  private def performCas(
+    client: JedisCluster,
+    prevBytes: Array[Byte],
+    current: CloudWatchCacheEntry,
+    key: Array[Byte],
+    expiration: Long
+  ): Unit = {
     var prev = prevBytes
     var newArray = current.toByteArray
-    var fetched = jedis.setGet(key, newArray, SetParams.setParams().ex(expiration))
+    var fetched = client.setGet(key, newArray, SetParams.setParams().ex(expiration))
     var cntr = 0
     while (
       cntr < 5 &&
-      casValidation(prev, fetched)
+        casValidation(prev, fetched)
     ) {
       val merged = if (fetched == null) {
         current
@@ -454,7 +471,7 @@ class RedisClusterCloudWatchMetricsProcessor(
       }
       prev = newArray
       newArray = merged.toByteArray
-      fetched = jedis.setGet(key, newArray, SetParams.setParams().ex(expiration))
+      fetched = client.setGet(key, newArray, SetParams.setParams().ex(expiration))
       casCounter.increment()
       cntr += 1
     }
