@@ -112,7 +112,7 @@ class PublishRouter(
 
             // Skip the _DEFAULT queue, if current region entry already present in "routing"
             if (routes.contains(NetflixEnvironment.region())) {
-              routes += defaultKey -> routes.get(NetflixEnvironment.region())
+              routes += (defaultKey -> routes.getOrElse(NetflixEnvironment.region(), throw new NoSuchElementException(s"Region ${NetflixEnvironment.region()} not found in routes")))
             } else {
               routes += defaultKey -> new PublishQueue(
                 config.getConfig("atlas.cloudwatch.account.routing"),
