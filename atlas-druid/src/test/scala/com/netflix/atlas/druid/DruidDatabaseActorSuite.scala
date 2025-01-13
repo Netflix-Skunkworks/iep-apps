@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2024 Netflix, Inc.
+ * Copyright 2014-2025 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -395,5 +395,56 @@ class DruidDatabaseActorSuite extends FunSuite {
     val expr = DataExpr.Sum(Query.Equal("a", "1")).withConsolidation(ConsolidationFunction.Sum)
     val mapper = createValueMapper(false, context.copy(step = 300000), expr)
     assertEquals(mapper(1.0), 1.0)
+  }
+
+  test("validate: simple expr with name") {
+    val query = evalQuery("app,www,:eq,name,cpu,:eq,:and")
+    validate(query)
+  }
+
+  test("validate: simple expr without name") {
+    val query = evalQuery("app,www,:eq,not_name,cpu,:eq,:and")
+    intercept[IllegalArgumentException] {
+      validate(query)
+    }
+  }
+
+  test("validate: OR with name") {
+    val query = evalQuery("app,www,:eq,name,cpu,:eq,:and,name,disk,:eq,:or")
+    validate(query)
+  }
+
+  test("validate: OR one side without name") {
+    val query = evalQuery("app,www,:eq,not_name,cpu,:eq,:and,name,disk,:eq,:or")
+    intercept[IllegalArgumentException] {
+      validate(query)
+    }
+  }
+
+  test("validate: name only in NOT") {
+    val query = evalQuery("app,www,:eq,name,cpu,:eq,:not,:and")
+    intercept[IllegalArgumentException] {
+      validate(query)
+    }
+  }
+
+  test("validate: IN name") {
+    val query = evalQuery("app,www,:eq,name,(,cpu,disk,),:in,:and")
+    validate(query)
+  }
+
+  test("validate: haskey name") {
+    val query = evalQuery("app,www,:eq,name,:has,:and")
+    validate(query)
+  }
+
+  test("validate: regex name") {
+    val query = evalQuery("app,www,:eq,name,cpu,:re,:and")
+    validate(query)
+  }
+
+  test("validate: greater than name") {
+    val query = evalQuery("app,www,:eq,name,cpu,:gt,:and")
+    validate(query)
   }
 }

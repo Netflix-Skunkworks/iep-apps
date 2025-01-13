@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2024 Netflix, Inc.
+ * Copyright 2014-2025 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ import com.netflix.atlas.core.model.Query
 import com.netflix.atlas.core.model.Query.KeyQuery
 import com.netflix.atlas.core.model.Query.KeyValueQuery
 import com.netflix.atlas.core.model.Query.PatternQuery
+import com.netflix.atlas.core.model.SummaryStats
 import com.netflix.atlas.core.model.Tag
 import com.netflix.atlas.core.model.TagKey
 import com.netflix.atlas.core.model.TimeSeries
@@ -297,20 +298,25 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService)
   }
 
   private def fetchData(ref: ActorRef, request: DataRequest): Unit = {
-    val druidQueryContext = toDruidQueryContext(request)
-    val druidQueries = request.exprs.map { expr =>
-      fetchData(druidQueryContext, request.context, expr).map(ts => expr -> ts)
+    try {
+      request.exprs.foreach(expr => validate(expr.query))
+      val druidQueryContext = toDruidQueryContext(request)
+      val druidQueries = request.exprs.map { expr =>
+        fetchData(druidQueryContext, request.context, expr).map(ts => expr -> ts)
+      }
+      Source(druidQueries)
+        .flatMapMerge(Int.MaxValue, v => v)
+        .fold(Map.empty[DataExpr, List[TimeSeries]]) { (acc, t) =>
+          acc + t
+        }
+        .runWith(Sink.head)
+        .onComplete {
+          case Success(data) => ref ! DataResponse(data)
+          case Failure(t)    => ref ! Failure(t)
+        }
+    } catch {
+      case e: Exception => ref ! Failure(e)
     }
-    Source(druidQueries)
-      .flatMapMerge(Int.MaxValue, v => v)
-      .fold(Map.empty[DataExpr, List[TimeSeries]]) { (acc, t) =>
-        acc + t
-      }
-      .runWith(Sink.head)
-      .onComplete {
-        case Success(data) => ref ! DataResponse(data)
-        case Failure(t)    => ref ! Failure(t)
-      }
   }
 
   private def fetchData(
@@ -567,10 +573,16 @@ object DruidDatabaseActor {
         throw new IllegalStateException(s"data size exceeds $limit bytes")
       }
     }
-    arrays.toList.map {
+    arrays.toList.flatMap {
       case (tags, vs) =>
+        // Ignore entries with no non-NaN values, this sometimes occurs for groups if
+        // there is data for neighboring time segments
         val seq = new ArrayTimeSeq(DsType.Rate, context.start + context.step, context.step, vs)
-        TimeSeries(commonTags ++ tags, seq)
+        val stats = SummaryStats(seq, context.start, context.end)
+        if (stats.count == 0)
+          None
+        else
+          Some(TimeSeries(commonTags ++ tags, seq))
     }
   }
 
@@ -708,5 +720,20 @@ object DruidDatabaseActor {
       case _: Query          => Query.True
     }
     Query.simplify(simpleQuery)
+  }
+
+  private[druid] def validate(query: Query): Unit = {
+    Query.dnfList(query).foreach { q =>
+      // Without a name clause, it can result in many broad druid queries that are quite
+      // expensive. These vague queries can be common as intermediates when building a query,
+      // but are not typically useful.
+      require(hasNameClause(q), s"query does not restrict by name: $q")
+    }
+  }
+
+  private def hasNameClause(query: Query): Boolean = query match {
+    case Query.And(q1, q2) => hasNameClause(q1) || hasNameClause(q2)
+    case q: Query.KeyQuery => q.k == "name"
+    case _                 => false
   }
 }

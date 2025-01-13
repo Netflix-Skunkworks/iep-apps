@@ -158,6 +158,30 @@ A [lift-data.py](./src/scripts/lift-data.py) script is available, which will loa
 an Edda endpoint and put them into DynamoDB, for a given set of app names and regions. This is used
 to assist with internal migration efforts at Netflix.
 
+## Data Delay and Operational Notes
+
+When new ASGs start and attempt to access their own slotting data, they will observe 404s from the slotting service for
+a few minutes, until slot initialization is complete. This processing delay for new ASGs is expected behavior, based
+upon the number of resources that must be crawled for a given account and region. It takes some time for ASGs to launch
+in AWS, and then the slotting service polls the ASG and EC2 endpoints once per minute. For large accounts, ASG crawls
+tend to complete in 10-15 seconds, for hundreds of ASGs, while instance crawls can range from 50-70 seconds, for many
+thousands of instances. We attempt to coordinate the updates between ASGs and instances, waiting to have fresh caches
+of both before calculating slots. This strategy helps to ensure that the slotting information is correct, and avoids
+off-by-one errors during instance replacement activities.
+
+Caching is implemented on the API routes, to help deal with high-volume queries for the same information from large
+ASGs, but the TTL on that is  10 seconds, and thus is not a contributor to initialization delay.
+
+A common pattern we have implemented for applications is storing slotting information in a dedicated service, which is
+responsible for polling and storing data in memory. As a part of application startup, the service does not go healthy
+until data has been received at least once, and cached data is only updated on 200 OK responses. If you squelch log
+errors associated with HTTP 404 errors at startup until you get the first 200 OK, the delay should be manageable.
+
+We run the slotting service as a single instance per account and region, as a means of simplifying operations and
+removing the need to deal with cache coordination. If an instance is terminated and replaced, it could be 10
+minutes until a new one is up and running, so client-side caching of this data is important. The slotting data is
+safe, because it is stored in DynamoDB, so the new instance will pick up where the previous one left off.
+
 ## Local Development
 
 ```

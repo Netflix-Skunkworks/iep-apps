@@ -1,5 +1,5 @@
 /*
- * Copyright 2014-2024 Netflix, Inc.
+ * Copyright 2014-2025 Netflix, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,7 +56,6 @@ import software.amazon.awssdk.services.cloudwatch.model.PutMetricDataRequest
 import software.amazon.awssdk.services.cloudwatch.model.PutMetricDataResponse
 
 import java.time.Instant
-import java.util.concurrent.Executors
 import java.util.function.ToDoubleFunction
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
