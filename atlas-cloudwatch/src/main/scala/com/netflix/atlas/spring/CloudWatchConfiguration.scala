@@ -15,16 +15,17 @@
  */
 package com.netflix.atlas.spring
 
+import org.apache.pekko.actor.ActorSystem
+import com.netflix.atlas.pekko.PekkoHttpClient
 import com.netflix.atlas.cloudwatch.AwsAccountSupplier
 import com.netflix.atlas.cloudwatch.CloudWatchDebugger
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor
 import com.netflix.atlas.cloudwatch.CloudWatchPoller
 import com.netflix.atlas.cloudwatch.CloudWatchRules
-import com.netflix.atlas.cloudwatch.NetflixTagger
 import com.netflix.atlas.cloudwatch.PublishRouter
 import com.netflix.atlas.cloudwatch.RedisClusterCloudWatchMetricsProcessor
+import com.netflix.atlas.cloudwatch.NetflixTagger
 import com.netflix.atlas.cloudwatch.Tagger
-import com.netflix.atlas.pekko.PekkoHttpClient
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Registry
@@ -32,8 +33,6 @@ import com.netflix.spectator.api.Spectator.globalRegistry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig
-import org.apache.pekko.actor.ActorSystem
-import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import redis.clients.jedis.Connection
@@ -99,8 +98,7 @@ class CloudWatchConfiguration extends StrictLogging {
     config: Config,
     registry: Optional[Registry],
     tagger: Tagger,
-    @Qualifier("jedisClient") jedis: JedisCluster,
-    @Qualifier("valkeyJedisClient") valkeyJedis: JedisCluster,
+    jedis: JedisCluster,
     leaderStatus: LeaderStatus,
     rules: CloudWatchRules,
     publishRouter: PublishRouter,
@@ -113,7 +111,6 @@ class CloudWatchConfiguration extends StrictLogging {
       r,
       tagger,
       jedis,
-      valkeyJedis,
       leaderStatus,
       rules,
       publishRouter,
@@ -141,28 +138,12 @@ class CloudWatchConfiguration extends StrictLogging {
     *   A Jedis cluster client.
     */
   @Bean
-  @Qualifier("jedisClient")
   def getJedisClient(config: Config): JedisCluster = {
     val poolConfig = new GenericObjectPoolConfig[Connection]()
     poolConfig.setMaxTotal(config.getInt("atlas.cloudwatch.redis.connection.pool.max"))
     val cluster =
-      config.getString("iep.leader.rediscluster.uri") // RedisClusterConfig.getClusterName(config)
+      config.getString("iep.leader.valkeycluster.uri") // RedisClusterConfig.getClusterName(config)
     logger.info(s"Using Redis cluster ${cluster}")
-    new JedisCluster(
-      new HostAndPort(cluster, config.getInt("atlas.cloudwatch.redis.connection.port")),
-      config.getInt("atlas.cloudwatch.redis.cmd.timeout"),
-      poolConfig
-    )
-  }
-
-  @Bean
-  @Qualifier("valkeyJedisClient")
-  def getValkeyJedisClient(config: Config): JedisCluster = {
-    val poolConfig = new GenericObjectPoolConfig[Connection]()
-    poolConfig.setMaxTotal(config.getInt("atlas.cloudwatch.valkey.connection.pool.max"))
-    val cluster =
-      config.getString("iep.leader.valkeycluster.uri")
-    logger.info(s"Using Valkey cluster ${cluster}")
     new JedisCluster(
       new HostAndPort(cluster, config.getInt("atlas.cloudwatch.redis.connection.port")),
       config.getInt("atlas.cloudwatch.redis.cmd.timeout"),

@@ -25,7 +25,6 @@ import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
-import org.springframework.beans.factory.annotation.Qualifier
 import redis.clients.jedis.CommandObjects
 import redis.clients.jedis.JedisCluster
 import redis.clients.jedis.Protocol.Command
@@ -66,8 +65,7 @@ class RedisClusterCloudWatchMetricsProcessor(
   config: Config,
   registry: Registry,
   tagger: Tagger,
-  @Qualifier("jedisClient") jedis: JedisCluster,
-  @Qualifier("valkeyJedisClient") valkeyJedis: JedisCluster,
+  jedis: JedisCluster,
   leaderStatus: LeaderStatus,
   rules: CloudWatchRules,
   publishRouter: PublishRouter,
@@ -117,10 +115,20 @@ class RedisClusterCloudWatchMetricsProcessor(
     try {
       val hash = datapoint.xxHash
       val key = getKey(hash)
-      val existingJedis = getFromRedis(jedis, key)
-      val existingValkeyJedis = getFromRedis(valkeyJedis, key)
-
-      val existing = if (existingJedis != null) existingJedis else existingValkeyJedis
+      val existing =
+        try {
+          jedis.get(key)
+        } catch {
+          case ex: Exception =>
+            // TODO - watch out, this logging could be really nasty if the cluster or node is down
+            val slot = JedisClusterCRC16.getSlot(key)
+            val hash = getHash(key)
+            logger.debug(s"Failed to get key ${hash} from Redis for slot ${slot}", ex)
+            registry
+              .counter(readExs.withTags("call", "get", "ex", ex.getClass.getSimpleName))
+              .increment()
+            return
+        }
 
       var isNew: Boolean = false
       val cacheEntry = if (existing == null || existing.isEmpty) {
@@ -135,7 +143,10 @@ class RedisClusterCloudWatchMetricsProcessor(
         if (isNew) updatesNew.increment() else updatesExisting.increment()
       } catch {
         case ex: Exception =>
-          logger.warn(s"Failed to set key in Redis", ex)
+          // TODO - watch out, this could be really nasty if the cluster or node  is down
+          val slot = JedisClusterCRC16.getSlot(key)
+          val hash = getHash(key)
+          logger.warn(s"Failed to set key ${hash} in Redis for slot ${slot}", ex)
           registry
             .counter(writeExs.withTags("call", "set", "ex", ex.getClass.getSimpleName))
             .increment()
@@ -144,21 +155,6 @@ class RedisClusterCloudWatchMetricsProcessor(
       case ex: Exception =>
         logger.error("Unexpected exception on update", ex)
         registry.counter(updateExceptions.withTag("ex", ex.getClass.getSimpleName)).increment()
-    }
-  }
-
-  private def getFromRedis(client: JedisCluster, key: Array[Byte]): Array[Byte] = {
-    try {
-      client.get(key)
-    } catch {
-      case ex: Exception =>
-        val slot = JedisClusterCRC16.getSlot(key)
-        val hash = getHash(key)
-        logger.debug(s"Failed to get key ${hash} from Redis for slot ${slot}", ex)
-        registry
-          .counter(readExs.withTags("call", "get", "ex", ex.getClass.getSimpleName))
-          .increment()
-        null
     }
   }
 
@@ -443,20 +439,9 @@ class RedisClusterCloudWatchMetricsProcessor(
     key: Array[Byte],
     expiration: Long
   ): Unit = {
-    performCas(jedis, prevBytes, current, key, expiration)
-    performCas(valkeyJedis, prevBytes, current, key, expiration)
-  }
-
-  private def performCas(
-    client: JedisCluster,
-    prevBytes: Array[Byte],
-    current: CloudWatchCacheEntry,
-    key: Array[Byte],
-    expiration: Long
-  ): Unit = {
     var prev = prevBytes
     var newArray = current.toByteArray
-    var fetched = client.setGet(key, newArray, SetParams.setParams().ex(expiration))
+    var fetched = jedis.setGet(key, newArray, SetParams.setParams().ex(expiration))
     var cntr = 0
     while (
       cntr < 5 &&
@@ -469,7 +454,7 @@ class RedisClusterCloudWatchMetricsProcessor(
       }
       prev = newArray
       newArray = merged.toByteArray
-      fetched = client.setGet(key, newArray, SetParams.setParams().ex(expiration))
+      fetched = jedis.setGet(key, newArray, SetParams.setParams().ex(expiration))
       casCounter.increment()
       cntr += 1
     }
