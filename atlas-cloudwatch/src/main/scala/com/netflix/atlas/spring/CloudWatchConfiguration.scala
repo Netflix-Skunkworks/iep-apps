@@ -142,7 +142,7 @@ class CloudWatchConfiguration extends StrictLogging {
     val poolConfig = new GenericObjectPoolConfig[Connection]()
     poolConfig.setMaxTotal(config.getInt("atlas.cloudwatch.redis.connection.pool.max"))
     val cluster =
-      config.getString("iep.leader.rediscluster.uri") // RedisClusterConfig.getClusterName(config)
+      config.getString("iep.leader.valkeycluster.uri") // RedisClusterConfig.getClusterName(config)
     logger.info(s"Using Redis cluster ${cluster}")
     new JedisCluster(
       new HostAndPort(cluster, config.getInt("atlas.cloudwatch.redis.connection.port")),
