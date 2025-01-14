@@ -607,9 +607,12 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
     val key = getKey(1)
     when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
       .thenReturn(null)
+    when(valkeyClient.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
+      .thenReturn(null)
     val proc = getProcessor
     proc.cas(null, newEntry, key, 1000)
     verify(client, times(1)).setGet(eqTo(key), eqTo(newEntry.toByteArray), any[SetParams])
+    verify(valkeyClient, times(1)).setGet(eqTo(key), eqTo(newEntry.toByteArray), any[SetParams])
     assertEquals(proc.casCounter.count(), 0L)
     assertEquals(proc.casFailure.count(), 0L)
   }
@@ -624,9 +627,13 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
     val key = getKey(1)
     when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
       .thenReturn(prev.toByteArray)
+    when(valkeyClient.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
+      .thenReturn(prev.toByteArray)
     val proc = getProcessor
     proc.cas(prev.toByteArray, newEntry, key, 1000)
     verify(client, times(1)).setGet(eqTo(key), eqTo(newEntry.toByteArray), any[SetParams])
+    verify(valkeyClient, times(1)).setGet(eqTo(key), eqTo(newEntry.toByteArray), any[SetParams])
+
     assertEquals(proc.casCounter.count(), 0L)
     assertEquals(proc.casFailure.count(), 0L)
   }
@@ -644,10 +651,14 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
     val key = getKey(1)
     when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
       .thenReturn(race.toByteArray, newEntry.toByteArray)
+    when(valkeyClient.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
+      .thenReturn(race.toByteArray, newEntry.toByteArray)
     val proc = getProcessor
     proc.cas(null, newEntry, key, 1000)
     verify(client, times(1)).setGet(eqTo(key), eqTo(merged.toByteArray), any[SetParams])
-    assertEquals(proc.casCounter.count(), 1L)
+    verify(valkeyClient, times(1)).setGet(eqTo(key), eqTo(merged.toByteArray), any[SetParams])
+
+    assertEquals(proc.casCounter.count(), 2L)
     assertEquals(proc.casFailure.count(), 0L)
   }
 
@@ -667,10 +678,14 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
     val key = getKey(1)
     when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
       .thenReturn(published.toByteArray, newEntry.toByteArray)
+    when(valkeyClient.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
+      .thenReturn(published.toByteArray, newEntry.toByteArray)
     val proc = getProcessor
     proc.cas(prev.toByteArray, newEntry, key, 1000)
     verify(client, times(1)).setGet(eqTo(key), eqTo(merged.toByteArray), any[SetParams])
-    assertEquals(proc.casCounter.count(), 1L)
+    verify(valkeyClient, times(1)).setGet(eqTo(key), eqTo(merged.toByteArray), any[SetParams])
+
+    assertEquals(proc.casCounter.count(), 2L)
     assertEquals(proc.casFailure.count(), 0L)
   }
 
@@ -684,10 +699,14 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
     val key = getKey(1)
     when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
       .thenReturn(null, newEntry.toByteArray)
+    when(valkeyClient.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
+      .thenReturn(null, newEntry.toByteArray)
     val proc = getProcessor
     proc.cas(prev.toByteArray, newEntry, key, 1000)
     verify(client, times(2)).setGet(eqTo(key), eqTo(newEntry.toByteArray), any[SetParams])
-    assertEquals(proc.casCounter.count(), 1L)
+    verify(valkeyClient, times(2)).setGet(eqTo(key), eqTo(newEntry.toByteArray), any[SetParams])
+
+    assertEquals(proc.casCounter.count(), 2L)
     assertEquals(proc.casFailure.count(), 0L)
   }
 
@@ -701,11 +720,15 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
     val key = getKey(1)
     when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
       .thenReturn(prev.toByteArray)
+    when(valkeyClient.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
+      .thenReturn(prev.toByteArray)
     val proc = getProcessor
     proc.cas(null, newEntry, key, 1000)
     verify(client, times(6)).setGet(eqTo(key), eqTo(newEntry.toByteArray), any[SetParams])
-    assertEquals(proc.casCounter.count(), 5L)
-    assertEquals(proc.casFailure.count(), 1L)
+    verify(valkeyClient, times(6)).setGet(eqTo(key), eqTo(newEntry.toByteArray), any[SetParams])
+
+    assertEquals(proc.casCounter.count(), 10L)
+    assertEquals(proc.casFailure.count(), 2L)
   }
 
   test("cas failure, always null") {
@@ -718,11 +741,15 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
     val key = getKey(1)
     when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
       .thenReturn(null)
+    when(valkeyClient.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
+      .thenReturn(null)
     val proc = getProcessor
     proc.cas(prev.toByteArray, newEntry, key, 1000)
     verify(client, times(6)).setGet(eqTo(key), eqTo(newEntry.toByteArray), any[SetParams])
-    assertEquals(proc.casCounter.count(), 5L)
-    assertEquals(proc.casFailure.count(), 1L)
+    verify(valkeyClient, times(6)).setGet(eqTo(key), eqTo(newEntry.toByteArray), any[SetParams])
+
+    assertEquals(proc.casCounter.count(), 10L)
+    assertEquals(proc.casFailure.count(), 2L)
   }
 
   def assertPublished(expected: List[(String, String, Int)]): Unit = {
@@ -866,13 +893,18 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       when(client.get(key)).thenThrow(new UTException("UT"))
     } else {
       when(client.get(key)).thenReturn(existing)
+      when(valkeyClient.get(key)).thenReturn(existing)
     }
 
     if (setEx) {
       when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
         .thenThrow(new UTException("UT"))
+      when(valkeyClient.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
+        .thenThrow(new UTException("UT"))
     } else {
       when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
+        .thenReturn(existing)
+      when(valkeyClient.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
         .thenReturn(existing)
     }
   }
