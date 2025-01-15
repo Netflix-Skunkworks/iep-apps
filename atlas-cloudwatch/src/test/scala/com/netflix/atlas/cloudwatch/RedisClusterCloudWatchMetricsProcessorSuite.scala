@@ -53,12 +53,12 @@ import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Await
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters.*
 
 class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase {
 
+  import scala.concurrent.ExecutionContext.Implicits.global
   override implicit def system: ActorSystem = ActorSystem(getClass.getSimpleName)
 
   var client: JedisCluster = null
