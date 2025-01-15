@@ -25,6 +25,8 @@ import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
+import org.apache.pekko.Done
+import org.apache.pekko.dispatch.Futures.promise
 import org.springframework.beans.factory.annotation.Qualifier
 import redis.clients.jedis.CommandObjects
 import redis.clients.jedis.JedisCluster
@@ -114,37 +116,57 @@ class RedisClusterCloudWatchMetricsProcessor(
     category: MetricCategory,
     receivedTimestamp: Long
   ): Unit = {
-    try {
-      val hash = datapoint.xxHash
-      val key = getKey(hash)
-      val existingJedis = getFromRedis(jedis, key)
-      val existingValkeyJedis = getFromRedis(valkeyJedis, key)
-
-      val existing = if (existingJedis != null) existingJedis else existingValkeyJedis
-
-      var isNew: Boolean = false
-      val cacheEntry = if (existing == null || existing.isEmpty) {
-        isNew = true
-        newCacheEntry(datapoint, category, receivedTimestamp)
-      } else {
-        insertDatapoint(existing, datapoint, category, receivedTimestamp)
-      }
-
-      try {
-        cas(existing, cacheEntry, key, expSeconds(category.period))
-        if (isNew) updatesNew.increment() else updatesExisting.increment()
-      } catch {
-        case ex: Exception =>
-          logger.warn(s"Failed to set key in Redis", ex)
-          registry
-            .counter(writeExs.withTags("call", "set", "ex", ex.getClass.getSimpleName))
-            .increment()
-      }
-    } catch {
-      case ex: Exception =>
-        logger.error("Unexpected exception on update", ex)
-        registry.counter(updateExceptions.withTag("ex", ex.getClass.getSimpleName)).increment()
+    updateCacheAsync(datapoint, category, receivedTimestamp).onComplete {
+      case Success(isNew) => if (isNew) updatesNew.increment() else updatesExisting.increment()
+      case Failure(ex)    => logger.error(s"Cache update failed: ${ex.getMessage}")
     }
+  }
+
+  private def updateCacheAsync(
+    datapoint: FirehoseMetric,
+    category: MetricCategory,
+    receivedTimestamp: Long
+  ): Future[Boolean] = {
+    val promise = Promise[Boolean]()
+    executionContext.execute(new Runnable() {
+      override def run(): Unit = {
+        try {
+          val hash = datapoint.xxHash
+          val key = getKey(hash)
+          val existingJedis = getFromRedis(jedis, key)
+          val existingValkeyJedis = getFromRedis(valkeyJedis, key)
+
+          val existing = if (existingJedis != null) existingJedis else existingValkeyJedis
+
+          var isNew: Boolean = false
+          val cacheEntry = if (existing == null || existing.isEmpty) {
+            isNew = true
+            newCacheEntry(datapoint, category, receivedTimestamp)
+          } else {
+            insertDatapoint(existing, datapoint, category, receivedTimestamp)
+          }
+
+          try {
+            cas(existing, cacheEntry, key, expSeconds(category.period))
+            if (isNew) updatesNew.increment() else updatesExisting.increment()
+            promise.success(isNew)
+          } catch {
+            case ex: Exception =>
+              logger.warn(s"Failed to set key in Redis", ex)
+              registry
+                .counter(writeExs.withTags("call", "set", "ex", ex.getClass.getSimpleName))
+                .increment()
+              promise.failure(ex)
+          }
+        } catch {
+          case ex: Exception =>
+            logger.error("Unexpected exception on update", ex)
+            registry.counter(updateExceptions.withTag("ex", ex.getClass.getSimpleName)).increment()
+            promise.failure(ex)
+        }
+      }
+    })
+    promise.future
   }
 
   private def getFromRedis(client: JedisCluster, key: Array[Byte]): Array[Byte] = {
