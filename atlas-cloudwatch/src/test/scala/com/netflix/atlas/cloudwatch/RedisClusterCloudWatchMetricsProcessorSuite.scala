@@ -50,6 +50,7 @@ import redis.clients.jedis.resps.ScanResult
 import java.nio.ByteBuffer
 import java.util
 import java.util.Collections
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Await
@@ -58,7 +59,8 @@ import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters.*
 
 class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase {
-  override implicit def system: ActorSystem = ActorSystem(getClass.getSimpleName)
+
+  override implicit def system: ActorSystem = ActorSystem("Test")
 
   implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.global
   var client: JedisCluster = null
@@ -98,24 +100,6 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
     when(leaderStatus.hasLeadership).thenReturn(true)
   }
 
-  test("updateCache new success") {
-    mockRedis(firehoseMetric.xxHash, null)
-    val proc = new RedisClusterCloudWatchMetricsProcessor(
-      config,
-      registry,
-      tagger,
-      client,
-      valkeyClient,
-      leaderStatus,
-      rules,
-      publishRouter,
-      debugger
-    )(system)
-    proc.updateCache(firehoseMetric, category, ts + 60_000).map { _ =>
-      assertCounters(updatesNew = 1)
-    }
-  }
-
   test("updateCache existing success") {
     val cwDP = newCacheEntry(firehoseMetric, category, normalize(System.currentTimeMillis(), 60))
     mockRedis(firehoseMetric.xxHash, cwDP.toByteArray)
@@ -132,6 +116,24 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
     )(system)
     proc.updateCache(firehoseMetric, category, ts + 60_000).map { _ =>
       assertCounters(updatesExisting = 1)
+    }
+  }
+
+  test("updateCache new success") {
+    mockRedis(firehoseMetric.xxHash, null)
+    val proc = new RedisClusterCloudWatchMetricsProcessor(
+      config,
+      registry,
+      tagger,
+      client,
+      valkeyClient,
+      leaderStatus,
+      rules,
+      publishRouter,
+      debugger
+    )(system)
+    proc.updateCache(firehoseMetric, category, ts + 60_000).map { _ =>
+      assertCounters(updatesNew = 1)
     }
   }
 
