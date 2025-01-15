@@ -20,6 +20,7 @@ import org.apache.pekko.Done
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKitBase
 import com.netflix.atlas.cloudwatch.CloudWatchPoller.runKey
+import com.netflix.atlas.cloudwatch.ScrapeState.Empty
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.DefaultRegistry
@@ -53,6 +54,7 @@ import java.time.Instant
 import java.util.Optional
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.Await
+import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters.SeqHasAsJava
@@ -102,6 +104,9 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     when(accountSupplier.accounts).thenReturn(
       Map(account -> Map(Region.US_EAST_1 -> Set("AWS/UT1", "AWS/UTRedis", "AWS/UTQueryFilter")))
     )
+    // Mock updateCache to return a successful Future
+    when(processor.updateCache(any[FirehoseMetric], any[MetricCategory], anyLong))
+      .thenReturn(Future.successful(()))
   }
 
   test("init") {

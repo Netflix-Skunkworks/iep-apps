@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.Future
+import scala.concurrent.Promise
 
 /**
   * A local implementation of the metrics processor mean for unit testing or experimenting with
@@ -63,7 +64,8 @@ class LocalCloudWatchMetricsProcessor(
     datapoint: FirehoseMetric,
     category: MetricCategory,
     receivedTimestamp: Long
-  ): Future[Unit] = Future {
+  ): Future[Unit] = {
+    val promise = Promise[Unit]()
     val hash = datapoint.xxHash
     val existing = cache.get(hash)
     val cacheEntry = if (existing != null) {
@@ -78,6 +80,7 @@ class LocalCloudWatchMetricsProcessor(
     }
 
     cache.put(hash, (receivedTimestamp, expSeconds(category.period), cacheEntry.toByteArray))
+    promise.future
   }
 
   override protected[cloudwatch] def publish(scrapeTimestamp: Long): Future[NotUsed] = {
