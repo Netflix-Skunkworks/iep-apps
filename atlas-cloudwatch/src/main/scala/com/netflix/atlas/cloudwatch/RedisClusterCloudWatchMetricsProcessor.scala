@@ -78,7 +78,7 @@ class RedisClusterCloudWatchMetricsProcessor(
   private implicit val scrapExecutionContext: ExecutionContext =
     system.dispatchers.lookup("redis-io-dispatcher")
 
-  private implicit val updateExecutionContext: ExecutionContext =
+  private val updateExecutionContext: ExecutionContext =
     system.dispatchers.lookup("redis-update-io-dispatcher")
 
   private val updatesNew = registry.counter("atlas.cloudwatch.redis.updates", "id", "new")
