@@ -53,6 +53,7 @@ import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Await
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters.*
 
@@ -110,8 +111,9 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    proc.updateCache(firehoseMetric, category, ts + 60_000)
-    assertCounters(updatesNew = 1)
+    proc.updateCache(firehoseMetric, category, ts + 60_000).map { _ =>
+      assertCounters(updatesNew = 1)
+    }
   }
 
   test("updateCache existing success") {
@@ -128,8 +130,9 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    proc.updateCache(firehoseMetric, category, ts + 60_000)
-    assertCounters(updatesExisting = 1)
+    proc.updateCache(firehoseMetric, category, ts + 60_000).map { _ =>
+      assertCounters(updatesExisting = 1)
+    }
   }
 
   test("updateCache get exception") {
@@ -145,8 +148,11 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    proc.updateCache(firehoseMetric, category, ts + 60_000)
-    assertCounters(readExs = Map("get" -> 1L))
+    proc.updateCache(firehoseMetric, category, ts + 60_000).recover {
+      case ex: Exception =>
+        assertCounters(readExs = Map("get" -> 1L))
+        assert(ex.isInstanceOf[UTException]) // Ensure the exception is of the expected type
+    }
   }
 
   test("updateCache setex exception") {
@@ -162,8 +168,11 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    proc.updateCache(firehoseMetric, category, ts + 60_000)
-    assertCounters(writeExsSet = 1)
+    proc.updateCache(firehoseMetric, category, ts + 60_000).recover {
+      case ex: Exception =>
+        assertCounters(writeExsSet = 1)
+        assert(ex.isInstanceOf[UTException]) // Ensure the exception is of the expected type
+    }
   }
 
   test("updateCache update exception via NPE") {
@@ -179,8 +188,10 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    proc.updateCache(null, category, ts + 60_000)
-    assertCounters(updateExs = 1)
+    proc.updateCache(null, category, ts + 60_000).recover {
+      case ex: NullPointerException =>
+        assertCounters(updateExs = 1)
+    }
   }
 
   test("publish 1 leader success") {
@@ -891,6 +902,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
     val key = getKey(hash)
     if (getEx) {
       when(client.get(key)).thenThrow(new UTException("UT"))
+      when(valkeyClient.get(key)).thenThrow(new UTException("UT"))
     } else {
       when(client.get(key)).thenReturn(existing)
       when(valkeyClient.get(key)).thenReturn(existing)

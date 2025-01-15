@@ -33,9 +33,12 @@ import software.amazon.awssdk.services.cloudwatch.model.Metric
 import java.time.Instant
 import java.util
 import java.util.concurrent.TimeUnit
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters.*
 import scala.concurrent.duration.FiniteDuration
+import scala.util.Failure
+import scala.util.Success
 
 /**
   * Base class for a processor that evaluates incoming CloudWatch metrics against the configured rule set and passes
@@ -56,6 +59,8 @@ abstract class CloudWatchMetricsProcessor(
   debugger: CloudWatchDebugger
 )(implicit val system: ActorSystem)
     extends StrictLogging {
+
+  private implicit val executionContext: ExecutionContext = system.dispatcher
 
   private val minCacheEntries = config.getInt("atlas.cloudwatch.min-cache-entries")
   private val gracePeriod = config.getInt("atlas.cloudwatch.grace")
@@ -236,7 +241,12 @@ abstract class CloudWatchMetricsProcessor(
                       )
                     } else {
                       // finally passed the checks.
-                      updateCache(dp, category, receivedTimestamp)
+                      updateCache(dp, category, receivedTimestamp).onComplete {
+                        case Success(_) =>
+                          logger.debug(s"Cache update success")
+                        case Failure(ex) =>
+                          logger.error(s"Cache update failed: ${ex.getMessage}")
+                      }
                       val delay = receivedTimestamp - dp.datapoint.timestamp().toEpochMilli
                       registry
                         .distributionSummary(receivedAge.withTag("aws.namespace", dp.namespace))
@@ -281,7 +291,7 @@ abstract class CloudWatchMetricsProcessor(
     datapoint: FirehoseMetric,
     category: MetricCategory,
     receivedTimestamp: Long
-  ): Unit
+  ): Future[Unit]
 
   /**
     * Called when a cache entry has been mutated during publishing and must be written

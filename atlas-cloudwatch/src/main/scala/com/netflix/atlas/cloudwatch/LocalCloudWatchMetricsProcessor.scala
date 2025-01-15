@@ -23,6 +23,7 @@ import com.typesafe.config.Config
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
+import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.Future
 
 /**
@@ -52,6 +53,8 @@ class LocalCloudWatchMetricsProcessor(
 )(override implicit val system: ActorSystem)
     extends CloudWatchMetricsProcessor(config, registry, rules, tagger, publishRouter, debugger) {
 
+  implicit val ec: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
+
   //                                               writeTS, expSec, data
   private val cache = new ConcurrentHashMap[Long, (Long, Long, Array[Byte])]
   private val lastPoll = new ConcurrentHashMap[String, AtomicLong]
@@ -60,7 +63,7 @@ class LocalCloudWatchMetricsProcessor(
     datapoint: FirehoseMetric,
     category: MetricCategory,
     receivedTimestamp: Long
-  ): Unit = {
+  ): Future[Unit] = Future {
     val hash = datapoint.xxHash
     val existing = cache.get(hash)
     val cacheEntry = if (existing != null) {

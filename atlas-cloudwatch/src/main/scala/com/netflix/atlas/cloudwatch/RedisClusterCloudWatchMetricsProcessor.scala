@@ -25,8 +25,6 @@ import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
-import org.apache.pekko.Done
-import org.apache.pekko.dispatch.Futures.promise
 import org.springframework.beans.factory.annotation.Qualifier
 import redis.clients.jedis.CommandObjects
 import redis.clients.jedis.JedisCluster
@@ -115,19 +113,8 @@ class RedisClusterCloudWatchMetricsProcessor(
     datapoint: FirehoseMetric,
     category: MetricCategory,
     receivedTimestamp: Long
-  ): Unit = {
-    updateCacheAsync(datapoint, category, receivedTimestamp).onComplete {
-      case Success(isNew) => if (isNew) updatesNew.increment() else updatesExisting.increment()
-      case Failure(ex)    => logger.error(s"Cache update failed: ${ex.getMessage}")
-    }
-  }
-
-  private def updateCacheAsync(
-    datapoint: FirehoseMetric,
-    category: MetricCategory,
-    receivedTimestamp: Long
-  ): Future[Boolean] = {
-    val promise = Promise[Boolean]()
+  ): Future[Unit] = {
+    val promise = Promise[Unit]()
     executionContext.execute(new Runnable() {
       override def run(): Unit = {
         try {
