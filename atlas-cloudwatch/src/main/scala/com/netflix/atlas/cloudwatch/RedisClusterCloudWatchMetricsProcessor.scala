@@ -75,8 +75,11 @@ class RedisClusterCloudWatchMetricsProcessor(
 )(override implicit val system: ActorSystem)
     extends CloudWatchMetricsProcessor(config, registry, rules, tagger, publishRouter, debugger) {
 
-  private implicit val executionContext: ExecutionContext =
+  private implicit val scrapExecutionContext: ExecutionContext =
     system.dispatchers.lookup("redis-io-dispatcher")
+
+  private implicit val updateExecutionContext: ExecutionContext =
+    system.dispatchers.lookup("redis-update-io-dispatcher")
 
   private val updatesNew = registry.counter("atlas.cloudwatch.redis.updates", "id", "new")
   private val updatesExisting = registry.counter("atlas.cloudwatch.redis.updates", "id", "existing")
@@ -115,7 +118,7 @@ class RedisClusterCloudWatchMetricsProcessor(
     receivedTimestamp: Long
   ): Future[Unit] = {
     val promise = Promise[Unit]()
-    executionContext.execute(new Runnable() {
+    updateExecutionContext.execute(new Runnable() {
       override def run(): Unit = {
         try {
           val hash = datapoint.xxHash
@@ -300,7 +303,7 @@ class RedisClusterCloudWatchMetricsProcessor(
 
   private def scanKeys(node: String): Future[mutable.HashMap[Int, ArrayBuffer[Array[Byte]]]] = {
     val promise = Promise[mutable.HashMap[Int, ArrayBuffer[Array[Byte]]]]()
-    executionContext.execute(new Runnable() {
+    scrapExecutionContext.execute(new Runnable() {
       @Override def run(): Unit = {
         try {
           var sum = 0
@@ -353,7 +356,7 @@ class RedisClusterCloudWatchMetricsProcessor(
     scrapeTimestamp: Long
   ): Future[NotUsed] = {
     val promise = Promise[NotUsed]()
-    executionContext.execute(new Runnable() {
+    scrapExecutionContext.execute(new Runnable() {
       override def run(): Unit = {
         registry.counter(keysRead.withTag("node", node)).increment()
 
