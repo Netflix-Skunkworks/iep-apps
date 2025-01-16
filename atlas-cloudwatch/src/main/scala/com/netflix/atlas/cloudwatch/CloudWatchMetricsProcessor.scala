@@ -914,9 +914,8 @@ abstract class CloudWatchMetricsProcessor(
   }
 
   def expSeconds(step: Int): Int = {
-    val interval = step * 1000
     val intervals = minCacheEntries
-    interval * intervals
+    step * intervals
   }
 }
 
