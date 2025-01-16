@@ -59,7 +59,7 @@ import scala.jdk.CollectionConverters.*
 
 class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase {
 
-  override def system: ActorSystem = ActorSystem(getClass.getSimpleName)
+  implicit lazy val system: ActorSystem = ActorSystem()
 
   var client: JedisCluster = null
   var valkeyClient: JedisCluster = null
@@ -96,12 +96,6 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
     routerCaptor = ArgCaptor[AtlasDatapoint]
 
     when(leaderStatus.hasLeadership).thenReturn(true)
-  }
-
-  override def afterEach(context: AfterEach): Unit = {
-    // Shutdown the ActorSystem to ensure a clean state for each test
-    system.terminate()
-    Await.result(system.whenTerminated, 1.seconds)
   }
 
   test("updateCache existing success") {
