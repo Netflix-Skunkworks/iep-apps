@@ -66,8 +66,7 @@ class RedisClusterCloudWatchMetricsProcessor(
   config: Config,
   registry: Registry,
   tagger: Tagger,
-  @Qualifier("jedisClient") jedis: JedisCluster,
-  @Qualifier("valkeyJedisClient") valkeyJedis: JedisCluster,
+  jedis: JedisCluster,
   leaderStatus: LeaderStatus,
   rules: CloudWatchRules,
   publishRouter: PublishRouter,
@@ -123,10 +122,7 @@ class RedisClusterCloudWatchMetricsProcessor(
         try {
           val hash = datapoint.xxHash
           val key = getKey(hash)
-          val existingJedis = getFromRedis(jedis, key)
-          val existingValkeyJedis = getFromRedis(valkeyJedis, key)
-
-          val existing = if (existingJedis != null) existingJedis else existingValkeyJedis
+          val existing = getFromRedis(jedis, key)
 
           var isNew: Boolean = false
           val cacheEntry = if (existing == null || existing.isEmpty) {
@@ -456,7 +452,6 @@ class RedisClusterCloudWatchMetricsProcessor(
     expiration: Long
   ): Unit = {
     performCas(jedis, prevBytes, current, key, expiration)
-    performCas(valkeyJedis, prevBytes, current, key, expiration)
   }
 
   private def performCas(
