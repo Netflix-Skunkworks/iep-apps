@@ -99,8 +99,7 @@ class CloudWatchConfiguration extends StrictLogging {
     config: Config,
     registry: Optional[Registry],
     tagger: Tagger,
-    @Qualifier("jedisClient") jedis: JedisCluster,
-    @Qualifier("valkeyJedisClient") valkeyJedis: JedisCluster,
+    jedis: JedisCluster,
     leaderStatus: LeaderStatus,
     rules: CloudWatchRules,
     publishRouter: PublishRouter,
@@ -113,7 +112,6 @@ class CloudWatchConfiguration extends StrictLogging {
       r,
       tagger,
       jedis,
-      valkeyJedis,
       leaderStatus,
       rules,
       publishRouter,
@@ -148,21 +146,6 @@ class CloudWatchConfiguration extends StrictLogging {
     val cluster =
       config.getString("iep.leader.rediscluster.uri") // RedisClusterConfig.getClusterName(config)
     logger.info(s"Using Redis cluster ${cluster}")
-    new JedisCluster(
-      new HostAndPort(cluster, config.getInt("atlas.cloudwatch.redis.connection.port")),
-      config.getInt("atlas.cloudwatch.redis.cmd.timeout"),
-      poolConfig
-    )
-  }
-
-  @Bean
-  @Qualifier("valkeyJedisClient")
-  def getValkeyJedisClient(config: Config): JedisCluster = {
-    val poolConfig = new GenericObjectPoolConfig[Connection]()
-    poolConfig.setMaxTotal(config.getInt("atlas.cloudwatch.valkey.connection.pool.max"))
-    val cluster =
-      config.getString("iep.leader.valkeycluster.uri")
-    logger.info(s"Using Valkey cluster ${cluster}")
     new JedisCluster(
       new HostAndPort(cluster, config.getInt("atlas.cloudwatch.redis.connection.port")),
       config.getInt("atlas.cloudwatch.redis.cmd.timeout"),
