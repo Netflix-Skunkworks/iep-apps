@@ -24,6 +24,7 @@ import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.normalize
 import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.makeFirehoseMetric
 import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.ts
 import com.netflix.atlas.cloudwatch.RedisClusterCloudWatchMetricsProcessor.keyArrays
+import com.netflix.atlas.pekko.OpportunisticEC.ec
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.Registry
@@ -53,15 +54,13 @@ import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Await
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters.*
 
 class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase {
 
-  override implicit def system: ActorSystem = ActorSystem("Test")
+  override implicit def system: ActorSystem = ActorSystem(getClass.getSimpleName)
 
-  implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.global
   var client: JedisCluster = null
   var valkeyClient: JedisCluster = null
   var registry: Registry = null
