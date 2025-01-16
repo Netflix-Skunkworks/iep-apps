@@ -23,7 +23,9 @@ import com.typesafe.config.Config
 
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
+import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.Future
+import scala.concurrent.Promise
 
 /**
   * A local implementation of the metrics processor mean for unit testing or experimenting with
@@ -52,6 +54,8 @@ class LocalCloudWatchMetricsProcessor(
 )(override implicit val system: ActorSystem)
     extends CloudWatchMetricsProcessor(config, registry, rules, tagger, publishRouter, debugger) {
 
+  implicit val ec: ExecutionContextExecutor = scala.concurrent.ExecutionContext.global
+
   //                                               writeTS, expSec, data
   private val cache = new ConcurrentHashMap[Long, (Long, Long, Array[Byte])]
   private val lastPoll = new ConcurrentHashMap[String, AtomicLong]
@@ -60,7 +64,8 @@ class LocalCloudWatchMetricsProcessor(
     datapoint: FirehoseMetric,
     category: MetricCategory,
     receivedTimestamp: Long
-  ): Unit = {
+  ): Future[Unit] = {
+    val promise = Promise[Unit]()
     val hash = datapoint.xxHash
     val existing = cache.get(hash)
     val cacheEntry = if (existing != null) {
@@ -75,6 +80,7 @@ class LocalCloudWatchMetricsProcessor(
     }
 
     cache.put(hash, (receivedTimestamp, expSeconds(category.period), cacheEntry.toByteArray))
+    promise.future
   }
 
   override protected[cloudwatch] def publish(scrapeTimestamp: Long): Future[NotUsed] = {

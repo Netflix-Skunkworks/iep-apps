@@ -447,7 +447,12 @@ class CloudWatchPoller(
                 processor.sendToRegistry(metaData, firehoseMetric, nowMillis)
               } else {
                 registry.counter(polledPublishPath.withTag("path", "cache")).increment()
-                processor.updateCache(firehoseMetric, category, nowMillis)
+                processor.updateCache(firehoseMetric, category, nowMillis).onComplete {
+                  case Success(_) =>
+                    logger.debug(s"Cache update success")
+                  case Failure(ex) =>
+                    logger.error(s"Cache update failed: ${ex.getMessage}")
+                }
               }
             }
           got.incrementAndGet()

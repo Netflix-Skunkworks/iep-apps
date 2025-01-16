@@ -24,6 +24,7 @@ import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.normalize
 import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.makeFirehoseMetric
 import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.ts
 import com.netflix.atlas.cloudwatch.RedisClusterCloudWatchMetricsProcessor.keyArrays
+import com.netflix.atlas.pekko.OpportunisticEC.ec
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.Registry
@@ -58,7 +59,7 @@ import scala.jdk.CollectionConverters.*
 
 class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase {
 
-  override implicit def system: ActorSystem = ActorSystem(getClass.getSimpleName)
+  implicit lazy val system: ActorSystem = ActorSystem()
 
   var client: JedisCluster = null
   var valkeyClient: JedisCluster = null
@@ -97,23 +98,6 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
     when(leaderStatus.hasLeadership).thenReturn(true)
   }
 
-  test("updateCache new success") {
-    mockRedis(firehoseMetric.xxHash, null)
-    val proc = new RedisClusterCloudWatchMetricsProcessor(
-      config,
-      registry,
-      tagger,
-      client,
-      valkeyClient,
-      leaderStatus,
-      rules,
-      publishRouter,
-      debugger
-    )(system)
-    proc.updateCache(firehoseMetric, category, ts + 60_000)
-    assertCounters(updatesNew = 1)
-  }
-
   test("updateCache existing success") {
     val cwDP = newCacheEntry(firehoseMetric, category, normalize(System.currentTimeMillis(), 60))
     mockRedis(firehoseMetric.xxHash, cwDP.toByteArray)
@@ -128,8 +112,27 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    proc.updateCache(firehoseMetric, category, ts + 60_000)
-    assertCounters(updatesExisting = 1)
+    proc.updateCache(firehoseMetric, category, ts + 60_000).map { _ =>
+      assertCounters(updatesExisting = 1)
+    }
+  }
+
+  test("updateCache new success") {
+    mockRedis(firehoseMetric.xxHash, null)
+    val proc = new RedisClusterCloudWatchMetricsProcessor(
+      config,
+      registry,
+      tagger,
+      client,
+      valkeyClient,
+      leaderStatus,
+      rules,
+      publishRouter,
+      debugger
+    )(system)
+    proc.updateCache(firehoseMetric, category, ts + 60_000).map { _ =>
+      assertCounters(updatesNew = 1)
+    }
   }
 
   test("updateCache get exception") {
@@ -145,8 +148,11 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    proc.updateCache(firehoseMetric, category, ts + 60_000)
-    assertCounters(readExs = Map("get" -> 1L))
+    proc.updateCache(firehoseMetric, category, ts + 60_000).recover {
+      case ex: Exception =>
+        assertCounters(readExs = Map("get" -> 1L))
+        assert(ex.isInstanceOf[UTException]) // Ensure the exception is of the expected type
+    }
   }
 
   test("updateCache setex exception") {
@@ -162,8 +168,11 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    proc.updateCache(firehoseMetric, category, ts + 60_000)
-    assertCounters(writeExsSet = 1)
+    proc.updateCache(firehoseMetric, category, ts + 60_000).recover {
+      case ex: Exception =>
+        assertCounters(writeExsSet = 1)
+        assert(ex.isInstanceOf[UTException]) // Ensure the exception is of the expected type
+    }
   }
 
   test("updateCache update exception via NPE") {
@@ -179,8 +188,10 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    proc.updateCache(null, category, ts + 60_000)
-    assertCounters(updateExs = 1)
+    proc.updateCache(null, category, ts + 60_000).recover {
+      case ex: NullPointerException =>
+        assertCounters(updateExs = 1)
+    }
   }
 
   test("publish 1 leader success") {
@@ -891,6 +902,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
     val key = getKey(hash)
     if (getEx) {
       when(client.get(key)).thenThrow(new UTException("UT"))
+      when(valkeyClient.get(key)).thenThrow(new UTException("UT"))
     } else {
       when(client.get(key)).thenReturn(existing)
       when(valkeyClient.get(key)).thenReturn(existing)

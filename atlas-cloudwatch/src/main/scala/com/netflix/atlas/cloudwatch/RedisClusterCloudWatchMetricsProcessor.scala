@@ -75,8 +75,11 @@ class RedisClusterCloudWatchMetricsProcessor(
 )(override implicit val system: ActorSystem)
     extends CloudWatchMetricsProcessor(config, registry, rules, tagger, publishRouter, debugger) {
 
-  private implicit val executionContext: ExecutionContext =
+  private implicit val scrapExecutionContext: ExecutionContext =
     system.dispatchers.lookup("redis-io-dispatcher")
+
+  private val updateExecutionContext: ExecutionContext =
+    system.dispatchers.lookup("redis-update-io-dispatcher")
 
   private val updatesNew = registry.counter("atlas.cloudwatch.redis.updates", "id", "new")
   private val updatesExisting = registry.counter("atlas.cloudwatch.redis.updates", "id", "existing")
@@ -113,38 +116,47 @@ class RedisClusterCloudWatchMetricsProcessor(
     datapoint: FirehoseMetric,
     category: MetricCategory,
     receivedTimestamp: Long
-  ): Unit = {
-    try {
-      val hash = datapoint.xxHash
-      val key = getKey(hash)
-      val existingJedis = getFromRedis(jedis, key)
-      val existingValkeyJedis = getFromRedis(valkeyJedis, key)
+  ): Future[Unit] = {
+    val promise = Promise[Unit]()
+    updateExecutionContext.execute(new Runnable() {
+      override def run(): Unit = {
+        try {
+          val hash = datapoint.xxHash
+          val key = getKey(hash)
+          val existingJedis = getFromRedis(jedis, key)
+          val existingValkeyJedis = getFromRedis(valkeyJedis, key)
 
-      val existing = if (existingJedis != null) existingJedis else existingValkeyJedis
+          val existing = if (existingJedis != null) existingJedis else existingValkeyJedis
 
-      var isNew: Boolean = false
-      val cacheEntry = if (existing == null || existing.isEmpty) {
-        isNew = true
-        newCacheEntry(datapoint, category, receivedTimestamp)
-      } else {
-        insertDatapoint(existing, datapoint, category, receivedTimestamp)
+          var isNew: Boolean = false
+          val cacheEntry = if (existing == null || existing.isEmpty) {
+            isNew = true
+            newCacheEntry(datapoint, category, receivedTimestamp)
+          } else {
+            insertDatapoint(existing, datapoint, category, receivedTimestamp)
+          }
+
+          try {
+            cas(existing, cacheEntry, key, expSeconds(category.period))
+            if (isNew) updatesNew.increment() else updatesExisting.increment()
+            promise.success(isNew)
+          } catch {
+            case ex: Exception =>
+              logger.warn(s"Failed to set key in Redis", ex)
+              registry
+                .counter(writeExs.withTags("call", "set", "ex", ex.getClass.getSimpleName))
+                .increment()
+              promise.failure(ex)
+          }
+        } catch {
+          case ex: Exception =>
+            logger.error("Unexpected exception on update", ex)
+            registry.counter(updateExceptions.withTag("ex", ex.getClass.getSimpleName)).increment()
+            promise.failure(ex)
+        }
       }
-
-      try {
-        cas(existing, cacheEntry, key, expSeconds(category.period))
-        if (isNew) updatesNew.increment() else updatesExisting.increment()
-      } catch {
-        case ex: Exception =>
-          logger.warn(s"Failed to set key in Redis", ex)
-          registry
-            .counter(writeExs.withTags("call", "set", "ex", ex.getClass.getSimpleName))
-            .increment()
-      }
-    } catch {
-      case ex: Exception =>
-        logger.error("Unexpected exception on update", ex)
-        registry.counter(updateExceptions.withTag("ex", ex.getClass.getSimpleName)).increment()
-    }
+    })
+    promise.future
   }
 
   private def getFromRedis(client: JedisCluster, key: Array[Byte]): Array[Byte] = {
@@ -291,7 +303,7 @@ class RedisClusterCloudWatchMetricsProcessor(
 
   private def scanKeys(node: String): Future[mutable.HashMap[Int, ArrayBuffer[Array[Byte]]]] = {
     val promise = Promise[mutable.HashMap[Int, ArrayBuffer[Array[Byte]]]]()
-    executionContext.execute(new Runnable() {
+    scrapExecutionContext.execute(new Runnable() {
       @Override def run(): Unit = {
         try {
           var sum = 0
@@ -344,7 +356,7 @@ class RedisClusterCloudWatchMetricsProcessor(
     scrapeTimestamp: Long
   ): Future[NotUsed] = {
     val promise = Promise[NotUsed]()
-    executionContext.execute(new Runnable() {
+    scrapExecutionContext.execute(new Runnable() {
       override def run(): Unit = {
         registry.counter(keysRead.withTag("node", node)).increment()
 
