@@ -408,7 +408,7 @@ class CloudWatchPoller(
             registry
               .counter(hrmRequest.withTags("period", category.period.toString))
               .increment()
-            start = now.minusSeconds(1)
+            start = now.minusSeconds(2 * category.period)
           }
           val request = MetricMetadata(category, definition, metric.dimensions.asScala.toList)
             .toGetRequest(start, now)
@@ -430,22 +430,35 @@ class CloudWatchPoller(
             )
           }
 
-          response
-            .datapoints()
-            .asScala
-            .foreach { dp =>
-              val firehoseMetric = FirehoseMetric(
-                "",
-                metric.namespace(),
-                metric.metricName(),
-                dimensions.toList,
-                dp
-              )
-              if (category.period < 60) {
+          if (category.period < 60) {
+            response
+              .datapoints()
+              .asScala
+              .lastOption
+              .map { dp =>
+                val firehoseMetric = FirehoseMetric(
+                  "",
+                  metric.namespace(),
+                  metric.metricName(),
+                  dimensions.toList,
+                  dp
+                )
                 val metaData = MetricMetadata(category, definition, toAWSDimensions(firehoseMetric))
                 registry.counter(polledPublishPath.withTag("path", "registry")).increment()
                 processor.sendToRegistry(metaData, firehoseMetric, nowMillis)
-              } else {
+              }
+          } else {
+            response
+              .datapoints()
+              .asScala
+              .foreach { dp =>
+                val firehoseMetric = FirehoseMetric(
+                  "",
+                  metric.namespace(),
+                  metric.metricName(),
+                  dimensions.toList,
+                  dp
+                )
                 registry.counter(polledPublishPath.withTag("path", "cache")).increment()
                 processor.updateCache(firehoseMetric, category, nowMillis).onComplete {
                   case Success(_) =>
@@ -454,7 +467,7 @@ class CloudWatchPoller(
                     logger.error(s"Cache update failed: ${ex.getMessage}")
                 }
               }
-            }
+          }
           got.incrementAndGet()
           promise.success(Done)
         } catch {
