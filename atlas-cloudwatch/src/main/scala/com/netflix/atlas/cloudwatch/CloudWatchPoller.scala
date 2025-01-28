@@ -426,7 +426,7 @@ class CloudWatchPoller(
             response
               .datapoints()
               .asScala
-              .lastOption
+              .headOption
               .map { dp =>
                 val firehoseMetric = FirehoseMetric(
                   "",
