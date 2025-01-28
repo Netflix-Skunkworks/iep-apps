@@ -138,6 +138,8 @@ class CloudWatchPoller(
   private[cloudwatch] val awsRequestLimit =
     config.getInt("atlas.cloudwatch.account.polling.requestLimit")
 
+  private[cloudwatch] val highResTimeCache = new ConcurrentHashMap[Long, Long]()
+
   {
     // Scheduling Pollers Based on Offset
     offsetMap.foreach {
@@ -420,17 +422,7 @@ class CloudWatchPoller(
 
           if (response.datapoints().isEmpty) {
             debugger.debugPolled(metric, IncomingMatch.DroppedEmpty, nowMillis, category)
-          } else {
-            debugger.debugPolled(
-              metric,
-              IncomingMatch.Accepted,
-              nowMillis,
-              category,
-              response.datapoints()
-            )
-          }
-
-          if (category.period < 60) {
+          } else if (category.period < 60) {
             response
               .datapoints()
               .asScala
@@ -443,11 +435,41 @@ class CloudWatchPoller(
                   dimensions.toList,
                   dp
                 )
-                val metaData = MetricMetadata(category, definition, toAWSDimensions(firehoseMetric))
-                registry.counter(polledPublishPath.withTag("path", "registry")).increment()
-                processor.sendToRegistry(metaData, firehoseMetric, nowMillis)
+
+                val prev = highResTimeCache.getOrDefault(firehoseMetric.xxHash, 0)
+                if (dp.timestamp().toEpochMilli > prev) {
+                  highResTimeCache.put(firehoseMetric.xxHash, dp.timestamp().toEpochMilli)
+                  debugger.debugPolled(
+                    metric,
+                    IncomingMatch.Accepted,
+                    nowMillis,
+                    category,
+                    response.datapoints()
+                  )
+
+                  val metaData =
+                    MetricMetadata(category, definition, toAWSDimensions(firehoseMetric))
+                  registry.counter(polledPublishPath.withTag("path", "registry")).increment()
+                  processor.sendToRegistry(metaData, firehoseMetric, nowMillis)
+                } else {
+                  debugger.debugPolled(
+                    metric,
+                    IncomingMatch.DroppedEmpty,
+                    nowMillis,
+                    category,
+                    response.datapoints()
+                  )
+                }
               }
           } else {
+            debugger.debugPolled(
+              metric,
+              IncomingMatch.Accepted,
+              nowMillis,
+              category,
+              response.datapoints()
+            )
+
             response
               .datapoints()
               .asScala
