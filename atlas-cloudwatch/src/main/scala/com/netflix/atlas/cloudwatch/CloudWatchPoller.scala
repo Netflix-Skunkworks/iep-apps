@@ -426,8 +426,7 @@ class CloudWatchPoller(
             response
               .datapoints()
               .asScala
-              .headOption
-              .map { dp =>
+              .foreach { dp =>
                 val firehoseMetric = FirehoseMetric(
                   "",
                   metric.namespace(),
@@ -451,6 +450,8 @@ class CloudWatchPoller(
                     MetricMetadata(category, definition, toAWSDimensions(firehoseMetric))
                   registry.counter(polledPublishPath.withTag("path", "registry")).increment()
                   processor.sendToRegistry(metaData, firehoseMetric, nowMillis)
+                } else if (dp.timestamp().toEpochMilli <= prev) {
+                  // dupe, no need to log it or anything.
                 } else {
                   debugger.debugPolled(
                     metric,
