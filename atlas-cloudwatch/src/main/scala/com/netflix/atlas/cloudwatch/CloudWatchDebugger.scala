@@ -214,7 +214,8 @@ class CloudWatchDebugger(
     incomingMatch: IncomingMatch,
     timestamp: Long,
     category: MetricCategory,
-    dataPoints: java.util.List[Datapoint] = Collections.emptyList()
+    dataPoints: java.util.List[Datapoint] = Collections.emptyList(),
+    dpAdded: Option[Datapoint] = None
   ): Unit = {
     if (config.isEmpty) return
 
@@ -273,6 +274,9 @@ class CloudWatchDebugger(
         category.dimensions.foreach(d => json.writeString(d))
         json.writeEndArray()
         json.writeEndObject()
+        dpAdded.map { dp =>
+          json.writeNumberField("dpAdded", dp.timestamp().toEpochMilli)
+        }
 
         if (!dataPoints.isEmpty) {
           var step = 0L
@@ -471,7 +475,8 @@ object IncomingMatch extends Enumeration {
 
   type IncomingMatch = Value
 
-  val DroppedNS, DroppedMetric, DroppedTag, DroppedFilter, DroppedOld, DroppedEmpty, Accepted =
+  val Stale, DroppedNS, DroppedMetric, DroppedTag, DroppedFilter, DroppedOld, DroppedEmpty,
+    Accepted =
     Value
 }
 
