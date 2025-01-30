@@ -103,7 +103,13 @@ class CloudWatchPoller(
     registry.counter("atlas.cloudwatch.poller.dps.dropped", "reason", "filter")
   private val dpsExpected = registry.counter("atlas.cloudwatch.poller.dps.expected")
   private val hrmRequest = registry.createId("atlas.cloudwatch.poller.hrm.request")
-  private val polledPublishPath = registry.createId("atlas.cloudwatch.poller.publish")
+  // The metric didn't have an update since the last post
+  private val hrmStale = registry.createId("atlas.cloudwatch.poller.hrm.stale")
+  // We backfilled after getting an older value.
+  private val hrmBackfill = registry.createId("atlas.cloudwatch.poller.hrm.backfill")
+  // offset from wallclock in ms
+  private val hrmWallOffset = registry.createId("atlas.cloudwatch.poller.hrm.wallOffset")
+  private val polledPublishPath = registry.createId("atlas.cloudwatch.poller.publishPath")
   private val dpsPolled = registry.counter("atlas.cloudwatch.poller.dps.polled")
   private val frequency = config.getDuration("atlas.cloudwatch.poller.frequency").getSeconds
   private val hrmFrequency = config.getDuration("atlas.cloudwatch.poller.hrmFrequency").getSeconds
@@ -423,6 +429,7 @@ class CloudWatchPoller(
           if (response.datapoints().isEmpty) {
             debugger.debugPolled(metric, IncomingMatch.DroppedEmpty, nowMillis, category)
           } else if (category.period < 60) {
+            // high res path where we publish to the registry for LWC to take it
             response
               .datapoints()
               .asScala
@@ -450,8 +457,43 @@ class CloudWatchPoller(
                     MetricMetadata(category, definition, toAWSDimensions(firehoseMetric))
                   registry.counter(polledPublishPath.withTag("path", "registry")).increment()
                   processor.sendToRegistry(metaData, firehoseMetric, nowMillis)
+
+                  // lag tracking
+                  val now = System.currentTimeMillis()
+                  val ts = dp.timestamp().toEpochMilli
+                  if (now - ts > category.period * 1000) {
+                    registry
+                      .counter(
+                        hrmBackfill.withTags(
+                          "aws.namespace",
+                          category.namespace,
+                          "aws.metric",
+                          definition.name
+                        )
+                      )
+                      .increment()
+                  }
+                  registry
+                    .distributionSummary(
+                      hrmWallOffset.withTags(
+                        "aws.namespace",
+                        category.namespace,
+                        "aws.metric",
+                        definition.name
+                      )
+                    )
+                    .record(now - ts)
                 } else if (dp.timestamp().toEpochMilli <= prev) {
-                  // dupe, no need to log it or anything.
+                  registry
+                    .counter(
+                      hrmStale.withTags(
+                        "aws.namespace",
+                        category.namespace,
+                        "aws.metric",
+                        definition.name
+                      )
+                    )
+                    .increment()
                 } else {
                   debugger.debugPolled(
                     metric,
