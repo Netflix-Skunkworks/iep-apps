@@ -412,14 +412,20 @@ class CloudWatchPoller(
       @Override def run(): Unit = {
         try {
           var start = now.minusSeconds(minCacheEntries * category.period)
-          if (category.period < 60) {
+          val request = if (category.period < 60) {
+            // normalize timestamps for, hopefully, an improved alignment.
+            var ts = now.toEpochMilli
+            ts = ts - (ts % (category.period * 1000))
             registry
               .counter(hrmRequest.withTags("period", category.period.toString))
               .increment()
-            start = now.minusSeconds(2 * category.period)
+            start = Instant.ofEpochMilli(ts - (2 * category.period * 1000))
+            MetricMetadata(category, definition, metric.dimensions.asScala.toList)
+              .toGetRequest(start, Instant.ofEpochMilli(ts))
+          } else {
+            MetricMetadata(category, definition, metric.dimensions.asScala.toList)
+              .toGetRequest(start, now)
           }
-          val request = MetricMetadata(category, definition, metric.dimensions.asScala.toList)
-            .toGetRequest(start, now)
 
           val response = client.getMetricStatistics(request)
           val dimensions = request.dimensions().asScala.toList.toBuffer
@@ -430,10 +436,19 @@ class CloudWatchPoller(
             debugger.debugPolled(metric, IncomingMatch.DroppedEmpty, nowMillis, category)
           } else if (category.period < 60) {
             // high res path where we publish to the registry for LWC to take it
-            response
+            val dpList = response
               .datapoints()
               .asScala
-              .foreach { dp =>
+            if (dpList.isEmpty) {
+              debugger.debugPolled(
+                metric,
+                IncomingMatch.DroppedEmpty,
+                request.endTime().toEpochMilli,
+                category
+              )
+            } else {
+              var foundValidData = false
+              dpList.foreach { dp =>
                 val firehoseMetric = FirehoseMetric(
                   "",
                   metric.namespace(),
@@ -448,20 +463,21 @@ class CloudWatchPoller(
                   debugger.debugPolled(
                     metric,
                     IncomingMatch.Accepted,
-                    nowMillis,
+                    request.endTime().toEpochMilli,
                     category,
-                    response.datapoints()
+                    response.datapoints(),
+                    Some(dp)
                   )
 
                   val metaData =
                     MetricMetadata(category, definition, toAWSDimensions(firehoseMetric))
                   registry.counter(polledPublishPath.withTag("path", "registry")).increment()
                   processor.sendToRegistry(metaData, firehoseMetric, nowMillis)
+                  foundValidData = true
 
                   // lag tracking
-                  val now = System.currentTimeMillis()
                   val ts = dp.timestamp().toEpochMilli
-                  if (now - ts > category.period * 1000) {
+                  if (request.endTime().toEpochMilli - ts > category.period * 1000) {
                     registry
                       .counter(
                         hrmBackfill.withTags(
@@ -482,33 +498,36 @@ class CloudWatchPoller(
                         definition.name
                       )
                     )
-                    .record(now - ts)
-                } else if (dp.timestamp().toEpochMilli <= prev) {
-                  registry
-                    .counter(
-                      hrmStale.withTags(
-                        "aws.namespace",
-                        category.namespace,
-                        "aws.metric",
-                        definition.name
-                      )
-                    )
-                    .increment()
-                } else {
-                  debugger.debugPolled(
-                    metric,
-                    IncomingMatch.DroppedEmpty,
-                    nowMillis,
-                    category,
-                    response.datapoints()
-                  )
+                    .record(System.currentTimeMillis() - ts)
                 }
               }
+
+              if (!foundValidData) {
+                registry
+                  .counter(
+                    hrmStale.withTags(
+                      "aws.namespace",
+                      category.namespace,
+                      "aws.metric",
+                      definition.name
+                    )
+                  )
+                  .increment()
+                debugger.debugPolled(
+                  metric,
+                  IncomingMatch.Stale,
+                  request.endTime().toEpochMilli,
+                  category,
+                  response.datapoints()
+                )
+              }
+            }
+
           } else {
             debugger.debugPolled(
               metric,
               IncomingMatch.Accepted,
-              nowMillis,
+              request.endTime().toEpochMilli,
               category,
               response.datapoints()
             )
