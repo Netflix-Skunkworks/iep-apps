@@ -4,16 +4,16 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val atlas      = "1.8.0-SNAPSHOT"
-    val aws2       = "2.29.45"
-    val iep        = "5.0.29"
+    val atlas      = "1.8.0-rc.29"
+    val aws2       = "2.30.17"
+    val iep        = "5.0.32"
     val log4j      = "2.24.3"
     val pekko      = "1.1.2"
     val pekkoHttpV = "1.1.0"
-    val scala      = "2.13.15"
+    val scala      = "2.13.16"
     val servo      = "0.13.2"
     val slf4j      = "2.0.16"
-    val spectator  = "1.8.3"
+    val spectator  = "1.8.5"
     val spring     = "6.1.16"
     val avroV      = "1.12.0"
 
@@ -37,7 +37,7 @@ object Dependencies {
   val aws2EC2            = "software.amazon.awssdk" % "ec2" % aws2
   val aws2S3             = "software.amazon.awssdk" % "s3" % aws2
   val aws2SQS            = "software.amazon.awssdk" % "sqs" % aws2
-  val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "3.1.8"
+  val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "3.2.0"
   val frigga             = "com.netflix.frigga" % "frigga" % "0.26.0"
   val iepDynConfig       = "com.netflix.iep" % "iep-dynconfig" % iep
   val iepLeaderApi       = "com.netflix.iep" % "iep-leader-api" % iep
@@ -60,7 +60,7 @@ object Dependencies {
   val log4jSlf4j         = "org.apache.logging.log4j" % "log4j-slf4j2-impl" % log4j
   val mockitoCore        = "org.mockito" % "mockito-core" % "5.10.0"
   val mockitoScala       = "org.mockito" % "mockito-scala_2.13" % "1.17.30"
-  val munit              = "org.scalameta" %% "munit" % "1.0.3"
+  val munit              = "org.scalameta" %% "munit" % "1.1.0"
   val openHFT            = "net.openhft" % "zero-allocation-hashing" % "0.16"
   val pekkoActor         = "org.apache.pekko" %% "pekko-actor" % pekko
   val pekkoHttpCaching   = "org.apache.pekko" %% "pekko-http-caching" % pekkoHttpV
@@ -68,7 +68,7 @@ object Dependencies {
   val pekkoHttpTestkit   = "org.apache.pekko" %% "pekko-http-testkit" % pekkoHttpV
   val pekkoSlf4j         = "org.apache.pekko" %% "pekko-slf4j" % pekko
   val pekkoTestkit       = "org.apache.pekko" %% "pekko-testkit" % pekko
-  val protobuf           = "com.google.protobuf" % "protobuf-java" % "4.29.2"
+  val protobuf           = "com.google.protobuf" % "protobuf-java" % "4.29.3"
   val scalaCompiler      = "org.scala-lang" % "scala-compiler" % scala
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
   val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
