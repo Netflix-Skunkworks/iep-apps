@@ -281,7 +281,7 @@ class CloudWatchDebugger(
         if (!dataPoints.isEmpty) {
           var step = 0L
           var last = 0L
-          json.writeArrayFieldStart("cached")
+          json.writeArrayFieldStart("polledData")
           for (i <- 0 until dataPoints.size()) {
             val d = dataPoints.get(i)
             val dts = d.timestamp().toEpochMilli

@@ -146,6 +146,8 @@ class CloudWatchPoller(
 
   private[cloudwatch] val highResTimeCache = new ConcurrentHashMap[Long, Long]()
 
+  private[cloudwatch] val hrmLookback = config.getInt("atlas.cloudwatch.poller.hrmLookback")
+
   {
     // Scheduling Pollers Based on Offset
     offsetMap.foreach {
@@ -154,6 +156,9 @@ class CloudWatchPoller(
           s"Scheduling poller for offset ${offset}s for total ${categories.size} categories"
         )
         val scheduleFrequency = if (offset < 60) hrmFrequency else frequency
+        if (scheduleFrequency == hrmFrequency) {
+          logger.info(s"Polling for ${hrmLookback} high res data points in the past.")
+        }
         system.scheduler.scheduleAtFixedRate(
           FiniteDuration(scheduleFrequency, TimeUnit.SECONDS),
           FiniteDuration(scheduleFrequency, TimeUnit.SECONDS)
@@ -419,7 +424,7 @@ class CloudWatchPoller(
             registry
               .counter(hrmRequest.withTags("period", category.period.toString))
               .increment()
-            start = Instant.ofEpochMilli(ts - (2 * category.period * 1000))
+            start = Instant.ofEpochMilli(ts - (hrmLookback * category.period * 1000))
             MetricMetadata(category, definition, metric.dimensions.asScala.toList)
               .toGetRequest(start, Instant.ofEpochMilli(ts))
           } else {
@@ -460,6 +465,11 @@ class CloudWatchPoller(
                 val prev = highResTimeCache.getOrDefault(firehoseMetric.xxHash, 0)
                 if (dp.timestamp().toEpochMilli > prev) {
                   highResTimeCache.put(firehoseMetric.xxHash, dp.timestamp().toEpochMilli)
+                  val metaData =
+                    MetricMetadata(category, definition, toAWSDimensions(firehoseMetric))
+                  registry.counter(polledPublishPath.withTag("path", "registry")).increment()
+                  processor.sendToRegistry(metaData, firehoseMetric, nowMillis)
+                  foundValidData = true
                   debugger.debugPolled(
                     metric,
                     IncomingMatch.Accepted,
@@ -468,12 +478,6 @@ class CloudWatchPoller(
                     response.datapoints(),
                     Some(dp)
                   )
-
-                  val metaData =
-                    MetricMetadata(category, definition, toAWSDimensions(firehoseMetric))
-                  registry.counter(polledPublishPath.withTag("path", "registry")).increment()
-                  processor.sendToRegistry(metaData, firehoseMetric, nowMillis)
-                  foundValidData = true
 
                   // lag tracking
                   val ts = dp.timestamp().toEpochMilli

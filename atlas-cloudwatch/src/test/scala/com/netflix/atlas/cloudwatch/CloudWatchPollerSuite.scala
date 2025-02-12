@@ -124,6 +124,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
         |    categories = ["cfg1", "cfg2"]
         |    poller.frequency = "5m"
         |    poller.hrmFrequency = "5s"
+        |    poller.hrmLookback = 6
         |
         |    cfg1 = {
         |      namespace = "AWS/CFG1"
