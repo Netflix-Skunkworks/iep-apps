@@ -4,16 +4,16 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val atlas      = "1.8.0-rc.29"
-    val aws2       = "2.30.17"
-    val iep        = "5.0.32"
+    val atlas      = "1.8.0-rc.30"
+    val aws2       = "2.30.38"
+    val iep        = "5.0.33"
     val log4j      = "2.24.3"
-    val pekko      = "1.1.2"
+    val pekko      = "1.1.3"
     val pekkoHttpV = "1.1.0"
     val scala      = "2.13.16"
     val servo      = "0.13.2"
-    val slf4j      = "2.0.16"
-    val spectator  = "1.8.5"
+    val slf4j      = "2.0.17"
+    val spectator  = "1.8.7"
     val spring     = "6.1.16"
     val avroV      = "1.12.0"
 
@@ -68,7 +68,7 @@ object Dependencies {
   val pekkoHttpTestkit   = "org.apache.pekko" %% "pekko-http-testkit" % pekkoHttpV
   val pekkoSlf4j         = "org.apache.pekko" %% "pekko-slf4j" % pekko
   val pekkoTestkit       = "org.apache.pekko" %% "pekko-testkit" % pekko
-  val protobuf           = "com.google.protobuf" % "protobuf-java" % "4.29.3"
+  val protobuf           = "com.google.protobuf" % "protobuf-java" % "4.30.0"
   val scalaCompiler      = "org.scala-lang" % "scala-compiler" % scala
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
   val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
