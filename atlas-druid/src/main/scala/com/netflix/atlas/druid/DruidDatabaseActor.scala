@@ -374,9 +374,15 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService)
     // Filtering should have already been done at this point, just focus on the aggregation
     // behavior when evaluating the results. The query is simplified to exact matches that
     // are extracted to generate the labels. At this stage it is effectively true for matches.
+    //
+    // For :count, we rewrite to sum at this stage because the count will be computed on druid
+    // and the final result should be summed.
     val evalExpr = expr
       .rewrite {
         case _: Query => simplifyExact(expr.query)
+      }
+      .rewrite {
+        case af: DataExpr.Count => DataExpr.Sum(af.query, af.cf, af.offset)
       }
       .asInstanceOf[DataExpr]
 
@@ -529,7 +535,11 @@ object DruidDatabaseActor {
     expr: DataExpr
   ): Double => Double = {
 
-    if (normalizeRates) {
+    if (isCount(expr)) {
+      // Just use the raw value if count aggregation, druid will already have performed
+      // the calculation.
+      (v: Double) => v
+    } else if (normalizeRates) {
       // Assume all values are counters that are in a rate per step. To make it consistent
       // with Atlas conventions, the value should be reported as a rate per second. This
       // may need to be revisited in the future if other types are supported.
@@ -548,6 +558,12 @@ object DruidDatabaseActor {
           (v: Double) => v
       }
     }
+  }
+
+  private def isCount(expr: DataExpr): Boolean = expr match {
+    case by: DataExpr.GroupBy => isCount(by.af)
+    case _: DataExpr.Count    => true
+    case _                    => false
   }
 
   def toTimeSeries(
