@@ -124,6 +124,7 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService)
       .runWith(Sink.head)
       .onComplete {
         case Success(m) =>
+          logger.info("completed loading metadata")
           ref ! m
           service.metadataRefreshed()
         case Failure(t) =>
