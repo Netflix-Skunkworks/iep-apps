@@ -141,6 +141,12 @@ class DruidClient(
           Json.decode[List[SegmentMetadataResult]](in)
         }
       }
+      .recover {
+        case t: Throwable =>
+          val json = Json.encode(query)
+          logger.warn(s"failed to load segment metadata for data source: $json")
+          throw t
+      }
   }
 
   def search(query: SearchQuery): Source[List[SearchResult], NotUsed] = {
