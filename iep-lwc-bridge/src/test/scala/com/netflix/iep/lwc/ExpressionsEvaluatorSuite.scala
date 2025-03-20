@@ -110,6 +110,20 @@ class ExpressionsEvaluatorSuite extends FunSuite {
     assertEquals(m.getTags.get("name"), "unknown")
   }
 
+  test("eval with OR both matching") {
+    val evaluator = new ExpressionsEvaluator(configMgr, registry)
+    evaluator.sync(createSubs("node,(,i-00,i-01,),:in,name,cpu,:eq,:or,:sum"))
+    val payload = evaluator.eval(timestamp, data(1.0) ::: data(4.0))
+    assertEquals(payload.getTimestamp, timestamp)
+    assertEquals(payload.getMetrics.size(), 1)
+
+    val m = payload.getMetrics.get(0)
+    assertEquals(m.getId, "0")
+    assertEquals(m.getValue, 5.0)
+    assert(!m.getTags.isEmpty)
+    assertEquals(m.getTags.get("name"), "unknown")
+  }
+
   test("eval with no exact tags and group by") {
     val evaluator = new ExpressionsEvaluator(configMgr, registry)
     evaluator.sync(createSubs("node,(,i-00,i-01,),:in,:sum,(,node,),:by"))

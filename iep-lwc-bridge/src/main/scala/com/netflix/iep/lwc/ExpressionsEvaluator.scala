@@ -91,9 +91,11 @@ class ExpressionsEvaluator(configMgr: DynamicConfigManager, registry: Registry)
     * of the LWC API service.
     */
   def eval(timestamp: Long, values: List[BridgeDatapoint]): EvalPayload = {
-    val aggregates = collection.mutable.AnyRefMap.empty[String, Aggregator]
+    val aggregates = collection.mutable.HashMap.empty[String, Aggregator]
     values.filter(!_.value.isNaN).foreach { v =>
-      val subs = index.findMatches(v.id)
+      // Wrap results in HashSet to dedup if an expression has OR clauses where multiple
+      // match a given id.
+      val subs = new java.util.HashSet(index.findMatches(v.id))
       if (!subs.isEmpty) {
         val pair = new TagsValuePair(v.tagsMap, v.value)
         subs.forEach { sub =>
