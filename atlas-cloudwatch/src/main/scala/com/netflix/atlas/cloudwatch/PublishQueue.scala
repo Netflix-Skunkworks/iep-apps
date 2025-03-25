@@ -61,10 +61,8 @@ class PublishQueue(
   config: Config,
   registry: Registry,
   val stack: String,
-  val uri: String,
-  val configUri: String,
-  val evalUri: String,
   val status: LeaderStatus,
+  registryPublishClient: PublishClient,
   httpClient: PekkoHttpClient,
   scheduler: ScheduledExecutorService
 )(implicit system: ActorSystem)
@@ -85,10 +83,7 @@ class PublishQueue(
   private val queueSize = getSetting("queueSize")
   private val batchSize = getSetting("batchSize")
   private val batchTimeout = getDurationSetting("batchTimeout")
-
-  private val registryPublishClient = new PublishClient(
-    new PublishConfig(config, uri, configUri, evalUri, status = status, registry = registry)
-  )
+  private[cloudwatch] val uri = registryPublishClient.config.uri
 
   private val lastUpdateTimestamp =
     PolledMeter
@@ -106,14 +101,11 @@ class PublishQueue(
     .toMat(Sink.ignore)(Keep.left)
     .run()
 
-  logger.info(
-    s"Setup queue for stack ${stack} publishing URI ${uri}, lwc-config URI ${configUri}, eval URI ${evalUri}"
-  )
-
   def updateRegistry(dp: AtlasDatapoint, cwDatapoint: CloudWatchDatapoint): Unit = {
     val atlasDp = toDoubleValue(dp)
     if (dp.dsType == DsType.Rate) {
-      registryPublishClient.updateCounter(atlasDp.id, atlasDp.value)
+      val value = atlasDp.value * (dp.step / 1000)
+      registryPublishClient.updateCounter(atlasDp.id, value)
       registry
         .counter(
           updateSelfMetrics(dp, cwDatapoint)

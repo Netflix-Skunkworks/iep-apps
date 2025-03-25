@@ -99,11 +99,8 @@ object Conversions {
   private def rate(f: Conversion): Conversion = (m, d) => {
     val v = f(m, d)
     val unit = d.unitAsString()
-    val applyRateConversion = m.category.period >= 60
 
-    if (!applyRateConversion && unit.endsWith("/Second")) {
-      v * m.category.period // Convert back to cumulative value
-    } else if (applyRateConversion && !unit.endsWith("/Second")) {
+    if (!unit.endsWith("/Second")) {
       v / m.category.period // Convert to rate
     } else {
       v // No conversion needed

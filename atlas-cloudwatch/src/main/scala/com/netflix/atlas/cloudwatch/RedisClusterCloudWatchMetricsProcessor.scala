@@ -497,7 +497,7 @@ class RedisClusterCloudWatchMetricsProcessor(
       } else {
         CloudWatchCacheEntry.parseFrom(prevBytes).toString
       }
-      logger.warn(
+      logger.debug(
         s"CAS Failure: Got $got but expected $expected. Current: $current.  Originally expected: $original"
       )
       casFailure.increment()

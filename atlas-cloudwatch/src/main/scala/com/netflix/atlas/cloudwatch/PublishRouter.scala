@@ -18,6 +18,8 @@ package com.netflix.atlas.cloudwatch
 import org.apache.pekko.actor.ActorSystem
 import com.netflix.atlas.pekko.PekkoHttpClient
 import com.netflix.atlas.cloudwatch.PublishRouter.defaultKey
+import com.netflix.atlas.cloudwatch.poller.PublishClient
+import com.netflix.atlas.cloudwatch.poller.PublishConfig
 import com.netflix.iep.config.NetflixEnvironment
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Registry
@@ -44,23 +46,7 @@ class PublishRouter(
   private val missingAccount =
     registry.counter("atlas.cloudwatch.queue.dps.dropped", "reason", "missingAccount")
 
-  private[cloudwatch] val mainQueue = new PublishQueue(
-    config.getConfig("atlas.cloudwatch.account.routing"),
-    registry,
-    "main",
-    baseURI
-      .replaceAll("\\$\\{STACK\\}", "main")
-      .replaceAll("\\$\\{REGION}", NetflixEnvironment.region()),
-    baseConfigURI
-      .replaceAll("\\$\\{STACK\\}", "main")
-      .replaceAll("\\$\\{REGION}", NetflixEnvironment.region()),
-    baseEvalURI
-      .replaceAll("\\$\\{STACK\\}", "main")
-      .replaceAll("\\$\\{REGION}", NetflixEnvironment.region()),
-    status,
-    httpClient,
-    schedulers
-  )
+  private[cloudwatch] val mainQueue = buildPubQueue(config, "main", NetflixEnvironment.region())
 
   //                                      acct,       region, queue
   private[cloudwatch] val accountMap: Map[String, Map[String, PublishQueue]] = {
@@ -89,23 +75,7 @@ class PublishRouter(
                 .asScala
                 .map { r =>
                   val destination = r.getValue.unwrapped().toString
-                  r.getKey -> new PublishQueue(
-                    config.getConfig("atlas.cloudwatch.account.routing"),
-                    registry,
-                    stack + "-" + destination,
-                    baseURI
-                      .replaceAll("\\$\\{STACK\\}", stack)
-                      .replaceAll("\\$\\{REGION}", destination),
-                    baseConfigURI
-                      .replaceAll("\\$\\{STACK\\}", stack)
-                      .replaceAll("\\$\\{REGION}", destination),
-                    baseEvalURI
-                      .replaceAll("\\$\\{STACK\\}", stack)
-                      .replaceAll("\\$\\{REGION}", destination),
-                    status,
-                    httpClient,
-                    schedulers
-                  )
+                  r.getKey -> buildPubQueue(config, stack, destination)
                 }
                 .toMap
             }
@@ -119,22 +89,10 @@ class PublishRouter(
                 )
               ))
             } else {
-              routes += defaultKey -> new PublishQueue(
-                config.getConfig("atlas.cloudwatch.account.routing"),
-                registry,
-                stack + "-" + NetflixEnvironment.region(),
-                baseURI
-                  .replaceAll("\\$\\{STACK\\}", stack)
-                  .replaceAll("\\$\\{REGION}", NetflixEnvironment.region()),
-                baseConfigURI
-                  .replaceAll("\\$\\{STACK\\}", stack)
-                  .replaceAll("\\$\\{REGION}", NetflixEnvironment.region()),
-                baseEvalURI
-                  .replaceAll("\\$\\{STACK\\}", stack)
-                  .replaceAll("\\$\\{REGION}", NetflixEnvironment.region()),
-                status,
-                httpClient,
-                schedulers
+              routes += defaultKey -> buildPubQueue(
+                config,
+                stack,
+                NetflixEnvironment.region()
               )
             }
 
@@ -190,6 +148,43 @@ class PublishRouter(
 
   private[cloudwatch] def getQueue(datapoint: AtlasDatapoint): Option[PublishQueue] = {
     getQueue(datapoint.tags)
+  }
+
+  private[cloudwatch] def buildPubQueue(
+    config: Config,
+    stack: String,
+    destination: String
+  ): PublishQueue = {
+    val cfg = config.getConfig("atlas.cloudwatch.account.routing")
+    val pubConfig = new PublishConfig(
+      cfg,
+      baseURI
+        .replaceAll("\\$\\{STACK\\}", stack)
+        .replaceAll("\\$\\{REGION\\}", destination),
+      baseConfigURI
+        .replaceAll("\\$\\{STACK\\}", stack)
+        .replaceAll("\\$\\{REGION\\}", destination),
+      baseEvalURI
+        .replaceAll("\\$\\{STACK\\}", stack)
+        .replaceAll("\\$\\{REGION\\}", destination),
+      status,
+      registry
+    )
+    val streamingRegistryClient = new PublishClient(pubConfig)
+
+    logger.info(
+      s"Setup queue for stack ${stack} publishing URI ${pubConfig.uri}, " +
+        s"lwc-config URI ${pubConfig.configUri}, eval URI ${pubConfig.evalUri}"
+    )
+    new PublishQueue(
+      cfg,
+      registry,
+      stack + "-" + destination,
+      status,
+      streamingRegistryClient,
+      httpClient,
+      schedulers
+    )
   }
 
   def shutdown(): Unit = {
