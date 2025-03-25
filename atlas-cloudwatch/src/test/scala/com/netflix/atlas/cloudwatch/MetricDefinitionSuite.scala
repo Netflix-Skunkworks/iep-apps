@@ -60,6 +60,7 @@ class MetricDefinitionSuite extends FunSuite {
       """.stripMargin)
 
     val definitions = MetricDefinition.fromConfig(cfg)
+    definitions.head.conversion
     assertEquals(definitions.size, 1)
     assertEquals(definitions.head.tags, Map("atlas.dstype" -> "rate"))
   }

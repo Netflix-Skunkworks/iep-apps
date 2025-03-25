@@ -409,7 +409,8 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
             "nf.cluster"   -> "someApp-someStack"
           ),
           ts,
-          0.0033333333333333335
+          0.0033333333333333335,
+          300_000
         )
       )
     )
@@ -546,7 +547,8 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
             "nf.cluster"   -> "cloudwatch"
           ),
           ts,
-          0.0033333333333333335
+          0.0033333333333333335,
+          300_000
         )
       )
     )

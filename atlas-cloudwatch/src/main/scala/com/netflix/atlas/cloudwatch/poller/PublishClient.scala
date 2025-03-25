@@ -27,7 +27,7 @@ import com.typesafe.scalalogging.StrictLogging
 
 import scala.annotation.nowarn
 
-class PublishClient(config: PublishConfig) extends StrictLogging {
+class PublishClient(val config: PublishConfig) extends StrictLogging {
 
   private val publishRegistry = new AtlasRegistry(Clock.SYSTEM, config)
 

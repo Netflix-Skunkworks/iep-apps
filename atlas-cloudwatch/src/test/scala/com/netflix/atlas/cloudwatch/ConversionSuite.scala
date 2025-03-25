@@ -98,6 +98,52 @@ class ConversionsSuite extends FunSuite {
     assertEquals(v, 6.0)
   }
 
+  test("sum rate already, no unit, 5s") {
+    val cnv = Conversions.fromName("sum,rate")
+    val meta = MetricMetadata(
+      MetricCategory("NFLX/Test", 5, -1, Nil, null, Nil, Some(Query.True)),
+      MetricDefinition("test", "test-alias", cnv, false, Map.empty),
+      Nil
+    )
+    val v = cnv(meta, newDatapoint(280.0, StandardUnit.NONE))
+    // still converts since we don't have units.
+    assertEquals(v, 56.0)
+  }
+
+  test("sum rate already, bits/sec, 5s") {
+    val cnv = Conversions.fromName("sum,rate")
+    val meta = MetricMetadata(
+      MetricCategory("NFLX/Test", 5, -1, Nil, null, Nil, Some(Query.True)),
+      MetricDefinition("test", "test-alias", cnv, false, Map.empty),
+      Nil
+    )
+    val v = cnv(meta, newDatapoint(280.0, StandardUnit.BITS_SECOND))
+    // bits per second
+    assertEquals(v, 35.0)
+  }
+
+  test("max rate already, no unit, 5s") {
+    val cnv = Conversions.fromName("max,rate")
+    val meta = MetricMetadata(
+      MetricCategory("NFLX/Test", 5, -1, Nil, null, Nil, Some(Query.True)),
+      MetricDefinition("test", "test-alias", cnv, false, Map.empty),
+      Nil
+    )
+    val v = cnv(meta, newDatapoint(56.0, StandardUnit.NONE))
+    assertEquals(v, 11.2)
+  }
+
+  test("max rate already, bits/sec, 5s") {
+    val cnv = Conversions.fromName("max,rate")
+    val meta = MetricMetadata(
+      MetricCategory("NFLX/Test", 5, -1, Nil, null, Nil, Some(Query.True)),
+      MetricDefinition("test", "test-alias", cnv, false, Map.empty),
+      Nil
+    )
+    val v = cnv(meta, newDatapoint(56.0, StandardUnit.BITS_SECOND))
+    assertEquals(v, 7.0)
+  }
+
   test("bad conversion") {
     intercept[IllegalArgumentException] {
       Conversions.fromName("foo")

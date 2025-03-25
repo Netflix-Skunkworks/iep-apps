@@ -897,20 +897,18 @@ abstract class CloudWatchMetricsProcessor(
     step: Int
   ): AtlasDatapoint = {
     val definition = metric.meta.definition
-    val ts = tagger(metric.meta.dimensions) ++ definition.tags + ("name" ->
-      // TODO - clean this out once tests are finished
-      // (if (testMode) s"TEST.${definition.alias}" else definition.alias))
-      definition.alias)
+    val ts = tagger(metric.meta.dimensions) ++ definition.tags + ("name" -> definition.alias)
+    val dp = metric.datapoint(Instant.ofEpochMilli(timestamp))
 
     val newValue = definition.conversion(
       metric.meta,
-      metric.datapoint(Instant.ofEpochMilli(timestamp))
+      dp
     )
 
     // NOTE - the polling CW code uses now for the timestamp, likely for LWC. BUT data could be off by
     // minutes potentially. And it didn't account for the offset value as far as I could tell. Now we'll at least
     // use the offset value.
-    new AtlasDatapoint(ts, timestamp, newValue)
+    new AtlasDatapoint(ts, timestamp, newValue, step * 1000)
   }
 
   def expSeconds(step: Int): Int = {
