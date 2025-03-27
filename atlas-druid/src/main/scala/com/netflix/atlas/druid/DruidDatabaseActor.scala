@@ -574,7 +574,7 @@ object DruidDatabaseActor {
     limit: Long,
     valueMapper: Double => Double
   ): List[TimeSeries] = {
-    val arrays = scala.collection.mutable.AnyRefMap.empty[Map[String, String], Array[Double]]
+    val arrays = scala.collection.mutable.HashMap.empty[Map[String, String], Array[Double]]
     val length = context.bufferSize
     val bytesPerTimeSeries = 8L * length
     data.foreach { d =>

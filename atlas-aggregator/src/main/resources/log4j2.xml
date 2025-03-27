@@ -9,9 +9,8 @@
         </Console>
     </Appenders>
     <Loggers>
-        <Logger name="com.netflix.iep" level="debug"/>
-        <Logger name="com.netflix.spectator" level="debug"/>
-        <Root level="info">
+        <Logger name="com.netflix.spectator" level="error"/>
+        <Root level="error">
             <AppenderRef ref="STDERR"/>
         </Root>
     </Loggers>

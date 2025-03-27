@@ -25,8 +25,6 @@ import com.netflix.spectator.atlas.impl.EvaluatorConfig
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
-import scala.annotation.nowarn
-
 class PublishClient(val config: PublishConfig) extends StrictLogging {
 
   private val publishRegistry = new AtlasRegistry(Clock.SYSTEM, config)
@@ -70,11 +68,11 @@ class PublishConfig(
       publishUri
   }
 
-  @nowarn override def configUri: String = {
+  override def configUri: String = {
     configUriParam
   }
 
-  @nowarn override def evalUri: String = {
+  override def evalUri: String = {
     evalUriParam
   }
 

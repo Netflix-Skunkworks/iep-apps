@@ -14,15 +14,8 @@
   </Appenders>
 
   <Loggers>
-    <Logger name="akka" level="warn"/>
-    <Logger name="com.netflix" level="error"/>
-    <Logger name="com.netflix.atlas" level="warn"/>
-    <Logger name="com.netflix.atlas.slotting" level="debug"/>
-    <Logger name="com.netflix.iep" level="warn"/>
-    <Logger name="com.netflix.spectator" level="debug"/>
-    <Logger name="com.netflix.spectator.ipc.IpcLogger" level="info"/>
-
-    <Root level="info">
+    <Logger name="com.netflix.spectator" level="error"/>
+    <Root level="fatal">
       <AppenderRef ref="STDERR"/>
     </Root>
   </Loggers>

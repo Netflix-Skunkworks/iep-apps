@@ -8,7 +8,6 @@ lazy val `iep-apps` = project.in(file("."))
     `atlas-slotting`,
     `atlas-stream`,
     `iep-archaius`,
-    `iep-atlas`,
     `iep-lwc-bridge`,
     `iep-lwc-cloudwatch-model`,
     `iep-lwc-cloudwatch`,
@@ -79,9 +78,6 @@ lazy val `atlas-druid` = project
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,
-
-    Dependencies.mockitoCore % "test",
-    Dependencies.mockitoScala % "test",
   ))
 
 lazy val `atlas-persistence` = project
@@ -157,19 +153,6 @@ lazy val `iep-archaius` = project
     Dependencies.pekkoTestkit % "test",
     Dependencies.atlasPekkoTestkit % "test",
     Dependencies.munit % "test"
-  ))
-
-lazy val `iep-atlas` = project
-  .configure(BuildSettings.profile)
-  .settings(libraryDependencies ++= Seq(
-    Dependencies.atlasSpringPekko,
-    Dependencies.atlasSpringWebApi,
-    Dependencies.iepSpring,
-    Dependencies.iepSpringAdmin,
-    Dependencies.iepSpringAtlas,
-    Dependencies.log4jApi,
-    Dependencies.log4jCore,
-    Dependencies.log4jSlf4j
   ))
 
 lazy val `iep-lwc-bridge` = project

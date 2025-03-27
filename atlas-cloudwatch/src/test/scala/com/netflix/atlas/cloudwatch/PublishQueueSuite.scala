@@ -59,15 +59,14 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
 
   override implicit def system: ActorSystem = ActorSystem(getClass.getSimpleName)
 
-  var registry: Registry = null
-  var httpClient = mock[PekkoHttpClient]
-  var httpCaptor = ArgCaptor[HttpRequest]
-  var publishClient = mock[PublishClient]
-  var scheduler = mock[ScheduledExecutorService]
-  val timestamp = 1672531200000L
-  val config = ConfigFactory.load().getConfig("atlas.cloudwatch.account.routing")
-  val threadSleep = 300
-  var leaderStatus: LeaderStatus = null
+  private var registry: Registry = _
+  private var httpClient = mock[PekkoHttpClient]
+  private var httpCaptor = ArgCaptor[HttpRequest]
+  private var publishClient = mock[PublishClient]
+  private var scheduler = mock[ScheduledExecutorService]
+  private val timestamp = 1672531200000L
+  private val config = ConfigFactory.load().getConfig("atlas.cloudwatch.account.routing")
+  private var leaderStatus: LeaderStatus = _
 
   override def beforeEach(context: BeforeEach): Unit = {
     registry = new DefaultRegistry()
@@ -235,7 +234,7 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     mockResponse(StatusCodes.OK)
     val dp = new AtlasDatapoint(Map("name" -> "metric.foo"), Instant.now().toEpochMilli, 1, 5_000)
     val queue = getQueue
-    queue.updateRegistry(dp, mockAZDP)
+    queue.updateRegistry(dp, mockAZDP())
     verify(publishClient, times(1)).updateCounter(Id.create("metric.foo"), 5)
   }
 
@@ -243,7 +242,7 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     mockResponse(StatusCodes.OK)
     val dp = new AtlasDatapoint(Map("name" -> "metric.foo"), Instant.now().toEpochMilli, 1, 60_000)
     val queue = getQueue
-    queue.updateRegistry(dp, mockAZDP)
+    queue.updateRegistry(dp, mockAZDP())
     verify(publishClient, times(1)).updateCounter(Id.create("metric.foo"), 60)
   }
 
@@ -260,12 +259,12 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
           .counter("atlas.cloudwatch.queue.dps.dropped", "stack", "main", "reason", reason)
           .count,
         dropped.getOrElse(reason, 0L),
-        s"Count differs for ${reason}"
+        s"Count differs for $reason"
       )
     }
   }
 
-  def getQueue(): PublishQueue = {
+  def getQueue: PublishQueue = {
     val pubClientConf = new PublishConfig(
       config,
       null,

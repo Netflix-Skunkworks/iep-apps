@@ -20,7 +20,6 @@ import org.apache.pekko.Done
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKitBase
 import com.netflix.atlas.cloudwatch.CloudWatchPoller.runKey
-import com.netflix.atlas.cloudwatch.ScrapeState.Empty
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.DefaultRegistry
@@ -63,26 +62,24 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
 
   override implicit def system: ActorSystem = ActorSystem("Test")
 
-  val timestamp = Instant.ofEpochMilli(BaseCloudWatchMetricsProcessorSuite.ts)
-  val account = "123456789012"
-  val region = Region.US_EAST_1
-  val offset = Duration.ofHours(8).getSeconds.toInt
+  private val timestamp = Instant.ofEpochMilli(BaseCloudWatchMetricsProcessorSuite.ts)
+  private val account = "123456789012"
+  private val region = Region.US_EAST_1
+  private val offset = Duration.ofHours(8).getSeconds.toInt
 
-  var registry: Registry = null
-  var publishRouter: PublishRouter = null
-  var processor: CloudWatchMetricsProcessor = null
-  var leaderStatus: LeaderStatus = null
-  var accountSupplier: AwsAccountSupplier = null
-  var clientFactory: AwsClientFactory = null
-  var client: CloudWatchClient = null
-  var routerCaptor = ArgCaptor[FirehoseMetric]
-  var debugger: CloudWatchDebugger = null
-  val config = ConfigFactory.load()
-  val rules: CloudWatchRules = new CloudWatchRules(config)
+  private var registry: Registry = _
+  private var processor: CloudWatchMetricsProcessor = _
+  private var leaderStatus: LeaderStatus = _
+  private var accountSupplier: AwsAccountSupplier = _
+  private var clientFactory: AwsClientFactory = _
+  private var client: CloudWatchClient = _
+  private var routerCaptor = ArgCaptor[FirehoseMetric]
+  private var debugger: CloudWatchDebugger = _
+  private val config = ConfigFactory.load()
+  private val rules: CloudWatchRules = new CloudWatchRules(config)
 
   override def beforeEach(context: BeforeEach): Unit = {
     registry = new DefaultRegistry()
-    publishRouter = mock[PublishRouter]
     processor = mock[CloudWatchMetricsProcessor]
     leaderStatus = mock[LeaderStatus]
     accountSupplier = mock[AwsAccountSupplier]
@@ -484,7 +481,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     category.toListRequests(index)
   }
 
-  def getListResponse(req: ListMetricsRequest) = {
+  def getListResponse(req: ListMetricsRequest): List[Metric] = {
     List(
       Metric
         .builder()

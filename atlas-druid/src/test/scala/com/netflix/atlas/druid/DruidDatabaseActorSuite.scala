@@ -19,18 +19,18 @@ import java.time.Duration
 import java.time.Instant
 import com.netflix.atlas.core.model.ConsolidationFunction
 import com.netflix.atlas.core.model.DataExpr
-import com.netflix.atlas.core.model.DefaultSettings
 import com.netflix.atlas.core.model.EvalContext
 import com.netflix.atlas.core.model.Query
 import com.netflix.atlas.core.model.QueryVocabulary
 import com.netflix.atlas.core.stacklang.Interpreter
 import com.netflix.atlas.druid.DruidClient.*
-import com.netflix.atlas.eval.graph.GraphConfig
+import com.netflix.atlas.eval.graph.DefaultSettings
+import com.netflix.atlas.eval.graph.Grapher
 import com.netflix.atlas.json.Json
 import com.netflix.atlas.webapi.GraphApi.DataRequest
+import com.typesafe.config.ConfigFactory
 import munit.FunSuite
-import org.mockito.MockitoSugar.mock
-import org.mockito.MockitoSugar.when
+import org.apache.pekko.http.scaladsl.model.Uri
 
 class DruidDatabaseActorSuite extends FunSuite {
 
@@ -242,20 +242,20 @@ class DruidDatabaseActorSuite extends FunSuite {
   }
 
   test("toDruidQueryContext: should produce valid map from request") {
-    val mockConfig = mock[GraphConfig]
-    // Stub the id and query fields
-    when(mockConfig.id).thenReturn("mocked-id")
-    when(mockConfig.query).thenReturn("b,foo,:eq,:sum b,bar,:eq,:sum")
+    val config = ConfigFactory.load()
+    val grapher = Grapher(DefaultSettings(config))
+    val uri = Uri("/api/v1/graph?q=b,foo,:eq,:sum&id=test")
+    val graphCfg = grapher.toGraphConfig(uri)
 
     val druidQueryContext = toDruidQueryContext(
       DataRequest(
         context: EvalContext,
         List(),
-        Some(mockConfig)
+        Some(graphCfg)
       )
     )
-    assertEquals(druidQueryContext("atlasQuerySource"), "mocked-id")
-    assertEquals(druidQueryContext("atlasQueryString"), "b,foo,:eq,:sum b,bar,:eq,:sum")
+    assertEquals(druidQueryContext("atlasQuerySource"), "test")
+    assertEquals(druidQueryContext("atlasQueryString"), "b,foo,:eq,:sum")
     assert(druidQueryContext("atlasQueryGuid").nonEmpty)
   }
 
@@ -375,7 +375,7 @@ class DruidDatabaseActorSuite extends FunSuite {
   test("createValueMapper: avg consolidation") {
     val expr = DataExpr.Sum(Query.Equal("a", "1"))
     val mapper = createValueMapper(false, context.copy(step = 300000), expr)
-    val multiple = 300000 / DefaultSettings.stepSize
+    val multiple = 300000 / 5000
     assertEquals(mapper(1.0), 1.0 / multiple)
   }
 
