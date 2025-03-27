@@ -3,15 +3,19 @@
     <Properties>
         <Property name="dfltPattern">%d{yyyy-MM-dd'T'HH:mm:ss.SSS} %-5level [%t] %class: %msg%n</Property>
     </Properties>
+
     <Appenders>
+        <Console name="STDOUT" target="SYSTEM_OUT">
+            <PatternLayout pattern="${dfltPattern}"/>
+        </Console>
         <Console name="STDERR" target="SYSTEM_ERR">
             <PatternLayout pattern="${dfltPattern}"/>
         </Console>
     </Appenders>
+
     <Loggers>
-        <Logger name="com.netflix.iep" level="debug"/>
-        <Logger name="com.netflix.spectator" level="debug"/>
-        <Root level="info">
+        <Logger name="com.netflix.spectator" level="error"/>
+        <Root level="error">
             <AppenderRef ref="STDERR"/>
         </Root>
     </Loggers>

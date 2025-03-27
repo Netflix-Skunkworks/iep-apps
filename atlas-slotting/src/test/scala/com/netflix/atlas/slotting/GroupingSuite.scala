@@ -26,6 +26,7 @@ import software.amazon.awssdk.services.ec2.model.Instance as Ec2Instance
 
 import scala.jdk.CollectionConverters.*
 import scala.io.Source
+import scala.util.Using
 
 class GroupingSuite extends FunSuite with Grouping {
 
@@ -186,10 +187,9 @@ class GroupingSuite extends FunSuite with Grouping {
   }
 
   private def loadSlottedInstanceDetails(resource: String): SlottedInstanceDetails = {
-    val source = Source.fromURL(getClass.getResource(resource))
-    val instance = Json.decode[SlottedInstanceDetails](source.mkString)
-    source.close
-    instance
+    Using.resource(Source.fromURL(getClass.getResource(resource))) { src =>
+      Json.decode[SlottedInstanceDetails](src.mkString)
+    }
   }
 
   test("mk new data merge slots - empty to partially up") {

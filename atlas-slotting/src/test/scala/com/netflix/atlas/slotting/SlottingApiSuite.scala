@@ -217,7 +217,6 @@ class SlottingApiSuite extends MUnitRouteSuite {
   test("cache data - all clusters, verbose") {
     Get("/api/v1/clusters?verbose=true") ~> routes ~> check {
       assertResponse(response, StatusCodes.OK)
-      println(responseAs[String])
       val res = Json.decode[Map[String, List[SlottedAsgDetails]]](responseAs[String])
       assertEquals(res.size, 2)
       assertEquals(res("atlas_app-main-all").size, 2)

@@ -25,7 +25,6 @@ import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
-import org.springframework.beans.factory.annotation.Qualifier
 import redis.clients.jedis.CommandObjects
 import redis.clients.jedis.JedisCluster
 import redis.clients.jedis.Protocol.Command

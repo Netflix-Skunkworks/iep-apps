@@ -17,7 +17,6 @@ package com.netflix.atlas.cloudwatch
 
 import com.netflix.atlas.cloudwatch.poller.DoubleValue
 import com.netflix.atlas.cloudwatch.poller.PublishClient
-import com.netflix.atlas.cloudwatch.poller.PublishConfig
 import com.netflix.atlas.core.model.Datapoint
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem

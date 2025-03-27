@@ -21,10 +21,7 @@ import com.typesafe.config.ConfigException
 import com.typesafe.config.ConfigFactory
 import junit.framework.TestCase.assertFalse
 import munit.FunSuite
-import software.amazon.awssdk.services.cloudwatch.model.Datapoint
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
-
-import java.time.Instant
 
 class MetricCategorySuite extends FunSuite {
 
@@ -160,38 +157,6 @@ class MetricCategorySuite extends FunSuite {
       """.stripMargin)
 
     val category = MetricCategory.fromConfig(cfg)
-    val definitions = category.metrics
-
-    val config = ConfigFactory.load()
-    val tagger = new NetflixTagger(config.getConfig("atlas.cloudwatch.tagger"))
-
-    definitions.foreach { d =>
-      val metric = MetricMetadata(
-        category,
-        d,
-        List.empty
-      )
-
-      val ts = tagger(metric.dimensions) ++ d.tags + ("name" -> d.alias)
-
-      val data = d.conversion(
-        metric,
-        Datapoint
-          .builder()
-          .minimum(5.605376e7)
-          .maximum(5.605376e7)
-          .sum(2.8004032e8)
-          .sampleCount(5)
-          .timestamp(Instant.now())
-          .unit("Count")
-          .build()
-      )
-
-      // so rate * 12 = actual rate.
-      val adp = new AtlasDatapoint(ts, Instant.now().toEpochMilli, data, 5_000)
-      System.out.println("DATA: " + adp.value * (adp.step / 1000))
-    }
-
     assertEquals(category.filter, Some(Query.Equal("name", "RequestCount")))
   }
 

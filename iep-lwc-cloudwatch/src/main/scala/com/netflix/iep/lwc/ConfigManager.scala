@@ -39,7 +39,7 @@ class ConfigManager
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
     new GraphStageLogic(shape) with InHandler with OutHandler {
 
-      private val configs = scala.collection.mutable.AnyRefMap.empty[String, ClusterConfig]
+      private val configs = scala.collection.mutable.HashMap.empty[String, ClusterConfig]
       private var changed = false
 
       override def onPush(): Unit = {
