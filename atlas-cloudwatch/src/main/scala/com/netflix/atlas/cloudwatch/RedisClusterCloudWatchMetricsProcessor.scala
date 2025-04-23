@@ -126,7 +126,7 @@ class RedisClusterCloudWatchMetricsProcessor(
           var isNew: Boolean = false
           val cacheEntry = if (existing == null || existing.isEmpty) {
             isNew = true
-            newCacheEntry(datapoint, category, receivedTimestamp)
+            newCacheEntry(datapoint, receivedTimestamp)
           } else {
             insertDatapoint(existing, datapoint, category, receivedTimestamp)
           }

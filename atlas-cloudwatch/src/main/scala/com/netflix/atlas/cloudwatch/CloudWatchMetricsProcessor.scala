@@ -898,7 +898,7 @@ abstract class CloudWatchMetricsProcessor(
   ): AtlasDatapoint = {
     val definition = metric.meta.definition
     val ts = tagger(metric.meta.dimensions) ++ definition.tags + ("name" -> definition.alias)
-    val dp = metric.datapoint(Instant.ofEpochMilli(timestamp))
+    val dp = metric.datapoint
 
     val newValue = definition.conversion(
       metric.meta,
@@ -937,14 +937,11 @@ object CloudWatchMetricsProcessor {
     *
     * @param datapoint
     *     The non-null datapoint to encode.
-    * @param category
-    *     The non-null category to pull a Unit from.
     * @return
     *     A non-null cache entry.
     */
   private[cloudwatch] def newCacheEntry(
     datapoint: FirehoseMetric,
-    category: MetricCategory,
     receivedTimestamp: Long
   ): CloudWatchCacheEntry = {
     val dp = datapoint.datapoint

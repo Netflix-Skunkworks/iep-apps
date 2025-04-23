@@ -18,8 +18,6 @@ package com.netflix.iep.archaius
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
-import com.typesafe.config.Config
-import com.typesafe.config.ConfigFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
@@ -35,9 +33,8 @@ class AppConfiguration {
   }
 
   @Bean
-  def dynamoService(client: DynamoDbClient, config: Optional[Config]): DynamoService = {
-    val c = config.orElseGet(() => ConfigFactory.load())
-    new DynamoService(client, c)
+  def dynamoService(client: DynamoDbClient): DynamoService = {
+    new DynamoService(client)
   }
 
   @Bean

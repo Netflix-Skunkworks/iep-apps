@@ -49,7 +49,6 @@ import scala.util.Success
 class LoadGenWsService(
   config: Config,
   registry: Registry,
-  evaluator: Evaluator,
   implicit val system: ActorSystem
 ) extends AbstractService
     with StrictLogging {

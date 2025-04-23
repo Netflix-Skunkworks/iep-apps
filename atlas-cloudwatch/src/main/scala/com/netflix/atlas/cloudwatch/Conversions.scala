@@ -62,7 +62,7 @@ object Conversions {
       case "avg" :: Nil    => avg
       case "rate" :: cs    => rate(from(name, cs))
       case "percent" :: cs => multiply(from(name, cs), 100.0)
-      case v :: cs         => throw new IllegalArgumentException(s"unknown conversion '$v' ($name)")
+      case v :: _          => throw new IllegalArgumentException(s"unknown conversion '$v' ($name)")
       case Nil             => throw new IllegalArgumentException(s"empty conversion list ($name)")
     }
   }

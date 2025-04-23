@@ -57,7 +57,6 @@ class BaseCloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with
 
   val cwDP = newCacheEntry(
     makeFirehoseMetric(Array(39.0, 1.0, 7.0, 19), ts(-2.minutes)),
-    category,
     nts
   )
 

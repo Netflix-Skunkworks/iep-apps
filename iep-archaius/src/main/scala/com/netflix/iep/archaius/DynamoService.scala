@@ -18,7 +18,6 @@ package com.netflix.iep.archaius
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicLong
 import com.netflix.iep.service.AbstractService
-import com.typesafe.config.Config
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 
 import scala.concurrent.ExecutionContext
@@ -34,7 +33,7 @@ import scala.concurrent.Future
   * }
   * ```
   */
-class DynamoService(client: DynamoDbClient, config: Config) extends AbstractService {
+class DynamoService(client: DynamoDbClient) extends AbstractService {
 
   private val nextId = new AtomicLong()
 

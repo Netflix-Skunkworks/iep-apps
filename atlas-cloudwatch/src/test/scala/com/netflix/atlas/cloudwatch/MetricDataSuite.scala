@@ -56,46 +56,46 @@ class MetricDataSuite extends FunSuite {
 
   test("access datapoint with no current value") {
     val data = MetricData(metadata, None, None, None)
-    assertTrue(data.datapoint().sum.doubleValue().isNaN)
+    assertTrue(data.datapoint.sum.doubleValue().isNaN)
   }
 
   test("access datapoint with current value") {
     val data = MetricData(metadata, None, datapoint(1.0), None)
-    assertEquals(data.datapoint().sum.doubleValue(), 1.0)
+    assertEquals(data.datapoint.sum.doubleValue(), 1.0)
   }
 
   test("access monotonic datapoint with no previous or current value") {
     val data = MetricData(monotonicMetadata, None, None, None)
-    assert(data.datapoint().sum.isNaN)
+    assert(data.datapoint.sum.isNaN)
   }
 
   test("access monotonic datapoint with no current value") {
     val data = MetricData(monotonicMetadata, datapoint(1.0), None, None)
-    assert(data.datapoint().sum.isNaN)
+    assert(data.datapoint.sum.isNaN)
   }
 
   test("access monotonic datapoint with no previous value") {
     val data = MetricData(monotonicMetadata, None, datapoint(1.0), None)
-    assert(data.datapoint().sum.isNaN)
+    assert(data.datapoint.sum.isNaN)
   }
 
   test("access monotonic datapoint, current is larger") {
     val data = MetricData(monotonicMetadata, datapoint(1.0), datapoint(2.0), None)
-    assertEquals(data.datapoint().sum.doubleValue(), 1.0)
+    assertEquals(data.datapoint.sum.doubleValue(), 1.0)
   }
 
   test("access monotonic datapoint, previous is larger") {
     val data = MetricData(monotonicMetadata, datapoint(2.0), datapoint(1.0), None)
-    assertEquals(data.datapoint().sum.doubleValue(), 0.0)
+    assertEquals(data.datapoint.sum.doubleValue(), 0.0)
   }
 
   test("access monotonic datapoint, previous equals current") {
     val data = MetricData(monotonicMetadata, datapoint(1.0), datapoint(1.0), None)
-    assertEquals(data.datapoint().sum.doubleValue(), 0.0)
+    assertEquals(data.datapoint.sum.doubleValue(), 0.0)
   }
 
   test("access monotonic datapoint, current is larger, previous dup") {
     val data = MetricData(monotonicMetadata, datapoint(1.0, 3), datapoint(2.0), None)
-    assertEquals(data.datapoint().sum.doubleValue(), 1.0)
+    assertEquals(data.datapoint.sum.doubleValue(), 1.0)
   }
 }

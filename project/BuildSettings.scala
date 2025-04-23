@@ -21,7 +21,7 @@ object BuildSettings {
     scalacOptions := {
       CrossVersion.partialVersion(scalaVersion.value) match {
         case Some((2, _)) => compilerFlags ++ Seq("-Xsource:3", "-Wunused")
-        case _            => compilerFlags ++ Seq("-source", "3.3", "-Wunused:all")
+        case _            => compilerFlags ++ Seq("-source", "3.3", "-Wunused:all", "-Werror")
       }
     },
     javacOptions ++= Seq("--release", "21"),
