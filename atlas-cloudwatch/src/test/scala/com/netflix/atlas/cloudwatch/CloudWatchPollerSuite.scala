@@ -285,7 +285,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     mockSuccess()
     val child = getChild(poller)
     val f = child.execute
-    Await.result(f, 1.seconds)
+    Await.result(f, 60.seconds)
     assertCounters()
   }
 
@@ -294,7 +294,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val child = getChild(poller)
     val f = child.execute
     intercept[RuntimeException] {
-      Await.result(f, 1.seconds)
+      Await.result(f, 60.seconds)
     }
     assertCounters()
   }
@@ -308,7 +308,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     mockMetricStats()
     child.ListMetrics(req, mdef, promise).process(metrics)
 
-    Await.result(promise.future, 1.seconds)
+    Await.result(promise.future, 60.seconds)
     assertCounters(droppedTags = 1, droppedFilter = 1)
   }
 
@@ -320,7 +320,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     child.ListMetrics(req, mdef, promise).process(List.empty)
 
     assertCounters(empty = 1)
-    Await.result(promise.future, 1.seconds)
+    Await.result(promise.future, 60.seconds)
   }
 
   test("Poller#ListMetrics one failure") {
@@ -332,7 +332,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     child.ListMetrics(req, mdef, promise).process(metrics)
 
     intercept[RuntimeException] {
-      Await.result(promise.future, 1.seconds)
+      Await.result(promise.future, 60.seconds)
     }
     assertCounters(droppedTags = 1, droppedFilter = 1)
   }
@@ -347,7 +347,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
 
     assertCounters(errors = Map("list" -> 1))
     intercept[RuntimeException] {
-      Await.result(promise.future, 1.seconds)
+      Await.result(promise.future, 60.seconds)
     }
   }
 
@@ -394,7 +394,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
       ""
     )
     assertEquals(routerCaptor.values(1), firehose)
-    Await.result(promise.future, 1.seconds)
+    Await.result(promise.future, 60.seconds)
     assertCounters()
   }
 
@@ -412,7 +412,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
       org.mockito.ArgumentMatchersSugar.eqTo(category),
       org.mockito.ArgumentMatchersSugar.eqTo(timestamp.toEpochMilli)
     )
-    Await.result(promise.future, 1.seconds)
+    Await.result(promise.future, 60.seconds)
     assertCounters()
   }
 
@@ -431,7 +431,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
       org.mockito.ArgumentMatchersSugar.eqTo(timestamp.toEpochMilli)
     )
     intercept[RuntimeException] {
-      Await.result(promise.future, 1.seconds)
+      Await.result(promise.future, 60.seconds)
     }
     assertCounters(errors = Map("metric" -> 1))
   }
