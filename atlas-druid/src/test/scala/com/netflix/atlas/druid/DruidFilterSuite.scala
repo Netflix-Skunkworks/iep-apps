@@ -67,6 +67,24 @@ class DruidFilterSuite extends FunSuite {
     assertEquals(actual, expected)
   }
 
+  test("forQuery - percentile :eq") {
+    val actual = DruidFilter.forQuery(eval("percentile,T0090,:eq"))
+    val expected = None
+    assertEquals(actual, expected)
+  }
+
+  test("forQuery - percentile :lt") {
+    val actual = DruidFilter.forQuery(eval("percentile,T0090,:lt"))
+    val expected = None
+    assertEquals(actual, expected)
+  }
+
+  test("forQuery - percentile :and") {
+    val actual = DruidFilter.forQuery(eval("country,US,:eq,percentile,T0090,:lt,:and"))
+    val expected = Some(DruidFilter.Equal("country", "US"))
+    assertEquals(actual, expected)
+  }
+
   test("forQuery - :true") {
     val actual = DruidFilter.forQuery(eval(":true"))
     val expected = None

@@ -442,7 +442,10 @@ object DruidDatabaseActor {
     // statistic is included to support adding a percentile dimension for histogram
     // types. This will need to be refactored if we need to support explicit uses
     // in the future.
-    k == "name" || k == "nf.datasource" || k == "statistic"
+    //
+    // percentile is included since it comes from the histogram type and isn't
+    // available on druid. It will need to be handled in a post filter.
+    k == "name" || k == "nf.datasource" || k == "statistic" || k == "percentile"
   }
 
   def toDimensionSpec(key: String, query: Query): DimensionSpec = {
@@ -520,7 +523,20 @@ object DruidDatabaseActor {
 
     def unapply(value: Any): Option[List[String]] = value match {
       case DataExpr.GroupBy(_: DataExpr.Sum, ks) if ks.contains("percentile") => Some(ks)
+      case e: DataExpr if restrictsOnPercentile(e)                            => Some(Nil)
       case _                                                                  => None
+    }
+
+    private def restrictsOnPercentile(expr: DataExpr): Boolean = {
+      restrictsOnPercentile(expr.query)
+    }
+
+    private def restrictsOnPercentile(query: Query): Boolean = query match {
+      case Query.And(q1, q2) => restrictsOnPercentile(q1) || restrictsOnPercentile(q2)
+      case Query.Or(q1, q2)  => restrictsOnPercentile(q1) || restrictsOnPercentile(q2)
+      case Query.Not(q)      => restrictsOnPercentile(q)
+      case q: Query.KeyQuery => q.k == "percentile"
+      case _                 => false
     }
   }
 
@@ -561,6 +577,7 @@ object DruidDatabaseActor {
     }
   }
 
+  @scala.annotation.tailrec
   private def isCount(expr: DataExpr): Boolean = expr match {
     case by: DataExpr.GroupBy => isCount(by.af)
     case _: DataExpr.Count    => true
