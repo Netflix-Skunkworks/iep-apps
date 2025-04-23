@@ -61,6 +61,7 @@ object DruidFilter {
     val newQuery = query.rewrite {
       case kq: KeyQuery if kq.k == "nf.datasource" => Query.True
       case kq: KeyQuery if kq.k == "name"          => Query.True
+      case kq: KeyQuery if kq.k == "percentile"    => Query.True
     }
     Query.simplify(newQuery.asInstanceOf[Query], true)
   }

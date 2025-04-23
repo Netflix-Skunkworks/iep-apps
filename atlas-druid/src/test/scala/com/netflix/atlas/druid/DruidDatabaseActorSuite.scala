@@ -296,6 +296,14 @@ class DruidDatabaseActorSuite extends FunSuite {
     queries.forall(_._3.asInstanceOf[TimeseriesQuery].context == toTestDruidQueryContext(expr))
   }
 
+  test("toDruidQueries: percentile restriction") {
+    val expr = DataExpr.Sum(Query.And(Query.Equal("a", "1"), Query.LessThan("percentile", "T00F2")))
+    val queries = toDruidQueries(metadata, toTestDruidQueryContext(expr), context, expr)
+    assertEquals(queries.size, 4)
+    assert(queries.forall(_._1.contains("a")))
+    queries.forall(_._3.asInstanceOf[TimeseriesQuery].context == toTestDruidQueryContext(expr))
+  }
+
   test("toDruidQueries: or with name dimension") {
     val expr = DataExpr.Sum(
       Query.Or(
