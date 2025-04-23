@@ -3,13 +3,11 @@ import sbt.Keys._
 
 object BuildSettings {
 
-  val compilerFlags = Seq(
+  val compilerFlags: Seq[String] = Seq(
     "-deprecation",
     "-unchecked",
-    "-Xlint:_,-infer-any",
     "-feature",
     "-release", "21",
-    "-Xsource:3"
   )
 
   lazy val checkLicenseHeaders = taskKey[Unit]("Check the license headers for all source files.")
@@ -20,7 +18,12 @@ object BuildSettings {
   lazy val buildSettings = baseSettings ++ Seq(
     organization := "com.netflix.iep-apps",
     scalaVersion := Dependencies.Versions.scala,
-    scalacOptions ++= compilerFlags,
+    scalacOptions := {
+      CrossVersion.partialVersion(scalaVersion.value) match {
+        case Some((2, _)) => compilerFlags ++ Seq("-Xsource:3", "-Wunused")
+        case _            => compilerFlags ++ Seq("-source", "3.3", "-Wunused:all")
+      }
+    },
     javacOptions ++= Seq("--release", "21"),
     crossPaths := true,
     crossScalaVersions := Dependencies.Versions.crossScala,
@@ -68,6 +71,18 @@ object BuildSettings {
   def profile: Project => Project = p => {
     p.settings(SonatypeSettings.settings)
       .settings(buildSettings: _*)
+      .settings(libraryDependencies ++= commonDeps)
+  }
+
+  def profileScala2Only: Project => Project = p => {
+    p.settings(SonatypeSettings.settings)
+      .settings(buildSettings: _*)
+      .settings(
+        crossScalaVersions := List(Dependencies.Versions.scala),
+        skip := {
+          scalaVersion.value != Dependencies.Versions.scala
+        }
+      )
       .settings(libraryDependencies ++= commonDeps)
   }
 }

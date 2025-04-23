@@ -17,7 +17,7 @@ object Dependencies {
     val spring     = "6.1.16"
     val avroV      = "1.12.0"
 
-    val crossScala = Seq(scala)
+    val crossScala = Seq(scala, "3.6.4")
   }
 
   import Versions._
