@@ -46,7 +46,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration.*
 
 trait MarkerService {
-  var queue: SourceQueue[Report]
+  def queue: SourceQueue[Report]
 }
 
 class MarkerServiceImpl(
@@ -66,7 +66,9 @@ class MarkerServiceImpl(
   private implicit val ec: ExecutionContext = scala.concurrent.ExecutionContext.global
   private var killSwitch: KillSwitch = _
 
-  override var queue: SourceQueue[Report] = _
+  private var sourceQueue: SourceQueue[Report] = _
+
+  override def queue: SourceQueue[Report] = sourceQueue
 
   override def startImpl(): Unit = {
     val sizeLimit = config.getInt("iep.lwc.fwding-admin.queue-size-limit")
@@ -94,7 +96,7 @@ class MarkerServiceImpl(
       .toMat(Sink.ignore)(Keep.left)
       .run()
 
-    queue = q
+    sourceQueue = q
     killSwitch = k
 
     logger.info("MarkerService started")
@@ -113,7 +115,7 @@ object MarkerServiceImpl extends StrictLogging {
     scalingPolicies: ActorSelection
   )(implicit ec: ExecutionContext): Flow[Report, ScalingPolicyStatus, NotUsed] = {
     import ScalingPolicies.*
-    implicit val askTimeout = Timeout(15.seconds)
+    implicit val askTimeout: Timeout = Timeout(15.seconds)
 
     Flow[Report]
       .mapAsync(1) { r =>

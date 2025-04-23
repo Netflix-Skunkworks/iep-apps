@@ -36,7 +36,7 @@ lazy val `atlas-aggregator` = project
   ))
 
 lazy val `atlas-cloudwatch` = project
-  .configure(BuildSettings.profile)
+  .configure(BuildSettings.profileScala2Only)
   .enablePlugins(ProtobufPlugin)
   .settings(libraryDependencies ++= Seq(
     Dependencies.atlasCore,
