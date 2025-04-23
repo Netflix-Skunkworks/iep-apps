@@ -53,7 +53,6 @@ class ApiSuite extends MUnitRouteSuite with CwForwardingTestConfig with StrictLo
 
   private val routes = RequestHandler.standardOptions(
     new Api(
-      new NoopRegistry,
       new SchemaValidation,
       validations,
       markerService,

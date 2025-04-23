@@ -28,7 +28,7 @@ case class MetricData(
   lastReportedTimestamp: Option[Instant]
 ) {
 
-  def datapoint(now: Instant = Instant.now): Datapoint = {
+  def datapoint: Datapoint = {
     if (meta.definition.monotonicValue) {
       previous.fold(DatapointNaN) { p =>
         // For a monotonic counter, use the max statistic. These will typically have a

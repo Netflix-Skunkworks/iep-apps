@@ -29,13 +29,11 @@ import com.netflix.atlas.pekko.WebApi
 import com.netflix.atlas.json.Json
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.Report
-import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
 
 import scala.concurrent.Future
 
 class Api(
-  registry: Registry,
   schemaValidation: SchemaValidation,
   cwExprValidations: CwExprValidations,
   markerService: MarkerService,

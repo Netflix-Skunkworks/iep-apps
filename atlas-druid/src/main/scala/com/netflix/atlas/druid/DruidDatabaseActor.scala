@@ -149,12 +149,12 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService)
 
   type ListCallback = (String, List[String]) => Unit
 
-  private def sendValues(ref: ActorRef)(k: String, vs: List[String]): Unit = {
-    ref ! ValueListResponse(vs)
+  private def sendValues(ref: ActorRef): (String, List[String]) => Unit = {
+    (_, vs) => ref ! ValueListResponse(vs)
   }
 
-  private def sendTags(ref: ActorRef)(k: String, vs: List[String]): Unit = {
-    ref ! TagListResponse(vs.map(v => Tag(k, v)))
+  private def sendTags(ref: ActorRef): (String, List[String]) => Unit = {
+    (k, vs) => ref ! TagListResponse(vs.map(v => Tag(k, v)))
   }
 
   private def listValues(callback: ListCallback, tq: TagQuery): Unit = {

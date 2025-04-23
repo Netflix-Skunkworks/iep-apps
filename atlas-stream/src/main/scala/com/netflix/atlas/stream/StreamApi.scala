@@ -26,13 +26,11 @@ import org.apache.pekko.http.scaladsl.model.ws.Message
 import org.apache.pekko.http.scaladsl.model.ws.TextMessage
 import org.apache.pekko.http.scaladsl.server.Directives.*
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.http.scaladsl.server.directives.RouteDirectives.complete
 import org.apache.pekko.stream.ThrottleMode
 import org.apache.pekko.stream.scaladsl.Flow
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 import com.netflix.atlas.pekko.CustomDirectives.*
-import com.netflix.atlas.pekko.CustomDirectives.endpointPath
 import com.netflix.atlas.pekko.DiagnosticMessage
 import com.netflix.atlas.pekko.WebApi
 import com.netflix.atlas.eval.stream.Evaluator

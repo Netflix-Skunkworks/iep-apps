@@ -73,10 +73,10 @@ class LocalCloudWatchMetricsProcessor(
       if (ts + (exp * 1000) > receivedTimestamp) {
         insertDatapoint(data, datapoint, category, receivedTimestamp)
       } else {
-        newCacheEntry(datapoint, category, receivedTimestamp)
+        newCacheEntry(datapoint, receivedTimestamp)
       }
     } else {
-      newCacheEntry(datapoint, category, receivedTimestamp)
+      newCacheEntry(datapoint, receivedTimestamp)
     }
 
     cache.put(hash, (receivedTimestamp, expSeconds(category.period), cacheEntry.toByteArray))

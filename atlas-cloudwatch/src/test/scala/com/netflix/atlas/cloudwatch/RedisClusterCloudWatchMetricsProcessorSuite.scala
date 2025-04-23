@@ -97,7 +97,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
   }
 
   test("updateCache existing success") {
-    val cwDP = newCacheEntry(firehoseMetric, category, normalize(System.currentTimeMillis(), 60))
+    val cwDP = newCacheEntry(firehoseMetric, normalize(System.currentTimeMillis(), 60))
     mockRedis(firehoseMetric.xxHash, cwDP.toByteArray)
     val proc = new RedisClusterCloudWatchMetricsProcessor(
       config,
@@ -1003,7 +1003,6 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
           "Count",
           ts
         ),
-        category,
         normalize(System.currentTimeMillis(), 60)
       )
       cwDP.toBuilder

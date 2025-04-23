@@ -32,18 +32,18 @@ class PropertiesLoaderSuite extends FunSuite with TestKitBase with ImplicitSende
 
   implicit val system: ActorSystem = ActorSystem()
 
-  val config: Config = ConfigFactory.parseString("""
+  private val config: Config = ConfigFactory.parseString("""
       |netflix.iep.archaius.table = "test"
     """.stripMargin)
 
-  val clock = new ManualClock()
-  val registry = new DefaultRegistry(clock)
-  val propContext = new PropertiesContext(registry)
+  private val clock = new ManualClock()
+  private val registry = new DefaultRegistry(clock)
+  private val propContext = new PropertiesContext(registry)
 
-  val ddb = new MockDynamoDB
-  val service = new DynamoService(ddb.client, config)
+  private val ddb = new MockDynamoDB
+  private val service = new DynamoService(ddb.client)
 
-  val items = newItems("foo-main", Map("a" -> "b", "1" -> "2"))
+  private val items = newItems("foo-main", Map("a" -> "b", "1" -> "2"))
   items.addAll(newItems("bar-main", Map("c" -> "d")))
 
   ddb.scanResponse = ScanResponse
@@ -51,7 +51,7 @@ class PropertiesLoaderSuite extends FunSuite with TestKitBase with ImplicitSende
     .items(items)
     .build()
 
-  val ref = TestActorRef(new PropertiesLoader(config, propContext, service))
+  private val ref = TestActorRef(new PropertiesLoader(config, propContext, service))
 
   override def afterAll(): Unit = {
     system.terminate()
