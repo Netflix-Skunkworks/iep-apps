@@ -85,9 +85,11 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
     context.system.scheduler.scheduleAtFixedRate(0.seconds, 10.minutes, self, Tick)
 
   def receive: Receive = {
-    case Tick        => refreshMetadata(sender())
-    case m: Metadata => metadata = Metadata(m.datasources.filter(_.nonEmpty))
-
+    case Tick => refreshMetadata(sender())
+    case m: Metadata => {
+      metadata = Metadata(m.datasources.filter(_.nonEmpty))
+      sender() ! "metadata_updated"
+    }
     case ListTagsRequest(tq)   => listValues(sendTags(sender()), tq)
     case ListKeysRequest(tq)   => listKeys(sender(), tq)
     case ListValuesRequest(tq) => listValues(sendValues(sender()), tq)
