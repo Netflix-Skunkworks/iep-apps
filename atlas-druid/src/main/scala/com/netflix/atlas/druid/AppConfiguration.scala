@@ -15,6 +15,13 @@
  */
 package com.netflix.atlas.druid
 
+import com.netflix.atlas.pekko.AccessLogger
+import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
+import org.apache.pekko.actor.ActorSystem
+
+import java.util.Optional
+import org.apache.pekko.http.scaladsl.Http
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -24,5 +31,12 @@ class AppConfiguration {
   @Bean
   def metadataService: DruidMetadataService = {
     new DruidMetadataService
+  }
+
+  @Bean
+  def druidClient(config: Optional[Config], system: ActorSystem): DruidClient = {
+    val c = config.orElseGet(() => ConfigFactory.load())
+    implicit val sys: ActorSystem = system
+    new DruidClient(c.getConfig("atlas.druid"), system, Http().superPool[AccessLogger]())
   }
 }
