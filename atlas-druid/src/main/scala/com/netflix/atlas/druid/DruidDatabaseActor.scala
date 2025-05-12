@@ -20,10 +20,8 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.Actor
 import org.apache.pekko.actor.ActorRef
 import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.stream.scaladsl.Source
-import com.netflix.atlas.pekko.AccessLogger
 import com.netflix.atlas.core.index.TagQuery
 import com.netflix.atlas.core.model.ArrayTimeSeq
 import com.netflix.atlas.core.model.ConsolidationFunction
@@ -31,15 +29,15 @@ import com.netflix.atlas.core.model.DataExpr
 import com.netflix.atlas.core.model.DefaultSettings
 import com.netflix.atlas.core.model.DsType
 import com.netflix.atlas.core.model.EvalContext
-import com.netflix.atlas.core.model.LazyTimeSeries
 import com.netflix.atlas.core.model.Query
-import com.netflix.atlas.core.model.Query.KeyQuery
-import com.netflix.atlas.core.model.Query.KeyValueQuery
-import com.netflix.atlas.core.model.Query.PatternQuery
+import com.netflix.atlas.core.model.ResultSet
 import com.netflix.atlas.core.model.SummaryStats
 import com.netflix.atlas.core.model.Tag
 import com.netflix.atlas.core.model.TagKey
 import com.netflix.atlas.core.model.TimeSeries
+import com.netflix.atlas.core.model.Query.KeyQuery
+import com.netflix.atlas.core.model.Query.KeyValueQuery
+import com.netflix.atlas.core.model.Query.PatternQuery
 import com.netflix.atlas.core.util.ArrayHelper
 import com.netflix.atlas.core.util.ListHelper
 import com.netflix.atlas.json.Json
@@ -334,7 +332,9 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
 
     val druidQueries = toDruidQueries(metadata, druidQueryContext, fetchContext, expr).map {
       case (tags, metric, groupByQuery) =>
-        val druidStep = math.max(metric.primaryStep, fetchContext.step)
+        // Always use the step set on the druid metric from the datasource metadata.
+        // Ignore the "step" parameter on the request.
+        val druidStep = metric.primaryStep
         val metricContext = withStep(fetchContext, druidStep)
         // For sketches just use the distinct count, other types are assumed to be counters.
         val valueMapper =
@@ -354,20 +354,9 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
           // results are included.
           val matchingSeries = candidates.filter(ts => query.couldMatch(ts.tags))
 
-          // Some data may be at a higher resolution than others, if the step for the
-          // output is higher resolution than a metric supports, spread it out so it
-          // can be compared with the other signals.
-          val series =
-            if (fetchContext.step == metricContext.step) matchingSeries
-            else {
-              matchingSeries.map { ts =>
-                val seq = new ReduceStepTimeSeq(ts.data, fetchContext.step)
-                LazyTimeSeries(ts.tags, ts.label, seq)
-              }
-            }
-
-          // Apply offset if present
-          if (offset == 0L) series else series.map(_.offset(offset))
+          // Ignore the step size on the query parameter
+          // Always use the step size (granularity) from the metric's datasource in Druid.
+          if (offset == 0L) matchingSeries else matchingSeries.map(_.offset(offset))
         }
     }
 
@@ -390,7 +379,11 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
       .flatMapMerge(Int.MaxValue, v => v)
       .fold(List.empty[TimeSeries])(_ ::: _)
       .map { ts =>
-        evalExpr.eval(context, ts).data
+        // All timeseries must have the same step at this point, if not the request would have already failed.
+        // Ignore the "step" parameter on the request, use the step on the metrics.
+        val step = ts.headOption.map(_.data.step).getOrElse(context.step)
+        val druidContext = withStep(context, step)
+        evalExpr.eval(druidContext, ts).data
       }
   }
 
@@ -645,7 +638,7 @@ object DruidDatabaseActor {
         val name = m.tags("name")
         val datasource = m.tags("nf.datasource")
 
-        val druidStep = math.max(m.metric.primaryStep, context.step)
+        val druidStep = m.metric.primaryStep
         val druidContext = withStep(context, druidStep)
         val intervals = List(toInterval(druidContext))
 
