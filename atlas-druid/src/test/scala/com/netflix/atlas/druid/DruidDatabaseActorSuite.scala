@@ -41,7 +41,7 @@ import org.apache.pekko.http.scaladsl.model.HttpResponse
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.pattern.ask
-import org.mockito.MockitoSugar.mock
+import org.mockito.Mockito.mock
 import org.apache.pekko.util.Timeout
 import org.apache.pekko.testkit.ImplicitSender
 import org.apache.pekko.testkit.TestKitBase
@@ -369,9 +369,7 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
 
     arr1.indices.foreach { i =>
       val (a, b) = (arr1(i), arr2(i))
-      if (a.isNaN && b.isNaN) {
-        return
-      } else {
+      if (!a.isNaN || !b.isNaN) {
         assertEquals(a, b, s"Arrays differ at index $i: $a != $b")
       }
     }
@@ -418,7 +416,7 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
     import com.netflix.atlas.core.util.Streams.*
     val config = ConfigFactory.load()
 
-    val service = mock[DruidMetadataService]
+    val service = mock(classOf[DruidMetadataService])
 
     val mockResponses = files.map(f => {
       val payload = Using.resource(resource(f))(byteArray)
@@ -439,8 +437,6 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
     val uri = Uri(f"/api/v1/graph?q=$query&id=test")
     val graphCfg = grapher.toGraphConfig(uri)
 
-    val start = 1746805800000L
-    val end = 1746806405000L
     val evalContext = EvalContext(
       start, // start
       end, // end
