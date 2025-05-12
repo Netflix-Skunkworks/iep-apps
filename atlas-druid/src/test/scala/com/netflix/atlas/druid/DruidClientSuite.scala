@@ -316,7 +316,10 @@ class DruidClientSuite extends FunSuite {
 
     val client = newClient(Success(response))
     val query = TimeseriesQuery(
-        "ds_1", List("2025-05-09T15:50:00.000Z/2025-05-09T16:00:00.000Z"), List(Aggregation("doubleSum","m1")))
+      "ds_1",
+      List("2025-05-09T15:50:00.000Z/2025-05-09T16:00:00.000Z"),
+      List(Aggregation("doubleSum", "m1"))
+    )
 
     val future = client.timeseries(query).runWith(Sink.head)
     Await.result(future, Duration.Inf)

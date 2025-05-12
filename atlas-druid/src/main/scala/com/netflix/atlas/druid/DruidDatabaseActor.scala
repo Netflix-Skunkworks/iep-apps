@@ -30,7 +30,6 @@ import com.netflix.atlas.core.model.DefaultSettings
 import com.netflix.atlas.core.model.DsType
 import com.netflix.atlas.core.model.EvalContext
 import com.netflix.atlas.core.model.Query
-import com.netflix.atlas.core.model.ResultSet
 import com.netflix.atlas.core.model.SummaryStats
 import com.netflix.atlas.core.model.Tag
 import com.netflix.atlas.core.model.TagKey

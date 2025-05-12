@@ -379,22 +379,22 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
 
   def getTimeseriesDataPoints(ts: TimeSeries, start: Long, end: Long): Array[Double] = {
     val datapointBuffer = ArrayBuffer[Double]()
-    ts.data.foreach(start - 1, end) {
-      (_: Long, datapoint: Double) => {
+    ts.data.foreach(start - 1, end) { (_: Long, datapoint: Double) =>
+      {
         datapointBuffer += datapoint
       }
     }
     datapointBuffer.toArray
   }
 
-  def metadataWithDifferentStepSizes() : Metadata = {
+  def metadataWithDifferentStepSizes(): Metadata = {
     Metadata(
       List(
         DatasourceMetadata(
           "my_datasource_5s",
           Datasource(
             List("x", "y"),
-            List(Metric("my_metric_5s", "LONG", primaryStep=5000))
+            List(Metric("my_metric_5s", "LONG", primaryStep = 5000))
           )
         ),
         DatasourceMetadata(
@@ -409,7 +409,12 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
   }
 
   def setUpDataRequestQueryTest(
-        files: List[String], query : String, dataExpr: DataExpr, start: Long, end: Long): Future[Any] = {
+    files: List[String],
+    query: String,
+    dataExpr: DataExpr,
+    start: Long,
+    end: Long
+  ): Future[Any] = {
     import com.netflix.atlas.core.util.Streams.*
     val config = ConfigFactory.load()
 
@@ -422,7 +427,8 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
     })
     val druidClient = newDruidClient(mockResponses)
 
-    val actorRef: ActorRef = system.actorOf(Props(new DruidDatabaseActor(config, service, druidClient)))
+    val actorRef: ActorRef =
+      system.actorOf(Props(new DruidDatabaseActor(config, service, druidClient)))
 
     implicit val timeout: Timeout = Timeout(30.seconds) // Define implicit timeout
     val futureResponse = (actorRef ? metadataWithDifferentStepSizes()).mapTo[String]
@@ -454,12 +460,13 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
     val dataExpr = DataExpr.Sum(evalQuery(query))
     val start = 1746805800000L
     val end = 1746806405000L
-    val future = setUpDataRequestQueryTest(List("timeseriesResponse60sStep.json"), query, dataExpr, start, end)
+    val future =
+      setUpDataRequestQueryTest(List("timeseriesResponse60sStep.json"), query, dataExpr, start, end)
 
-    val dataResponse: DataResponse = Await.result(
-      future.mapTo[DataResponse], Timeout(30.seconds).duration)
+    val dataResponse: DataResponse =
+      Await.result(future.mapTo[DataResponse], Timeout(30.seconds).duration)
 
-    val tsList : List[TimeSeries] = dataResponse.ts(dataExpr)
+    val tsList: List[TimeSeries] = dataResponse.ts(dataExpr)
     assertEquals(tsList.size, 1)
     val ts: TimeSeries = tsList.head
 
@@ -492,12 +499,13 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
     val dataExpr = DataExpr.Sum(evalQuery(query))
     val start = 1746805800000L
     val end = 1746806405000L
-    val future = setUpDataRequestQueryTest(List("timeseriesResponse5sStep.json"), query, dataExpr, start, end)
+    val future =
+      setUpDataRequestQueryTest(List("timeseriesResponse5sStep.json"), query, dataExpr, start, end)
 
-    val dataResponse: DataResponse = Await.result(
-      future.mapTo[DataResponse], Timeout(30.seconds).duration)
+    val dataResponse: DataResponse =
+      Await.result(future.mapTo[DataResponse], Timeout(30.seconds).duration)
 
-    val tsList : List[TimeSeries] = dataResponse.ts(dataExpr)
+    val tsList: List[TimeSeries] = dataResponse.ts(dataExpr)
     assertEquals(tsList.size, 1)
     val ts: TimeSeries = tsList.head
 
@@ -510,19 +518,128 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
     assertArraysAreEqualWithNaN(
       getTimeseriesDataPoints(ts, start, end),
       Array(
-        Double.NaN, Double.NaN, 9.8, 9.0, 6.0, 7.4, 9.4,
-        7.4, 8.4, 8.6, 7.4, 7.0, 9.6, 5.8, 7.6, 5.0, 6.4,
-        7.0, 6.4, 5.8, 7.2, 7.0, 7.8, 6.2, 7.4, 7.8, 8.0,
-        8.2, 5.4, 5.8, 7.6, 8.2, 7.2, 8.6, 7.0, 5.6, 6.2,
-        6.6, 6.4, 7.2, 7.4, 7.8, 7.4, 6.6, 6.0, 7.4, 6.6,
-        7.4, 6.4, 6.4, 5.2, 6.2, 9.0, 5.2, 7.0, 8.2, 6.4,
-        6.0, 8.8, 8.6, 7.2, 8.4, 5.4, 8.0, 7.0, 7.2, 6.6,
-        7.6, 7.4, 7.8, 7.0, 7.0, 9.6, 8.6, 7.4, 6.8, 8.0,
-        6.4, 6.6, 6.4, 8.4, 6.4, 6.6, 7.4, 6.4, 5.6, 5.2,
-        8.0, 8.6, 7.6, 6.4, 7.4, 6.0, 8.0, 6.2, 9.6, 8.2,
-        7.6, 6.2, 5.4, 6.2, 8.2, 9.0, 6.4, 8.6, 5.6, 6.8,
-        7.6, 7.4, 5.4, 5.4, 6.8, 5.6, 6.4, 6.8, 7.2, 9.0,
-        8.8, 8.0, 5.8, 6.8, 6.8
+        Double.NaN,
+        Double.NaN,
+        9.8,
+        9.0,
+        6.0,
+        7.4,
+        9.4,
+        7.4,
+        8.4,
+        8.6,
+        7.4,
+        7.0,
+        9.6,
+        5.8,
+        7.6,
+        5.0,
+        6.4,
+        7.0,
+        6.4,
+        5.8,
+        7.2,
+        7.0,
+        7.8,
+        6.2,
+        7.4,
+        7.8,
+        8.0,
+        8.2,
+        5.4,
+        5.8,
+        7.6,
+        8.2,
+        7.2,
+        8.6,
+        7.0,
+        5.6,
+        6.2,
+        6.6,
+        6.4,
+        7.2,
+        7.4,
+        7.8,
+        7.4,
+        6.6,
+        6.0,
+        7.4,
+        6.6,
+        7.4,
+        6.4,
+        6.4,
+        5.2,
+        6.2,
+        9.0,
+        5.2,
+        7.0,
+        8.2,
+        6.4,
+        6.0,
+        8.8,
+        8.6,
+        7.2,
+        8.4,
+        5.4,
+        8.0,
+        7.0,
+        7.2,
+        6.6,
+        7.6,
+        7.4,
+        7.8,
+        7.0,
+        7.0,
+        9.6,
+        8.6,
+        7.4,
+        6.8,
+        8.0,
+        6.4,
+        6.6,
+        6.4,
+        8.4,
+        6.4,
+        6.6,
+        7.4,
+        6.4,
+        5.6,
+        5.2,
+        8.0,
+        8.6,
+        7.6,
+        6.4,
+        7.4,
+        6.0,
+        8.0,
+        6.2,
+        9.6,
+        8.2,
+        7.6,
+        6.2,
+        5.4,
+        6.2,
+        8.2,
+        9.0,
+        6.4,
+        8.6,
+        5.6,
+        6.8,
+        7.6,
+        7.4,
+        5.4,
+        5.4,
+        6.8,
+        5.6,
+        6.4,
+        6.8,
+        7.2,
+        9.0,
+        8.8,
+        8.0,
+        5.8,
+        6.8,
+        6.8
       )
     )
   }
@@ -542,8 +659,8 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
 
     implicit val timeout: Timeout = Timeout(30.seconds) // Define implicit timeout
 
-    val failure: Failure[IllegalArgumentException] = Await.result(
-      future.mapTo[Failure[IllegalArgumentException]], timeout.duration)
+    val failure: Failure[IllegalArgumentException] =
+      Await.result(future.mapTo[Failure[IllegalArgumentException]], timeout.duration)
     assertEquals(failure.exception.getMessage, "requirement failed: step sizes must be the same")
   }
 
