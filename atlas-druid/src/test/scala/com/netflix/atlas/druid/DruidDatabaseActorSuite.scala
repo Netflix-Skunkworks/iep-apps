@@ -15,24 +15,51 @@
  */
 package com.netflix.atlas.druid
 
+import com.netflix.atlas.core.model.ConsolidationFunction
+
 import java.time.Duration
 import java.time.Instant
-import com.netflix.atlas.core.model.ConsolidationFunction
 import com.netflix.atlas.core.model.DataExpr
 import com.netflix.atlas.core.model.EvalContext
 import com.netflix.atlas.core.model.Query
 import com.netflix.atlas.core.model.QueryVocabulary
+import com.netflix.atlas.core.model.TimeSeries
 import com.netflix.atlas.core.stacklang.Interpreter
 import com.netflix.atlas.druid.DruidClient.*
 import com.netflix.atlas.eval.graph.DefaultSettings
 import com.netflix.atlas.eval.graph.Grapher
 import com.netflix.atlas.json.Json
+import com.netflix.atlas.pekko.AccessLogger
 import com.netflix.atlas.webapi.GraphApi.DataRequest
+import com.netflix.atlas.webapi.GraphApi.DataResponse
 import com.typesafe.config.ConfigFactory
 import munit.FunSuite
+import org.apache.pekko.actor.ActorRef
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.actor.Props
+import org.apache.pekko.http.scaladsl.model.HttpResponse
+import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.pattern.ask
+import org.mockito.MockitoSugar.mock
+import org.apache.pekko.util.Timeout
+import org.apache.pekko.testkit.ImplicitSender
+import org.apache.pekko.testkit.TestKitBase
+import org.apache.pekko.stream.scaladsl.Flow
+import org.apache.pekko.http.scaladsl.model.HttpRequest
 
-class DruidDatabaseActorSuite extends FunSuite {
+import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.Await
+import scala.concurrent.Future
+import scala.util.Failure
+import scala.util.Success
+import scala.util.Try
+import scala.util.Using
+
+class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSender {
+
+  implicit val system: ActorSystem = ActorSystem()
 
   import DruidDatabaseActor.*
 
@@ -319,6 +346,205 @@ class DruidDatabaseActorSuite extends FunSuite {
     val json = Json.encode(m1._3)
     assert(json.contains("""{"dimension":"b","value":"foo","type":"selector"}"""))
     queries.forall(_._3.asInstanceOf[TimeseriesQuery].context == toTestDruidQueryContext(expr))
+  }
+
+  private def newDruidClient(mockResponses: List[Try[HttpResponse]]): DruidClient = {
+    // Iterator to cycle through the list of results
+    val resultIterator = Iterator.continually(mockResponses).flatten
+
+    val client = Flow[(HttpRequest, AccessLogger)]
+      .map {
+        case (_, logger) =>
+          val result = resultIterator.next() // Get the next result in the list
+          result -> logger
+      }
+
+    val config = ConfigFactory.load().getConfig("atlas.druid")
+    new DruidClient(config, system, client)
+  }
+
+  // This helper function is needed since two NaNs are not equivalent in scala
+  def assertArraysAreEqualWithNaN(arr1: Array[Double], arr2: Array[Double]): Unit = {
+    assertEquals(arr1.length, arr2.length, "Arrays have different lengths")
+
+    arr1.indices.foreach { i =>
+      val (a, b) = (arr1(i), arr2(i))
+      if (a.isNaN && b.isNaN) {
+        return
+      } else {
+        assertEquals(a, b, s"Arrays differ at index $i: $a != $b")
+      }
+    }
+  }
+
+  def getTimeseriesDataPoints(ts: TimeSeries, start: Long, end: Long): Array[Double] = {
+    val datapointBuffer = ArrayBuffer[Double]()
+    ts.data.foreach(start - 1, end) {
+      (_: Long, datapoint: Double) => {
+        datapointBuffer += datapoint
+      }
+    }
+    datapointBuffer.toArray
+  }
+
+  def metadataWithDifferentStepSizes() : Metadata = {
+    Metadata(
+      List(
+        DatasourceMetadata(
+          "my_datasource_5s",
+          Datasource(
+            List("x", "y"),
+            List(Metric("my_metric_5s", "LONG", primaryStep=5000))
+          )
+        ),
+        DatasourceMetadata(
+          "my_datasource",
+          Datasource(
+            List("x", "y"),
+            List(Metric("my_metric", "LONG")) // defaults to 60_000 secs
+          )
+        )
+      )
+    )
+  }
+
+  def setUpDataRequestQueryTest(
+        files: List[String], query : String, dataExpr: DataExpr, start: Long, end: Long): Future[Any] = {
+    import com.netflix.atlas.core.util.Streams.*
+    val config = ConfigFactory.load()
+
+    val service = mock[DruidMetadataService]
+
+    val mockResponses = files.map(f => {
+      val payload = Using.resource(resource(f))(byteArray)
+      val response = HttpResponse(StatusCodes.OK, entity = payload)
+      Success(response)
+    })
+    val druidClient = newDruidClient(mockResponses)
+
+    val actorRef: ActorRef = system.actorOf(Props(new DruidDatabaseActor(config, service, druidClient)))
+
+    implicit val timeout: Timeout = Timeout(30.seconds) // Define implicit timeout
+    val futureResponse = (actorRef ? metadataWithDifferentStepSizes()).mapTo[String]
+    val result: String = Await.result(futureResponse, timeout.duration)
+    assertEquals(result, "metadata_updated")
+
+    val grapher = Grapher(DefaultSettings(config))
+    val uri = Uri(f"/api/v1/graph?q=$query&id=test")
+    val graphCfg = grapher.toGraphConfig(uri)
+
+    val start = 1746805800000L
+    val end = 1746806405000L
+    val evalContext = EvalContext(
+      start, // start
+      end, // end
+      5000L // step, this should be ignored
+    )
+
+    val dataRequest: DataRequest = DataRequest(
+      evalContext,
+      List(dataExpr),
+      Some(graphCfg)
+    )
+    actorRef ? dataRequest
+  }
+
+  test("simple 60s datasource query") {
+    val query = "name,my_metric,:eq"
+    val dataExpr = DataExpr.Sum(evalQuery(query))
+    val start = 1746805800000L
+    val end = 1746806405000L
+    val future = setUpDataRequestQueryTest(List("timeseriesResponse60sStep.json"), query, dataExpr, start, end)
+
+    val dataResponse: DataResponse = Await.result(
+      future.mapTo[DataResponse], Timeout(30.seconds).duration)
+
+    val tsList : List[TimeSeries] = dataResponse.ts(dataExpr)
+    assertEquals(tsList.size, 1)
+    val ts: TimeSeries = tsList.head
+
+    assertEquals(ts.label, "name=my_metric")
+    assertEquals(ts.tags, Map("name" -> "my_metric"))
+    // Expect that the step size will come from the metadata for the metrics.
+    // The step passed in via context on the DataRequest should not be used.
+    assertEquals(ts.data.step, 60000L)
+
+    assertArraysAreEqualWithNaN(
+      getTimeseriesDataPoints(ts, start, end),
+      Array(
+        Double.NaN,
+        Double.NaN,
+        25.366666666666667,
+        28.233333333333334,
+        50.666666666666664,
+        27.266666666666666,
+        21.95,
+        27.916666666666668,
+        25.783333333333335,
+        20.783333333333335,
+        22.633333333333333
+      )
+    )
+  }
+
+  test("simple 5s datasource query") {
+    val query = "name,my_metric_5s,:eq"
+    val dataExpr = DataExpr.Sum(evalQuery(query))
+    val start = 1746805800000L
+    val end = 1746806405000L
+    val future = setUpDataRequestQueryTest(List("timeseriesResponse5sStep.json"), query, dataExpr, start, end)
+
+    val dataResponse: DataResponse = Await.result(
+      future.mapTo[DataResponse], Timeout(30.seconds).duration)
+
+    val tsList : List[TimeSeries] = dataResponse.ts(dataExpr)
+    assertEquals(tsList.size, 1)
+    val ts: TimeSeries = tsList.head
+
+    assertEquals(ts.label, "name=my_metric_5s")
+    assertEquals(ts.tags, Map("name" -> "my_metric_5s"))
+    // Expect that the step size will come from the metadata for the metrics.
+    // The step passed in via context on the DataRequest should not be used.
+    assertEquals(ts.data.step, 5000L)
+
+    assertArraysAreEqualWithNaN(
+      getTimeseriesDataPoints(ts, start, end),
+      Array(
+        Double.NaN, Double.NaN, 9.8, 9.0, 6.0, 7.4, 9.4,
+        7.4, 8.4, 8.6, 7.4, 7.0, 9.6, 5.8, 7.6, 5.0, 6.4,
+        7.0, 6.4, 5.8, 7.2, 7.0, 7.8, 6.2, 7.4, 7.8, 8.0,
+        8.2, 5.4, 5.8, 7.6, 8.2, 7.2, 8.6, 7.0, 5.6, 6.2,
+        6.6, 6.4, 7.2, 7.4, 7.8, 7.4, 6.6, 6.0, 7.4, 6.6,
+        7.4, 6.4, 6.4, 5.2, 6.2, 9.0, 5.2, 7.0, 8.2, 6.4,
+        6.0, 8.8, 8.6, 7.2, 8.4, 5.4, 8.0, 7.0, 7.2, 6.6,
+        7.6, 7.4, 7.8, 7.0, 7.0, 9.6, 8.6, 7.4, 6.8, 8.0,
+        6.4, 6.6, 6.4, 8.4, 6.4, 6.6, 7.4, 6.4, 5.6, 5.2,
+        8.0, 8.6, 7.6, 6.4, 7.4, 6.0, 8.0, 6.2, 9.6, 8.2,
+        7.6, 6.2, 5.4, 6.2, 8.2, 9.0, 6.4, 8.6, 5.6, 6.8,
+        7.6, 7.4, 5.4, 5.4, 6.8, 5.6, 6.4, 6.8, 7.2, 9.0,
+        8.8, 8.0, 5.8, 6.8, 6.8
+      )
+    )
+  }
+
+  test("error when querying both a 60s and 5s datasource") {
+    val query = "name,(,my_metric,my_metric_5s,),:in"
+    val dataExpr = DataExpr.Sum(evalQuery(query))
+    val start = 1746805800000L
+    val end = 1746806405000L
+    val future = setUpDataRequestQueryTest(
+      List("timeseriesResponse5sStep.json", "timeseriesResponse60sStep.json"),
+      "name,(,my_metric,my_metric_5s,),:in",
+      dataExpr,
+      start,
+      end
+    )
+
+    implicit val timeout: Timeout = Timeout(30.seconds) // Define implicit timeout
+
+    val failure: Failure[IllegalArgumentException] = Await.result(
+      future.mapTo[Failure[IllegalArgumentException]], timeout.duration)
+    assertEquals(failure.exception.getMessage, "requirement failed: step sizes must be the same")
   }
 
   private def evalQuery(str: String): Query = {

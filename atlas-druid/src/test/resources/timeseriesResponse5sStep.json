@@ -1,0 +1,728 @@
+[
+    {
+        "timestamp": "2025-05-09T15:50:00.000Z",
+        "result": {
+            "value": 49.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:50:05.000Z",
+        "result": {
+            "value": 45.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:50:10.000Z",
+        "result": {
+            "value": 30.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:50:15.000Z",
+        "result": {
+            "value": 37.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:50:20.000Z",
+        "result": {
+            "value": 47.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:50:25.000Z",
+        "result": {
+            "value": 37.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:50:30.000Z",
+        "result": {
+            "value": 42.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:50:35.000Z",
+        "result": {
+            "value": 43.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:50:40.000Z",
+        "result": {
+            "value": 37.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:50:45.000Z",
+        "result": {
+            "value": 35.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:50:50.000Z",
+        "result": {
+            "value": 48.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:50:55.000Z",
+        "result": {
+            "value": 29.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:51:00.000Z",
+        "result": {
+            "value": 38.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:51:05.000Z",
+        "result": {
+            "value": 25.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:51:10.000Z",
+        "result": {
+            "value": 32.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:51:15.000Z",
+        "result": {
+            "value": 35.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:51:20.000Z",
+        "result": {
+            "value": 32.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:51:25.000Z",
+        "result": {
+            "value": 29.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:51:30.000Z",
+        "result": {
+            "value": 36.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:51:35.000Z",
+        "result": {
+            "value": 35.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:51:40.000Z",
+        "result": {
+            "value": 39.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:51:45.000Z",
+        "result": {
+            "value": 31.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:51:50.000Z",
+        "result": {
+            "value": 37.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:51:55.000Z",
+        "result": {
+            "value": 39.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:52:00.000Z",
+        "result": {
+            "value": 40.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:52:05.000Z",
+        "result": {
+            "value": 41.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:52:10.000Z",
+        "result": {
+            "value": 27.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:52:15.000Z",
+        "result": {
+            "value": 29.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:52:20.000Z",
+        "result": {
+            "value": 38.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:52:25.000Z",
+        "result": {
+            "value": 41.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:52:30.000Z",
+        "result": {
+            "value": 36.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:52:35.000Z",
+        "result": {
+            "value": 43.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:52:40.000Z",
+        "result": {
+            "value": 35.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:52:45.000Z",
+        "result": {
+            "value": 28.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:52:50.000Z",
+        "result": {
+            "value": 31.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:52:55.000Z",
+        "result": {
+            "value": 33.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:53:00.000Z",
+        "result": {
+            "value": 32.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:53:05.000Z",
+        "result": {
+            "value": 36.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:53:10.000Z",
+        "result": {
+            "value": 37.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:53:15.000Z",
+        "result": {
+            "value": 39.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:53:20.000Z",
+        "result": {
+            "value": 37.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:53:25.000Z",
+        "result": {
+            "value": 33.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:53:30.000Z",
+        "result": {
+            "value": 30.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:53:35.000Z",
+        "result": {
+            "value": 37.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:53:40.000Z",
+        "result": {
+            "value": 33.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:53:45.000Z",
+        "result": {
+            "value": 37.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:53:50.000Z",
+        "result": {
+            "value": 32.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:53:55.000Z",
+        "result": {
+            "value": 32.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:54:00.000Z",
+        "result": {
+            "value": 26.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:54:05.000Z",
+        "result": {
+            "value": 31.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:54:10.000Z",
+        "result": {
+            "value": 45.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:54:15.000Z",
+        "result": {
+            "value": 26.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:54:20.000Z",
+        "result": {
+            "value": 35.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:54:25.000Z",
+        "result": {
+            "value": 41.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:54:30.000Z",
+        "result": {
+            "value": 32.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:54:35.000Z",
+        "result": {
+            "value": 30.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:54:40.000Z",
+        "result": {
+            "value": 44.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:54:45.000Z",
+        "result": {
+            "value": 43.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:54:50.000Z",
+        "result": {
+            "value": 36.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:54:55.000Z",
+        "result": {
+            "value": 42.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:55:00.000Z",
+        "result": {
+            "value": 27.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:55:05.000Z",
+        "result": {
+            "value": 40.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:55:10.000Z",
+        "result": {
+            "value": 35.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:55:15.000Z",
+        "result": {
+            "value": 36.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:55:20.000Z",
+        "result": {
+            "value": 33.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:55:25.000Z",
+        "result": {
+            "value": 38.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:55:30.000Z",
+        "result": {
+            "value": 37.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:55:35.000Z",
+        "result": {
+            "value": 39.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:55:40.000Z",
+        "result": {
+            "value": 35.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:55:45.000Z",
+        "result": {
+            "value": 35.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:55:50.000Z",
+        "result": {
+            "value": 48.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:55:55.000Z",
+        "result": {
+            "value": 43.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:56:00.000Z",
+        "result": {
+            "value": 37.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:56:05.000Z",
+        "result": {
+            "value": 34.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:56:10.000Z",
+        "result": {
+            "value": 40.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:56:15.000Z",
+        "result": {
+            "value": 32.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:56:20.000Z",
+        "result": {
+            "value": 33.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:56:25.000Z",
+        "result": {
+            "value": 32.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:56:30.000Z",
+        "result": {
+            "value": 42.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:56:35.000Z",
+        "result": {
+            "value": 32.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:56:40.000Z",
+        "result": {
+            "value": 33.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:56:45.000Z",
+        "result": {
+            "value": 37.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:56:50.000Z",
+        "result": {
+            "value": 32.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:56:55.000Z",
+        "result": {
+            "value": 28.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:57:00.000Z",
+        "result": {
+            "value": 26.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:57:05.000Z",
+        "result": {
+            "value": 40.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:57:10.000Z",
+        "result": {
+            "value": 43.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:57:15.000Z",
+        "result": {
+            "value": 38.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:57:20.000Z",
+        "result": {
+            "value": 32.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:57:25.000Z",
+        "result": {
+            "value": 37.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:57:30.000Z",
+        "result": {
+            "value": 30.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:57:35.000Z",
+        "result": {
+            "value": 40.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:57:40.000Z",
+        "result": {
+            "value": 31.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:57:45.000Z",
+        "result": {
+            "value": 48.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:57:50.000Z",
+        "result": {
+            "value": 41.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:57:55.000Z",
+        "result": {
+            "value": 38.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:58:00.000Z",
+        "result": {
+            "value": 31.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:58:05.000Z",
+        "result": {
+            "value": 27.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:58:10.000Z",
+        "result": {
+            "value": 31.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:58:15.000Z",
+        "result": {
+            "value": 41.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:58:20.000Z",
+        "result": {
+            "value": 45.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:58:25.000Z",
+        "result": {
+            "value": 32.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:58:30.000Z",
+        "result": {
+            "value": 43.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:58:35.000Z",
+        "result": {
+            "value": 28.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:58:40.000Z",
+        "result": {
+            "value": 34.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:58:45.000Z",
+        "result": {
+            "value": 38.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:58:50.000Z",
+        "result": {
+            "value": 37.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:58:55.000Z",
+        "result": {
+            "value": 27.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:59:00.000Z",
+        "result": {
+            "value": 27.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:59:05.000Z",
+        "result": {
+            "value": 34.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:59:10.000Z",
+        "result": {
+            "value": 28.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:59:15.000Z",
+        "result": {
+            "value": 32.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:59:20.000Z",
+        "result": {
+            "value": 34.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:59:25.000Z",
+        "result": {
+            "value": 36.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:59:30.000Z",
+        "result": {
+            "value": 45.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:59:35.000Z",
+        "result": {
+            "value": 44.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:59:40.000Z",
+        "result": {
+            "value": 40.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:59:45.000Z",
+        "result": {
+            "value": 29.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:59:50.000Z",
+        "result": {
+            "value": 34.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T15:59:55.000Z",
+        "result": {
+            "value": 34.0
+        }
+    },
+    {
+        "timestamp": "2025-05-09T16:00:00.000Z",
+        "result": {
+            "value": 34.0
+        }
+    }
+]
