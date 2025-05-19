@@ -20,10 +20,8 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.Actor
 import org.apache.pekko.actor.ActorRef
 import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.stream.scaladsl.Source
-import com.netflix.atlas.pekko.AccessLogger
 import com.netflix.atlas.core.index.TagQuery
 import com.netflix.atlas.core.model.ArrayTimeSeq
 import com.netflix.atlas.core.model.ConsolidationFunction
