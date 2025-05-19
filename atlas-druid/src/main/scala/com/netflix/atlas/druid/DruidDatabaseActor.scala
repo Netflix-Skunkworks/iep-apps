@@ -20,10 +20,8 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.Actor
 import org.apache.pekko.actor.ActorRef
 import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.http.scaladsl.Http
 import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.stream.scaladsl.Source
-import com.netflix.atlas.pekko.AccessLogger
 import com.netflix.atlas.core.index.TagQuery
 import com.netflix.atlas.core.model.ArrayTimeSeq
 import com.netflix.atlas.core.model.ConsolidationFunction
@@ -54,7 +52,7 @@ import scala.concurrent.duration.*
 import scala.util.Failure
 import scala.util.Success
 
-class DruidDatabaseActor(config: Config, service: DruidMetadataService)
+class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: DruidClient)
     extends Actor
     with StrictLogging {
 
@@ -68,9 +66,6 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService)
   import com.netflix.atlas.webapi.TagsApi.*
 
   private implicit val sys: ActorSystem = context.system
-
-  private val client =
-    new DruidClient(config.getConfig("atlas.druid"), sys, Http().superPool[AccessLogger]())
 
   private val maxDataSize = config.getBytes("atlas.druid.max-data-size")
 
