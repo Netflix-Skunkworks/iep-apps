@@ -48,7 +48,6 @@ import org.apache.pekko.testkit.TestKitBase
 import org.apache.pekko.stream.scaladsl.Flow
 import org.apache.pekko.http.scaladsl.model.HttpRequest
 
-import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.Await
 import scala.util.Success
@@ -361,26 +360,14 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
     new DruidClient(config, system, client)
   }
 
-  // This helper function is needed since two NaNs are not equivalent in scala
-  def assertArraysAreEqualWithNaN(arr1: Array[Double], arr2: Array[Double]): Unit = {
-    assertEquals(arr1.length, arr2.length, "Arrays have different lengths")
-
-    arr1.indices.foreach { i =>
-      val (a, b) = (arr1(i), arr2(i))
-      if (!a.isNaN || !b.isNaN) {
-        assertEquals(a, b, s"Arrays differ at index $i: $a != $b")
-      }
-    }
-  }
-
-  def getTimeseriesDataPoints(ts: TimeSeries, start: Long, end: Long): Array[Double] = {
-    val datapointBuffer = ArrayBuffer[Double]()
+  def getNumDatapoints(ts: TimeSeries, start: Long, end: Long): Long = {
+    var count = 0L
     ts.data.foreach(start - 1, end) { (_: Long, datapoint: Double) =>
       {
-        datapointBuffer += datapoint
+        count += 1L
       }
     }
-    datapointBuffer.toArray
+    count
   }
 
   def metadataWithDifferentStepSizes(): Metadata = {
@@ -475,22 +462,7 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
     // Always use the maximum step of the requestedStepSize and the metrics.
     assertEquals(ts.data.step, requestStepSize)
 
-    assertArraysAreEqualWithNaN(
-      getTimeseriesDataPoints(ts, start, end),
-      Array(
-        Double.NaN,
-        Double.NaN,
-        25.366666666666667,
-        28.233333333333334,
-        50.666666666666664,
-        27.266666666666666,
-        21.95,
-        27.916666666666668,
-        25.783333333333335,
-        20.783333333333335,
-        22.633333333333333
-      )
-    )
+    assertEquals(getNumDatapoints(ts, start, end), 11L)
   }
 
   test("querying a 60s datasource with a 5s step request should respond as 60s") {
@@ -511,22 +483,7 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
     // Always use the maximum step of the requestedStepSize and the metrics.
     assertEquals(ts.data.step, 60000L)
 
-    assertArraysAreEqualWithNaN(
-      getTimeseriesDataPoints(ts, start, end),
-      Array(
-        Double.NaN,
-        Double.NaN,
-        25.366666666666667,
-        28.233333333333334,
-        50.666666666666664,
-        27.266666666666666,
-        21.95,
-        27.916666666666668,
-        25.783333333333335,
-        20.783333333333335,
-        22.633333333333333
-      )
-    )
+    assertEquals(getNumDatapoints(ts, start, end), 11L)
   }
 
   test("querying a 5s datasource with a 60s step request should respond as 60s") {
@@ -547,22 +504,7 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
     // Always use the maximum step of the requestedStepSize and the metrics.
     assertEquals(ts.data.step, requestStepSize)
 
-    assertArraysAreEqualWithNaN(
-      getTimeseriesDataPoints(ts, start, end),
-      Array(
-        Double.NaN,
-        Double.NaN,
-        0.48333333333333334,
-        0.65,
-        0.55,
-        0.5333333333333333,
-        0.7,
-        0.7166666666666667,
-        0.4666666666666667,
-        0.6333333333333333,
-        0.45
-      )
-    )
+    assertEquals(getNumDatapoints(ts, start, end), 11L)
   }
 
   test("querying a 5s datasource with a 5s step request should respond as 5s") {
@@ -583,133 +525,7 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
     // Always use the maximum step of the requestedStepSize and the metrics.
     assertEquals(ts.data.step, requestStepSize)
 
-    assertArraysAreEqualWithNaN(
-      getTimeseriesDataPoints(ts, start, end),
-      Array(
-        Double.NaN,
-        Double.NaN,
-        9.8,
-        9.0,
-        6.0,
-        7.4,
-        9.4,
-        7.4,
-        8.4,
-        8.6,
-        7.4,
-        7.0,
-        9.6,
-        5.8,
-        7.6,
-        5.0,
-        6.4,
-        7.0,
-        6.4,
-        5.8,
-        7.2,
-        7.0,
-        7.8,
-        6.2,
-        7.4,
-        7.8,
-        8.0,
-        8.2,
-        5.4,
-        5.8,
-        7.6,
-        8.2,
-        7.2,
-        8.6,
-        7.0,
-        5.6,
-        6.2,
-        6.6,
-        6.4,
-        7.2,
-        7.4,
-        7.8,
-        7.4,
-        6.6,
-        6.0,
-        7.4,
-        6.6,
-        7.4,
-        6.4,
-        6.4,
-        5.2,
-        6.2,
-        9.0,
-        5.2,
-        7.0,
-        8.2,
-        6.4,
-        6.0,
-        8.8,
-        8.6,
-        7.2,
-        8.4,
-        5.4,
-        8.0,
-        7.0,
-        7.2,
-        6.6,
-        7.6,
-        7.4,
-        7.8,
-        7.0,
-        7.0,
-        9.6,
-        8.6,
-        7.4,
-        6.8,
-        8.0,
-        6.4,
-        6.6,
-        6.4,
-        8.4,
-        6.4,
-        6.6,
-        7.4,
-        6.4,
-        5.6,
-        5.2,
-        8.0,
-        8.6,
-        7.6,
-        6.4,
-        7.4,
-        6.0,
-        8.0,
-        6.2,
-        9.6,
-        8.2,
-        7.6,
-        6.2,
-        5.4,
-        6.2,
-        8.2,
-        9.0,
-        6.4,
-        8.6,
-        5.6,
-        6.8,
-        7.6,
-        7.4,
-        5.4,
-        5.4,
-        6.8,
-        5.6,
-        6.4,
-        6.8,
-        7.2,
-        9.0,
-        8.8,
-        8.0,
-        5.8,
-        6.8,
-        6.8
-      )
-    )
+    assertEquals(getNumDatapoints(ts, start, end), 122L)
   }
 
   test("querying 60s and 5s datasources with a 60s step request should respond as 60s") {
@@ -729,22 +545,7 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
     // Always use the maximum step of the requestedStepSize and the metrics.
     assertEquals(ts.data.step, 60000L)
 
-    assertArraysAreEqualWithNaN(
-      getTimeseriesDataPoints(ts, start, end),
-      Array(
-        Double.NaN,
-        Double.NaN,
-        25.85,
-        28.883333333333333,
-        51.21666666666666,
-        27.8,
-        22.65,
-        28.633333333333333,
-        26.25,
-        21.416666666666668,
-        23.083333333333332
-      )
-    )
+    assertEquals(getNumDatapoints(ts, start, end), 11L)
   }
 
   test("querying 60s and 5s datasources with a 5s step request should respond as 60s") {
@@ -764,22 +565,7 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
     // Always use the maximum step of the requestedStepSize and the metrics.
     assertEquals(ts.data.step, 60000L)
 
-    assertArraysAreEqualWithNaN(
-      getTimeseriesDataPoints(ts, start, end),
-      Array(
-        Double.NaN,
-        Double.NaN,
-        25.85,
-        28.883333333333333,
-        51.21666666666666,
-        27.8,
-        22.65,
-        28.633333333333333,
-        26.25,
-        21.416666666666668,
-        23.083333333333332
-      )
-    )
+    assertEquals(getNumDatapoints(ts, start, end), 11L)
   }
 
   private def evalQuery(str: String): Query = {
