@@ -329,12 +329,17 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
       }
     val query = expr.query
 
-    val druidQueries = toDruidQueries(metadata, druidQueryContext, fetchContext, expr).map {
+    val druidQueries = toDruidQueries(metadata, druidQueryContext, fetchContext, expr)
+
+    val maxMetricStep = druidQueries.map {
+      case (_, metric, _) => metric.primaryStep
+    }.max
+    // Always use the maximum step size of the requested step, and each of the metrics.
+    val stepSizeToQueryAs = math.max(maxMetricStep, fetchContext.step)
+
+    val druidQueriesAsSource = druidQueries.map {
       case (tags, metric, groupByQuery) =>
-        // Always use the step set on the druid metric from the datasource metadata.
-        // Ignore the "step" parameter on the request.
-        val druidStep = metric.primaryStep
-        val metricContext = withStep(fetchContext, druidStep)
+        val metricContext = withStep(fetchContext, stepSizeToQueryAs)
         // For sketches just use the distinct count, other types are assumed to be counters.
         val valueMapper =
           if (metric.isSketch)
@@ -353,8 +358,7 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
           // results are included.
           val matchingSeries = candidates.filter(ts => query.couldMatch(ts.tags))
 
-          // Ignore the step size on the query parameter
-          // Always use the step size (granularity) from the metric's datasource in Druid.
+          // Apply offset if present
           if (offset == 0L) matchingSeries else matchingSeries.map(_.offset(offset))
         }
     }
@@ -374,14 +378,11 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
       }
       .asInstanceOf[DataExpr]
 
-    Source(druidQueries)
+    Source(druidQueriesAsSource)
       .flatMapMerge(Int.MaxValue, v => v)
       .fold(List.empty[TimeSeries])(_ ::: _)
       .map { ts =>
-        // All timeseries must have the same step at this point, if not the request would have already failed.
-        // Ignore the "step" parameter on the request, use the step on the metrics.
-        val step = ts.headOption.map(_.data.step).getOrElse(context.step)
-        val druidContext = withStep(context, step)
+        val druidContext = withStep(context, stepSizeToQueryAs)
         evalExpr.eval(druidContext, ts).data
       }
   }
@@ -637,7 +638,7 @@ object DruidDatabaseActor {
         val name = m.tags("name")
         val datasource = m.tags("nf.datasource")
 
-        val druidStep = m.metric.primaryStep
+        val druidStep = math.max(m.metric.primaryStep, context.step)
         val druidContext = withStep(context, druidStep)
         val intervals = List(toInterval(druidContext))
 

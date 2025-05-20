@@ -51,8 +51,6 @@ import org.apache.pekko.http.scaladsl.model.HttpRequest
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.Await
-import scala.concurrent.Future
-import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
 import scala.util.Using
@@ -406,15 +404,16 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
     )
   }
 
-  def setUpDataRequestQueryTest(
+  def runDataRequestQueryTest(
     files: List[String],
     query: String,
-    dataExpr: DataExpr,
     start: Long,
-    end: Long
-  ): Future[Any] = {
+    end: Long,
+    requestStepSize: Long
+  ): TimeSeries = {
     import com.netflix.atlas.core.util.Streams.*
     val config = ConfigFactory.load()
+    val dataExpr = DataExpr.Sum(evalQuery(query))
 
     val service = mock(classOf[DruidMetadataService])
 
@@ -440,7 +439,7 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
     val evalContext = EvalContext(
       start, // start
       end, // end
-      5000L // step, this should be ignored
+      requestStepSize // step, this should be ignored
     )
 
     val dataRequest: DataRequest = DataRequest(
@@ -448,28 +447,68 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
       List(dataExpr),
       Some(graphCfg)
     )
-    actorRef ? dataRequest
-  }
-
-  test("simple 60s datasource query") {
-    val query = "name,my_metric,:eq"
-    val dataExpr = DataExpr.Sum(evalQuery(query))
-    val start = 1746805800000L
-    val end = 1746806405000L
-    val future =
-      setUpDataRequestQueryTest(List("timeseriesResponse60sStep.json"), query, dataExpr, start, end)
+    val future = actorRef ? dataRequest
 
     val dataResponse: DataResponse =
       Await.result(future.mapTo[DataResponse], Timeout(30.seconds).duration)
 
     val tsList: List[TimeSeries] = dataResponse.ts(dataExpr)
     assertEquals(tsList.size, 1)
-    val ts: TimeSeries = tsList.head
+    tsList.head
+  }
+
+  test("querying a 60s datasource with a 60s step request should respond as 60s") {
+    val start = 1746805800000L
+    val end = 1746806405000L
+    val requestStepSize = 60000L
+    val ts: TimeSeries =
+      runDataRequestQueryTest(
+        List("timeseriesResponse60sStep.json"),
+        "name,my_metric,:eq",
+        start,
+        end,
+        requestStepSize
+      )
 
     assertEquals(ts.label, "name=my_metric")
     assertEquals(ts.tags, Map("name" -> "my_metric"))
-    // Expect that the step size will come from the metadata for the metrics.
-    // The step passed in via context on the DataRequest should not be used.
+    // Always use the maximum step of the requestedStepSize and the metrics.
+    assertEquals(ts.data.step, requestStepSize)
+
+    assertArraysAreEqualWithNaN(
+      getTimeseriesDataPoints(ts, start, end),
+      Array(
+        Double.NaN,
+        Double.NaN,
+        25.366666666666667,
+        28.233333333333334,
+        50.666666666666664,
+        27.266666666666666,
+        21.95,
+        27.916666666666668,
+        25.783333333333335,
+        20.783333333333335,
+        22.633333333333333
+      )
+    )
+  }
+
+  test("querying a 60s datasource with a 5s step request should respond as 60s") {
+    val start = 1746805800000L
+    val end = 1746806405000L
+    val requestStepSize = 5000L
+    val ts: TimeSeries =
+      runDataRequestQueryTest(
+        List("timeseriesResponse60sStep.json"),
+        "name,my_metric,:eq",
+        start,
+        end,
+        requestStepSize
+      )
+
+    assertEquals(ts.label, "name=my_metric")
+    assertEquals(ts.tags, Map("name" -> "my_metric"))
+    // Always use the maximum step of the requestedStepSize and the metrics.
     assertEquals(ts.data.step, 60000L)
 
     assertArraysAreEqualWithNaN(
@@ -490,26 +529,59 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
     )
   }
 
-  test("simple 5s datasource query") {
-    val query = "name,my_metric_5s,:eq"
-    val dataExpr = DataExpr.Sum(evalQuery(query))
+  test("querying a 5s datasource with a 60s step request should respond as 60s") {
     val start = 1746805800000L
     val end = 1746806405000L
-    val future =
-      setUpDataRequestQueryTest(List("timeseriesResponse5sStep.json"), query, dataExpr, start, end)
-
-    val dataResponse: DataResponse =
-      Await.result(future.mapTo[DataResponse], Timeout(30.seconds).duration)
-
-    val tsList: List[TimeSeries] = dataResponse.ts(dataExpr)
-    assertEquals(tsList.size, 1)
-    val ts: TimeSeries = tsList.head
+    val requestStepSize = 60000L
+    val ts: TimeSeries =
+      runDataRequestQueryTest(
+        List("timeseriesResponse5sStep.json"),
+        "name,my_metric_5s,:eq",
+        start,
+        end,
+        requestStepSize
+      )
 
     assertEquals(ts.label, "name=my_metric_5s")
     assertEquals(ts.tags, Map("name" -> "my_metric_5s"))
-    // Expect that the step size will come from the metadata for the metrics.
-    // The step passed in via context on the DataRequest should not be used.
-    assertEquals(ts.data.step, 5000L)
+    // Always use the maximum step of the requestedStepSize and the metrics.
+    assertEquals(ts.data.step, requestStepSize)
+
+    assertArraysAreEqualWithNaN(
+      getTimeseriesDataPoints(ts, start, end),
+      Array(
+        Double.NaN,
+        Double.NaN,
+        0.48333333333333334,
+        0.65,
+        0.55,
+        0.5333333333333333,
+        0.7,
+        0.7166666666666667,
+        0.4666666666666667,
+        0.6333333333333333,
+        0.45
+      )
+    )
+  }
+
+  test("querying a 5s datasource with a 5s step request should respond as 5s") {
+    val start = 1746805800000L
+    val end = 1746806405000L
+    val requestStepSize = 5000L
+    val ts: TimeSeries =
+      runDataRequestQueryTest(
+        List("timeseriesResponse5sStep.json"),
+        "name,my_metric_5s,:eq",
+        start,
+        end,
+        requestStepSize
+      )
+
+    assertEquals(ts.label, "name=my_metric_5s")
+    assertEquals(ts.tags, Map("name" -> "my_metric_5s"))
+    // Always use the maximum step of the requestedStepSize and the metrics.
+    assertEquals(ts.data.step, requestStepSize)
 
     assertArraysAreEqualWithNaN(
       getTimeseriesDataPoints(ts, start, end),
@@ -640,24 +712,74 @@ class DruidDatabaseActorSuite extends FunSuite with TestKitBase with ImplicitSen
     )
   }
 
-  test("error when querying both a 60s and 5s datasource") {
-    val query = "name,(,my_metric,my_metric_5s,),:in"
-    val dataExpr = DataExpr.Sum(evalQuery(query))
+  test("querying 60s and 5s datasources with a 60s step request should respond as 60s") {
     val start = 1746805800000L
     val end = 1746806405000L
-    val future = setUpDataRequestQueryTest(
+    val requestStepSize = 60000L
+    val ts: TimeSeries = runDataRequestQueryTest(
       List("timeseriesResponse5sStep.json", "timeseriesResponse60sStep.json"),
       "name,(,my_metric,my_metric_5s,),:in",
-      dataExpr,
       start,
-      end
+      end,
+      requestStepSize
     )
 
-    implicit val timeout: Timeout = Timeout(30.seconds) // Define implicit timeout
+    assertEquals(ts.label, "name=unknown")
+    assertEquals(ts.tags, Map("name" -> "unknown"))
+    // Always use the maximum step of the requestedStepSize and the metrics.
+    assertEquals(ts.data.step, 60000L)
 
-    val failure: Failure[IllegalArgumentException] =
-      Await.result(future.mapTo[Failure[IllegalArgumentException]], timeout.duration)
-    assertEquals(failure.exception.getMessage, "requirement failed: step sizes must be the same")
+    assertArraysAreEqualWithNaN(
+      getTimeseriesDataPoints(ts, start, end),
+      Array(
+        Double.NaN,
+        Double.NaN,
+        25.85,
+        28.883333333333333,
+        51.21666666666666,
+        27.8,
+        22.65,
+        28.633333333333333,
+        26.25,
+        21.416666666666668,
+        23.083333333333332
+      )
+    )
+  }
+
+  test("querying 60s and 5s datasources with a 5s step request should respond as 60s") {
+    val start = 1746805800000L
+    val end = 1746806405000L
+    val requestStepSize = 5000L
+    val ts: TimeSeries = runDataRequestQueryTest(
+      List("timeseriesResponse5sStep.json", "timeseriesResponse60sStep.json"),
+      "name,(,my_metric,my_metric_5s,),:in",
+      start,
+      end,
+      requestStepSize
+    )
+
+    assertEquals(ts.label, "name=unknown")
+    assertEquals(ts.tags, Map("name" -> "unknown"))
+    // Always use the maximum step of the requestedStepSize and the metrics.
+    assertEquals(ts.data.step, 60000L)
+
+    assertArraysAreEqualWithNaN(
+      getTimeseriesDataPoints(ts, start, end),
+      Array(
+        Double.NaN,
+        Double.NaN,
+        25.85,
+        28.883333333333333,
+        51.21666666666666,
+        27.8,
+        22.65,
+        28.633333333333333,
+        26.25,
+        21.416666666666668,
+        23.083333333333332
+      )
+    )
   }
 
   private def evalQuery(str: String): Query = {
