@@ -328,6 +328,70 @@ class DruidDatabaseActorSuite extends FunSuite {
     }
   }
 
+  private val testMetadata = Metadata(List(
+    DatasourceMetadata("ds1", Datasource(
+      Nil, List(
+        Metric("a", primaryStep = 5_000),
+        Metric("b", primaryStep = 30_000),
+        Metric("c", primaryStep = 60_000)
+      )
+    )),
+    DatasourceMetadata("ds2", Datasource(
+      Nil, List(
+        Metric("a", primaryStep = 20_000)
+      )
+    )),
+    DatasourceMetadata("ds3", Datasource(
+      Nil, List(
+        Metric("d", primaryStep = 60_000),
+        Metric("e", primaryStep = 60_000),
+        Metric("f", primaryStep = 60_000)
+      )
+    )),
+  ))
+
+  test("determineStepSize: same ds, single step size") {
+    val context = EvalContext(0L, 60_000L, 1_000L)
+    val expr = DataExpr.Sum(Query.Equal("nf.datasource", "ds3"))
+    val step = determineStepSize(testMetadata, context, List(expr)).step
+    assertEquals(step, 60_000L)
+  }
+
+  test("determineStepSize: same ds, different step sizes") {
+    val context = EvalContext(0L, 60_000L, 1_000L)
+    val expr = DataExpr.Sum(Query.Equal("nf.datasource", "ds1"))
+    val step = determineStepSize(testMetadata, context, List(expr)).step
+    assertEquals(step, 60_000L)
+  }
+
+  test("determineStepSize: same ds, different step sizes subset of metrics") {
+    val context = EvalContext(0L, 60_000L, 1_000L)
+    val expr = DataExpr.Sum(Query.Equal("nf.datasource", "ds1").and(Query.In("name", List("a", "b"))))
+    val step = determineStepSize(testMetadata, context, List(expr)).step
+    assertEquals(step, 30_000L)
+  }
+
+  test("determineStepSize: same ds, single metric") {
+    val context = EvalContext(0L, 60_000L, 1_000L)
+    val expr = DataExpr.Sum(Query.Equal("nf.datasource", "ds1").and(Query.Equal("name", "a")))
+    val step = determineStepSize(testMetadata, context, List(expr)).step
+    assertEquals(step, 5_000L)
+  }
+
+  test("determineStepSize: single metric in multiple ds with different step") {
+    val context = EvalContext(0L, 60_000L, 1_000L)
+    val expr = DataExpr.Sum(Query.Equal("name", "a"))
+    val step = determineStepSize(testMetadata, context, List(expr)).step
+    assertEquals(step, 20_000L)
+  }
+
+  test("determineStepSize: larger context step") {
+    val context = EvalContext(0L, 60_000L, 120_000L)
+    val expr = DataExpr.Sum(Query.Equal("name", "a"))
+    val step = determineStepSize(testMetadata, context, List(expr)).step
+    assertEquals(step, 120_000L)
+  }
+
   test("simplify: single name with or") {
     val q = evalQuery("name,a,:eq,dim,1,:eq,:and,name,b,:eq,dim,2,:eq,:and,:or")
     val expected = evalQuery("dim,1,:eq")
