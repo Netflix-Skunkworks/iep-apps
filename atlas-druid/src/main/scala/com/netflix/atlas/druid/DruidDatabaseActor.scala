@@ -634,7 +634,11 @@ object DruidDatabaseActor {
     * at the step size of matching data sources as well as the request step in the context
     * and use the maximum of those values.
     */
-  def determineStepSize(metadata: Metadata, context: EvalContext, exprs: List[DataExpr]): EvalContext = {
+  def determineStepSize(
+    metadata: Metadata,
+    context: EvalContext,
+    exprs: List[DataExpr]
+  ): EvalContext = {
     val metricSteps = exprs.flatMap { expr =>
       val query = expr.query
       metadata.datasources.flatMap { ds =>

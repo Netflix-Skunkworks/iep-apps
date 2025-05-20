@@ -328,27 +328,41 @@ class DruidDatabaseActorSuite extends FunSuite {
     }
   }
 
-  private val testMetadata = Metadata(List(
-    DatasourceMetadata("ds1", Datasource(
-      Nil, List(
-        Metric("a", primaryStep = 5_000),
-        Metric("b", primaryStep = 30_000),
-        Metric("c", primaryStep = 60_000)
+  private val testMetadata = Metadata(
+    List(
+      DatasourceMetadata(
+        "ds1",
+        Datasource(
+          Nil,
+          List(
+            Metric("a", primaryStep = 5_000),
+            Metric("b", primaryStep = 30_000),
+            Metric("c", primaryStep = 60_000)
+          )
+        )
+      ),
+      DatasourceMetadata(
+        "ds2",
+        Datasource(
+          Nil,
+          List(
+            Metric("a", primaryStep = 20_000)
+          )
+        )
+      ),
+      DatasourceMetadata(
+        "ds3",
+        Datasource(
+          Nil,
+          List(
+            Metric("d", primaryStep = 60_000),
+            Metric("e", primaryStep = 60_000),
+            Metric("f", primaryStep = 60_000)
+          )
+        )
       )
-    )),
-    DatasourceMetadata("ds2", Datasource(
-      Nil, List(
-        Metric("a", primaryStep = 20_000)
-      )
-    )),
-    DatasourceMetadata("ds3", Datasource(
-      Nil, List(
-        Metric("d", primaryStep = 60_000),
-        Metric("e", primaryStep = 60_000),
-        Metric("f", primaryStep = 60_000)
-      )
-    )),
-  ))
+    )
+  )
 
   test("determineStepSize: same ds, single step size") {
     val context = EvalContext(0L, 60_000L, 1_000L)
@@ -366,7 +380,8 @@ class DruidDatabaseActorSuite extends FunSuite {
 
   test("determineStepSize: same ds, different step sizes subset of metrics") {
     val context = EvalContext(0L, 60_000L, 1_000L)
-    val expr = DataExpr.Sum(Query.Equal("nf.datasource", "ds1").and(Query.In("name", List("a", "b"))))
+    val expr =
+      DataExpr.Sum(Query.Equal("nf.datasource", "ds1").and(Query.In("name", List("a", "b"))))
     val step = determineStepSize(testMetadata, context, List(expr)).step
     assertEquals(step, 30_000L)
   }
