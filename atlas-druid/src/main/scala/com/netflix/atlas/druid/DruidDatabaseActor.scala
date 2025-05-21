@@ -271,7 +271,7 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
   }
 
   private def explain(ref: ActorRef, request: DataRequest): Unit = {
-    val context = request.context
+    val context = determineStepSize(metadata, request.context, request.exprs)
     val druidQueryContext = toDruidQueryContext(request)
     val explanation = request.exprs
       .flatMap { expr =>
@@ -296,9 +296,10 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
   private def fetchData(ref: ActorRef, request: DataRequest): Unit = {
     try {
       request.exprs.foreach(expr => validate(expr.query))
+      val context = determineStepSize(metadata, request.context, request.exprs)
       val druidQueryContext = toDruidQueryContext(request)
       val druidQueries = request.exprs.map { expr =>
-        fetchData(druidQueryContext, request.context, expr).map(ts => expr -> ts)
+        fetchData(druidQueryContext, context, expr).map(ts => expr -> ts)
       }
       Source(druidQueries)
         .flatMapMerge(Int.MaxValue, v => v)
@@ -307,7 +308,7 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
         }
         .runWith(Sink.head)
         .onComplete {
-          case Success(data) => ref ! DataResponse(data)
+          case Success(data) => ref ! DataResponse(context.step, data)
           case Failure(t)    => ref ! Failure(t)
         }
     } catch {
@@ -621,6 +622,26 @@ object DruidDatabaseActor {
       "atlasQueryString" -> request.config.map(_.query).getOrElse("unknown"),
       "atlasQueryGuid"   -> UUID.randomUUID().toString
     )
+  }
+
+  /**
+    * Druid data sources can potentially have different step sizes. This method will look
+    * at the step size of matching data sources as well as the request step in the context
+    * and use the maximum of those values.
+    */
+  def determineStepSize(
+    metadata: Metadata,
+    context: EvalContext,
+    exprs: List[DataExpr]
+  ): EvalContext = {
+    val metricSteps = exprs.flatMap { expr =>
+      val query = expr.query
+      metadata.datasources.flatMap { ds =>
+        ds.metrics.filter(m => query.couldMatch(m.tags)).map(_.metric.primaryStep)
+      }
+    }
+    val step = if (metricSteps.isEmpty) context.step else math.max(context.step, metricSteps.max)
+    context.increaseStep(step)
   }
 
   def toDruidQueries(
