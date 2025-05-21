@@ -407,6 +407,14 @@ class DruidDatabaseActorSuite extends FunSuite {
     assertEquals(step, 120_000L)
   }
 
+  test("determineStepSize: multiple expressions") {
+    val context = EvalContext(0L, 60_000L, 5_000L)
+    val expr1 = DataExpr.Sum(Query.Equal("name", "a"))
+    val expr2 = DataExpr.Sum(Query.Equal("name", "b"))
+    val step = determineStepSize(testMetadata, context, List(expr1, expr2)).step
+    assertEquals(step, 30_000L)
+  }
+
   test("simplify: single name with or") {
     val q = evalQuery("name,a,:eq,dim,1,:eq,:and,name,b,:eq,dim,2,:eq,:and,:or")
     val expected = evalQuery("dim,1,:eq")
