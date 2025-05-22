@@ -136,7 +136,7 @@ class DruidClientSuite extends FunSuite {
     val response = HttpResponse(StatusCodes.OK, entity = payload)
     val client = newClient(Success(response))
     val query = SegmentMetadataQuery("test")
-    val future = client.segmentMetadata(query).runWith(Sink.head)
+    val future = client.segmentMetadata(query, false).runWith(Sink.head)
     Await.result(future, Duration.Inf)
   }
 

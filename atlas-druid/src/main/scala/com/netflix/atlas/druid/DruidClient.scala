@@ -100,7 +100,7 @@ class DruidClient(
     new IOException(s"request failed with status ${res.status.intValue()}")
   }
 
-  private def mkRequest[T: JavaTypeable](data: T): HttpRequest = {
+  private def mkRequest(data: Any): HttpRequest = {
     val json = Json.encode(data)
     logger.trace(s"raw request payload: $json")
     val entity = HttpEntity(MediaTypes.`application/json`, json)
@@ -132,7 +132,10 @@ class DruidClient(
       }
   }
 
-  def segmentMetadata(query: SegmentMetadataQuery): Source[List[SegmentMetadataResult], NotUsed] = {
+  def segmentMetadata(
+    query: SegmentMetadataQuery,
+    ignoreFailures: Boolean
+  ): Source[List[SegmentMetadataResult], NotUsed] = {
     Source
       .single(mkRequest(query))
       .via(loggingClient)
@@ -144,8 +147,13 @@ class DruidClient(
       .recover {
         case t: Throwable =>
           val json = Json.encode(query)
-          logger.warn(s"failed to load segment metadata for data source: $json")
-          throw t
+          if (ignoreFailures) {
+            logger.warn(s"failed to load segment metadata, ignoring data source: $json", t)
+            Nil
+          } else {
+            logger.warn(s"failed to load segment metadata: $json")
+            throw t
+          }
       }
   }
 
