@@ -100,7 +100,7 @@ class DruidClient(
     new IOException(s"request failed with status ${res.status.intValue()}")
   }
 
-  private def mkRequest[T: JavaTypeable](data: T): HttpRequest = {
+  private def mkRequest(data: Any): HttpRequest = {
     val json = Json.encode(data)
     logger.trace(s"raw request payload: $json")
     val entity = HttpEntity(MediaTypes.`application/json`, json)
