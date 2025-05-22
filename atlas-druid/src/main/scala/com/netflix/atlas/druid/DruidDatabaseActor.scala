@@ -75,6 +75,9 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
   private val datasourceFilter =
     PatternMatcher.compile(config.getString("atlas.druid.datasource-filter"))
 
+  private val datasourceIgnoreFailures =
+    config.getBoolean("atlas.druid.datasource-ignore-metadata-failures")
+
   private val normalizeRates = config.getBoolean("atlas.druid.normalize-rates")
 
   private var metadata: Metadata = Metadata(Nil)
@@ -99,8 +102,9 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
         val sources = ds
           .filter(datasourceFilter.matches)
           .map { d =>
+            val query = SegmentMetadataQuery(d, List(queryIntervalString(metadataInterval)))
             client
-              .segmentMetadata(SegmentMetadataQuery(d, List(queryIntervalString(metadataInterval))))
+              .segmentMetadata(query, datasourceIgnoreFailures)
               .filter(_.nonEmpty)
               .map { rs =>
                 DatasourceMetadata(d, rs.head.toDatasource)
