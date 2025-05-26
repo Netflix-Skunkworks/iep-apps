@@ -24,11 +24,11 @@ import org.apache.pekko.http.scaladsl.model.HttpRequest
 import org.apache.pekko.http.scaladsl.model.HttpResponse
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.model.Uri
+import org.apache.pekko.http.scaladsl.model.headers.*
 import org.apache.pekko.stream.KillSwitch
 import org.apache.pekko.stream.KillSwitches
 import org.apache.pekko.stream.OverflowStrategy
 import org.apache.pekko.stream.RestartSettings
-import org.apache.pekko.stream.ThrottleMode
 import org.apache.pekko.stream.scaladsl.Flow
 import org.apache.pekko.stream.scaladsl.Keep
 import org.apache.pekko.stream.scaladsl.RestartFlow
@@ -73,6 +73,8 @@ class ExprUpdateService(
     .withName("lwc.expressionsAge")
     .monitorValue(new AtomicLong(registry.clock().wallTime()), Functions.age(registry.clock()))
 
+  @volatile private var responseEtag = ""
+
   private val syncPayloadBytes = registry.distributionSummary("lwc.syncPayloadBytes")
   private val syncPayloadExprs = registry.distributionSummary("lwc.syncPayloadExprs")
 
@@ -83,7 +85,13 @@ class ExprUpdateService(
     val client = Http().superPool[AccessLogger]()
     val flow = Flow[HttpRequest]
       .map { req =>
-        request -> AccessLogger.newClientLogger("lwc-subs", req)
+        val etag = responseEtag
+        if (etag.isEmpty) {
+          req -> AccessLogger.newClientLogger("lwc-subs", req)
+        } else {
+          val r = req.addHeader(`If-None-Match`(EntityTag(etag)))
+          r -> AccessLogger.newClientLogger("lwc-subs", r)
+        }
       }
       .via(client)
       .map {
@@ -100,8 +108,7 @@ class ExprUpdateService(
       flow
     }
     killSwitch = Source
-      .repeat(request)
-      .throttle(1, 10.seconds, 1, ThrottleMode.Shaping)
+      .tick(0.seconds, 10.seconds, request)
       .via(restartFlow)
       .viaMat(KillSwitches.single)(Keep.right)
       .toMat(Sink.ignore)(Keep.left)
@@ -112,26 +119,34 @@ class ExprUpdateService(
     Flow[HttpResponse]
       .flatMapConcat {
         case response if response.status == StatusCodes.OK =>
+          val etag = response.headers
+            .collectFirst {
+              case ETag(entityTag) => entityTag.tag
+            }
+            .getOrElse("")
           response.entity
             .withoutSizeLimit()
             .dataBytes
             .reduce(_ ++ _)
+            .map { bytes =>
+              syncPayloadBytes.record(bytes.size)
+              etag -> bytes
+            }
         case response =>
+          if (response.status == StatusCodes.NotModified) {
+            logger.debug("no modification to subscriptions")
+            lastUpdateTime.set(registry.clock().wallTime())
+          }
           response.discardEntityBytes()
-          Source.single(ByteString.empty)
+          Source.empty
       }
-      .map { bytes =>
-        syncPayloadBytes.record(bytes.size)
-        bytes
-      }
-      .filterNot(_.isEmpty)
       .buffer(1, OverflowStrategy.dropHead)
-      .flatMapConcat { data =>
-        Source.future(update(data))
+      .flatMapConcat {
+        case (etag, data) => Source.future(update(etag, data))
       }
   }
 
-  private def update(data: ByteString): Future[NotUsed] = {
+  private def update(etag: String, data: ByteString): Future[NotUsed] = {
     import scala.jdk.CollectionConverters.*
     Future {
       try {
@@ -140,11 +155,12 @@ class ExprUpdateService(
             .decode[Subscriptions](in)
             .getExpressions
             .asScala
-            .filter(_.getFrequency == 60000) // Limit to primary publish step size
+            .filter(_.getFrequency == 60000) // Limit to the primary publish step size
             .asJava
           evaluator.sync(exprs)
           syncPayloadExprs.record(exprs.size())
           lastUpdateTime.set(registry.clock().wallTime())
+          responseEtag = etag
         }
       } catch {
         case e: Exception =>

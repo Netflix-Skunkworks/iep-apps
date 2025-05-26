@@ -19,6 +19,7 @@ import com.netflix.iep.config.DynamicConfigManager
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.model.HttpResponse
 import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.http.scaladsl.model.headers.*
 import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.stream.scaladsl.Source
 import com.netflix.spectator.api.DefaultRegistry
@@ -87,10 +88,15 @@ class ExprUpdateServiceSuite extends FunSuite {
         |}
       """.stripMargin
     }
+    val headers = Seq(ETag("valid"))
     if (compress)
-      update(HttpResponse(StatusCodes.OK, entity = gzip(json)))
+      update(HttpResponse(StatusCodes.OK, headers = headers, entity = gzip(json)))
     else
-      update(HttpResponse(StatusCodes.OK, entity = json))
+      update(HttpResponse(StatusCodes.OK, headers = headers, entity = json))
+  }
+
+  private def doNotModifiedUpdate(): Unit = {
+    update(HttpResponse(StatusCodes.NotModified))
   }
 
   private def doInvalidUpdate(): Unit = {
@@ -106,7 +112,8 @@ class ExprUpdateServiceSuite extends FunSuite {
         |  ]
         |}
       """.stripMargin
-    update(HttpResponse(StatusCodes.OK, entity = json))
+    val headers = Seq(ETag("invalid"))
+    update(HttpResponse(StatusCodes.OK, headers = headers, entity = json))
   }
 
   test("valid update rebuilds index") {
@@ -118,6 +125,15 @@ class ExprUpdateServiceSuite extends FunSuite {
     doValidUpdate()
     clock.setWallTime(60000)
     doValidUpdate()
+    PolledMeter.update(registry)
+    val age = registry.gauge("lwc.expressionsAge").value()
+    assertEquals(age, 0.0)
+  }
+
+  test("not modified update refreshes age metric") {
+    doValidUpdate()
+    clock.setWallTime(60000)
+    doNotModifiedUpdate()
     PolledMeter.update(registry)
     val age = registry.gauge("lwc.expressionsAge").value()
     assertEquals(age, 0.0)
