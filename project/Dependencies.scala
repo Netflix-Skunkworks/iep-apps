@@ -60,7 +60,7 @@ object Dependencies {
   val log4jSlf4j         = "org.apache.logging.log4j" % "log4j-slf4j2-impl" % log4j
   val mockitoCore        = "org.mockito" % "mockito-core" % "5.10.0"
   val mockitoScala       = "org.mockito" % "mockito-scala_2.13" % "1.17.30"
-  val munit              = "org.scalameta" %% "munit" % "1.1.0"
+  val munit              = "org.scalameta" %% "munit" % "1.1.1"
   val openHFT            = "net.openhft" % "zero-allocation-hashing" % "0.16"
   val pekkoActor         = "org.apache.pekko" %% "pekko-actor" % pekko
   val pekkoHttpCaching   = "org.apache.pekko" %% "pekko-http-caching" % pekkoHttpV
