@@ -20,12 +20,13 @@ import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.makeFire
 import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.ts
 import com.netflix.atlas.core.model.Query
 import org.mockito.Mockito.when
-import org.mockito.MockitoSugar.spy
-import org.mockito.MockitoSugar.times
-import org.mockito.MockitoSugar.verify
+import org.mockito.Mockito.spy
+import org.mockito.Mockito.times
+import org.mockito.Mockito.verify
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
 
 import scala.concurrent.duration.DurationInt
+import scala.jdk.CollectionConverters._
 
 class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
 
@@ -706,14 +707,15 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
 
   def assertPublished(dps: List[AtlasDatapoint], ts: Long = ts): Unit = {
     processor.publish(ts)
-    verify(publishRouter, times(dps.size)).publish(routerCaptor)
-    assertEquals(routerCaptor.values.size, dps.size)
+    verify(publishRouter, times(dps.size)).publish(routerCaptor.capture())
+    val capturedValues = routerCaptor.getAllValues.asScala.toList
+    assertEquals(capturedValues.size, dps.size)
 
     dps.foreach { dp =>
-      val metric = routerCaptor.values.filter(_.equals(dp)).headOption match {
+      val metric = capturedValues.filter(_.equals(dp)).headOption match {
         case Some(d) => d
         case None =>
-          throw new AssertionError(s"Data point not found: ${dp} in ${routerCaptor.values}")
+          throw new AssertionError(s"Data point not found: ${dp} in ${capturedValues}")
       }
       assertEquals(metric.value, dp.value, s"Wrong value for ${dp.tags}")
       assertEquals(metric.timestamp, dp.timestamp, s"Wrong value for timestamp ${dp.tags}")

@@ -38,14 +38,15 @@ import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.ConfigFactory
 import munit.FunSuite
-import org.mockito.ArgumentMatchersSugar.any
-import org.mockito.ArgumentMatchersSugar.anyLong
-import org.mockito.MockitoSugar.mock
-import org.mockito.MockitoSugar.never
-import org.mockito.MockitoSugar.times
-import org.mockito.MockitoSugar.verify
-import org.mockito.MockitoSugar.when
-import org.mockito.captor.ArgCaptor
+import org.mockito.ArgumentMatchers.any
+import org.mockito.ArgumentMatchers.anyLong
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
+import org.mockito.Mockito.times
+import org.mockito.Mockito.verify
+import org.mockito.Mockito.when
+import org.mockito.ArgumentCaptor
+import org.mockito.stubbing.Answer
 
 import java.time.Instant
 import java.util.concurrent.ScheduledExecutorService
@@ -60,21 +61,21 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
   override implicit def system: ActorSystem = ActorSystem(getClass.getSimpleName)
 
   private var registry: Registry = _
-  private var httpClient = mock[PekkoHttpClient]
-  private var httpCaptor = ArgCaptor[HttpRequest]
-  private var publishClient = mock[PublishClient]
-  private var scheduler = mock[ScheduledExecutorService]
+  private var httpClient = mock(classOf[PekkoHttpClient])
+  private var httpCaptor = ArgumentCaptor.forClass(classOf[HttpRequest])
+  private var publishClient = mock(classOf[PublishClient])
+  private var scheduler = mock(classOf[ScheduledExecutorService])
   private val timestamp = 1672531200000L
   private val config = ConfigFactory.load().getConfig("atlas.cloudwatch.account.routing")
   private var leaderStatus: LeaderStatus = _
 
   override def beforeEach(context: BeforeEach): Unit = {
     registry = new DefaultRegistry()
-    httpClient = mock[PekkoHttpClient]
-    httpCaptor = ArgCaptor[HttpRequest]
-    publishClient = mock[PublishClient]
-    scheduler = mock[ScheduledExecutorService]
-    leaderStatus = mock[LeaderStatus]
+    httpClient = mock(classOf[PekkoHttpClient])
+    httpCaptor = ArgumentCaptor.forClass(classOf[HttpRequest])
+    publishClient = mock(classOf[PublishClient])
+    scheduler = mock(classOf[ScheduledExecutorService])
+    leaderStatus = mock(classOf[LeaderStatus])
 
     when(leaderStatus.hasLeadership).thenReturn(true)
   }
@@ -93,10 +94,10 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     )
 
     assertCounters(2)
-    verify(httpClient, times(1)).singleRequest(httpCaptor)
+    verify(httpClient, times(1)).singleRequest(httpCaptor.capture())
     assertEquals(
       CustomMediaTypes.`application/x-jackson-smile`.toContentType.asInstanceOf[ContentType],
-      httpCaptor.value.entity.getContentType()
+      httpCaptor.getValue.entity.getContentType()
     )
   }
 
@@ -114,10 +115,10 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     )
 
     assertCounters(2, dropped = Map("partialFailure" -> 1))
-    verify(httpClient, times(1)).singleRequest(httpCaptor)
+    verify(httpClient, times(1)).singleRequest(httpCaptor.capture())
     assertEquals(
       CustomMediaTypes.`application/x-jackson-smile`.toContentType.asInstanceOf[ContentType],
-      httpCaptor.value.entity.getContentType()
+      httpCaptor.getValue.entity.getContentType()
     )
   }
 
@@ -135,10 +136,10 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     )
 
     assertCounters(2, dropped = Map("completeFailure" -> 2))
-    verify(httpClient, times(1)).singleRequest(httpCaptor)
+    verify(httpClient, times(1)).singleRequest(httpCaptor.capture())
     assertEquals(
       CustomMediaTypes.`application/x-jackson-smile`.toContentType.asInstanceOf[ContentType],
-      httpCaptor.value.entity.getContentType()
+      httpCaptor.getValue.entity.getContentType()
     )
   }
 
@@ -156,10 +157,10 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     )
 
     assertCounters(2, dropped = Map("status_500" -> 2))
-    verify(httpClient, times(1)).singleRequest(httpCaptor)
+    verify(httpClient, times(1)).singleRequest(httpCaptor.capture())
     assertEquals(
       CustomMediaTypes.`application/x-jackson-smile`.toContentType.asInstanceOf[ContentType],
-      httpCaptor.value.entity.getContentType()
+      httpCaptor.getValue.entity.getContentType()
     )
   }
 
@@ -177,10 +178,10 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     )
 
     assertCounters(2, retries = 1)
-    verify(httpClient, times(1)).singleRequest(httpCaptor)
+    verify(httpClient, times(1)).singleRequest(httpCaptor.capture())
     assertEquals(
       CustomMediaTypes.`application/x-jackson-smile`.toContentType.asInstanceOf[ContentType],
-      httpCaptor.value.entity.getContentType()
+      httpCaptor.getValue.entity.getContentType()
     )
     verify(scheduler, times(1)).schedule(any[Runnable], anyLong, any[TimeUnit])
   }
@@ -200,10 +201,10 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     Await.ready(queue.publish(payload, 1, 2), 60.seconds)
 
     assertCounters(dropped = Map("maxRetries" -> 2))
-    verify(httpClient, times(1)).singleRequest(httpCaptor)
+    verify(httpClient, times(1)).singleRequest(httpCaptor.capture())
     assertEquals(
       CustomMediaTypes.`application/x-jackson-smile`.toContentType.asInstanceOf[ContentType],
-      httpCaptor.value.entity.getContentType()
+      httpCaptor.getValue.entity.getContentType()
     )
     verify(scheduler, never).schedule(any[Runnable], anyLong, any[TimeUnit])
   }
@@ -222,10 +223,10 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     )
 
     assertCounters(2, retries = 1)
-    verify(httpClient, times(1)).singleRequest(httpCaptor)
+    verify(httpClient, times(1)).singleRequest(httpCaptor.capture())
     assertEquals(
       CustomMediaTypes.`application/x-jackson-smile`.toContentType.asInstanceOf[ContentType],
-      httpCaptor.value.entity.getContentType()
+      httpCaptor.getValue.entity.getContentType()
     )
     verify(scheduler, times(1)).schedule(any[Runnable], anyLong, any[TimeUnit])
   }
@@ -286,7 +287,9 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
   }
 
   def mockAZDP(): software.amazon.awssdk.services.cloudwatch.model.Datapoint = {
-    mock[software.amazon.awssdk.services.cloudwatch.model.Datapoint]
+    val mockDP = mock(classOf[software.amazon.awssdk.services.cloudwatch.model.Datapoint])
+    when(mockDP.unitAsString()).thenReturn("Count")
+    mockDP
   }
 
   def mockResponse(statusCode: StatusCode, content: String = null, t: Throwable = null): Unit = {
@@ -294,7 +297,7 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
       HttpEntity(ContentTypes.`application/json`, content)
     } else HttpEntity.Empty
     if (t == null)
-      when(httpClient.singleRequest(any[HttpRequest])).thenAnswer(
+      when(httpClient.singleRequest(any[HttpRequest])).thenReturn(
         Future.successful(
           HttpResponse(
             statusCode,
@@ -305,19 +308,23 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     else {
       val called = new AtomicBoolean()
       when(httpClient.singleRequest(any[HttpRequest]))
-        .thenAnswer(
-          if (called.get()) {
-            Future.successful(
-              HttpResponse(
-                statusCode,
-                entity = httpEntity
+        .thenAnswer(new Answer[Future[HttpResponse]] {
+          override def answer(
+            invocation: org.mockito.invocation.InvocationOnMock
+          ): Future[HttpResponse] = {
+            if (called.get()) {
+              Future.successful(
+                HttpResponse(
+                  statusCode,
+                  entity = httpEntity
+                )
               )
-            )
-          } else {
-            called.set(true)
-            Future.failed(t)
+            } else {
+              called.set(true)
+              Future.failed(t)
+            }
           }
-        )
+        })
     }
   }
 

@@ -537,96 +537,95 @@ abstract class CloudWatchMetricsProcessor(
           )
           .increment()
         debugger.debugScrape(entry, scrapeTimestamp, ScrapeState.Empty)
-        return
-      }
+      } else {
+        rules.rules.get(entry.getNamespace) match {
+          case None =>
+            delete(key)
+            purgedNS.increment()
+            debugger.debugScrape(entry, scrapeTimestamp, ScrapeState.PurgedNS)
+          case Some(namespaceRules) =>
+            namespaceRules.get(entry.getMetric) match {
+              case None =>
+                delete(key)
+                purgedMetric.increment()
+                debugger.debugScrape(entry, scrapeTimestamp, ScrapeState.PurgedMetric)
+              case Some(categories) =>
+                var matchedDimensions = false
+                categories.foreach { tuple =>
+                  val (category, definitions) = tuple
+                  if (category.dimensionsMatch(toAWSDimensions(entry))) {
+                    matchedDimensions = true
+                    if (category.filter.isDefined && category.filter.get.matches(toTagMap(entry))) {
+                      delete(key)
+                      purgedQuery.increment()
+                      debugger.debugScrape(entry, scrapeTimestamp, ScrapeState.PurgedFilter)
+                    } else {
+                      val (idx, updatedEntry) = getPublishPoint(entry, scrapeTimestamp, category)
+                      if (idx >= 0) {
+                        if (idx < updatedEntry.getDataCount) {
+                          val current = Some(toAWSDatapoint(entry.getData(idx), entry.getUnit))
+                          val prev =
+                            if (idx > 0) Some(toAWSDatapoint(entry.getData(idx - 1), entry.getUnit))
+                            else None
+                          definitions.foreach { d =>
+                            val metric = MetricData(
+                              MetricMetadata(category, d, toAWSDimensions(entry)),
+                              prev,
+                              current,
+                              if (prev.isDefined)
+                                Some(Instant.ofEpochMilli(prev.get.timestamp().toEpochMilli))
+                              else None
+                            )
 
-      rules.rules.get(entry.getNamespace) match {
-        case None =>
-          delete(key)
-          purgedNS.increment()
-          debugger.debugScrape(entry, scrapeTimestamp, ScrapeState.PurgedNS)
-        case Some(namespaceRules) =>
-          namespaceRules.get(entry.getMetric) match {
-            case None =>
-              delete(key)
-              purgedMetric.increment()
-              debugger.debugScrape(entry, scrapeTimestamp, ScrapeState.PurgedMetric)
-            case Some(categories) =>
-              var matchedDimensions = false
-              categories.foreach { tuple =>
-                val (category, definitions) = tuple
-                if (category.dimensionsMatch(toAWSDimensions(entry))) {
-                  matchedDimensions = true
-                  if (category.filter.isDefined && category.filter.get.matches(toTagMap(entry))) {
-                    delete(key)
-                    purgedQuery.increment()
-                    debugger.debugScrape(entry, scrapeTimestamp, ScrapeState.PurgedFilter)
-                  } else {
-                    val (idx, updatedEntry) = getPublishPoint(entry, scrapeTimestamp, category)
-                    if (idx >= 0) {
-                      if (idx >= updatedEntry.getDataCount) {
+                            val atlasDp = toAtlasDatapoint(metric, scrapeTimestamp, category.period)
+                            if (!atlasDp.value.isNaN) {
+                              publishRouter.publish(atlasDp)
+                            }
+                          }
+                        } else {
+                          registry
+                            .counter(
+                              publishEx.withTags(
+                                "aws.namespace",
+                                entry.getNamespace,
+                                "aws.metric",
+                                entry.getMetric,
+                                "ex",
+                                "InvalidIndex"
+                              )
+                            )
+                            .increment()
+                          logger.warn(
+                            s"bad idx ${idx} vs count ${entry.getDataCount} for ${entry.getNamespace} ${entry.getMetric}"
+                          )
+                        }
+                      }
+
+                      // Saves performing a deep equality check.
+                      if (System.identityHashCode(entry) != System.identityHashCode(updatedEntry)) {
                         registry
                           .counter(
-                            publishEx.withTags(
+                            cacheUpdates.withTags(
                               "aws.namespace",
                               entry.getNamespace,
                               "aws.metric",
-                              entry.getMetric,
-                              "ex",
-                              "InvalidIndex"
+                              entry.getMetric
                             )
                           )
                           .increment()
-                        logger.warn(
-                          s"bad idx ${idx} vs count ${entry.getDataCount} for ${entry.getNamespace} ${entry.getMetric}"
-                        )
-                        return
+                        updateCache(key, entry, updatedEntry, expSeconds(category.period))
                       }
-                      val current = Some(toAWSDatapoint(entry.getData(idx), entry.getUnit))
-                      val prev =
-                        if (idx > 0) Some(toAWSDatapoint(entry.getData(idx - 1), entry.getUnit))
-                        else None
-                      definitions.foreach { d =>
-                        val metric = MetricData(
-                          MetricMetadata(category, d, toAWSDimensions(entry)),
-                          prev,
-                          current,
-                          if (prev.isDefined)
-                            Some(Instant.ofEpochMilli(prev.get.timestamp().toEpochMilli))
-                          else None
-                        )
-
-                        val atlasDp = toAtlasDatapoint(metric, scrapeTimestamp, category.period)
-                        if (!atlasDp.value.isNaN) {
-                          publishRouter.publish(atlasDp)
-                        }
-                      }
-                    }
-
-                    // Saves performing a deep equality check.
-                    if (System.identityHashCode(entry) != System.identityHashCode(updatedEntry)) {
-                      registry
-                        .counter(
-                          cacheUpdates.withTags(
-                            "aws.namespace",
-                            entry.getNamespace,
-                            "aws.metric",
-                            entry.getMetric
-                          )
-                        )
-                        .increment()
-                      updateCache(key, entry, updatedEntry, expSeconds(category.period))
                     }
                   }
                 }
-              }
 
-              if (!matchedDimensions) {
-                delete(key)
-                purgedTags.increment()
-                debugger.debugScrape(entry, scrapeTimestamp, ScrapeState.PurgedTag)
-              }
-          }
+                if (!matchedDimensions) {
+                  delete(key)
+                  purgedTags.increment()
+                  debugger.debugScrape(entry, scrapeTimestamp, ScrapeState.PurgedTag)
+                }
+            }
+        }
       }
     } catch {
       case ex: Exception =>

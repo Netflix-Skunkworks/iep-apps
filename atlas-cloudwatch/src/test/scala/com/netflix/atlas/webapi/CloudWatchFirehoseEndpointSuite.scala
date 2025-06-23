@@ -39,12 +39,12 @@ import com.netflix.atlas.webapi.CloudWatchFirehoseEndpointSuite.parsedDatapoints
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.Registry
 import junit.framework.TestCase.assertNull
-import org.mockito.ArgumentMatchersSugar.anyLong
-import org.mockito.MockitoSugar.mock
-import org.mockito.MockitoSugar.never
-import org.mockito.MockitoSugar.times
-import org.mockito.MockitoSugar.verify
-import org.mockito.captor.ArgCaptor
+import org.mockito.ArgumentMatchers.anyLong
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
+import org.mockito.Mockito.times
+import org.mockito.Mockito.verify
+import org.mockito.ArgumentCaptor
 import software.amazon.awssdk.services.cloudwatch.model.Datapoint
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
 
@@ -59,12 +59,12 @@ class CloudWatchFirehoseEndpointSuite extends MUnitRouteSuite {
 
   var registry: Registry = null
   var processor: CloudWatchMetricsProcessor = null
-  var processorCaptor = ArgCaptor[List[FirehoseMetric]]
+  var processorCaptor = ArgumentCaptor.forClass(classOf[List[FirehoseMetric]])
 
   override def beforeEach(context: BeforeEach): Unit = {
     registry = new DefaultRegistry()
-    processor = mock[CloudWatchMetricsProcessor]
-    processorCaptor = ArgCaptor[List[FirehoseMetric]]
+    processor = mock(classOf[CloudWatchMetricsProcessor])
+    processorCaptor = ArgumentCaptor.forClass(classOf[List[FirehoseMetric]])
   }
 
   test("firehose success") {
@@ -138,7 +138,7 @@ class CloudWatchFirehoseEndpointSuite extends MUnitRouteSuite {
     val handler = new CloudWatchFirehoseEndpoint(registry, processor)
     req ~> handler.routes ~> check {
       assertEquals(status, StatusCodes.BadRequest)
-      verify(processor, never).processDatapoints(processorCaptor, anyLong)
+      verify(processor, never).processDatapoints(processorCaptor.capture(), anyLong)
       assertCounters(outerParse = 1)
       assertResponse(response, withException = true)
     }
@@ -289,7 +289,7 @@ class CloudWatchFirehoseEndpointSuite extends MUnitRouteSuite {
 
   def assertParse(badData: Boolean = false, attributes: Map[String, String] = Map.empty): Unit = {
     val expectedCount = if (badData) 1 else 2
-    verify(processor, times(expectedCount)).processDatapoints(processorCaptor, anyLong)
+    verify(processor, times(expectedCount)).processDatapoints(processorCaptor.capture(), anyLong)
 
     var expected = if (!attributes.isEmpty) {
       parsedDatapointsA.map { dp =>
@@ -299,7 +299,7 @@ class CloudWatchFirehoseEndpointSuite extends MUnitRouteSuite {
       }
     } else parsedDatapointsA
 
-    assertEquals(processorCaptor.values(0), expected)
+    assertEquals(processorCaptor.getAllValues.get(0), expected)
     if (!badData) {
       expected = if (!attributes.isEmpty) {
         parsedDatapointsB.map { dp =>
@@ -308,7 +308,7 @@ class CloudWatchFirehoseEndpointSuite extends MUnitRouteSuite {
           })
         }
       } else parsedDatapointsB
-      assertEquals(processorCaptor.values(1), expected)
+      assertEquals(processorCaptor.getAllValues.get(1), expected)
     }
   }
 

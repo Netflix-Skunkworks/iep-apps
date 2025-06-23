@@ -10,14 +10,14 @@ object Dependencies {
     val log4j      = "2.24.3"
     val pekko      = "1.1.3"
     val pekkoHttpV = "1.2.0"
-    val scala      = "2.13.16"
+    val scala      = "3.6.4"
     val servo      = "0.13.2"
     val slf4j      = "2.0.17"
     val spectator  = "1.8.14"
     val spring     = "6.1.16"
     val avroV      = "1.12.0"
 
-    val crossScala = Seq(scala, "3.6.4")
+    val crossScala = Seq(scala)
   }
 
   import Versions._
@@ -59,7 +59,6 @@ object Dependencies {
   val log4jJul           = "org.apache.logging.log4j" % "log4j-jul" % log4j
   val log4jSlf4j         = "org.apache.logging.log4j" % "log4j-slf4j2-impl" % log4j
   val mockitoCore        = "org.mockito" % "mockito-core" % "5.10.0"
-  val mockitoScala       = "org.mockito" % "mockito-scala_2.13" % "1.17.30"
   val munit              = "org.scalameta" %% "munit" % "1.1.1"
   val openHFT            = "net.openhft" % "zero-allocation-hashing" % "0.16"
   val pekkoActor         = "org.apache.pekko" %% "pekko-actor" % pekko
