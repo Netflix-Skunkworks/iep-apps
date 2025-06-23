@@ -29,14 +29,15 @@ import com.typesafe.config.ConfigFactory
 import junit.framework.TestCase.assertFalse
 import munit.FunSuite
 import org.mockito.ArgumentMatchers.anyString
-import org.mockito.ArgumentMatchersSugar.any
-import org.mockito.ArgumentMatchersSugar.anyLong
-import org.mockito.MockitoSugar.mock
-import org.mockito.MockitoSugar.never
-import org.mockito.MockitoSugar.times
-import org.mockito.MockitoSugar.verify
-import org.mockito.MockitoSugar.when
-import org.mockito.captor.ArgCaptor
+import org.mockito.ArgumentMatchers.any
+import org.mockito.ArgumentMatchers.anyLong
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.never
+import org.mockito.Mockito.times
+import org.mockito.Mockito.verify
+import org.mockito.Mockito.when
+import org.mockito.ArgumentCaptor
+import org.mockito.stubbing.Answer
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient
 import software.amazon.awssdk.services.cloudwatch.model.Datapoint
@@ -73,19 +74,19 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   private var accountSupplier: AwsAccountSupplier = _
   private var clientFactory: AwsClientFactory = _
   private var client: CloudWatchClient = _
-  private var routerCaptor = ArgCaptor[FirehoseMetric]
+  private var routerCaptor = ArgumentCaptor.forClass(classOf[FirehoseMetric])
   private var debugger: CloudWatchDebugger = _
   private val config = ConfigFactory.load()
   private val rules: CloudWatchRules = new CloudWatchRules(config)
 
   override def beforeEach(context: BeforeEach): Unit = {
     registry = new DefaultRegistry()
-    processor = mock[CloudWatchMetricsProcessor]
-    leaderStatus = mock[LeaderStatus]
-    accountSupplier = mock[AwsAccountSupplier]
-    clientFactory = mock[AwsClientFactory]
-    client = mock[CloudWatchClient]
-    routerCaptor = ArgCaptor[FirehoseMetric]
+    processor = mock(classOf[CloudWatchMetricsProcessor])
+    leaderStatus = mock(classOf[LeaderStatus])
+    accountSupplier = mock(classOf[AwsAccountSupplier])
+    clientFactory = mock(classOf[AwsClientFactory])
+    client = mock(classOf[CloudWatchClient])
+    routerCaptor = ArgumentCaptor.forClass(classOf[FirehoseMetric])
     debugger = new CloudWatchDebugger(config, registry)
 
     when(leaderStatus.hasLeadership).thenReturn(true)
@@ -361,9 +362,9 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     child.FetchMetricStats(mdef, metric, promise).run()
 
     verify(processor, times(2)).updateCache(
-      routerCaptor,
-      org.mockito.ArgumentMatchersSugar.eqTo(category),
-      org.mockito.ArgumentMatchersSugar.eqTo(timestamp.toEpochMilli)
+      routerCaptor.capture(),
+      org.mockito.ArgumentMatchers.eq(category),
+      org.mockito.ArgumentMatchers.eq(timestamp.toEpochMilli)
     )
     var firehose = makeFirehoseMetric(
       "AWS/UT1",
@@ -378,7 +379,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
       timestamp.minusSeconds(86400 * 2).toEpochMilli,
       ""
     )
-    assertEquals(routerCaptor.values.head, firehose)
+    assertEquals(routerCaptor.getAllValues.get(0), firehose)
 
     firehose = makeFirehoseMetric(
       "AWS/UT1",
@@ -393,7 +394,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
       timestamp.minusSeconds(86400).toEpochMilli,
       ""
     )
-    assertEquals(routerCaptor.values(1), firehose)
+    assertEquals(routerCaptor.getAllValues.get(1), firehose)
     Await.result(promise.future, 60.seconds)
     assertCounters()
   }
@@ -408,9 +409,9 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     child.FetchMetricStats(mdef, metric, promise).run()
 
     verify(processor, never).updateCache(
-      routerCaptor,
-      org.mockito.ArgumentMatchersSugar.eqTo(category),
-      org.mockito.ArgumentMatchersSugar.eqTo(timestamp.toEpochMilli)
+      routerCaptor.capture(),
+      org.mockito.ArgumentMatchers.eq(category),
+      org.mockito.ArgumentMatchers.eq(timestamp.toEpochMilli)
     )
     Await.result(promise.future, 60.seconds)
     assertCounters()
@@ -426,12 +427,12 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     child.FetchMetricStats(mdef, metric, promise).run()
 
     verify(processor, never).updateCache(
-      routerCaptor,
-      org.mockito.ArgumentMatchersSugar.eqTo(category),
-      org.mockito.ArgumentMatchersSugar.eqTo(timestamp.toEpochMilli)
+      routerCaptor.capture(),
+      org.mockito.ArgumentMatchers.eq(category),
+      org.mockito.ArgumentMatchers.eq(timestamp.toEpochMilli)
     )
     intercept[RuntimeException] {
-      Await.result(promise.future, 60.seconds)
+      Await.result(promise.future, 6022.seconds)
     }
     assertCounters(errors = Map("metric" -> 1))
   }
@@ -560,27 +561,32 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
 
   def mockSuccess(): Unit = {
     when(client.listMetricsPaginator(any[ListMetricsRequest]))
-      .thenAnswer((req: ListMetricsRequest) => {
-        val metrics = List(
-          Metric
+      .thenAnswer(new Answer[ListMetricsIterable] {
+        override def answer(
+          invocation: org.mockito.invocation.InvocationOnMock
+        ): ListMetricsIterable = {
+          val req = invocation.getArgument(0, classOf[ListMetricsRequest])
+          val metrics = List(
+            Metric
+              .builder()
+              .namespace("AWS/UT1")
+              .metricName(req.metricName())
+              .dimensions(Dimension.builder().name("MyTag").value("a").build())
+              .build(),
+            Metric
+              .builder()
+              .namespace("AWS/UT1")
+              .metricName(req.metricName())
+              .dimensions(Dimension.builder().name("MyTag").value("b").build())
+              .build()
+          )
+          val lmr = ListMetricsResponse
             .builder()
-            .namespace("AWS/UT1")
-            .metricName(req.metricName())
-            .dimensions(Dimension.builder().name("MyTag").value("a").build())
-            .build(),
-          Metric
-            .builder()
-            .namespace("AWS/UT1")
-            .metricName(req.metricName())
-            .dimensions(Dimension.builder().name("MyTag").value("b").build())
+            .metrics(metrics.toArray*)
             .build()
-        )
-        val lmr = ListMetricsResponse
-          .builder()
-          .metrics(metrics.toArray*)
-          .build()
-        when(client.listMetrics(any[ListMetricsRequest])).thenReturn(lmr)
-        new ListMetricsIterable(client, req)
+          when(client.listMetrics(any[ListMetricsRequest])).thenReturn(lmr)
+          new ListMetricsIterable(client, req)
+        }
       })
 
     val dps = List(

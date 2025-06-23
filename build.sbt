@@ -36,7 +36,7 @@ lazy val `atlas-aggregator` = project
   ))
 
 lazy val `atlas-cloudwatch` = project
-  .configure(BuildSettings.profileScala2Only)
+  .configure(BuildSettings.profile)
   .enablePlugins(ProtobufPlugin)
   .settings(libraryDependencies ++= Seq(
     Dependencies.atlasCore,
@@ -65,7 +65,6 @@ lazy val `atlas-cloudwatch` = project
     Dependencies.pekkoHttpTestkit % "test",
     Dependencies.pekkoTestkit % "test",
     Dependencies.mockitoCore % "test",
-    Dependencies.mockitoScala % "test",
     Dependencies.munit % "test"
   ))
 

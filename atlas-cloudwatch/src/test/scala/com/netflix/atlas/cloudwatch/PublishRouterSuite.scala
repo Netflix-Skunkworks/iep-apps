@@ -25,7 +25,7 @@ import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.ConfigFactory
 import munit.FunSuite
-import org.mockito.MockitoSugar.mock
+import org.mockito.Mockito.mock
 
 class PublishRouterSuite extends FunSuite with TestKitBase {
 
@@ -34,8 +34,8 @@ class PublishRouterSuite extends FunSuite with TestKitBase {
   private val registry: Registry = new DefaultRegistry()
   private val config = ConfigFactory.load()
   private val tagger = new NetflixTagger(config.getConfig("atlas.cloudwatch.tagger"))
-  private val httpClient = mock[PekkoHttpClient]
-  var leaderStatus: LeaderStatus = mock[LeaderStatus]
+  private val httpClient = mock(classOf[PekkoHttpClient])
+  var leaderStatus: LeaderStatus = mock(classOf[LeaderStatus])
   private val router = new PublishRouter(config, registry, tagger, httpClient, leaderStatus)
 
   test("initialize") {

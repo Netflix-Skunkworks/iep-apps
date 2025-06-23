@@ -29,8 +29,8 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.ImplicitSender
 import org.apache.pekko.testkit.TestKitBase
 import org.junit.Ignore
-import org.mockito.MockitoSugar.mock
-import org.mockito.captor.ArgCaptor
+import org.mockito.Mockito.mock
+import org.mockito.ArgumentCaptor
 import software.amazon.awssdk.services.cloudwatch.model.Datapoint
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
 
@@ -47,7 +47,7 @@ class BaseCloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with
   var registry: Registry = null
   var publishRouter: PublishRouter = null
   var processor: CloudWatchMetricsProcessor = null
-  var routerCaptor = ArgCaptor[AtlasDatapoint]
+  var routerCaptor = ArgumentCaptor.forClass(classOf[AtlasDatapoint])
   var debugger: CloudWatchDebugger = null
   val config = ConfigFactory.load()
   val tagger = new NetflixTagger(config.getConfig("atlas.cloudwatch.tagger"))
@@ -62,11 +62,11 @@ class BaseCloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with
 
   override def beforeEach(context: BeforeEach): Unit = {
     registry = new DefaultRegistry()
-    publishRouter = mock[PublishRouter]
+    publishRouter = mock(classOf[PublishRouter])
     debugger = new CloudWatchDebugger(config, registry)
     processor =
       new LocalCloudWatchMetricsProcessor(config, registry, rules, tagger, publishRouter, debugger)
-    routerCaptor = ArgCaptor[AtlasDatapoint]
+    routerCaptor = ArgumentCaptor.forClass(classOf[AtlasDatapoint])
   }
 
 }

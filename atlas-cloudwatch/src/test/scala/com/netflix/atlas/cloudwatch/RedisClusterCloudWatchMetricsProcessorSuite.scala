@@ -30,14 +30,15 @@ import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.ConfigFactory
 import munit.FunSuite
-import org.mockito.ArgumentMatchersSugar.any
-import org.mockito.ArgumentMatchersSugar.eqTo
-import org.mockito.MockitoSugar.doAnswer
-import org.mockito.MockitoSugar.mock
-import org.mockito.MockitoSugar.times
-import org.mockito.MockitoSugar.verify
-import org.mockito.MockitoSugar.when
-import org.mockito.captor.ArgCaptor
+import org.mockito.ArgumentMatchers.any
+import org.mockito.ArgumentMatchers.eq as eqTo
+import org.mockito.Mockito.doAnswer
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.times
+import org.mockito.Mockito.verify
+import org.mockito.Mockito.when
+import org.mockito.ArgumentCaptor
+import org.mockito.stubbing.Answer
 import redis.clients.jedis.CommandObject
 import redis.clients.jedis.Connection
 import redis.clients.jedis.ConnectionPool
@@ -66,7 +67,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
   var leaderStatus: LeaderStatus = null
   var publishRouter: PublishRouter = null
   var debugger: CloudWatchDebugger = null
-  var routerCaptor = ArgCaptor[AtlasDatapoint]
+  var routerCaptor = ArgumentCaptor.forClass(classOf[AtlasDatapoint])
   var clusterNodes: util.HashMap[String, ConnectionPool] = null
 
   val config = ConfigFactory.load()
@@ -86,12 +87,12 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
   )
 
   override def beforeEach(context: BeforeEach): Unit = {
-    client = mock[JedisCluster]
+    client = mock(classOf[JedisCluster])
     registry = new DefaultRegistry()
-    leaderStatus = mock[LeaderStatus]
-    publishRouter = mock[PublishRouter]
+    leaderStatus = mock(classOf[LeaderStatus])
+    publishRouter = mock(classOf[PublishRouter])
     debugger = new CloudWatchDebugger(config, registry)
-    routerCaptor = ArgCaptor[AtlasDatapoint]
+    routerCaptor = ArgumentCaptor.forClass(classOf[AtlasDatapoint])
 
     when(leaderStatus.hasLeadership).thenReturn(true)
   }
@@ -318,9 +319,12 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
   }
 
   test("publish 1 leader publish Exception") {
-    when(publishRouter.publish(any[AtlasDatapoint])).thenAnswer((dp: AtlasDatapoint) =>
-      if (dp.tags.get("key").get.equals("2")) throw new UTException("UT")
-    )
+    when(publishRouter.publish(any[AtlasDatapoint])).thenAnswer(new Answer[Unit] {
+      override def answer(invocation: org.mockito.invocation.InvocationOnMock): Unit = {
+        val dp = invocation.getArgument(0, classOf[AtlasDatapoint])
+        if (dp.tags.get("key").get.equals("2")) throw new UTException("UT")
+      }
+    })
     val redis = mockRedis(1, new Payload(1, 2, withNulls = true))
     val proc = new RedisClusterCloudWatchMetricsProcessor(
       config,
@@ -724,8 +728,8 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
   }
 
   def assertPublished(expected: List[(String, String, Int)]): Unit = {
-    verify(publishRouter, times(expected.map(_._3).sum)).publish(routerCaptor)
-    val obtained = routerCaptor.values
+    verify(publishRouter, times(expected.map(_._3).sum)).publish(routerCaptor.capture())
+    val obtained = routerCaptor.getAllValues.asScala.toList
     expected.foreach { exp =>
       val (node, key, count) = exp
       val filtered = obtained.filter(dp =>
@@ -845,11 +849,11 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
   def mockRedisDel(hash: Long, delFail: Boolean = false, delEx: Boolean = false): Unit = {
     val key = getKey(hash)
     if (delFail) {
-      when(client.del(key)).thenReturn(0)
+      when(client.del(key)).thenReturn(0L)
     } else if (delEx) {
       when(client.del(key)).thenThrow(new UTException("UT"))
     } else {
-      when(client.del(key)).thenReturn(1)
+      when(client.del(key)).thenReturn(1L)
     }
   }
 
@@ -880,8 +884,8 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
     clusterNodes = new util.HashMap[String, ConnectionPool]()
     for (i <- 1 to leaders) {
       // leader
-      val pool = mock[ConnectionPool]
-      val leaderResource = mock[Connection]
+      val pool = mock(classOf[ConnectionPool])
+      val leaderResource = mock(classOf[Connection])
       resourceOpenClose.put(
         s"l${i}",
         // 0 == open, 1 == close
@@ -901,19 +905,19 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       }
 
       // capture open and close
-      when(pool.getResource).thenAnswer {
+      when(pool.getResource).thenAnswer(_ => {
         resourceOpenClose.get(s"l${i}")(0).incrementAndGet()
         leaderResource
-      }
-      doAnswer(resourceOpenClose.get(s"l${i}")(1).incrementAndGet())
+      })
+      doAnswer(_ => resourceOpenClose.get(s"l${i}")(1).incrementAndGet())
         .when(leaderResource)
         .close()
 
       clusterNodes.put(s"l${i}", pool)
 
       // follower
-      val followerPool = mock[ConnectionPool]
-      val followerResource = mock[Connection]
+      val followerPool = mock(classOf[ConnectionPool])
+      val followerResource = mock(classOf[Connection])
       when(followerPool.getResource).thenReturn(followerResource)
       when(followerResource.toString).thenReturn(s"f${i}")
       clusterNodes.put(s"f${i}", followerPool)
@@ -941,59 +945,60 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
     val extractor = (key: Array[Byte]) => ByteBuffer.wrap(key).getLong(4)
 
     def setJedis(jedis: Connection): Unit = {
-      when(jedis.executeCommand(any[CommandObject[AnyRef]])).thenAnswer((cmd: CommandObject[?]) => {
-        // System.out.println(s"#### CMD: ${cmd.getArguments.getCommand}")
-        cmd.getArguments.getCommand match {
-          case Command.SCAN =>
-            val scanResults = mock[ScanResult[Array[Byte]]]
-            if (numScans <= 0 || scanned / 2 >= numScans) {
-              if (withScanEx) {
-                throw new UTException("UT Scan")
-              }
-              when(scanResults.getResult).thenReturn(Collections.emptyList())
-              when(scanResults.getCursorAsBytes).thenReturn(ScanParams.SCAN_POINTER_START_BINARY)
-            } else {
-              RedisClusterCloudWatchMetricsProcessorSuite.this.synchronized {
-                val scannedKeys = ArrayBuffer[Array[Byte]]()
-                for (i <- keyIdx until keyIdx + 2) {
-                  val b = util.Arrays.copyOf(keyArrays.get(), 12)
-                  ByteBuffer.wrap(b).putLong(4, i)
-                  scannedKeys += b
+      when(jedis.executeCommand(any[CommandObject[AnyRef]])).thenAnswer(new Answer[AnyRef] {
+        override def answer(invocation: org.mockito.invocation.InvocationOnMock): AnyRef = {
+          val cmd = invocation.getArgument(0, classOf[CommandObject[?]])
+          // System.out.println(s"#### CMD: ${cmd.getArguments.getCommand}")
+          cmd.getArguments.getCommand match {
+            case Command.SCAN =>
+              val scanResults = mock(classOf[ScanResult[Array[Byte]]])
+              if (numScans <= 0 || scanned / 2 >= numScans) {
+                if (withScanEx) {
+                  throw new UTException("UT Scan")
                 }
-                keyIdx += 2
-                scanned += 2
-                when(scanResults.getResult).thenReturn(scannedKeys.asJava)
-                when(scanResults.getCursorAsBytes).thenReturn(new Array[Byte](keyIdx.toByte))
+                when(scanResults.getResult).thenReturn(Collections.emptyList())
+                when(scanResults.getCursorAsBytes).thenReturn(ScanParams.SCAN_POINTER_START_BINARY)
+              } else {
+                RedisClusterCloudWatchMetricsProcessorSuite.this.synchronized {
+                  val scannedKeys = ArrayBuffer[Array[Byte]]()
+                  for (i <- keyIdx until keyIdx + 2) {
+                    val b = util.Arrays.copyOf(keyArrays.get(), 12)
+                    ByteBuffer.wrap(b).putLong(4, i)
+                    scannedKeys += b
+                  }
+                  keyIdx += 2
+                  scanned += 2
+                  when(scanResults.getResult).thenReturn(scannedKeys.asJava)
+                  when(scanResults.getCursorAsBytes).thenReturn(new Array[Byte](keyIdx.toByte))
+                }
               }
-            }
-            scanResults
-          case Command.MGET =>
-            /*cmd.getArguments.forEach { arg =>
+              scanResults
+            case Command.MGET =>
+              /*cmd.getArguments.forEach { arg =>
                 System.out.println(s"   ARG: ${arg}")
               }*/
-            val results = ArrayBuffer[Array[Byte]]()
-            cmd.getArguments.forEach { arg =>
-              if (arg.isInstanceOf[Raw]) {
-                val key = extractor(arg.getRaw)
-                if ((key == 2 || key == 5) && withBatchEx) {
-                  throw new UTException("UT Batch EX")
-                } else if ((key == 2 || key == 5) && withNulls) {
-                  results += null
-                } else {
-                  results += makePayload(jedis.toString, key)
+              val results = ArrayBuffer[Array[Byte]]()
+              cmd.getArguments.forEach { arg =>
+                if (arg.isInstanceOf[Raw]) {
+                  val key = extractor(arg.getRaw)
+                  if ((key == 2 || key == 5) && withBatchEx) {
+                    throw new UTException("UT Batch EX")
+                  } else if ((key == 2 || key == 5) && withNulls) {
+                    results += null
+                  } else {
+                    results += makePayload(jedis.toString, key)
+                  }
                 }
               }
-            }
-            results.asJava
-          case _ =>
-            throw new IllegalStateException("Haven't mocked this yet.")
+              results.asJava
+            case _ =>
+              throw new IllegalStateException("Haven't mocked this yet.")
+          }
         }
       })
     }
 
     def makePayload(node: String, key: Long): Array[Byte] = {
-      val category =
-        MetricCategory("AWS/UTRedis", 60, -1, List("node", "key"), null, List.empty, null)
       val cwDP = newCacheEntry(
         makeFirehoseMetric(
           "AWS/UTRedis",
