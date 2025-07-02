@@ -24,7 +24,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
   val schemaValidation = new SchemaValidation
 
   test("Valid configuration") {
-    validate(makeConfigString()())
+    validate(makeConfigString())
   }
 
   test("Fail when top level node is not an object") {
@@ -50,7 +50,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
 
   test("Fail for invalid email") {
     assertFailure(
-      validate(makeConfigString()(email = "app-oncall")),
+      validate(makeConfigString(email = "app-oncall")),
       "not a valid email address"
     )
   }
@@ -110,7 +110,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
       "$(var)$(var)",
       "cons$(var)cons",
       "$(var)cons$(var)"
-    ).foreach(n => validate(makeConfigString()(metricName = n)))
+    ).foreach(n => validate(makeConfigString(metricName = n)))
   }
 
   test("Fail for invalid metric name") {
@@ -122,7 +122,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
       "$(nf: asg)"
     ).foreach { n =>
       assertFailure(
-        validate(makeConfigString()(metricName = n)),
+        validate(makeConfigString(metricName = n)),
         "does not match input string"
       )
     }
@@ -130,7 +130,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
 
   test("Fail for invalid atlasUri name") {
     assertFailure(
-      validate(makeConfigString()(atlasUri = "http://localhost?q=query")),
+      validate(makeConfigString(atlasUri = "http://localhost?q=query")),
       "does not match input string"
     )
   }
@@ -183,7 +183,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
       "asg name"
     ).foreach { d =>
       assertFailure(
-        validate(makeConfigString(dimensionName = d)()),
+        validate(makeConfigString().replace("$(nf.asg)", d)),
         "does not match input string"
       )
     }
@@ -198,7 +198,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
       "$(var)$(var)",
       "cons$(var)cons",
       "$(var)cons$(var)"
-    ).foreach(d => validate(makeConfigString(dimensionValue = d)()))
+    ).foreach(d => validate(makeConfigString().replace("$(nf.asg)", d)))
   }
 
   test("Fail for invalid dimension values") {
@@ -209,14 +209,14 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
       "$(nf:asg)"
     ).foreach { d =>
       assertFailure(
-        validate(makeConfigString(dimensionValue = d)()),
+        validate(makeConfigString().replace("$(nf.asg)", d)),
         "does not match input string"
       )
     }
   }
 
   test("Allow hardcoded account id") {
-    validate(makeConfigString()(account = "23456"))
+    validate(makeConfigString(account = "23456"))
   }
 
   test("Fail for invalid accounts") {
@@ -226,14 +226,14 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
       "123$(nf.account)"
     ).foreach { a =>
       assertFailure(
-        validate(makeConfigString()(account = a)),
+        validate(makeConfigString(account = a)),
         "does not match input string"
       )
     }
   }
 
   test("Allow hardcoded region") {
-    validate(makeConfigString()(region = "us-east-1"))
+    validate(makeConfigString(region = "us-east-1"))
   }
 
   test("Fail for invalid regions") {
@@ -243,32 +243,32 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
       "us-$(region)"
     ).foreach { r =>
       assertFailure(
-        validate(makeConfigString()(region = r)),
+        validate(makeConfigString(region = r)),
         "does not match input string"
       )
     }
   }
 
   test("checksToSkip can be empty") {
-    validate(makeConfigString()(checksToSkip = "[]"))
+    validate(makeConfigString(checksToSkip = "[]"))
   }
 
   test("checksToSkip entries cannot be empty") {
     assertFailure(
-      validate(makeConfigString()(checksToSkip = """[""]""")),
+      validate(makeConfigString(checksToSkip = """[""]""")),
       "string \"\" is too short"
     )
   }
 
   test("checksToSkip should be a string array") {
     assertFailure(
-      validate(makeConfigString()(checksToSkip = "[1]")),
+      validate(makeConfigString(checksToSkip = "[1]")),
       "does not match any allowed primitive type"
     )
   }
 
   private def validate(input: String): Unit = {
-    schemaValidation.validate("cfg1", Json.decode[JsonNode](input))
+    schemaValidation.validate(Json.decode[JsonNode](input))
   }
 
 }

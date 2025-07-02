@@ -59,7 +59,7 @@ class CwExprValidationMethodsSuite
     val styleExpr = validations.eval(expr.atlasUri)
 
     assertFailure(
-      validations.singleExpression(expr, styleExpr),
+      validations.singleExpression(styleExpr),
       "More than one expression found"
     )
   }
@@ -76,10 +76,9 @@ class CwExprValidationMethodsSuite
     )
 
     val expr = config.expressions.head
-    val styleExpr = validations.eval(expr.atlasUri)
 
     assertFailure(
-      validations.validStreamingExpr(expr, styleExpr),
+      validations.validStreamingExpr(expr),
       "rejected expensive query"
     )
   }
@@ -96,9 +95,8 @@ class CwExprValidationMethodsSuite
     )
 
     val expr = config.expressions.head
-    val styleExpr = validations.eval(expr.atlasUri)
 
-    intercept[NoSuchElementException](validations.validStreamingExpr(expr, styleExpr))
+    intercept[NoSuchElementException](validations.validStreamingExpr(expr))
   }
 
   test("Dimensions cannot be empty by default") {
@@ -352,7 +350,7 @@ class CwExprValidationMethodsSuite
     val styleExpr = validations.eval(expr.atlasUri)
 
     assertFailure(
-      validations.defaultGrouping(expr, styleExpr),
+      validations.defaultGrouping(styleExpr),
       s"By default allowing only grouping by " +
         s"${validations.defaultGroupingKeys}"
     )
@@ -370,7 +368,7 @@ class CwExprValidationMethodsSuite
 
     val expr = config.expressions.head
     val styleExpr = validations.eval(expr.atlasUri)
-    validations.defaultGrouping(expr, styleExpr)
+    validations.defaultGrouping(styleExpr)
   }
 
 }

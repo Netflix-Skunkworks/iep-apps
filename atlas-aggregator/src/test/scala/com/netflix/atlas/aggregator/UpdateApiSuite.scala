@@ -63,7 +63,7 @@ class UpdateApiSuite extends FunSuite {
     assertEquals(UpdateApi.processPayload(parser, service).status, StatusCodes.OK)
     clock.setWallTime(62000)
     val id = Id.create("cpu").withTag(aggrTag)
-    assertEquals(service.lookup(id).counter(id).actualCount(), 42.0)
+    assertEquals(service.lookup.counter(id).actualCount(), 42.0)
   }
 
   test("payload with additional tags") {
@@ -90,7 +90,7 @@ class UpdateApiSuite extends FunSuite {
       .create("cpu")
       .withTags("app", "www", "zone", "1e")
       .withTag(aggrTag)
-    assertEquals(service.lookup(id).counter(id).actualCount(), 42.0)
+    assertEquals(service.lookup.counter(id).actualCount(), 42.0)
   }
 
   test("payload with invalid characters") {
@@ -117,7 +117,7 @@ class UpdateApiSuite extends FunSuite {
       .create("cpu_user")
       .withTags("app", "www", "zone", "1e")
       .withTag(aggrTag)
-    assertEquals(service.lookup(id).counter(id).actualCount(), 42.0)
+    assertEquals(service.lookup.counter(id).actualCount(), 42.0)
   }
 
   test("payload with invalid characters null") {
@@ -150,7 +150,7 @@ class UpdateApiSuite extends FunSuite {
       .create("cpu_user")
       .withTags("app", "www", "zone", "1e")
       .withTag(aggrTag)
-    assertEquals(service.lookup(id).counter(id).actualCount(), 42.0)
+    assertEquals(service.lookup.counter(id).actualCount(), 42.0)
   }
 
   test("percentile node rollup") {
@@ -178,7 +178,7 @@ class UpdateApiSuite extends FunSuite {
       .create("latency")
       .withTag(aggrTag)
       .withTag("percentile", "T0000")
-    assertEquals(service.lookup(id).counter(id).actualCount(), 42.0)
+    assertEquals(service.lookup.counter(id).actualCount(), 42.0)
   }
 
   private def createPayload(ts: List[SortedTagMap], op: Int, value: Double): String = {
@@ -204,7 +204,6 @@ class UpdateApiSuite extends FunSuite {
         data.addOne(s)
         stringTable.put(s, i)
     }
-    var offset = 0
     ts.foreach { tags =>
       data.addOne(tags.size)
       tags.foreachEntry { (k, v) =>
@@ -213,7 +212,6 @@ class UpdateApiSuite extends FunSuite {
       }
       data.addOne(op)
       data.addOne(value)
-      offset += tags.size * 2
     }
     Json.encode(data)
   }

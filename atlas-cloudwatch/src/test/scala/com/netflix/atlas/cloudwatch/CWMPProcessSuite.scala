@@ -744,7 +744,7 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
     }
 
     List("metric", "tags").foreach { reason =>
-      val (nsCount, ns) = filtered.getOrElse("namespace", (0L, "NA"))
+      val (_, ns) = filtered.getOrElse("namespace", (0L, "NA"))
       val (metricCount, metric) = filtered.getOrElse(reason, (0L, "NA"))
       assertEquals(
         registry

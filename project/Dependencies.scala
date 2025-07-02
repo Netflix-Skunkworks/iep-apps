@@ -4,16 +4,16 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val atlas      = "1.8.0-rc.35"
-    val aws2       = "2.31.54"
-    val iep        = "5.1.2"
-    val log4j      = "2.24.3"
-    val pekko      = "1.1.3"
+    val atlas      = "1.8.0-rc.37"
+    val aws2       = "2.31.71"
+    val iep        = "5.1.6"
+    val log4j      = "2.25.0"
+    val pekko      = "1.1.4"
     val pekkoHttpV = "1.2.0"
-    val scala      = "3.6.4"
+    val scala      = "3.7.1"
     val servo      = "0.13.2"
     val slf4j      = "2.0.17"
-    val spectator  = "1.8.14"
+    val spectator  = "1.8.16"
     val spring     = "6.1.16"
     val avroV      = "1.12.0"
 
@@ -37,8 +37,8 @@ object Dependencies {
   val aws2EC2            = "software.amazon.awssdk" % "ec2" % aws2
   val aws2S3             = "software.amazon.awssdk" % "s3" % aws2
   val aws2SQS            = "software.amazon.awssdk" % "sqs" % aws2
-  val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "3.2.0"
-  val frigga             = "com.netflix.frigga" % "frigga" % "0.26.0"
+  val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "3.2.1"
+  val frigga             = "com.netflix.frigga" % "frigga" % "0.28.0"
   val iepDynConfig       = "com.netflix.iep" % "iep-dynconfig" % iep
   val iepLeaderApi       = "com.netflix.iep" % "iep-leader-api" % iep
   val iepService         = "com.netflix.iep" % "iep-service" % iep
@@ -58,7 +58,7 @@ object Dependencies {
   val log4jJcl           = "org.apache.logging.log4j" % "log4j-jcl" % log4j
   val log4jJul           = "org.apache.logging.log4j" % "log4j-jul" % log4j
   val log4jSlf4j         = "org.apache.logging.log4j" % "log4j-slf4j2-impl" % log4j
-  val mockitoCore        = "org.mockito" % "mockito-core" % "5.10.0"
+  val mockitoCore        = "org.mockito" % "mockito-core" % "5.18.0"
   val munit              = "org.scalameta" %% "munit" % "1.1.1"
   val openHFT            = "net.openhft" % "zero-allocation-hashing" % "0.16"
   val pekkoActor         = "org.apache.pekko" %% "pekko-actor" % pekko

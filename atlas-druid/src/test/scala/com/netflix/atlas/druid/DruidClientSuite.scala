@@ -29,7 +29,6 @@ import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 import com.fasterxml.jackson.databind.JsonMappingException
-import com.fasterxml.jackson.module.scala.JavaTypeable
 import com.netflix.atlas.pekko.AccessLogger
 import com.netflix.atlas.json.Json
 import com.typesafe.config.ConfigFactory
@@ -58,7 +57,7 @@ class DruidClientSuite extends FunSuite {
     new DruidClient(config, system, client)
   }
 
-  private def ok[T: JavaTypeable](data: T): HttpResponse = {
+  private def ok[T](data: T): HttpResponse = {
     val json = Json.encode(data).getBytes(StandardCharsets.UTF_8)
     HttpResponse(StatusCodes.OK, entity = json)
   }

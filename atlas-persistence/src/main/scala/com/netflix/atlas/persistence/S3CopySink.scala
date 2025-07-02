@@ -169,7 +169,7 @@ class S3CopySink(
 
         // Use computeIfPresent to makes sure only add if it's not been removed, in theory there's a
         // chance the flow has completed before it reach here
-        activeFiles.computeIfPresent(file.getName, (k, v) => Option(killSwitch))
+        activeFiles.computeIfPresent(file.getName, (_, _) => Option(killSwitch))
 
         numActiveFiles.record(activeFiles.size)
       }

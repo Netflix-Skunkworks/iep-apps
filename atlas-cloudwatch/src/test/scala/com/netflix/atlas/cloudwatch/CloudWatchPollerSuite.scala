@@ -545,7 +545,6 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
             .timestamp(timestamp.minusSeconds(86400))
             .build()
         )
-    import scala.jdk.CollectionConverters.*
     val resp = GetMetricStatisticsResponse
       .builder()
       .label("UT1")

@@ -30,13 +30,13 @@ import com.typesafe.scalalogging.StrictLogging
 class CwExprValidations(interpreter: ExprInterpreter, evaluator: Evaluator) extends StrictLogging {
 
   private val validations = List(
-    Validation("SingleExpression", true, singleExpression),
-    Validation("ValidStreamingExpr", true, validStreamingExpr),
+    Validation("SingleExpression", true, (_, exprs) => singleExpression(exprs)),
+    Validation("ValidStreamingExpr", true, (expr, _) => validStreamingExpr(expr)),
     Validation("AsgGrouping", false, asgGrouping),
     Validation("AccountGrouping", false, accountGrouping),
     Validation("AllGroupingsMapped", true, allGroupingsMapped),
     Validation("VariablesSubstitution", true, variablesSubstitution),
-    Validation("DefaultGrouping", false, defaultGrouping)
+    Validation("DefaultGrouping", false, (_, exprs) => defaultGrouping(exprs))
   )
 
   private val defaultDimensions = List(ForwardingDimension("AutoScalingGroupName", "$(nf.asg)"))
@@ -48,7 +48,7 @@ class CwExprValidations(interpreter: ExprInterpreter, evaluator: Evaluator) exte
     "nf.asg"
   )
 
-  def validate(key: String, json: JsonNode): Unit = {
+  def validate(json: JsonNode): Unit = {
     val config = Json.decode[ClusterConfig](json)
 
     validateChecksToSkip(config)
@@ -81,13 +81,13 @@ class CwExprValidations(interpreter: ExprInterpreter, evaluator: Evaluator) exte
       .required
   }
 
-  def validStreamingExpr(expr: ForwardingExpression, styleExprs: List[StyleExpr]): Unit = {
+  def validStreamingExpr(expr: ForwardingExpression): Unit = {
     evaluator.validate(
       new Evaluator.DataSource("_", expr.atlasUri)
     )
   }
 
-  def singleExpression(expr: ForwardingExpression, styleExprs: List[StyleExpr]): Unit = {
+  def singleExpression(styleExprs: List[StyleExpr]): Unit = {
     if (styleExprs.isEmpty) {
       throw new RuntimeException(s"Missing styleExpr")
     }
@@ -193,10 +193,7 @@ class CwExprValidations(interpreter: ExprInterpreter, evaluator: Evaluator) exte
     }
   }
 
-  def defaultGrouping(
-    expr: ForwardingExpression,
-    styleExprs: List[StyleExpr]
-  ): Unit = {
+  def defaultGrouping(styleExprs: List[StyleExpr]): Unit = {
     // To avoid unpredictable number of metrics getting
     // forwarded to CW, by default allow only grouping by
     // `nf.account` and `nf.asg`

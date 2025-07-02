@@ -51,12 +51,12 @@ class Api(
 
   def routes: Route = {
 
-    endpointPath("api" / "v1" / "cw" / "check", Remaining) { key =>
+    endpointPath("api" / "v1" / "cw" / "check", Remaining) { _ =>
       post {
         entity(as[JsonNode]) { json =>
           complete {
-            schemaValidation.validate(key, json)
-            cwExprValidations.validate(key, json)
+            schemaValidation.validate(json)
+            cwExprValidations.validate(json)
             HttpResponse(StatusCodes.OK)
           }
         }

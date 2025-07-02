@@ -183,7 +183,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       debugger
     )(system)
     proc.updateCache(null, category, ts + 60_000).recover {
-      case ex: NullPointerException =>
+      case _: NullPointerException =>
         assertCounters(updateExs = 1)
     }
   }

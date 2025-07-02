@@ -75,7 +75,7 @@ class ScalingPoliciesDaoSuite extends FunSuite {
     )
 
     val dao = new LocalScalingPoliciesDaoTestImpl(data, config, system)
-    val future = getScalingPolicies(dao, EddaEndpoint("123", "us-east-1", "test"))
+    val future = getScalingPolicies(dao)
 
     val actual = Await.result(future, Duration.Inf)
     val expected = List(
@@ -119,7 +119,7 @@ class ScalingPoliciesDaoSuite extends FunSuite {
     )
 
     val dao = new LocalScalingPoliciesDaoTestImpl(data, config, system)
-    val future = getScalingPolicies(dao, EddaEndpoint("123", "us-east-1", "test"))
+    val future = getScalingPolicies(dao)
 
     val actual = Await.result(future, Duration.Inf)
     val expected = List(
@@ -168,7 +168,7 @@ class ScalingPoliciesDaoSuite extends FunSuite {
     )
 
     val dao = new LocalScalingPoliciesDaoTestImpl(data, config, system)
-    val future = getScalingPolicies(dao, EddaEndpoint("123", "us-east-1", "test"))
+    val future = getScalingPolicies(dao)
 
     val actual = Await.result(future, Duration.Inf)
     val expected = List(
@@ -190,7 +190,7 @@ class ScalingPoliciesDaoSuite extends FunSuite {
     )
 
     val dao = new LocalScalingPoliciesDaoTestImpl(data, config, system)
-    val future = getScalingPolicies(dao, EddaEndpoint("123", "us-east-1", "test"))
+    val future = getScalingPolicies(dao)
 
     intercept[NoSuchElementException](Await.result(future, Duration.Inf))
   }
@@ -201,15 +201,12 @@ class ScalingPoliciesDaoSuite extends FunSuite {
         Success(HttpResponse(StatusCodes.InternalServerError))
       }
     }
-    val future = getScalingPolicies(dao, EddaEndpoint("123", "us-east-1", "test"))
+    val future = getScalingPolicies(dao)
 
     intercept[NoSuchElementException](Await.result(future, Duration.Inf))
   }
 
-  def getScalingPolicies(
-    dao: ScalingPoliciesDao,
-    eddaEndpoint: EddaEndpoint
-  ): Future[List[ScalingPolicy]] = {
+  def getScalingPolicies(dao: ScalingPoliciesDao): Future[List[ScalingPolicy]] = {
     Source
       .single(EddaEndpoint("123", "us-east-1", "test"))
       .via(dao.getScalingPolicies)
