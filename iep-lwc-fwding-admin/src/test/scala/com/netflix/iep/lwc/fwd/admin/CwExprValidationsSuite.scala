@@ -39,12 +39,12 @@ class CwExprValidationsSuite
   )
 
   test("Run all checks for a valid expression") {
-    val config = makeConfigString()()
-    validations.validate("foo", Json.decode[JsonNode](config))
+    val config = makeConfigString()
+    validations.validate(Json.decode[JsonNode](config))
   }
 
   test("Skip given validations for a valid expression") {
-    val config = makeConfigString()(
+    val config = makeConfigString(
       atlasUri = """
                    | http://localhost/api/v1/graph?q=
                    |  nf.app,foo_app,:eq,
@@ -66,11 +66,11 @@ class CwExprValidationsSuite
       checksToSkip = """["AsgGrouping", "DefaultGrouping"]"""
     )
 
-    validations.validate("foo", Json.decode[JsonNode](config))
+    validations.validate(Json.decode[JsonNode](config))
   }
 
   test("Should fail for an invalid expression") {
-    val config = makeConfigString()(
+    val config = makeConfigString(
       atlasUri = """
                    | http://localhost/api/v1/graph?q=
                    |  nf.app,foo_app1,:eq,
@@ -86,7 +86,7 @@ class CwExprValidationsSuite
     )
 
     assertFailure(
-      validations.validate("foo", Json.decode[JsonNode](config)),
+      validations.validate(Json.decode[JsonNode](config)),
       "More than one expression found"
     )
   }

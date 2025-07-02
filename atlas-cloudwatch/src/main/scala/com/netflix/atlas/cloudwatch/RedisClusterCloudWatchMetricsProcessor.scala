@@ -301,7 +301,6 @@ class RedisClusterCloudWatchMetricsProcessor(
     scrapExecutionContext.execute(new Runnable() {
       @Override def run(): Unit = {
         try {
-          var sum = 0
           val slotToKeys = mutable.HashMap[Int, ArrayBuffer[Array[Byte]]]()
           Using.resource(jedis.getClusterNodes.get(node).getResource) { jedis =>
             try {
@@ -317,7 +316,6 @@ class RedisClusterCloudWatchMetricsProcessor(
                     val slotKeys = slotToKeys.getOrElseUpdate(slot, new ArrayBuffer[Array[Byte]]())
                     slotKeys += k
                   })
-                  sum += keys.size
                 }
                 cursor = scanResult.getCursorAsBytes
                 continue = !util.Arrays.equals(cursor, ScanParams.SCAN_POINTER_START_BINARY)

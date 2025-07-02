@@ -44,7 +44,7 @@ class AtlasAggregatorService(
     aggrRegistry.stop()
   }
 
-  def lookup(id: Id): AtlasRegistry = {
+  def lookup: AtlasRegistry = {
     aggrRegistry
   }
 

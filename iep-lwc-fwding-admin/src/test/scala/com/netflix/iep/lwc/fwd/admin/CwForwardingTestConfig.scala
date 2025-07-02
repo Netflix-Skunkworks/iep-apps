@@ -56,9 +56,6 @@ trait CwForwardingTestConfig {
   }
 
   def makeConfigString(
-    dimensionName: String = "AutoScalingGroupName",
-    dimensionValue: String = "$(nf.asg)"
-  )(
     email: String = "app-oncall@netflix.com",
     metricName: String = "$(name)",
     atlasUri: String = """
@@ -71,8 +68,8 @@ trait CwForwardingTestConfig {
     dimensions: String = s"""
          | [
          |   {
-         |     "name":"$dimensionName",  
-         |     "value":"$dimensionValue"
+         |     "name":"AutoScalingGroupName",  
+         |     "value":"$$(nf.asg)"
          |   }
          | ]
       """.stripMargin,

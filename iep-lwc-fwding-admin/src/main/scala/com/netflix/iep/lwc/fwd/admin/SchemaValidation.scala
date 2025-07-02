@@ -37,7 +37,7 @@ class SchemaValidation extends StrictLogging {
     }
   }
 
-  def validate(key: String, json: JsonNode): Unit = {
+  def validate(json: JsonNode): Unit = {
     val pr = schema.validate(json)
     if (!pr.isSuccess) {
       throw new IllegalArgumentException(

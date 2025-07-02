@@ -64,7 +64,7 @@ class ApiSuite extends MUnitRouteSuite with CwForwardingTestConfig with StrictLo
 
   test("Valid config") {
 
-    val config = makeConfigString()()
+    val config = makeConfigString()
 
     val postRequest = HttpRequest(
       HttpMethods.POST,
@@ -79,7 +79,7 @@ class ApiSuite extends MUnitRouteSuite with CwForwardingTestConfig with StrictLo
 
   test("Fail for an invalid config") {
 
-    val config = makeConfigString()(
+    val config = makeConfigString(
       atlasUri = """
                    | http://localhost/api/v1/graph?q=
                    |  nf.app,nq_android_api,:eq,
