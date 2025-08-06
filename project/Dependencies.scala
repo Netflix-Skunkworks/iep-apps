@@ -37,7 +37,7 @@ object Dependencies {
   val aws2EC2            = "software.amazon.awssdk" % "ec2" % aws2
   val aws2S3             = "software.amazon.awssdk" % "s3" % aws2
   val aws2SQS            = "software.amazon.awssdk" % "sqs" % aws2
-  val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "3.2.1"
+  val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "3.2.2"
   val frigga             = "com.netflix.frigga" % "frigga" % "0.28.0"
   val iepDynConfig       = "com.netflix.iep" % "iep-dynconfig" % iep
   val iepLeaderApi       = "com.netflix.iep" % "iep-leader-api" % iep
