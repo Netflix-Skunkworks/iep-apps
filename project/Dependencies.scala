@@ -4,16 +4,16 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val atlas      = "1.8.0-rc.37"
-    val aws2       = "2.31.71"
-    val iep        = "5.1.6"
-    val log4j      = "2.25.0"
-    val pekko      = "1.1.4"
+    val atlas      = "1.8.0-rc.38"
+    val aws2       = "2.32.16"
+    val iep        = "5.1.7"
+    val log4j      = "2.25.1"
+    val pekko      = "1.1.5"
     val pekkoHttpV = "1.2.0"
     val scala      = "3.7.1"
     val servo      = "0.13.2"
     val slf4j      = "2.0.17"
-    val spectator  = "1.8.16"
+    val spectator  = "1.8.17"
     val spring     = "6.1.16"
     val avroV      = "1.12.0"
 
@@ -37,7 +37,7 @@ object Dependencies {
   val aws2EC2            = "software.amazon.awssdk" % "ec2" % aws2
   val aws2S3             = "software.amazon.awssdk" % "s3" % aws2
   val aws2SQS            = "software.amazon.awssdk" % "sqs" % aws2
-  val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "3.2.1"
+  val caffeine           = "com.github.ben-manes.caffeine" % "caffeine" % "3.2.2"
   val frigga             = "com.netflix.frigga" % "frigga" % "0.28.0"
   val iepDynConfig       = "com.netflix.iep" % "iep-dynconfig" % iep
   val iepLeaderApi       = "com.netflix.iep" % "iep-leader-api" % iep
@@ -50,7 +50,7 @@ object Dependencies {
   val iepSpringAws2      = "com.netflix.iep" % "iep-spring-aws2" % iep
   val iepSpringJmx       = "com.netflix.iep" % "iep-spring-jmxport" % iep
   val iepSpringLeader    = "com.netflix.iep" % "iep-spring-leader" % iep
-  val jedis              = "redis.clients" % "jedis" % "6.0.0"
+  val jedis              = "redis.clients" % "jedis" % "6.1.0"
   val jsonSchema         = "com.github.java-json-tools" % "json-schema-validator" % "2.2.14"
   val jsr305             = "com.google.code.findbugs" % "jsr305" % "3.0.2"
   val log4jApi           = "org.apache.logging.log4j" % "log4j-api" % log4j
@@ -74,7 +74,7 @@ object Dependencies {
   val scalaReflect       = "org.scala-lang" % "scala-reflect" % scala
   val servoCore          = "com.netflix.servo" % "servo-core" % servo
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
-  val snappy             = "org.xerial.snappy" % "snappy-java" % "1.1.10.7"
+  val snappy             = "org.xerial.snappy" % "snappy-java" % "1.1.10.8"
   val spectatorApi       = "com.netflix.spectator" % "spectator-api" % spectator
   val spectatorAws2      = "com.netflix.spectator" % "spectator-ext-aws2" % spectator
   val spectatorAtlas     = "com.netflix.spectator" % "spectator-reg-atlas" % spectator
@@ -82,7 +82,7 @@ object Dependencies {
   val spectatorM2        = "com.netflix.spectator" % "spectator-reg-metrics2" % spectator
   val spectatorSandbox   = "com.netflix.spectator" % "spectator-ext-sandbox" % spectator
   val springContext      = "org.springframework" % "spring-context" % spring
-  val typesafeConfig     = "com.typesafe" % "config" % "1.4.3"
+  val typesafeConfig     = "com.typesafe" % "config" % "1.4.4"
 }
 
 // format: on
