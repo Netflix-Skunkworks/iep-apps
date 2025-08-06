@@ -74,7 +74,7 @@ object Dependencies {
   val scalaReflect       = "org.scala-lang" % "scala-reflect" % scala
   val servoCore          = "com.netflix.servo" % "servo-core" % servo
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
-  val snappy             = "org.xerial.snappy" % "snappy-java" % "1.1.10.7"
+  val snappy             = "org.xerial.snappy" % "snappy-java" % "1.1.10.8"
   val spectatorApi       = "com.netflix.spectator" % "spectator-api" % spectator
   val spectatorAws2      = "com.netflix.spectator" % "spectator-ext-aws2" % spectator
   val spectatorAtlas     = "com.netflix.spectator" % "spectator-reg-atlas" % spectator
