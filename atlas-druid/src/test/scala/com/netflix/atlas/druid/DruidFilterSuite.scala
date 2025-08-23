@@ -125,7 +125,11 @@ class DruidFilterSuite extends FunSuite {
 
   test("forQuery - :has") {
     val actual = DruidFilter.forQuery(eval("country,:has"))
-    val expected = Some(DruidFilter.Not(DruidFilter.Equal("country", "")))
+    val expected = Some(
+      DruidFilter.Not(
+        DruidFilter.Or(List(DruidFilter.Equal("country", ""), DruidFilter.Equal("country", null)))
+      )
+    )
     assertEquals(actual, expected)
   }
 
@@ -199,7 +203,67 @@ class DruidFilterSuite extends FunSuite {
 
   test("forQuery - :not") {
     val actual = DruidFilter.forQuery(eval("country,(,US,CA,),:in,:not"))
-    val expected = Some(DruidFilter.Not(DruidFilter.In("country", List("US", "CA"))))
+    val expected =
+      Some(DruidFilter.Not(DruidFilter.IsTrue(DruidFilter.In("country", List("US", "CA")))))
+    assertEquals(actual, expected)
+  }
+
+  test("forQuery - :not wraps with IsTrue for :eq") {
+    val actual = DruidFilter.forQuery(eval("country,US,:eq,:not"))
+    val expected = Some(DruidFilter.Not(DruidFilter.IsTrue(DruidFilter.Equal("country", "US"))))
+    assertEquals(actual, expected)
+  }
+
+  test("forQuery - :not wraps with IsTrue for :in") {
+    val actual = DruidFilter.forQuery(eval("country,(,US,CA,),:in,:not"))
+    val expected =
+      Some(DruidFilter.Not(DruidFilter.IsTrue(DruidFilter.In("country", List("US", "CA")))))
+    assertEquals(actual, expected)
+  }
+
+  test("forQuery - :not wraps with IsTrue for :and") {
+    val actual = DruidFilter.forQuery(eval("country,US,:eq,device,xbox,:eq,:and,:not"))
+    val expected = Some(
+      DruidFilter.Not(
+        DruidFilter.IsTrue(
+          DruidFilter.And(
+            List(
+              DruidFilter.Equal("country", "US"),
+              DruidFilter.Equal("device", "xbox")
+            )
+          )
+        )
+      )
+    )
+    assertEquals(actual, expected)
+  }
+
+  test("forQuery - :not wraps with IsTrue for :or") {
+    val actual = DruidFilter.forQuery(eval("country,US,:eq,device,xbox,:eq,:or,:not"))
+    val expected = Some(
+      DruidFilter.Not(
+        DruidFilter.IsTrue(
+          DruidFilter.Or(
+            List(
+              DruidFilter.Equal("country", "US"),
+              DruidFilter.Equal("device", "xbox")
+            )
+          )
+        )
+      )
+    )
+    assertEquals(actual, expected)
+  }
+
+  test("forQuery - :not wraps with IsTrue for :re") {
+    val actual = DruidFilter.forQuery(eval("country,US,:re,:not"))
+    val expected = Some(
+      DruidFilter.Not(
+        DruidFilter.IsTrue(
+          DruidFilter.Regex("country", "^US")
+        )
+      )
+    )
     assertEquals(actual, expected)
   }
 }

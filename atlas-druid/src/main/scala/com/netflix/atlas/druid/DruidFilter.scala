@@ -42,12 +42,17 @@ object DruidFilter {
       case Query.GreaterThanEqual(k, v) => Bound.greaterThanEqual(k, v)
       case Query.LessThan(k, v)         => Bound.lessThan(k, v)
       case Query.LessThanEqual(k, v)    => Bound.lessThanEqual(k, v)
-      case Query.HasKey(k)              => Not(Equal(k, "")) // druid: empty string is same as null
-      case Query.Regex(k, v)            => Regex(k, s"^$v")
-      case Query.RegexIgnoreCase(k, v)  => Regex(k, s"(?i)^$v")
-      case Query.And(q1, q2)            => And(List(toFilter(q1), toFilter(q2)))
-      case Query.Or(q1, q2)             => Or(List(toFilter(q1), toFilter(q2)))
-      case Query.Not(q)                 => Not(toFilter(q))
+      /**
+       * Druid v32+ removed support for legacy null-handling
+       * To support simultaneous backwards/forwards compatibility, check for both "" and null
+       * Reference: https://druid.apache.org/docs/latest/release-info/migr-ansi-sql-null/
+      */
+      case Query.HasKey(k)             => Not(Or(List(Equal(k, ""), Equal(k, null))))
+      case Query.Regex(k, v)           => Regex(k, s"^$v")
+      case Query.RegexIgnoreCase(k, v) => Regex(k, s"(?i)^$v")
+      case Query.And(q1, q2)           => And(List(toFilter(q1), toFilter(q2)))
+      case Query.Or(q1, q2)            => Or(List(toFilter(q1), toFilter(q2)))
+      case Query.Not(q)                => Not(IsTrue(toFilter(q)))
     }
   }
 
@@ -117,5 +122,9 @@ object DruidFilter {
 
   case class Not(field: DruidFilter) extends DruidFilter {
     val `type`: String = "not"
+  }
+
+  case class IsTrue(field: DruidFilter) extends DruidFilter {
+    val `type`: String = "istrue"
   }
 }
