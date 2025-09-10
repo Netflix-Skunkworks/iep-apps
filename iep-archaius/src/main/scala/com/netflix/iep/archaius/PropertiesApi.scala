@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.databind.json.JsonMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
 import java.io.StringWriter
@@ -104,13 +105,16 @@ object PropertiesApi {
   case class Property(id: String, cluster: String, key: String, value: String, timestamp: Long)
 
   private val mapper: ObjectMapper = {
-    val m = new ObjectMapper()
-    m.setSerializationInclusion(JsonInclude.Include.NON_ABSENT)
-    m.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-    m.disable(DeserializationFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
-    m.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS)
-    m.disable(SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS)
-    m.registerModule(DefaultScalaModule)
-    m
+    JsonMapper
+      .builder()
+      .defaultPropertyInclusion(
+        JsonInclude.Value.construct(JsonInclude.Include.NON_ABSENT, JsonInclude.Include.NON_ABSENT)
+      )
+      .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+      .disable(DeserializationFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
+      .disable(SerializationFeature.FAIL_ON_EMPTY_BEANS)
+      .disable(SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS)
+      .addModule(DefaultScalaModule)
+      .build()
   }
 }
