@@ -7,7 +7,7 @@ object Dependencies {
     val atlas      = "1.8.0-rc.40"
     val aws2       = "2.33.5"
     val iep        = "5.1.9"
-    val log4j      = "2.25.1"
+    val log4j      = "2.25.2"
     val pekko      = "1.2.1"
     val pekkoHttpV = "1.2.0"
     val scala      = "3.7.3"
