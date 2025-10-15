@@ -840,9 +840,34 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
   }
 
   def assertResourceClose(opensAndCloses: util.HashMap[String, Array[AtomicInteger]]): Unit = {
+    // Retry logic to handle async resource cleanup race condition
+    val maxAttempts = 10
+    val delayMs = 50
+    var attempt = 0
+    var allClosed = false
+
+    while (attempt < maxAttempts && !allClosed) {
+      allClosed = true
+      opensAndCloses.entrySet().forEach { entry =>
+        val counters = entry.getValue
+        if (counters(0).get() != counters(1).get()) {
+          allClosed = false
+        }
+      }
+      if (!allClosed) {
+        Thread.sleep(delayMs)
+        attempt += 1
+      }
+    }
+
+    // Final assertion with clear error messages
     opensAndCloses.entrySet().forEach { entry =>
       val counters = entry.getValue
-      assertEquals(counters(0).get(), counters(1).get())
+      assertEquals(
+        counters(0).get(),
+        counters(1).get(),
+        s"Resource ${entry.getKey} not properly closed"
+      )
     }
   }
 
