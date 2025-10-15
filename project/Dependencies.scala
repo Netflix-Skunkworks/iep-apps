@@ -70,7 +70,7 @@ object Dependencies {
   val protobuf           = "com.google.protobuf" % "protobuf-java" % "4.32.0"
   val scalaCompiler      = "org.scala-lang" % "scala-compiler" % scala
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
-  val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
+  val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.6"
   val scalaReflect       = "org.scala-lang" % "scala-reflect" % scala
   val servoCore          = "com.netflix.servo" % "servo-core" % servo
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
