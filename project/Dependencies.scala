@@ -4,16 +4,16 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val atlas      = "1.8.0-rc.39"
-    val aws2       = "2.33.5"
-    val iep        = "5.1.8"
-    val log4j      = "2.25.1"
-    val pekko      = "1.2.0"
+    val atlas      = "1.8.0-rc.40"
+    val aws2       = "2.35.6"
+    val iep        = "5.1.9"
+    val log4j      = "2.25.2"
+    val pekko      = "1.2.1"
     val pekkoHttpV = "1.2.0"
-    val scala      = "3.7.1"
+    val scala      = "3.7.3"
     val servo      = "0.13.2"
     val slf4j      = "2.0.17"
-    val spectator  = "1.9.0"
+    val spectator  = "1.9.1"
     val spring     = "6.1.16"
     val avroV      = "1.12.0"
 
@@ -58,8 +58,8 @@ object Dependencies {
   val log4jJcl           = "org.apache.logging.log4j" % "log4j-jcl" % log4j
   val log4jJul           = "org.apache.logging.log4j" % "log4j-jul" % log4j
   val log4jSlf4j         = "org.apache.logging.log4j" % "log4j-slf4j2-impl" % log4j
-  val mockitoCore        = "org.mockito" % "mockito-core" % "5.19.0"
-  val munit              = "org.scalameta" %% "munit" % "1.1.1"
+  val mockitoCore        = "org.mockito" % "mockito-core" % "5.20.0"
+  val munit              = "org.scalameta" %% "munit" % "1.2.1"
   val openHFT            = "net.openhft" % "zero-allocation-hashing" % "0.16"
   val pekkoActor         = "org.apache.pekko" %% "pekko-actor" % pekko
   val pekkoHttpCaching   = "org.apache.pekko" %% "pekko-http-caching" % pekkoHttpV
@@ -67,10 +67,10 @@ object Dependencies {
   val pekkoHttpTestkit   = "org.apache.pekko" %% "pekko-http-testkit" % pekkoHttpV
   val pekkoSlf4j         = "org.apache.pekko" %% "pekko-slf4j" % pekko
   val pekkoTestkit       = "org.apache.pekko" %% "pekko-testkit" % pekko
-  val protobuf           = "com.google.protobuf" % "protobuf-java" % "4.32.0"
+  val protobuf           = "com.google.protobuf" % "protobuf-java" % "4.32.1"
   val scalaCompiler      = "org.scala-lang" % "scala-compiler" % scala
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
-  val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.5"
+  val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.6"
   val scalaReflect       = "org.scala-lang" % "scala-reflect" % scala
   val servoCore          = "com.netflix.servo" % "servo-core" % servo
   val slf4jApi           = "org.slf4j" % "slf4j-api" % slf4j
@@ -82,7 +82,7 @@ object Dependencies {
   val spectatorM2        = "com.netflix.spectator" % "spectator-reg-metrics2" % spectator
   val spectatorSandbox   = "com.netflix.spectator" % "spectator-ext-sandbox" % spectator
   val springContext      = "org.springframework" % "spring-context" % spring
-  val typesafeConfig     = "com.typesafe" % "config" % "1.4.4"
+  val typesafeConfig     = "com.typesafe" % "config" % "1.4.5"
 }
 
 // format: on
