@@ -24,4 +24,11 @@ class S3CopySinkSuite extends FunSuite {
     assertEquals(S3CopySink.extractMinuteRange("abc.1200-1300"), "20-21")
     assertEquals(S3CopySink.extractMinuteRange("abc.0000-0123"), "00-02")
   }
+
+  test("extractMinuteRange - handles short file names and non-tmp, non-range files") {
+    // Should throw an exception for too-short file names (simulate bad input)
+    intercept[StringIndexOutOfBoundsException] {
+      S3CopySink.extractMinuteRange("abc.data")
+    }
+  }
 }

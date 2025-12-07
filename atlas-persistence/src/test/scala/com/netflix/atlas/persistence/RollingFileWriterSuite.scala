@@ -144,4 +144,124 @@ class RollingFileWriterSuite extends FunSuite {
       )
     })
   }
+
+  test("ignore datapoints outside time window") {
+    val rollingConf = RollingConfig(10, 12000, 12000, "null", 1, 64000, commonStrings)
+    val hourStart = 1000L
+    val hourEnd = 2000L
+    val writer = new RollingFileWriter(
+      s"$outputDir/timeWindow",
+      rollingConf,
+      hourStart,
+      hourEnd,
+      registry,
+      1
+    )
+    writer.initialize()
+    // All these are outside the window
+    val dps = List(
+      Datapoint(Map("name" -> "cpu", "node" -> "0"), 500, 1.0, 60000), // before window
+      Datapoint(Map("name" -> "cpu", "node" -> "1"), 2000, 2.0, 60000), // at end
+      Datapoint(Map("name" -> "cpu", "node" -> "2"), 3000, 3.0, 60000) // after window
+    )
+    dps.foreach(writer.write)
+    writer.close()
+    val files = listFilesSorted(outputDir)
+    // No files with data should be produced
+    assert(files.isEmpty)
+  }
+
+  test("delete temp file if no records written") {
+    val rollingConf = RollingConfig(10, 12000, 12000, "null", 1, 64000, commonStrings)
+    val hourStart = 0L
+    val hourEnd = 1000L
+    val writer = new RollingFileWriter(
+      s"$outputDir/empty",
+      rollingConf,
+      hourStart,
+      hourEnd,
+      registry,
+      2
+    )
+    writer.initialize()
+    // Do not write any datapoints
+    writer.close()
+    val files = listFilesSorted(outputDir)
+    // No files should remain
+    assert(files.isEmpty)
+  }
+
+  test("file naming pattern includes worker id and random suffix") {
+    val rollingConf = RollingConfig(10, 12000, 12000, "null", 1, 64000, commonStrings)
+    val hourStart = 0L
+    val hourEnd = 1000L
+    val workerId = 7
+    val writer = new RollingFileWriter(
+      s"$outputDir/naming",
+      rollingConf,
+      hourStart,
+      hourEnd,
+      registry,
+      workerId
+    )
+    writer.initialize()
+    val dp = Datapoint(Map("name" -> "cpu", "node" -> "X"), hourStart, 1.0, 60000)
+    writer.write(dp)
+    writer.close()
+    val files = listFilesSorted(outputDir)
+    assert(files.length == 1)
+    val fileName = files.head.getName
+    assert(fileName.contains(s".$workerId.0000")) // workerId and seq
+    assert(fileName.matches(""".*\.[A-Za-z0-9]{6}\.\d{4}-\d{4}$""")) // random string and range
+  }
+
+  test("common strings are compressed in tags") {
+    val rollingConf = RollingConfig(10, 12000, 12000, "null", 1, 64000, commonStrings)
+    val hourStart = 0L
+    val hourEnd = 1000L
+    val writer = new RollingFileWriter(
+      s"$outputDir/compress",
+      rollingConf,
+      hourStart,
+      hourEnd,
+      registry,
+      3
+    )
+    writer.initialize()
+    val dp = Datapoint(Map("name" -> "cpu", "node" -> "0"), hourStart, 1.0, 60000)
+    writer.write(dp)
+    writer.close()
+    val files = listFilesSorted(outputDir)
+    assert(files.length == 1)
+    val dpArray = readAvro(files.head)
+    // "\u0080" = 128 (name), "\u0081" = 129 (node)
+    assert(dpArray.head.tags.contains("\u0080"))
+    assert(dpArray.head.tags.contains("\u0081"))
+  }
+
+  test("rollover by duration") {
+    var now = 0L
+    val fakeClock = () => now
+    val rollingConf = RollingConfig(10, 1, 1, "null", 1, 64000, commonStrings)
+    val hourStart = 0L
+    val hourEnd = 10000L
+    val writer = new RollingFileWriter(
+      s"$outputDir/rolloverByDuration",
+      rollingConf,
+      hourStart,
+      hourEnd,
+      registry,
+      4,
+      clock = fakeClock // inject test clock
+    )
+    writer.initialize()
+    val dp1 = Datapoint(Map("name" -> "cpu", "node" -> "0"), hourStart, 1.0, 60000)
+    writer.write(dp1)
+    now += 2 // simulate time passage
+    val dp2 = Datapoint(Map("name" -> "cpu", "node" -> "1"), hourStart + 1000, 2.0, 60000)
+    writer.write(dp2)
+    writer.close()
+    val files = listFilesSorted(outputDir)
+    assert(files.length == 2)
+  }
 }
