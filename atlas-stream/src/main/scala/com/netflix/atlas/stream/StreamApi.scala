@@ -135,6 +135,12 @@ class StreamApi(
           complete(HttpResponse(StatusCodes.OK, Nil, entity))
         }
       }
+    } ~
+    endpointPath("api" / "v1" / "streams") {
+      get {
+        val entity = HttpEntity(MediaTypes.`application/json`, Json.encode(evalService.getStreams))
+        complete(HttpResponse(StatusCodes.OK, Nil, entity))
+      }
     }
   }
 
