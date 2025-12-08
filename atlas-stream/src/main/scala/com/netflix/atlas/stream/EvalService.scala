@@ -63,6 +63,13 @@ class EvalService(
     numDataSources.get()
   }
 
+  def getStreams: Map[String, List[DataSource]] = {
+    import scala.jdk.CollectionConverters.*
+    registrations.asScala.map { (id, info) =>
+      id -> info.dataSources.fold(Nil)(_.sources().asScala.toList)
+    }.toMap
+  }
+
   override def startImpl(): Unit = {
     logger.debug("Starting service")
 
