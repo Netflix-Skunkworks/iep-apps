@@ -40,7 +40,8 @@ class RollingFileWriter(
   val startTime: Long,
   val endTime: Long,
   val registry: Registry,
-  val workerId: Int
+  val workerId: Int,
+  val clock: () => Long = () => System.currentTimeMillis()
 ) extends StrictLogging {
 
   // These "curr*" fields track status of the current file writer
@@ -99,7 +100,7 @@ class RollingFileWriter(
     // Update tracking fields
     currFile = newFile
     currWriter = dataFileWriter
-    currCreatedAtMs = System.currentTimeMillis()
+    currCreatedAtMs = clock()
     currNumRecords = 0
     currStartTimeSeen = endTime - 1
     currEndTimeSeen = startTime
@@ -121,7 +122,7 @@ class RollingFileWriter(
 
   private def shouldRollOver: Boolean = {
     currNumRecords >= rollingConf.maxRecords ||
-    (System.currentTimeMillis() - currCreatedAtMs) >= rollingConf.maxDurationMs
+    (clock() - currCreatedAtMs) >= rollingConf.maxDurationMs
   }
 
   private def rollOver(): Unit = {

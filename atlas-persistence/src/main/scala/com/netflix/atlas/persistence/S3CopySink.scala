@@ -18,7 +18,6 @@ package com.netflix.atlas.persistence
 import com.netflix.iep.aws2.AwsClientFactory
 
 import java.io.File
-import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import org.apache.pekko.actor.ActorSystem
@@ -112,28 +111,12 @@ class S3CopySink(
       }
 
       def shouldProcess(f: File): Boolean = {
-        if (activeFiles.containsKey(f.getName)) {
-          logger.debug(s"Should NOT process: being processed - $f")
-          false
-        } else if (FileUtil.isTmpFile(f)) {
-          if (isInactive(f)) {
-            logger.warn(s"Should process: temp file but inactive - $f")
-            true
-          } else {
-            false
-          }
-        } else {
-          true
-        }
-      }
-
-      private def isInactive(f: File): Boolean = {
-        val lastModified = f.lastModified()
-        if (lastModified == 0) {
-          false // Error getting lastModified, assuming not inactive yet
-        } else {
-          System.currentTimeMillis > f.lastModified() + maxInactiveMs
-        }
+        S3CopyUtils.shouldProcess(
+          file = f,
+          activeFiles = activeFiles.keySet().asScala.toSet,
+          maxInactiveMs = maxInactiveMs,
+          isTmpFile = FileUtil.isTmpFile
+        )
       }
 
       // Start a new stream to copy each file
@@ -191,23 +174,8 @@ class S3CopySink(
         logger.info(s"copyToS3 done: file=$file, key=$s3Key")
       }
 
-      // Example file name: 2020-05-10T0300.i-localhost.1.XkvU3A.1200-1320
-      private def buildS3Key(fileName: String): String = {
-        val hour = fileName.substring(0, HourlyRollingWriter.HourStringLen)
-        val s3FileName = fileName.substring(HourlyRollingWriter.HourStringLen + 1)
-        val hourPath = hash(s"$prefix/$hour")
-        val startMinute = S3CopySink.extractMinuteRange(fileName)
-        s"$hourPath/$startMinute/$s3FileName"
-      }
-
-      private def hash(path: String): String = {
-        val md = MessageDigest.getInstance("MD5")
-        md.update(path.getBytes("UTF-8"))
-        val digest = md.digest()
-        val hexBytes = digest.take(2).map("%02x".format(_)).mkString
-        val randomPrefix = hexBytes.take(3)
-        s"$randomPrefix/$path"
-      }
+      private def buildS3Key(fileName: String): String =
+        S3CopyUtils.buildS3Key(fileName, prefix, HourlyRollingWriter.HourStringLen)
     }
   }
 }
