@@ -26,7 +26,6 @@ import org.apache.pekko.http.scaladsl.model.ws.Message
 import org.apache.pekko.http.scaladsl.model.ws.TextMessage
 import org.apache.pekko.http.scaladsl.server.Directives.*
 import org.apache.pekko.http.scaladsl.server.Route
-import org.apache.pekko.stream.ThrottleMode
 import org.apache.pekko.stream.scaladsl.Flow
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
@@ -53,8 +52,6 @@ class StreamApi(
 
   private val prefix = ByteString("data: ")
   private val suffix = ByteString("\r\n\r\n")
-
-  private val heartbeat = ByteString(s"""data: {"type":"heartbeat"}\r\n\r\n""")
 
   private val maxDataSourcesPerSession = config.getInt("atlas.stream.max-datasources-per-session")
   private val maxDataSourcesTotal = config.getInt("atlas.stream.max-datasources-total")
@@ -158,18 +155,15 @@ class StreamApi(
   }
 
   private def processStream(dataSources: DataSources): Route = {
-    val heartbeatSrc = Source
-      .repeat(heartbeat)
-      .throttle(1, 5.seconds, 1, ThrottleMode.Shaping)
+    val dsJson = Json.encode(dataSources)
 
     // Use tick to keep the source alive, actual rate of stream is decided by step
     val src = Source
-      .tick(0.seconds, 1.minute, dataSources)
-      .via(evaluator.createStreamsFlow)
+      .tick(0.seconds, 1.minute, dsJson)
+      .via(EvalFlow.createEvalFlow(evalService, validator))
       .map { messageEnvelope =>
         prefix ++ ByteString(Json.encode(messageEnvelope)) ++ suffix
       }
-      .merge(heartbeatSrc)
 
     val entity = HttpEntity(MediaTypes.`text/event-stream`, src)
     val headers = List(Connection("close"))
