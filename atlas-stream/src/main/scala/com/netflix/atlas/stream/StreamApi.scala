@@ -155,7 +155,7 @@ class StreamApi(
   }
 
   private def processStream(dataSources: DataSources): Route = {
-    val dsJson = Json.encode(dataSources)
+    val dsJson = Json.encode(dataSources.sources())
 
     // Use tick to keep the source alive, actual rate of stream is decided by step
     val src = Source
