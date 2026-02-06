@@ -89,6 +89,6 @@ class AggrConfig(
   }
 
   override def indexCacheSupplier[T](): QueryIndex.CacheSupplier[T] = { () =>
-    new CaffeineCache[T].asInstanceOf[Cache[String, java.util.List[QueryIndex[T]]]]
+    new CaffeineCache[T].asInstanceOf[Cache[String, QueryIndex.CacheValue[T]]]
   }
 }
