@@ -26,8 +26,8 @@ import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import redis.clients.jedis.CommandObjects
-import redis.clients.jedis.JedisCluster
 import redis.clients.jedis.Protocol.Command
+import redis.clients.jedis.RedisClusterClient
 import redis.clients.jedis.params.ScanParams
 import redis.clients.jedis.params.SetParams
 import redis.clients.jedis.util.JedisClusterCRC16
@@ -65,7 +65,7 @@ class RedisClusterCloudWatchMetricsProcessor(
   config: Config,
   registry: Registry,
   tagger: Tagger,
-  jedis: JedisCluster,
+  jedis: RedisClusterClient,
   leaderStatus: LeaderStatus,
   rules: CloudWatchRules,
   publishRouter: PublishRouter,
@@ -154,7 +154,7 @@ class RedisClusterCloudWatchMetricsProcessor(
     promise.future
   }
 
-  private def getFromRedis(client: JedisCluster, key: Array[Byte]): Array[Byte] = {
+  private def getFromRedis(client: RedisClusterClient, key: Array[Byte]): Array[Byte] = {
     try {
       client.get(key)
     } catch {
@@ -454,7 +454,7 @@ class RedisClusterCloudWatchMetricsProcessor(
   }
 
   private def performCas(
-    client: JedisCluster,
+    client: RedisClusterClient,
     prevBytes: Array[Byte],
     current: CloudWatchCacheEntry,
     key: Array[Byte],

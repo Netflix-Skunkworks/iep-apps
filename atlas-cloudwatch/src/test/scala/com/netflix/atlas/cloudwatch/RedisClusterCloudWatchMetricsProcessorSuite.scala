@@ -42,8 +42,8 @@ import org.mockito.stubbing.Answer
 import redis.clients.jedis.CommandObject
 import redis.clients.jedis.Connection
 import redis.clients.jedis.ConnectionPool
-import redis.clients.jedis.JedisCluster
 import redis.clients.jedis.Protocol.Command
+import redis.clients.jedis.RedisClusterClient
 import redis.clients.jedis.args.RawableFactory.Raw
 import redis.clients.jedis.params.ScanParams
 import redis.clients.jedis.params.SetParams
@@ -62,7 +62,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
 
   implicit lazy val system: ActorSystem = ActorSystem()
 
-  var client: JedisCluster = null
+  var client: RedisClusterClient = null
   var registry: Registry = null
   var leaderStatus: LeaderStatus = null
   var publishRouter: PublishRouter = null
@@ -87,7 +87,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
   )
 
   override def beforeEach(context: BeforeEach): Unit = {
-    client = mock(classOf[JedisCluster])
+    client = mock(classOf[RedisClusterClient])
     registry = new DefaultRegistry()
     leaderStatus = mock(classOf[LeaderStatus])
     publishRouter = mock(classOf[PublishRouter])
