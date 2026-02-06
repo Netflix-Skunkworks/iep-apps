@@ -4,13 +4,13 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val atlas      = "1.8.0-rc.41"
+    val atlas      = "1.8.0-rc.42"
     val aws2       = "2.38.8"
     val iep        = "5.1.10"
     val log4j      = "2.25.2"
-    val pekko      = "1.2.1"
+    val pekko      = "1.4.0"
     val pekkoHttpV = "1.3.0"
-    val scala      = "3.7.4"
+    val scala      = "3.8.1"
     val servo      = "0.13.2"
     val slf4j      = "2.0.17"
     val spectator  = "1.9.2"
