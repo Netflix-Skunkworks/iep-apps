@@ -37,8 +37,9 @@ import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import redis.clients.jedis.Connection
+import redis.clients.jedis.DefaultJedisClientConfig
 import redis.clients.jedis.HostAndPort
-import redis.clients.jedis.JedisCluster
+import redis.clients.jedis.RedisClusterClient
 
 import java.util.Optional
 
@@ -99,7 +100,7 @@ class CloudWatchConfiguration extends StrictLogging {
     config: Config,
     registry: Optional[Registry],
     tagger: Tagger,
-    jedis: JedisCluster,
+    jedis: RedisClusterClient,
     leaderStatus: LeaderStatus,
     rules: CloudWatchRules,
     publishRouter: PublishRouter,
@@ -140,17 +141,21 @@ class CloudWatchConfiguration extends StrictLogging {
     */
   @Bean
   @Qualifier("jedisClient")
-  def getJedisClient(config: Config): JedisCluster = {
+  def getJedisClient(config: Config): RedisClusterClient = {
     val poolConfig = new GenericObjectPoolConfig[Connection]()
     poolConfig.setMaxTotal(config.getInt("atlas.cloudwatch.redis.connection.pool.max"))
     val cluster =
       config.getString("iep.leader.rediscluster.uri") // RedisClusterConfig.getClusterName(config)
     logger.info(s"Using Redis cluster ${cluster}")
-    new JedisCluster(
-      new HostAndPort(cluster, config.getInt("atlas.cloudwatch.redis.connection.port")),
-      config.getInt("atlas.cloudwatch.redis.cmd.timeout"),
-      poolConfig
-    )
+    val port = config.getInt("atlas.cloudwatch.redis.connection.port")
+    val hostAndPort = java.util.Set.of(new HostAndPort(cluster, port))
+    val timeout = config.getInt("atlas.cloudwatch.redis.cmd.timeout")
+    RedisClusterClient
+      .builder()
+      .nodes(hostAndPort)
+      .clientConfig(DefaultJedisClientConfig.builder().timeoutMillis(timeout).build())
+      .poolConfig(poolConfig)
+      .build()
   }
 
   @Bean
