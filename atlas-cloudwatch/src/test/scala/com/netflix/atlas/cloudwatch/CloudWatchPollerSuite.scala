@@ -19,15 +19,19 @@ import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.makeFire
 import com.netflix.atlas.cloudwatch.CloudWatchPoller.runKey
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.leader.api.LeaderStatus
-import com.netflix.spectator.api.{DefaultRegistry, Registry}
-import com.typesafe.config.{Config, ConfigFactory}
+import com.netflix.spectator.api.DefaultRegistry
+import com.netflix.spectator.api.Registry
+import com.typesafe.config.Config
+import com.typesafe.config.ConfigFactory
 import junit.framework.TestCase.assertFalse
 import munit.FunSuite
 import org.apache.pekko.Done
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKitBase
 import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers.{any, anyLong, anyString}
+import org.mockito.ArgumentMatchers.any
+import org.mockito.ArgumentMatchers.anyLong
+import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito.*
 import org.mockito.stubbing.Answer
 import software.amazon.awssdk.regions.Region
@@ -35,10 +39,13 @@ import software.amazon.awssdk.services.cloudwatch.CloudWatchClient
 import software.amazon.awssdk.services.cloudwatch.model.*
 import software.amazon.awssdk.services.cloudwatch.paginators.ListMetricsIterable
 
-import java.time.{Duration, Instant}
+import java.time.Duration
+import java.time.Instant
 import java.util.Optional
 import java.util.concurrent.atomic.AtomicBoolean
-import scala.concurrent.{Await, Future, Promise}
+import scala.concurrent.Await
+import scala.concurrent.Future
+import scala.concurrent.Promise
 import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters.SeqHasAsJava
 
@@ -385,8 +392,9 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
 
   test("non-fastBatch account uses GetMetricStatistics") {
     // Config with no fastBatch accounts
-    val cfg = ConfigFactory.parseString(
-      """
+    val cfg = ConfigFactory
+      .parseString(
+        """
         |atlas {
         |  cloudwatch {
         |    account.polling.requestLimit = 100
@@ -395,7 +403,8 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
         |  }
         |}
         |""".stripMargin
-    ).withFallback(config)
+      )
+      .withFallback(config)
 
     val poller = getPoller(cfg)
     val child = getChild(poller)
@@ -416,11 +425,11 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     assertCounters()
   }
 
-
   test("fastBatch account uses GetMetricData, not GetMetricStatistics") {
     // Config with this account in fastBatchPollingAccounts
-    val cfg = ConfigFactory.parseString(
-      """
+    val cfg = ConfigFactory
+      .parseString(
+        """
         |atlas {
         |  cloudwatch {
         |    account.polling.requestLimit = 100
@@ -448,7 +457,8 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
         |  }
         |}
         |""".stripMargin
-    ).withFallback(config)
+      )
+      .withFallback(config)
 
     val poller = getPoller(cfg)
     val child = getChild(poller)
@@ -478,7 +488,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
           )
           val lmr = ListMetricsResponse
             .builder()
-            .metrics(metrics.toArray *)
+            .metrics(metrics.toArray*)
             .build()
           when(client.listMetrics(any[ListMetricsRequest])).thenReturn(lmr)
           new ListMetricsIterable(client, r)
