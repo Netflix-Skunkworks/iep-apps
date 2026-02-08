@@ -15,10 +15,8 @@
  */
 package com.netflix.atlas.cloudwatch
 
-import software.amazon.awssdk.services.cloudwatch.model.Datapoint
-import software.amazon.awssdk.services.cloudwatch.model.Dimension
-import software.amazon.awssdk.services.cloudwatch.model.GetMetricStatisticsRequest
-import software.amazon.awssdk.services.cloudwatch.model.Statistic
+import org.apache.pekko.util.ccompat.JavaConverters.SeqHasAsJava
+import software.amazon.awssdk.services.cloudwatch.model.{Datapoint, Dimension, GetMetricStatisticsRequest, Metric, MetricDataQuery, MetricStat, Statistic}
 
 import java.time.Instant
 
@@ -33,8 +31,8 @@ case class MetricMetadata(
 
   def convert(d: Datapoint): Double = definition.conversion(this, d)
 
-  def toGetRequest(s: Instant, e: Instant): GetMetricStatisticsRequest = {
-    import scala.jdk.CollectionConverters.*
+  /** Legacy GetMetricStatistics request (used by non-batch path / tests). */
+  def toGetRequest(s: Instant, e: Instant): GetMetricStatisticsRequest =
     GetMetricStatisticsRequest
       .builder()
       .metricName(definition.name)
@@ -45,5 +43,50 @@ case class MetricMetadata(
       .startTime(s)
       .endTime(e)
       .build()
+}
+
+/**
+ * Helpers for building GetMetricData queries from MetricMetadata.
+ */
+object MetricMetadata {
+
+  private val AllStats: List[(String, String)] = List(
+    "max" -> "Maximum",
+    "min" -> "Minimum",
+    "sum" -> "Sum",
+    "cnt" -> "SampleCount"
+  )
+
+  /**
+   * Create 4 MetricDataQuery entries for this metric (Max, Min, Sum, SampleCount).
+   *
+   * @param meta   metric metadata (namespace, name, dims, period)
+   * @param baseId base id for this metric's queries, e.g. "m0" → "m0_max", "m0_min", ...
+   */
+  def toMetricDataQueries(meta: MetricMetadata, baseId: String): List[MetricDataQuery] = {
+    val m: Metric =
+      Metric
+        .builder()
+        .namespace(meta.category.namespace)
+        .metricName(meta.definition.name)
+        .dimensions(meta.dimensions.asJava)
+        .build()
+
+    def query(idSuffix: String, stat: String): MetricDataQuery =
+      MetricDataQuery
+        .builder()
+        .id(s"${baseId}_$idSuffix")
+        .metricStat(
+          MetricStat
+            .builder()
+            .metric(m)
+            .period(meta.category.period)
+            .stat(stat)
+            .build()
+        )
+        .returnData(true)
+        .build()
+
+    AllStats.map { case (suffix, statName) => query(suffix, statName) }
   }
 }
