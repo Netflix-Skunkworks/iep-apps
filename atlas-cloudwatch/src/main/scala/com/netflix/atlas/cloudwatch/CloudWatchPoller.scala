@@ -32,30 +32,19 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.Source
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient
-import software.amazon.awssdk.services.cloudwatch.model.Datapoint
-import software.amazon.awssdk.services.cloudwatch.model.Dimension
-import software.amazon.awssdk.services.cloudwatch.model.GetMetricDataRequest
-import software.amazon.awssdk.services.cloudwatch.model.ListMetricsRequest
-import software.amazon.awssdk.services.cloudwatch.model.Metric
-import software.amazon.awssdk.services.cloudwatch.model.MetricDataQuery
+import software.amazon.awssdk.services.cloudwatch.model.{Datapoint, Dimension, GetMetricDataRequest, ListMetricsRequest, Metric, MetricDataQuery}
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Optional
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicLong
-import scala.concurrent.ExecutionContext
-import scala.concurrent.Future
-import scala.concurrent.Promise
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.duration.FiniteDuration
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicLong}
+import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.jdk.CollectionConverters.*
 import scala.jdk.StreamConverters.*
-import scala.util.Failure
-import scala.util.Success
+import scala.util.{Failure, Success}
 
 /**
   * Poller for CloudWatch metrics. It is meant to handle daily or infrequently posted CloudWatch metrics
@@ -269,8 +258,8 @@ class CloudWatchPoller(
   private def shouldPoll(offset: Int, account: String, region: Region, period: Int): Boolean = {
     if (
       offset <= 60 &&
-      !fastPollingAccounts.contains(account) &&
-      !fastBatchPollingAccounts.contains(account)
+        !fastPollingAccounts.contains(account) &&
+        !fastBatchPollingAccounts.contains(account)
     ) false
     else timeToRun(period, offset, account, region) > 0
   }
@@ -354,7 +343,7 @@ class CloudWatchPoller(
             )
             .increment()
         }
-
+        
         val futures = new Array[Future[Done]](metricsList.size)
         val promises = new Array[Promise[Done]](metricsList.size)
         val batchCandidates = collection.mutable.ArrayBuffer[(Int, Metric)]()
@@ -502,21 +491,20 @@ class CloudWatchPoller(
           val idToMetricAndStat = collection.mutable.Map[String, (Int, String)]()
           val queriesBuf = collection.mutable.ListBuffer[MetricDataQuery]()
 
-          metrics.zipWithIndex.foreach {
-            case (m, idx) =>
-              val meta = MetricMetadata(category, definition, m.dimensions().asScala.toList)
-              val baseId = s"m$idx"
-              val qs = MetricMetadata.toMetricDataQueries(meta, baseId)
-              qs.foreach { q =>
-                queriesBuf += q
-                val id = q.id()
-                val suffix =
-                  if (id.endsWith("_max")) "max"
-                  else if (id.endsWith("_min")) "min"
-                  else if (id.endsWith("_sum")) "sum"
-                  else "cnt"
-                idToMetricAndStat += id -> (idx, suffix)
-              }
+          metrics.zipWithIndex.foreach { case (m, idx) =>
+            val meta = MetricMetadata(category, definition, m.dimensions().asScala.toList)
+            val baseId = s"m$idx"
+            val qs = MetricMetadata.toMetricDataQueries(meta, baseId)
+            qs.foreach { q =>
+              queriesBuf += q
+              val id = q.id()
+              val suffix =
+                if (id.endsWith("_max")) "max"
+                else if (id.endsWith("_min")) "min"
+                else if (id.endsWith("_sum")) "sum"
+                else "cnt"
+              idToMetricAndStat += id -> (idx, suffix)
+            }
           }
 
           val queries = queriesBuf.toList
@@ -566,10 +554,10 @@ class CloudWatchPoller(
 
             if (
               series.timestamps.isEmpty ||
-              series.max.isEmpty ||
-              series.min.isEmpty ||
-              series.sum.isEmpty ||
-              series.cnt.isEmpty
+                series.max.isEmpty ||
+                series.min.isEmpty ||
+                series.sum.isEmpty ||
+                series.cnt.isEmpty
             ) {
               debugger.debugPolled(m, IncomingMatch.DroppedEmpty, nowMillis, category)
               got.incrementAndGet()
@@ -655,9 +643,7 @@ class CloudWatchPoller(
         } catch {
           case ex: Exception =>
             logger.error(
-              s"Error getting metric ${metric.metricName()} for $account at $offset and ${
-                  category.namespace
-                } ${definition.name} in region $region",
+              s"Error getting metric ${metric.metricName()} for $account at $offset and ${category.namespace} ${definition.name} in region $region",
               ex
             )
             registry
@@ -760,7 +746,7 @@ class CloudWatchPoller(
             FirehoseMetric("", metric.namespace(), metric.metricName(), dimensions, dp)
           registry.counter(polledPublishPath.withTag("path", "cache")).increment()
           processor.updateCache(firehoseMetric, category, nowMillis).onComplete {
-            case Success(_)  => logger.debug("Cache update success")
+            case Success(_) => logger.debug("Cache update success")
             case Failure(ex) => logger.error(s"Cache update failed: ${ex.getMessage}")
           }
         }

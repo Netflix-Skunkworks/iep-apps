@@ -16,13 +16,7 @@
 package com.netflix.atlas.cloudwatch
 
 import org.apache.pekko.util.ccompat.JavaConverters.SeqHasAsJava
-import software.amazon.awssdk.services.cloudwatch.model.Datapoint
-import software.amazon.awssdk.services.cloudwatch.model.Dimension
-import software.amazon.awssdk.services.cloudwatch.model.GetMetricStatisticsRequest
-import software.amazon.awssdk.services.cloudwatch.model.Metric
-import software.amazon.awssdk.services.cloudwatch.model.MetricDataQuery
-import software.amazon.awssdk.services.cloudwatch.model.MetricStat
-import software.amazon.awssdk.services.cloudwatch.model.Statistic
+import software.amazon.awssdk.services.cloudwatch.model.{Datapoint, Dimension, GetMetricStatisticsRequest, Metric, MetricDataQuery, MetricStat, Statistic}
 
 import java.time.Instant
 
