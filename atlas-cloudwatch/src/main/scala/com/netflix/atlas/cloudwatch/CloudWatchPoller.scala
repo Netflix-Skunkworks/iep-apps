@@ -32,9 +32,12 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.Source
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient
+import software.amazon.awssdk.services.cloudwatch.model.Datapoint
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
+import software.amazon.awssdk.services.cloudwatch.model.GetMetricDataRequest
 import software.amazon.awssdk.services.cloudwatch.model.ListMetricsRequest
 import software.amazon.awssdk.services.cloudwatch.model.Metric
+import software.amazon.awssdk.services.cloudwatch.model.MetricDataQuery
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -49,8 +52,8 @@ import scala.concurrent.Future
 import scala.concurrent.Promise
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.duration.FiniteDuration
-import scala.jdk.CollectionConverters.CollectionHasAsScala
-import scala.jdk.StreamConverters.StreamHasToScala
+import scala.jdk.CollectionConverters.*
+import scala.jdk.StreamConverters.*
 import scala.util.Failure
 import scala.util.Success
 
@@ -140,6 +143,9 @@ class CloudWatchPoller(
 
   private[cloudwatch] val fastPollingAccounts =
     config.getStringList("atlas.cloudwatch.account.polling.fastPolling")
+
+  private[cloudwatch] val fastBatchPollingAccounts =
+    config.getStringList("atlas.cloudwatch.account.polling.fastBatchPolling")
 
   private[cloudwatch] val awsRequestLimit =
     config.getInt("atlas.cloudwatch.account.polling.requestLimit")
@@ -261,7 +267,11 @@ class CloudWatchPoller(
   }
 
   private def shouldPoll(offset: Int, account: String, region: Region, period: Int): Boolean = {
-    if (offset <= 60 && !fastPollingAccounts.contains(account)) false
+    if (
+      offset <= 60 &&
+      !fastPollingAccounts.contains(account) &&
+      !fastBatchPollingAccounts.contains(account)
+    ) false
     else timeToRun(period, offset, account, region) > 0
   }
 
@@ -319,7 +329,7 @@ class CloudWatchPoller(
                 category.namespace
               } in region ${region} in ${(System.currentTimeMillis() - nowMillis) / 1000.0} s"
           )
-        case Failure(_) => // it will bubble up.
+        case Failure(_) => // bubble up
       }
     }
 
@@ -344,7 +354,11 @@ class CloudWatchPoller(
             )
             .increment()
         }
+
         val futures = new Array[Future[Done]](metricsList.size)
+        val promises = new Array[Promise[Done]](metricsList.size)
+        val batchCandidates = collection.mutable.ArrayBuffer[(Int, Metric)]()
+
         var idx = 0
         val wtf = Source
           .fromIterator(() => metricsList.iterator)
@@ -359,30 +373,72 @@ class CloudWatchPoller(
               dpsDroppedFilter.increment()
               futures(idx) = Future.successful(Done)
             } else {
-              val promise = Promise[Done]()
-              futures(idx) = promise.future
+              val p = Promise[Done]()
+              promises(idx) = p
+              futures(idx) = p.future
               expecting.incrementAndGet()
-              executionContext.execute(FetchMetricStats(definition, metric, promise))
+
+              if (fastBatchPollingAccounts.contains(account)) {
+                batchCandidates += ((idx, metric))
+              } else {
+                executionContext.execute(FetchMetricStats(definition, metric, p))
+              }
             }
             idx += 1
           }
 
         wtf.onComplete {
           case Success(_) =>
-            // completes on an empty metric list as well.
-            Future.sequence(futures.toList).onComplete {
+            val batchFutureOpt =
+              if (fastBatchPollingAccounts.contains(account) && batchCandidates.nonEmpty) {
+                // group by 100 metrics per batch → 400 queries (4 stats per metric)
+                val metricBatches = batchCandidates.grouped(100).toList
+
+                val batchFutures = metricBatches.map { batch =>
+                  val (indices, metrics) = batch.unzip
+                  val perMetricPromises = indices.map(promises)
+                  val batchPromise = Promise[Done]()
+                  executionContext.execute(
+                    GetMetricDataBatch(
+                      definition,
+                      metrics.toList,
+                      perMetricPromises.toList,
+                      batchPromise
+                    )
+                  )
+                  batchPromise.future
+                }
+
+                Some(Future.reduceLeft(batchFutures)((_, _) => Done))
+              } else {
+                None
+              }
+
+            val allFutures =
+              batchFutureOpt match {
+                case Some(batchF) =>
+                  for {
+                    _ <- batchF
+                    _ <- Future.sequence(futures.toList)
+                  } yield Done
+                case None =>
+                  Future.sequence(futures.toList).map(_ => Done)
+              }
+
+            allFutures.onComplete {
               case Success(_) =>
                 promise.success(Done)
               case Failure(ex) =>
                 logger.error(
-                  s"Failed at least one polling for ${account} and ${category.namespace} ${definition.name} in region ${region}",
+                  s"Failed at least one polling for $account and ${category.namespace} ${definition.name} in region $region",
                   ex
                 )
                 promise.failure(ex)
             }
-          case Failure(ex) => promise.failure(ex)
-        }
 
+          case Failure(ex) =>
+            promise.failure(ex)
+        }
       }
 
       @Override def run(): Unit = {
@@ -392,7 +448,7 @@ class CloudWatchPoller(
         } catch {
           case ex: Exception =>
             logger.error(
-              s"Error listing metrics for ${account} and ${category.namespace} ${definition.name} in region ${region}",
+              s"Error listing metrics for $account and ${category.namespace} ${definition.name} in region $region",
               ex
             )
             registry
@@ -408,6 +464,159 @@ class CloudWatchPoller(
       }
     }
 
+    private[cloudwatch] case class GetMetricDataBatch(
+      definition: MetricDefinition,
+      metrics: List[Metric],
+      perMetricPromises: List[Promise[Done]],
+      batchPromise: Promise[Done]
+    ) extends Runnable {
+
+      require(metrics.size == perMetricPromises.size, "metrics and promises size mismatch")
+
+      private case class StatSeries(
+        timestamps: collection.mutable.Buffer[Instant] = collection.mutable.Buffer.empty,
+        max: collection.mutable.Buffer[java.lang.Double] = collection.mutable.Buffer.empty,
+        min: collection.mutable.Buffer[java.lang.Double] = collection.mutable.Buffer.empty,
+        sum: collection.mutable.Buffer[java.lang.Double] = collection.mutable.Buffer.empty,
+        cnt: collection.mutable.Buffer[java.lang.Double] = collection.mutable.Buffer.empty
+      )
+
+      @Override def run(): Unit = {
+        try {
+          // Same time-range logic as FetchMetricStats
+          var start = now.minusSeconds(minCacheEntries * category.period)
+          val (startTime, endTime) =
+            if (category.period < 60) {
+              var ts = now.toEpochMilli
+              ts = ts - (ts % (category.period * 1000))
+              registry
+                .counter(hrmRequest.withTags("period", category.period.toString))
+                .increment()
+              start = Instant.ofEpochMilli(ts - (hrmLookback * category.period * 1000))
+              (start, Instant.ofEpochMilli(ts))
+            } else {
+              (start, now)
+            }
+
+          val perMetricSeries = Array.fill(metrics.size)(StatSeries())
+          val idToMetricAndStat = collection.mutable.Map[String, (Int, String)]()
+          val queriesBuf = collection.mutable.ListBuffer[MetricDataQuery]()
+
+          metrics.zipWithIndex.foreach {
+            case (m, idx) =>
+              val meta = MetricMetadata(category, definition, m.dimensions().asScala.toList)
+              val baseId = s"m$idx"
+              val qs = MetricMetadata.toMetricDataQueries(meta, baseId)
+              qs.foreach { q =>
+                queriesBuf += q
+                val id = q.id()
+                val suffix =
+                  if (id.endsWith("_max")) "max"
+                  else if (id.endsWith("_min")) "min"
+                  else if (id.endsWith("_sum")) "sum"
+                  else "cnt"
+                idToMetricAndStat += id -> (idx, suffix)
+              }
+          }
+
+          val queries = queriesBuf.toList
+
+          val request = GetMetricDataRequest
+            .builder()
+            .startTime(startTime)
+            .endTime(endTime)
+            .metricDataQueries(queries.asJava)
+            .build()
+
+          val response = client.getMetricData(request)
+
+          // Fill perMetricSeries from results
+          response.metricDataResults().asScala.foreach { r =>
+            idToMetricAndStat.get(r.id()) match {
+              case Some((metricIdx, stat)) =>
+                val s = perMetricSeries(metricIdx)
+                val ts = r.timestamps().asScala
+                val vs = r.values().asScala
+
+                if (ts.nonEmpty && vs.nonEmpty) {
+                  stat match {
+                    case "max" =>
+                      s.timestamps ++= ts
+                      s.max ++= vs
+                    case other =>
+                      if (s.timestamps.isEmpty) s.timestamps ++= ts
+                      other match {
+                        case "min" => s.min ++= vs
+                        case "sum" => s.sum ++= vs
+                        case "cnt" => s.cnt ++= vs
+                      }
+                  }
+                }
+
+              case None =>
+                logger.warn(s"Received MetricDataResult with unknown id ${r.id()}")
+            }
+          }
+
+          // For each metric, build Datapoints and reuse processMetricDatapoints
+          metrics.indices.foreach { i =>
+            val m = metrics(i)
+            val p = perMetricPromises(i)
+            val series = perMetricSeries(i)
+
+            if (
+              series.timestamps.isEmpty ||
+              series.max.isEmpty ||
+              series.min.isEmpty ||
+              series.sum.isEmpty ||
+              series.cnt.isEmpty
+            ) {
+              debugger.debugPolled(m, IncomingMatch.DroppedEmpty, nowMillis, category)
+              got.incrementAndGet()
+              p.success(Done)
+            } else {
+              val datapoints = buildDatapoints(series)
+              processMetricDatapoints(definition, m, datapoints, endTime.toEpochMilli)
+              got.incrementAndGet()
+              p.success(Done)
+            }
+          }
+
+          batchPromise.success(Done)
+
+        } catch {
+          case ex: Exception =>
+            logger.error(
+              s"Error getting metric data batch for $account at $offset and ${category.namespace} ${definition.name} in region $region",
+              ex
+            )
+            registry
+              .counter(errorStats.withTags("exception", ex.getClass.getSimpleName))
+              .increment()
+            perMetricPromises.foreach(_.tryFailure(ex))
+            batchPromise.failure(ex)
+        }
+      }
+
+      private def buildDatapoints(s: StatSeries): List[Datapoint] = {
+        val out = collection.mutable.ListBuffer[Datapoint]()
+        var i = 0
+        while (i < s.timestamps.size) {
+          val dp = Datapoint
+            .builder()
+            .timestamp(s.timestamps(i))
+            .maximum(if (i < s.max.size) s.max(i) else null)
+            .minimum(if (i < s.min.size) s.min(i) else null)
+            .sum(if (i < s.sum.size) s.sum(i) else null)
+            .sampleCount(if (i < s.cnt.size) s.cnt(i) else null)
+            .build()
+          out += dp
+          i += 1
+        }
+        out.toList
+      }
+    }
+
     private[cloudwatch] case class FetchMetricStats(
       definition: MetricDefinition,
       metric: Metric,
@@ -417,153 +626,38 @@ class CloudWatchPoller(
       @Override def run(): Unit = {
         try {
           var start = now.minusSeconds(minCacheEntries * category.period)
-          val request = if (category.period < 60) {
-            // normalize timestamps for, hopefully, an improved alignment.
-            var ts = now.toEpochMilli
-            ts = ts - (ts % (category.period * 1000))
-            registry
-              .counter(hrmRequest.withTags("period", category.period.toString))
-              .increment()
-            start = Instant.ofEpochMilli(ts - (hrmLookback * category.period * 1000))
-            MetricMetadata(category, definition, metric.dimensions.asScala.toList)
-              .toGetRequest(start, Instant.ofEpochMilli(ts))
-          } else {
-            MetricMetadata(category, definition, metric.dimensions.asScala.toList)
-              .toGetRequest(start, now)
-          }
+          val request =
+            if (category.period < 60) {
+              // normalize timestamps for, hopefully, an improved alignment.
+              var ts = now.toEpochMilli
+              ts = ts - (ts % (category.period * 1000))
+              registry
+                .counter(hrmRequest.withTags("period", category.period.toString))
+                .increment()
+              start = Instant.ofEpochMilli(ts - (hrmLookback * category.period * 1000))
+              MetricMetadata(category, definition, metric.dimensions().asScala.toList)
+                .toGetRequest(start, Instant.ofEpochMilli(ts))
+            } else {
+              MetricMetadata(category, definition, metric.dimensions().asScala.toList)
+                .toGetRequest(start, now)
+            }
 
           val response = client.getMetricStatistics(request)
-          val dimensions = request.dimensions().asScala.toList.toBuffer
-          dimensions += Dimension.builder().name("nf.account").value(account).build()
-          dimensions += Dimension.builder().name("nf.region").value(region.toString).build()
 
           if (response.datapoints().isEmpty) {
             debugger.debugPolled(metric, IncomingMatch.DroppedEmpty, nowMillis, category)
-          } else if (category.period < 60) {
-            // high res path where we publish to the registry for LWC to take it
-            val dpList = response
-              .datapoints()
-              .asScala
-            if (dpList.isEmpty) {
-              debugger.debugPolled(
-                metric,
-                IncomingMatch.DroppedEmpty,
-                request.endTime().toEpochMilli,
-                category
-              )
-            } else {
-              var foundValidData = false
-              dpList.foreach { dp =>
-                val firehoseMetric = FirehoseMetric(
-                  "",
-                  metric.namespace(),
-                  metric.metricName(),
-                  dimensions.toList,
-                  dp
-                )
-
-                val prev = highResTimeCache.getOrDefault(firehoseMetric.xxHash, 0)
-                if (dp.timestamp().toEpochMilli > prev) {
-                  highResTimeCache.put(firehoseMetric.xxHash, dp.timestamp().toEpochMilli)
-                  val metaData =
-                    MetricMetadata(category, definition, toAWSDimensions(firehoseMetric))
-                  registry.counter(polledPublishPath.withTag("path", "registry")).increment()
-                  processor.sendToRegistry(metaData, firehoseMetric, nowMillis)
-                  foundValidData = true
-                  debugger.debugPolled(
-                    metric,
-                    IncomingMatch.Accepted,
-                    request.endTime().toEpochMilli,
-                    category,
-                    response.datapoints(),
-                    Some(dp)
-                  )
-
-                  // lag tracking
-                  val ts = dp.timestamp().toEpochMilli
-                  if (request.endTime().toEpochMilli - ts > category.period * 1000) {
-                    registry
-                      .counter(
-                        hrmBackfill.withTags(
-                          "aws.namespace",
-                          category.namespace,
-                          "aws.metric",
-                          definition.name
-                        )
-                      )
-                      .increment()
-                  }
-                  registry
-                    .distributionSummary(
-                      hrmWallOffset.withTags(
-                        "aws.namespace",
-                        category.namespace,
-                        "aws.metric",
-                        definition.name
-                      )
-                    )
-                    .record(System.currentTimeMillis() - ts)
-                }
-              }
-
-              if (!foundValidData) {
-                registry
-                  .counter(
-                    hrmStale.withTags(
-                      "aws.namespace",
-                      category.namespace,
-                      "aws.metric",
-                      definition.name
-                    )
-                  )
-                  .increment()
-                debugger.debugPolled(
-                  metric,
-                  IncomingMatch.Stale,
-                  request.endTime().toEpochMilli,
-                  category,
-                  response.datapoints()
-                )
-              }
-            }
-
           } else {
-            debugger.debugPolled(
-              metric,
-              IncomingMatch.Accepted,
-              request.endTime().toEpochMilli,
-              category,
-              response.datapoints()
-            )
-
-            response
-              .datapoints()
-              .asScala
-              .foreach { dp =>
-                val firehoseMetric = FirehoseMetric(
-                  "",
-                  metric.namespace(),
-                  metric.metricName(),
-                  dimensions.toList,
-                  dp
-                )
-                registry.counter(polledPublishPath.withTag("path", "cache")).increment()
-                processor.updateCache(firehoseMetric, category, nowMillis).onComplete {
-                  case Success(_) =>
-                    logger.debug(s"Cache update success")
-                  case Failure(ex) =>
-                    logger.error(s"Cache update failed: ${ex.getMessage}")
-                }
-              }
+            val endMs = request.endTime().toEpochMilli
+            processMetricDatapoints(definition, metric, response.datapoints().asScala, endMs)
           }
           got.incrementAndGet()
           promise.success(Done)
         } catch {
           case ex: Exception =>
             logger.error(
-              s"Error getting metric ${metric.metricName()} for ${account} at ${offset} and ${
+              s"Error getting metric ${metric.metricName()} for $account at $offset and ${
                   category.namespace
-                } ${definition.name} in region ${region}",
+                } ${definition.name} in region $region",
               ex
             )
             registry
@@ -573,30 +667,128 @@ class CloudWatchPoller(
         }
       }
     }
+
+    private def processMetricDatapoints(
+      definition: MetricDefinition,
+      metric: Metric,
+      datapoints: Iterable[Datapoint],
+      endTimeMillis: Long
+    ): Unit = {
+      val dims = metric.dimensions().asScala.toBuffer
+      dims += Dimension.builder().name("nf.account").value(account).build()
+      dims += Dimension.builder().name("nf.region").value(region.toString).build()
+      val dimensions = dims.toList
+
+      val dpList = datapoints.toList
+
+      if (dpList.isEmpty) {
+        debugger.debugPolled(metric, IncomingMatch.DroppedEmpty, endTimeMillis, category)
+        return
+      }
+
+      if (category.period < 60) {
+        // high res path publish to registry
+        var foundValidData = false
+        dpList.foreach { dp =>
+          val firehoseMetric =
+            FirehoseMetric("", metric.namespace(), metric.metricName(), dimensions, dp)
+
+          val prev = highResTimeCache.getOrDefault(firehoseMetric.xxHash, 0L)
+          val ts = dp.timestamp().toEpochMilli
+          if (ts > prev) {
+            highResTimeCache.put(firehoseMetric.xxHash, ts)
+
+            val metaData = MetricMetadata(category, definition, toAWSDimensions(firehoseMetric))
+            registry.counter(polledPublishPath.withTag("path", "registry")).increment()
+            processor.sendToRegistry(metaData, firehoseMetric, nowMillis)
+
+            foundValidData = true
+            debugger.debugPolled(metric, IncomingMatch.Accepted, endTimeMillis, category)
+
+            if (endTimeMillis - ts > category.period * 1000L) {
+              registry
+                .counter(
+                  hrmBackfill.withTags(
+                    "aws.namespace",
+                    category.namespace,
+                    "aws.metric",
+                    definition.name
+                  )
+                )
+                .increment()
+            }
+
+            registry
+              .distributionSummary(
+                hrmWallOffset.withTags(
+                  "aws.namespace",
+                  category.namespace,
+                  "aws.metric",
+                  definition.name
+                )
+              )
+              .record(System.currentTimeMillis() - ts)
+          }
+        }
+
+        if (!foundValidData) {
+          registry
+            .counter(
+              hrmStale.withTags(
+                "aws.namespace",
+                category.namespace,
+                "aws.metric",
+                definition.name
+              )
+            )
+            .increment()
+          debugger.debugPolled(metric, IncomingMatch.Stale, endTimeMillis, category, dpList.asJava)
+        }
+
+      } else {
+        // regular path: update cache
+        debugger.debugPolled(
+          metric,
+          IncomingMatch.Accepted,
+          endTimeMillis,
+          category,
+          dpList.asJava
+        )
+
+        dpList.foreach { dp =>
+          val firehoseMetric =
+            FirehoseMetric("", metric.namespace(), metric.metricName(), dimensions, dp)
+          registry.counter(polledPublishPath.withTag("path", "cache")).increment()
+          processor.updateCache(firehoseMetric, category, nowMillis).onComplete {
+            case Success(_)  => logger.debug("Cache update success")
+            case Failure(ex) => logger.error(s"Cache update failed: ${ex.getMessage}")
+          }
+        }
+      }
+    }
   }
 
   private def timeToRun(period: Int, offset: Int, account: String, region: Region): Long = {
-    // see if we've past the next run time.
     var nextRun = 0L
     try {
       val previousRun = processor.lastSuccessfulPoll(runKey(offset, account, region))
       nextRun = runAfter(offset, period)
       if (previousRun >= nextRun) {
         logger.info(
-          s"Skipping CloudWatch polling for ${offset}s as we're within the polling interval. Previous ${previousRun}. Next ${nextRun}"
+          s"Skipping CloudWatch polling for ${offset}s as we're within the polling interval. Previous $previousRun. Next $nextRun"
         )
-        return -1
+        -1
       } else {
         logger.info(
-          s"Polling for offset ${offset}s. Previous run was at ${previousRun}. Next run at ${nextRun}"
+          s"Polling for offset ${offset}s. Previous run was at $previousRun. Next run at $nextRun"
         )
+        nextRun
       }
     } catch {
       case ex: Exception =>
         logger.error(s"Unexpected exception checking for the last poll timestamp on ${offset}s", ex)
-        return -1
+        -1
     }
-    nextRun
   }
 
 }
@@ -613,5 +805,4 @@ object CloudWatchPoller {
   private[cloudwatch] def runKey(offset: Int, account: String, region: Region): String = {
     s"${account}_${region.toString}_${offset.toString}"
   }
-
 }

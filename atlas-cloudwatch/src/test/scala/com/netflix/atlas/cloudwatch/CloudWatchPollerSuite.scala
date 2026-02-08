@@ -16,9 +16,6 @@
 package com.netflix.atlas.cloudwatch
 
 import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.makeFirehoseMetric
-import org.apache.pekko.Done
-import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.testkit.TestKitBase
 import com.netflix.atlas.cloudwatch.CloudWatchPoller.runKey
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.leader.api.LeaderStatus
@@ -28,25 +25,18 @@ import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
 import junit.framework.TestCase.assertFalse
 import munit.FunSuite
-import org.mockito.ArgumentMatchers.anyString
+import org.apache.pekko.Done
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.testkit.TestKitBase
+import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
 import org.mockito.ArgumentMatchers.anyLong
-import org.mockito.Mockito.mock
-import org.mockito.Mockito.never
-import org.mockito.Mockito.times
-import org.mockito.Mockito.verify
-import org.mockito.Mockito.when
-import org.mockito.ArgumentCaptor
+import org.mockito.ArgumentMatchers.anyString
+import org.mockito.Mockito.*
 import org.mockito.stubbing.Answer
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient
-import software.amazon.awssdk.services.cloudwatch.model.Datapoint
-import software.amazon.awssdk.services.cloudwatch.model.Dimension
-import software.amazon.awssdk.services.cloudwatch.model.GetMetricStatisticsRequest
-import software.amazon.awssdk.services.cloudwatch.model.GetMetricStatisticsResponse
-import software.amazon.awssdk.services.cloudwatch.model.ListMetricsRequest
-import software.amazon.awssdk.services.cloudwatch.model.ListMetricsResponse
-import software.amazon.awssdk.services.cloudwatch.model.Metric
+import software.amazon.awssdk.services.cloudwatch.model.*
 import software.amazon.awssdk.services.cloudwatch.paginators.ListMetricsIterable
 
 import java.time.Duration
@@ -119,6 +109,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
         |  cloudwatch {
         |    account.polling.requestLimit = 100
         |    account.polling.fastPolling = []
+        |    account.polling.fastBatchPolling = []
         |    categories = ["cfg1", "cfg2"]
         |    poller.frequency = "5m"
         |    poller.hrmFrequency = "5s"
@@ -396,6 +387,156 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     )
     assertEquals(routerCaptor.getAllValues.get(1), firehose)
     Await.result(promise.future, 60.seconds)
+    assertCounters()
+  }
+
+  test("non-fastBatch account uses GetMetricStatistics") {
+    // Config with no fastBatch accounts
+    val cfg = ConfigFactory
+      .parseString(
+        """
+        |atlas {
+        |  cloudwatch {
+        |    account.polling.requestLimit = 100
+        |    account.polling.fastPolling = []
+        |    account.polling.fastBatchPolling = []
+        |  }
+        |}
+        |""".stripMargin
+      )
+      .withFallback(config)
+
+    val poller = getPoller(cfg)
+    val child = getChild(poller)
+    val (mdef, _) = getListReq(poller)
+    val promise = Promise[Done]()
+
+    mockMetricStats() // uses getMetricStatistics
+
+    // Directly test FetchMetricStats path
+    child.FetchMetricStats(mdef, metric, promise).run()
+    Await.result(promise.future, 60.seconds)
+
+    // Ensure GetMetricStatistics was used
+    verify(client, atLeastOnce()).getMetricStatistics(any[GetMetricStatisticsRequest])
+    // And we did not call GetMetricData for this path
+    verify(client, never()).getMetricData(any[GetMetricDataRequest])
+
+    assertCounters()
+  }
+
+  test("fastBatch account uses GetMetricData, not GetMetricStatistics") {
+    // Config with this account in fastBatchPollingAccounts
+    val cfg = ConfigFactory
+      .parseString(
+        """
+        |atlas {
+        |  cloudwatch {
+        |    account.polling.requestLimit = 100
+        |    account.polling.fastPolling = []
+        |    account.polling.fastBatchPolling = ["123456789012"]
+        |    categories = ["ut1"]
+        |    poller.frequency = "5m"
+        |    poller.hrmFrequency = "5m"
+        |    poller.hrmLookback = 6
+        |
+        |    ut1 = {
+        |      namespace = "AWS/UT1"
+        |      period = 1d
+        |      poll-offset = 8h
+        |
+        |      dimensions = ["MyTag"]
+        |      metrics = [
+        |        {
+        |          name = "DailyMetricA"
+        |          alias = "aws.ut1.daily"
+        |          conversion = "max"
+        |        }
+        |      ]
+        |    }
+        |  }
+        |}
+        |""".stripMargin
+      )
+      .withFallback(config)
+
+    val poller = getPoller(cfg)
+    val child = getChild(poller)
+    val (mdef, req) = getListReq(poller)
+    val promise = Promise[Done]()
+
+    // listMetrics paginator returns 2 metrics as in mockSuccess, but we mock it ourselves here:
+    when(client.listMetricsPaginator(any[ListMetricsRequest]))
+      .thenAnswer(new Answer[ListMetricsIterable] {
+        override def answer(
+          invocation: org.mockito.invocation.InvocationOnMock
+        ): ListMetricsIterable = {
+          val r = invocation.getArgument(0, classOf[ListMetricsRequest])
+          val metrics = List(
+            Metric
+              .builder()
+              .namespace("AWS/UT1")
+              .metricName(r.metricName())
+              .dimensions(Dimension.builder().name("MyTag").value("a").build())
+              .build(),
+            Metric
+              .builder()
+              .namespace("AWS/UT1")
+              .metricName(r.metricName())
+              .dimensions(Dimension.builder().name("MyTag").value("b").build())
+              .build()
+          )
+          val lmr = ListMetricsResponse
+            .builder()
+            .metrics(metrics.toArray*)
+            .build()
+          when(client.listMetrics(any[ListMetricsRequest])).thenReturn(lmr)
+          new ListMetricsIterable(client, r)
+        }
+      })
+
+    // Mock GetMetricData response with a single datapoint for each stat, both metrics
+    val nowTs = timestamp
+    val tsList = java.util.Arrays.asList(nowTs, nowTs.plusSeconds(60))
+
+    def result(id: String, values: java.util.List[java.lang.Double]) =
+      software.amazon.awssdk.services.cloudwatch.model.MetricDataResult
+        .builder()
+        .id(id)
+        .timestamps(tsList)
+        .values(values)
+        .build()
+
+    // For 2 metrics (m0, m1) and 4 stats each = 8 results
+    val results = java.util.Arrays.asList(
+      result("m0_max", java.util.Arrays.asList(5.0, 6.0)),
+      result("m0_min", java.util.Arrays.asList(1.0, 2.0)),
+      result("m0_sum", java.util.Arrays.asList(10.0, 12.0)),
+      result("m0_cnt", java.util.Arrays.asList(2.0, 2.0)),
+      result("m1_max", java.util.Arrays.asList(7.0, 8.0)),
+      result("m1_min", java.util.Arrays.asList(0.0, 1.0)),
+      result("m1_sum", java.util.Arrays.asList(14.0, 16.0)),
+      result("m1_cnt", java.util.Arrays.asList(2.0, 2.0))
+    )
+
+    val gmdResp = software.amazon.awssdk.services.cloudwatch.model.GetMetricDataResponse
+      .builder()
+      .metricDataResults(results)
+      .build()
+
+    when(client.getMetricData(any[GetMetricDataRequest])).thenReturn(gmdResp)
+
+    // Run the ListMetrics path: for fastBatch account this should use GetMetricDataBatch
+    child.ListMetrics(req, mdef, promise).run()
+    Await.result(promise.future, 60.seconds)
+
+    // Verify we never called GetMetricStatistics on fastBatch path
+    verify(client, never()).getMetricStatistics(any[GetMetricStatisticsRequest])
+
+    // We should have called GetMetricData once
+    verify(client, times(1)).getMetricData(any[GetMetricDataRequest])
+
+    // Optionally, assert no error counters
     assertCounters()
   }
 
