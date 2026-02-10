@@ -23,6 +23,7 @@ import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigFactory
+import junit.framework.TestCase
 import junit.framework.TestCase.assertFalse
 import munit.FunSuite
 import org.apache.pekko.Done
@@ -141,6 +142,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
         |          name = "M2"
         |          alias = "aws.m2"
         |          conversion = "max"
+        |          unit = "Megabits/Second"
         |        }
         |      ]
         |    }
@@ -150,8 +152,22 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val poller = getPoller(cfg)
     var categories = poller.offsetMap(300)
     assertEquals(categories.count(_.namespace == "AWS/CFG1"), 1)
+    categories.foreach { category =>
+      category.metrics.foreach { metric =>
+        val unit = metric.unit
+        TestCase.assertEquals(unit, StandardUnit.NONE.toString)
+      }
+    }
+
     categories = poller.offsetMap(3600)
     assertEquals(categories.count(_.namespace == "AWS/CFG2"), 1)
+
+    categories.foreach { category =>
+      category.metrics.foreach { metric =>
+        val unit = metric.unit
+        TestCase.assertEquals(unit, StandardUnit.MEGABITS_SECOND.toString)
+      }
+    }
   }
 
   test("poll not leader") {
@@ -187,6 +203,21 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val full = Promise[List[CloudWatchPoller#Poller]]()
     val accountsDone = Promise[Done]()
     poller.poll(offset, List(getCategory(poller)), Some(full), Some(accountsDone))
+
+    // Validate the unit for each metric in the configuration
+    val categories = poller.offsetMap(offset)
+    categories.foreach { category =>
+      category.metrics.foreach { metric =>
+        val unit = metric.unit
+        if (unit != null && StandardUnit.values().contains(StandardUnit.fromValue(unit))) {
+          // Valid unit
+          assert(true)
+        } else {
+          // Invalid or missing unit
+          assert(false, s"Invalid or missing unit for metric ${metric.name}")
+        }
+      }
+    }
 
     Await.result(accountsDone.future, 60.seconds)
     val pollers = Await.result(full.future, 60.seconds)
@@ -341,6 +372,239 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     intercept[RuntimeException] {
       Await.result(promise.future, 60.seconds)
     }
+  }
+
+  test("HRM datapoints built correctly with GetMetricData batch (period < 60)") {
+    // Config with this account in fastBatchPollingAccounts and HRM period
+    val cfg = ConfigFactory
+      .parseString(
+        """
+          |atlas {
+          |  cloudwatch {
+          |    account.polling.requestLimit = 100
+          |    account.polling.fastPolling = []
+          |    account.polling.fastBatchPolling = ["123456789012"]
+          |    categories = ["ut-hrm"]
+          |    poller.frequency = "5m"
+          |    poller.hrmFrequency = "5s"
+          |    poller.hrmLookback = 2
+          |
+          |    ut-hrm = {
+          |      namespace = "AWS/UT1"
+          |      period = 5s
+          |      poll-offset = 8h
+          |
+          |      dimensions = ["MyTag"]
+          |      metrics = [
+          |        {
+          |          name = "DailyMetricA"
+          |          alias = "aws.ut1.hrm"
+          |          conversion = "max"
+          |        }
+          |      ]
+          |    }
+          |  }
+          |}
+          |""".stripMargin
+      )
+      .withFallback(config)
+
+    val poller = getPoller(cfg)
+    val child = getChild(poller)
+    val (mdef, req) = getListReq(poller)
+    val promise = Promise[Done]()
+
+    // listMetrics returns one metric with MyTag=a
+    when(client.listMetricsPaginator(any[ListMetricsRequest]))
+      .thenAnswer(new Answer[ListMetricsIterable] {
+        override def answer(
+          invocation: org.mockito.invocation.InvocationOnMock
+        ): ListMetricsIterable = {
+          val r = invocation.getArgument(0, classOf[ListMetricsRequest])
+          val metrics = List(
+            Metric
+              .builder()
+              .namespace("AWS/UT1")
+              .metricName(r.metricName())
+              .dimensions(Dimension.builder().name("MyTag").value("a").build())
+              .build()
+          )
+          val lmr = ListMetricsResponse
+            .builder()
+            .metrics(metrics.toArray*)
+            .build()
+          when(client.listMetrics(any[ListMetricsRequest])).thenReturn(lmr)
+          new ListMetricsIterable(client, r)
+        }
+      })
+
+    // Build GetMetricDataResponse series equivalent to mockMetricStats HRM datapoints
+    val tsList = java.util.Arrays.asList(
+      timestamp.minusSeconds(10),
+      timestamp
+    )
+
+    def res(id: String, v1: Double, v2: Double) =
+      MetricDataResult
+        .builder()
+        .id(id)
+        .timestamps(tsList)
+        .values(java.util.Arrays.asList(v1: java.lang.Double, v2: java.lang.Double))
+        .build()
+
+    val results = java.util.Arrays.asList(
+      res("m0_max", 20.0, 25.0),
+      res("m0_min", 10.0, 15.0),
+      res("m0_sum", 100.0, 200.0),
+      res("m0_cnt", 5.0, 7.0)
+    )
+
+    val gmdResp = GetMetricDataResponse
+      .builder()
+      .metricDataResults(results)
+      .build()
+
+    when(client.getMetricData(any[GetMetricDataRequest])).thenReturn(gmdResp)
+
+    // Exercise ListMetrics path, which for fastBatch account will route to GetMetricDataBatch
+    child.ListMetrics(req, mdef, promise).run()
+    Await.result(promise.future, 60.seconds)
+
+    val metaCaptor = ArgumentCaptor.forClass(classOf[MetricMetadata])
+    val fmCaptor = ArgumentCaptor.forClass(classOf[FirehoseMetric])
+
+    // Expect two datapoints, like non-batch HRM test
+    verify(processor, times(2)).sendToRegistry(
+      metaCaptor.capture(),
+      fmCaptor.capture(),
+      anyLong()
+    )
+
+    val firehoses = fmCaptor.getAllValues
+
+    val f0 = firehoses.get(0)
+    assertEquals(f0.namespace, "AWS/UT1")
+    assertEquals(f0.metricName, "DailyMetricA")
+    assertEquals(f0.datapoint.sum(), java.lang.Double.valueOf(100.0))
+    assertEquals(f0.datapoint.minimum(), java.lang.Double.valueOf(10.0))
+    assertEquals(f0.datapoint.maximum(), java.lang.Double.valueOf(20.0))
+    assertEquals(f0.datapoint.sampleCount(), java.lang.Double.valueOf(5.0))
+
+    val dims0 = f0.dimensions
+    assert(dims0.contains(Dimension.builder().name("MyTag").value("a").build()))
+    assert(dims0.contains(Dimension.builder().name("nf.account").value(account).build()))
+    assert(dims0.contains(Dimension.builder().name("nf.region").value(region.toString).build()))
+
+    val f1 = firehoses.get(1)
+    assertEquals(f1.datapoint.sum(), java.lang.Double.valueOf(200.0))
+    assertEquals(f1.datapoint.minimum(), java.lang.Double.valueOf(15.0))
+    assertEquals(f1.datapoint.maximum(), java.lang.Double.valueOf(25.0))
+    assertEquals(f1.datapoint.sampleCount(), java.lang.Double.valueOf(7.0))
+  }
+
+  test("HRM datapoints built correctly with GetMetricStatistics (period < 60)") {
+    // Configure a high-res category (period 5s)
+    val cfg = ConfigFactory
+      .parseString(
+        """
+          |atlas {
+          |  cloudwatch {
+          |    account.polling.requestLimit = 100
+          |    account.polling.fastPolling = []
+          |    account.polling.fastBatchPolling = []
+          |    categories = ["ut-hrm"]
+          |    poller.frequency = "5m"
+          |    poller.hrmFrequency = "5s"
+          |    poller.hrmLookback = 2
+          |
+          |    ut-hrm = {
+          |      namespace = "AWS/UT1"
+          |      period = 5s
+          |      poll-offset = 8h
+          |
+          |      dimensions = ["MyTag"]
+          |      metrics = [
+          |        {
+          |          name = "DailyMetricA"
+          |          alias = "aws.ut1.hrm"
+          |          conversion = "max"
+          |        }
+          |      ]
+          |    }
+          |  }
+          |}
+          |""".stripMargin
+      )
+      .withFallback(config)
+
+    val poller = getPoller(cfg)
+    val child = getChild(poller)
+    val (mdef, _) = getListReq(poller)
+    val promise = Promise[Done]()
+
+    // HRM-style datapoints from GetMetricStatistics (one old, one recent)
+    val dps = List(
+      Datapoint
+        .builder()
+        .sum(100.0)
+        .minimum(10.0)
+        .maximum(20.0)
+        .sampleCount(5.0)
+        .timestamp(timestamp.minusSeconds(10)) // older
+        .build(),
+      Datapoint
+        .builder()
+        .sum(200.0)
+        .minimum(15.0)
+        .maximum(25.0)
+        .sampleCount(7.0)
+        .timestamp(timestamp) // latest
+        .build()
+    )
+
+    val resp = GetMetricStatisticsResponse
+      .builder()
+      .label("UT1")
+      .datapoints(dps.asJava)
+      .build()
+
+    when(client.getMetricStatistics(any[GetMetricStatisticsRequest])).thenReturn(resp)
+
+    child.FetchMetricStats(mdef, metric, promise).run()
+    Await.result(promise.future, 60.seconds)
+
+    // Verify sendToRegistry was called twice with the correct datapoints
+    val metaCaptor = ArgumentCaptor.forClass(classOf[MetricMetadata])
+    val fmCaptor = ArgumentCaptor.forClass(classOf[FirehoseMetric])
+
+    verify(processor, times(2)).sendToRegistry(
+      metaCaptor.capture(),
+      fmCaptor.capture(),
+      anyLong()
+    )
+
+    val firehoses = fmCaptor.getAllValues
+
+    // Check first datapoint
+    val f0 = firehoses.get(0)
+    assertEquals(f0.namespace, "AWS/UT1")
+    assertEquals(f0.metricName, "DailyMetricA") // from metric.metricName()
+    assertEquals(f0.datapoint.sum(), java.lang.Double.valueOf(100.0))
+    assertEquals(f0.datapoint.minimum(), java.lang.Double.valueOf(10.0))
+    assertEquals(f0.datapoint.maximum(), java.lang.Double.valueOf(20.0))
+    assertEquals(f0.datapoint.sampleCount(), java.lang.Double.valueOf(5.0))
+
+    val dims0 = f0.dimensions
+    assert(dims0.contains(Dimension.builder().name("MyTag").value("a").build()))
+    assert(dims0.contains(Dimension.builder().name("nf.account").value(account).build()))
+    assert(dims0.contains(Dimension.builder().name("nf.region").value(region.toString).build()))
+
+    // Check second datapoint
+    val f1 = firehoses.get(1)
+    assertEquals(f1.datapoint.sum(), java.lang.Double.valueOf(200.0))
+    assertEquals(f1.datapoint.minimum(), java.lang.Double.valueOf(15.0))
+    assertEquals(f1.datapoint.maximum(), java.lang.Double.valueOf(25.0))
+    assertEquals(f1.datapoint.sampleCount(), java.lang.Double.valueOf(7.0))
   }
 
   test("Poller#FetchMetricStats success") {

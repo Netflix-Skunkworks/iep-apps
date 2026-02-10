@@ -80,7 +80,7 @@ class ConversionsSuite extends FunSuite {
     val cnv = Conversions.fromName("sum,rate")
     val meta = MetricMetadata(
       MetricCategory("NFLX/Test", 300, -1, Nil, null, Nil, Some(Query.True)),
-      MetricDefinition("test", "test-alias", cnv, false, Map.empty),
+      MetricDefinition("test", "test-alias", cnv, false, Map.empty, null),
       Nil
     )
     val v = cnv(meta, dp)
@@ -91,7 +91,7 @@ class ConversionsSuite extends FunSuite {
     val cnv = Conversions.fromName("sum,rate")
     val meta = MetricMetadata(
       MetricCategory("NFLX/Test", 300, -1, Nil, null, Nil, Some(Query.True)),
-      MetricDefinition("test", "test-alias", cnv, false, Map.empty),
+      MetricDefinition("test", "test-alias", cnv, false, Map.empty, null),
       Nil
     )
     val v = cnv(meta, newDatapoint(6.0, StandardUnit.BYTES_SECOND))
@@ -102,7 +102,7 @@ class ConversionsSuite extends FunSuite {
     val cnv = Conversions.fromName("sum,rate")
     val meta = MetricMetadata(
       MetricCategory("NFLX/Test", 5, -1, Nil, null, Nil, Some(Query.True)),
-      MetricDefinition("test", "test-alias", cnv, false, Map.empty),
+      MetricDefinition("test", "test-alias", cnv, false, Map.empty, null),
       Nil
     )
     val v = cnv(meta, newDatapoint(280.0, StandardUnit.NONE))
@@ -114,7 +114,7 @@ class ConversionsSuite extends FunSuite {
     val cnv = Conversions.fromName("sum,rate")
     val meta = MetricMetadata(
       MetricCategory("NFLX/Test", 5, -1, Nil, null, Nil, Some(Query.True)),
-      MetricDefinition("test", "test-alias", cnv, false, Map.empty),
+      MetricDefinition("test", "test-alias", cnv, false, Map.empty, null),
       Nil
     )
     val v = cnv(meta, newDatapoint(280.0, StandardUnit.BITS_SECOND))
@@ -126,7 +126,7 @@ class ConversionsSuite extends FunSuite {
     val cnv = Conversions.fromName("max,rate")
     val meta = MetricMetadata(
       MetricCategory("NFLX/Test", 5, -1, Nil, null, Nil, Some(Query.True)),
-      MetricDefinition("test", "test-alias", cnv, false, Map.empty),
+      MetricDefinition("test", "test-alias", cnv, false, Map.empty, null),
       Nil
     )
     val v = cnv(meta, newDatapoint(56.0, StandardUnit.NONE))
@@ -137,7 +137,7 @@ class ConversionsSuite extends FunSuite {
     val cnv = Conversions.fromName("max,rate")
     val meta = MetricMetadata(
       MetricCategory("NFLX/Test", 5, -1, Nil, null, Nil, Some(Query.True)),
-      MetricDefinition("test", "test-alias", cnv, false, Map.empty),
+      MetricDefinition("test", "test-alias", cnv, false, Map.empty, null),
       Nil
     )
     val v = cnv(meta, newDatapoint(56.0, StandardUnit.BITS_SECOND))

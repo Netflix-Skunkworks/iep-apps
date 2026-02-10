@@ -123,15 +123,28 @@ class PublishQueue(
   }
 
   private def updateSelfMetrics(dp: AtlasDatapoint, cwDatapoint: CloudWatchDatapoint) = {
+    val rawUnit = cwDatapoint.unitAsString()
+    val unit = if (rawUnit == null || rawUnit.isEmpty) "NO_UNIT" else rawUnit
+
+    val rawName = dp.tags.getOrElse("name", "NO_NAME")
+    val metricName = if (rawName == null || rawName.isEmpty) "NO_NAME" else rawName
+
+    if (!dp.tags.contains("name") || rawName == null || rawName.isEmpty) {
+      logger.warn(s"[updateSelfMetrics] missing/empty 'name' tag: tags=${dp.tags}")
+    }
+    if (rawUnit == null || rawUnit.isEmpty) {
+      logger.warn(s"[updateSelfMetrics] missing/empty unit: cwDatapoint=$cwDatapoint")
+    }
+
     registrySent.withTags(
       "type",
       dp.dsType.toString,
       "unit",
-      cwDatapoint.unitAsString(),
+      unit,
       "stats",
       dp.tags.getOrElse("statistic", "NO_STATS"),
       "metric",
-      dp.tags("name")
+      metricName
     )
   }
 

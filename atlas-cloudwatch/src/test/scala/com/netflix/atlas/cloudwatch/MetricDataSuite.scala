@@ -25,7 +25,7 @@ import software.amazon.awssdk.services.cloudwatch.model.StandardUnit
 class MetricDataSuite extends FunSuite {
 
   private val definition =
-    MetricDefinition("test", "alias", Conversions.fromName("sum"), false, Map.empty)
+    MetricDefinition("test", "alias", Conversions.fromName("sum"), false, Map.empty, null)
 
   private val category =
     MetricCategory(
