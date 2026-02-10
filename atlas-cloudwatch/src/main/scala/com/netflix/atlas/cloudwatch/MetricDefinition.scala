@@ -35,13 +35,16 @@ import software.amazon.awssdk.services.cloudwatch.model.StandardUnit
   *     to a delta before passing into the conversion function.
   * @param tags
   *     Tags that should be applied to the metric.
+  * @param unit
+  *     This defines the unit as it is stored in CloudWatch.
   */
 case class MetricDefinition(
   name: String,
   alias: String,
   conversion: (MetricMetadata, Datapoint) => Double,
   monotonicValue: Boolean,
-  tags: Map[String, String]
+  tags: Map[String, String],
+  unit: String
 )
 
 object MetricDefinition {
@@ -117,12 +120,20 @@ object MetricDefinition {
   ): MetricDefinition = {
     val dstype = Map(TagKey.dsType -> Conversions.determineDsType(cnv))
     val monotonic = config.hasPath("monotonic") && config.getBoolean("monotonic")
+
+    // Get the unit from the config or fallback to a default value
+    val unit = if (config.hasPath("unit")) {
+      config.getString("unit")
+    } else {
+      StandardUnit.NONE.toString
+    }
     MetricDefinition(
       name = config.getString("name"),
       alias = config.getString("alias"),
       conversion = Conversions.fromName(cnv),
       monotonicValue = monotonic,
-      tags = tags ++ dstype
+      tags = tags ++ dstype,
+      unit = unit
     )
   }
 }

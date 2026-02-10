@@ -440,7 +440,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
       -1,
       List("MyTag"),
       null,
-      List(MetricDefinition("SumRate", "sum.rate", null, true, Map.empty)),
+      List(MetricDefinition("SumRate", "sum.rate", null, true, Map.empty, null)),
       null
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, mono), -1, cache, false)
@@ -459,7 +459,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
       -1,
       List("MyTag"),
       null,
-      List(MetricDefinition("SumRate", "sum.rate", null, true, Map.empty)),
+      List(MetricDefinition("SumRate", "sum.rate", null, true, Map.empty, null)),
       null
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, mono), -1, cache, false)
@@ -478,7 +478,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
       -1,
       List("MyTag"),
       null,
-      List(MetricDefinition("SumRate", "sum.rate", null, true, Map.empty)),
+      List(MetricDefinition("SumRate", "sum.rate", null, true, Map.empty, null)),
       null
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, mono), -1, cache, false)
@@ -497,7 +497,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
       -1,
       List("MyTag"),
       null,
-      List(MetricDefinition("SumRate", "sum.rate", null, true, Map.empty)),
+      List(MetricDefinition("SumRate", "sum.rate", null, true, Map.empty, null)),
       null
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, mono), 1, cache)
@@ -518,7 +518,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
       -1,
       List("MyTag"),
       null,
-      List(MetricDefinition("SumRate", "sum.rate", null, true, Map.empty)),
+      List(MetricDefinition("SumRate", "sum.rate", null, true, Map.empty, null)),
       null
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, mono), -1, cache, false)

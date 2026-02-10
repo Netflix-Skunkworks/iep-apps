@@ -38,6 +38,7 @@ import software.amazon.awssdk.services.cloudwatch.model.GetMetricDataRequest
 import software.amazon.awssdk.services.cloudwatch.model.ListMetricsRequest
 import software.amazon.awssdk.services.cloudwatch.model.Metric
 import software.amazon.awssdk.services.cloudwatch.model.MetricDataQuery
+import software.amazon.awssdk.services.cloudwatch.model.StandardUnit
 
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -575,7 +576,7 @@ class CloudWatchPoller(
               got.incrementAndGet()
               p.success(Done)
             } else {
-              val datapoints = buildDatapoints(series)
+              val datapoints = buildDatapointList(series, definition)
               processMetricDatapoints(definition, m, datapoints, endTime.toEpochMilli)
               got.incrementAndGet()
               p.success(Done)
@@ -598,19 +599,33 @@ class CloudWatchPoller(
         }
       }
 
-      private def buildDatapoints(s: StatSeries): List[Datapoint] = {
+      private def buildDatapointList(
+        s: StatSeries,
+        definition: MetricDefinition
+      ): List[Datapoint] = {
         val out = collection.mutable.ListBuffer[Datapoint]()
         var i = 0
+
+        // Try to map the definition.unit string to a StandardUnit; fallback to NONE
+        val standardUnit: StandardUnit =
+          Option(definition.unit)
+            .filter(_.nonEmpty)
+            .flatMap { u =>
+              scala.util.Try(StandardUnit.fromValue(u)).toOption
+            }
+            .getOrElse(StandardUnit.NONE)
+
         while (i < s.timestamps.size) {
-          val dp = Datapoint
+          val builder = Datapoint
             .builder()
             .timestamp(s.timestamps(i))
             .maximum(if (i < s.max.size) s.max(i) else null)
             .minimum(if (i < s.min.size) s.min(i) else null)
             .sum(if (i < s.sum.size) s.sum(i) else null)
             .sampleCount(if (i < s.cnt.size) s.cnt(i) else null)
-            .build()
-          out += dp
+            .unit(standardUnit)
+
+          out += builder.build()
           i += 1
         }
         out.toList
