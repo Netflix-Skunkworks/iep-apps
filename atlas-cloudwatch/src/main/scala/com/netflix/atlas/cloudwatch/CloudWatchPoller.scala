@@ -301,6 +301,61 @@ class CloudWatchPoller(
     }
   }
 
+  private def timeToRun(period: Int, offset: Int, account: String, region: Region): Long = {
+    var nextRun = 0L
+    try {
+      val previousRun = processor.lastSuccessfulPoll(runKey(offset, account, region))
+      nextRun = runAfter(offset, period)
+      if (previousRun >= nextRun) {
+        logger.info(
+          s"Skipping CloudWatch polling for ${offset}s as we're within the polling interval. Previous $previousRun. Next $nextRun"
+        )
+        -1
+      } else {
+        logger.info(
+          s"Polling for offset ${offset}s. Previous run was at $previousRun. Next run at $nextRun"
+        )
+        nextRun
+      }
+    } catch {
+      case ex: Exception =>
+        logger.error(s"Unexpected exception checking for the last poll timestamp on ${offset}s", ex)
+        -1
+    }
+  }
+
+  /**
+   * Per-(category, account, region, offset) worker that orchestrates polling CloudWatch
+   * for a single `MetricCategory`.
+   *
+   *   - For the given `category`, iterate over all metric definitions and:
+   *     - Issue `ListMetrics` requests to discover concrete CloudWatch metrics.
+   *     - For each discovered metric, either:
+   *       - Use the legacy per-metric `GetMetricStatistics` path, or
+   *       - Use the batched `GetMetricData` path (for fast batch polling accounts).
+   *   - Apply category-level dimension and tag filters before any stats API calls.
+   *   - For high-resolution metrics (period < 60 seconds):
+   *     - Align request time windows to the period boundary.
+   *     - Fetch datapoints over a configurable lookback window.
+   *     - Deduplicate datapoints per time series using `highResTimeCache`.
+   *     - Publish datapoints directly to the Spectator registry for LWC.
+   *   - For standard-resolution metrics (period >= 60 seconds):
+   *     - Update the CloudWatch metrics cache via [[CloudWatchMetricsProcessor.updateCache]].
+   *
+   * @param now
+   * Wall-clock timestamp at the start of the poll run; used for normalizing request
+   * windows and logging elapsed time.
+   * @param category
+   * Metric category that defines namespace, period, filters, and metric definitions.
+   * @param client
+   * CloudWatch client used for `ListMetrics`, `GetMetricStatistics`, and `GetMetricData`.
+   * @param account
+   * AWS account identifier being polled.
+   * @param region
+   * AWS region being polled.
+   * @param offset
+   * Polling offset (in seconds) used by [[CloudWatchPoller]] to stagger runs.
+   */
   case class Poller(
     now: Instant,
     category: MetricCategory,
@@ -782,30 +837,6 @@ class CloudWatchPoller(
       }
     }
   }
-
-  private def timeToRun(period: Int, offset: Int, account: String, region: Region): Long = {
-    var nextRun = 0L
-    try {
-      val previousRun = processor.lastSuccessfulPoll(runKey(offset, account, region))
-      nextRun = runAfter(offset, period)
-      if (previousRun >= nextRun) {
-        logger.info(
-          s"Skipping CloudWatch polling for ${offset}s as we're within the polling interval. Previous $previousRun. Next $nextRun"
-        )
-        -1
-      } else {
-        logger.info(
-          s"Polling for offset ${offset}s. Previous run was at $previousRun. Next run at $nextRun"
-        )
-        nextRun
-      }
-    } catch {
-      case ex: Exception =>
-        logger.error(s"Unexpected exception checking for the last poll timestamp on ${offset}s", ex)
-        -1
-    }
-  }
-
 }
 
 object CloudWatchPoller {

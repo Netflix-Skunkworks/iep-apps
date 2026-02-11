@@ -32,7 +32,9 @@ class PublishClient(val config: PublishConfig) extends StrictLogging {
   publishRegistry.start()
 
   logger.info(
-    s"registry started for step ${config.step()}, enabled : ${config.lwcEnabled()}, lwc-config URI ${config.configUri}, eval URI ${config.evalUri}"
+    s"registry started for step ${config.step()}, lwc-enabled : ${config.lwcEnabled()}, lwc-step : ${
+        config.lwcStep()
+      }, lwc-config URI ${config.configUri}, eval URI ${config.evalUri}"
   )
 
   def updateGauge(id: Id, value: Double): Unit = {
@@ -92,6 +94,7 @@ class PublishConfig(
    */
   override def maxNumberOfMeters(): Int = maxMeters
 
+  /** Override evaluatorStepSize (ms) if provided, else use AtlasConfig default. */
   override def evaluatorStepSize(): Long = {
     lwcStep().toMillis
   }
