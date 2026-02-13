@@ -20,29 +20,29 @@ import com.netflix.spectator.atlas.impl.QueryIndex
 import com.netflix.spectator.impl.Cache
 
 /** Cache implementation to use with the query index. */
-class CaffeineCache[T] extends Cache[String, java.util.List[QueryIndex[T]]] {
+class CaffeineCache[T] extends Cache[String, QueryIndex.CacheValue[T]] {
 
   private val delegate = Caffeine
     .newBuilder()
     .maximumSize(10_000)
-    .build[String, java.util.List[QueryIndex[T]]]()
+    .build[String, QueryIndex.CacheValue[T]]()
 
-  override def get(key: String): java.util.List[QueryIndex[T]] = {
+  override def get(key: String): QueryIndex.CacheValue[T] = {
     delegate.getIfPresent(key)
   }
 
-  override def peek(key: String): java.util.List[QueryIndex[T]] = {
+  override def peek(key: String): QueryIndex.CacheValue[T] = {
     throw new UnsupportedOperationException()
   }
 
-  override def put(key: String, value: java.util.List[QueryIndex[T]]): Unit = {
+  override def put(key: String, value: QueryIndex.CacheValue[T]): Unit = {
     delegate.put(key, value)
   }
 
   override def computeIfAbsent(
     key: String,
-    f: java.util.function.Function[String, java.util.List[QueryIndex[T]]]
-  ): java.util.List[QueryIndex[T]] = {
+    f: java.util.function.Function[String, QueryIndex.CacheValue[T]]
+  ): QueryIndex.CacheValue[T] = {
     delegate.get(key, f)
   }
 
@@ -54,7 +54,7 @@ class CaffeineCache[T] extends Cache[String, java.util.List[QueryIndex[T]]] {
     delegate.estimatedSize().toInt
   }
 
-  override def asMap(): java.util.Map[String, java.util.List[QueryIndex[T]]] = {
+  override def asMap(): java.util.Map[String, QueryIndex.CacheValue[T]] = {
     java.util.Collections.emptyMap()
   }
 }
