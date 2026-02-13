@@ -22,7 +22,6 @@ import com.netflix.spectator.atlas.AtlasConfig
 import com.netflix.spectator.atlas.Publisher
 import com.netflix.spectator.atlas.impl.EvaluatorConfig
 import com.netflix.spectator.atlas.impl.QueryIndex
-import com.netflix.spectator.impl.Cache
 import com.typesafe.config.Config
 
 class AggrConfig(
@@ -89,6 +88,6 @@ class AggrConfig(
   }
 
   override def indexCacheSupplier[T](): QueryIndex.CacheSupplier[T] = { () =>
-    new CaffeineCache[T].asInstanceOf[Cache[String, QueryIndex.CacheValue[T]]]
+    new CaffeineCache[T]
   }
 }
