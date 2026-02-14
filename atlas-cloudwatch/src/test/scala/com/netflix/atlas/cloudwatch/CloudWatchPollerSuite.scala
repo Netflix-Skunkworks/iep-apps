@@ -98,6 +98,38 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
       .thenReturn(Future.successful(()))
   }
 
+  /**
+   * Helper to exercise Poller#ListMetrics with an explicit metrics list.
+   */
+  private def runListMetricsWithMetrics(
+    child: CloudWatchPoller#Poller,
+    mdef: MetricDefinition,
+    req: ListMetricsRequest,
+    metrics: List[Metric],
+    promise: Promise[Done]
+  ): Unit = {
+    when(client.listMetricsPaginator(req))
+      .thenAnswer(new Answer[ListMetricsIterable] {
+        override def answer(
+          invocation: org.mockito.invocation.InvocationOnMock
+        ): ListMetricsIterable = {
+          val r = invocation.getArgument(0, classOf[ListMetricsRequest])
+
+          val lmr = ListMetricsResponse
+            .builder()
+            .metrics(metrics.toArray*)
+            .build()
+
+          when(client.listMetrics(any[ListMetricsRequest])).thenReturn(lmr)
+
+          new ListMetricsIterable(client, r)
+        }
+      })
+
+    // Drive the ListMetrics runnable (which now calls processConcreteMetrics internally)
+    child.ListMetrics(req, mdef, promise).run()
+  }
+
   test("init") {
     val poller = getPoller()
     val categories = poller.offsetMap(offset)
@@ -114,6 +146,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
         |    categories = ["cfg1", "cfg2"]
         |    poller.frequency = "5m"
         |    poller.hrmFrequency = "5s"
+        |    poller.hrmListFrequency = "5s"
         |    poller.hrmLookback = 6
         |
         |    cfg1 = {
@@ -329,7 +362,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val promise = Promise[Done]()
     val metrics = getListResponse(req)
     mockMetricStats()
-    child.ListMetrics(req, mdef, promise).process(metrics)
+    runListMetricsWithMetrics(child, mdef, req, metrics, promise)
 
     Await.result(promise.future, 60.seconds)
     assertCounters(droppedTags = 1, droppedFilter = 1)
@@ -340,8 +373,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val child = getChild(poller)
     val (mdef, req) = getListReq(poller)
     val promise = Promise[Done]()
-    child.ListMetrics(req, mdef, promise).process(List.empty)
-
+    runListMetricsWithMetrics(child, mdef, req, List.empty, promise)
     assertCounters(empty = 1)
     Await.result(promise.future, 60.seconds)
   }
@@ -352,7 +384,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val (mdef, req) = getListReq(poller)
     val promise = Promise[Done]()
     val metrics = getListResponse(req)
-    child.ListMetrics(req, mdef, promise).process(metrics)
+    runListMetricsWithMetrics(child, mdef, req, metrics, promise)
 
     intercept[RuntimeException] {
       Await.result(promise.future, 60.seconds)
@@ -372,6 +404,179 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     intercept[RuntimeException] {
       Await.result(promise.future, 60.seconds)
     }
+  }
+
+  test("ListMetrics populates cache and UseCachedMetrics reuses it") {
+    val poller = getPoller()
+    val child = getChild(poller)
+    val (mdef, req) = getListReq(poller)
+
+    val metrics = getListResponse(req)
+
+    // --- First run: ListMetrics, should populate cache ---
+
+    val p1 = Promise[Done]()
+
+    when(client.listMetricsPaginator(req))
+      .thenAnswer(new Answer[ListMetricsIterable] {
+        override def answer(
+          invocation: org.mockito.invocation.InvocationOnMock
+        ): ListMetricsIterable = {
+          val r = invocation.getArgument(0, classOf[ListMetricsRequest])
+          val lmr = ListMetricsResponse
+            .builder()
+            .metrics(metrics.toArray*)
+            .build()
+          when(client.listMetrics(any[ListMetricsRequest])).thenReturn(lmr)
+          new ListMetricsIterable(client, r)
+        }
+      })
+
+    mockMetricStats()
+
+    child.ListMetrics(req, mdef, p1).run()
+    Await.result(p1.future, 60.seconds)
+
+    reset(client)
+    when(client.getMetricStatistics(any[GetMetricStatisticsRequest]))
+      .thenReturn(
+        GetMetricStatisticsResponse
+          .builder()
+          .label("UT1")
+          .datapoints(java.util.Collections.emptyList[Datapoint]())
+          .build()
+      )
+
+    // --- Second run: UseCachedMetrics, should not call listMetricsPaginator ---
+
+    val p2 = Promise[Done]()
+
+    child.UseCachedMetrics(mdef, metrics, p2).run()
+    Await.result(p2.future, 60.seconds)
+
+    // Verify that no new listMetricsPaginator calls happened in cached path
+    verify(client, never()).listMetricsPaginator(any[ListMetricsRequest])
+  }
+
+  test("HRM lookback dedupes datapoints via highResTimeCache") {
+    // HRM config: period 1s, hrmLookback 6, hrmFrequency 3s (values not critical for this unit test)
+    val cfg = ConfigFactory
+      .parseString(
+        """
+          |atlas {
+          |  cloudwatch {
+          |    account.polling.requestLimit = 100
+          |    account.polling.fastPolling = []
+          |    account.polling.fastBatchPolling = []
+          |    categories = ["ut-hrm-dedupe"]
+          |    poller.frequency = "5m"
+          |    poller.hrmFrequency = "3s"
+          |    poller.hrmLookback = 6
+          |
+          |    ut-hrm-dedupe = {
+          |      namespace = "AWS/UT1"
+          |      period = 1s
+          |      poll-offset = 8h
+          |
+          |      dimensions = ["MyTag"]
+          |      metrics = [
+          |        {
+          |          name = "HRMMetric"
+          |          alias = "aws.ut1.hrm.dedupe"
+          |          conversion = "sum,rate"
+          |        }
+          |      ]
+          |    }
+          |  }
+          |}
+          |""".stripMargin
+      )
+      .withFallback(config)
+
+    // Re-mock processor so we can capture sendToRegistry calls for this test
+    processor = mock(classOf[CloudWatchMetricsProcessor])
+    val registry2 = new DefaultRegistry()
+    val poller2 = new CloudWatchPoller(
+      cfg,
+      registry2,
+      leaderStatus,
+      accountSupplier,
+      rules,
+      clientFactory,
+      processor,
+      debugger
+    )
+
+    // Use the HRM category from this poller
+    val category = poller2
+      .offsetMap(Duration.ofHours(8).getSeconds.toInt)
+      .find(_.namespace == "AWS/UT1")
+      .getOrElse(sys.error("HRM category not found"))
+
+    val child = poller2.Poller(timestamp, category, client, account, region, 60)
+    val (mdef, _) = getListReq(poller2)
+
+    // Build a metric and 3 HRM datapoints (t, t-1, t-2 seconds)
+    val m = Metric
+      .builder()
+      .namespace("AWS/UT1")
+      .metricName("HRMMetric")
+      .dimensions(Dimension.builder().name("MyTag").value("a").build())
+      .build()
+
+    val ts0 = timestamp.minusSeconds(2)
+    val ts1 = timestamp.minusSeconds(1)
+    val ts2 = timestamp
+
+    def dp(ts: Instant, v: Double): Datapoint =
+      Datapoint
+        .builder()
+        .sum(v)
+        .minimum(v)
+        .maximum(v)
+        .sampleCount(1.0)
+        .timestamp(ts)
+        .build()
+
+    val firstBatch = List(
+      dp(ts0, 10.0),
+      dp(ts1, 20.0),
+      dp(ts2, 30.0)
+    )
+
+    // Second batch includes the same three timestamps plus one new one (ts3)
+    val ts3 = timestamp.plusSeconds(1)
+    val secondBatch = firstBatch :+ dp(ts3, 40.0)
+
+    val metaCaptor = ArgumentCaptor.forClass(classOf[MetricMetadata])
+    val fmCaptor = ArgumentCaptor.forClass(classOf[FirehoseMetric])
+
+    // First call: process firstBatch → all 3 datapoints should be sent
+    child.processMetricDatapoints(mdef, m, firstBatch, ts2.toEpochMilli)
+    verify(processor, times(3)).sendToRegistry(
+      metaCaptor.capture(),
+      fmCaptor.capture(),
+      anyLong()
+    )
+
+    // Reset captors & mocks for second invocation
+    reset(processor)
+
+    val metaCaptor2 = ArgumentCaptor.forClass(classOf[MetricMetadata])
+    val fmCaptor2 = ArgumentCaptor.forClass(classOf[FirehoseMetric])
+
+    // Second call: process secondBatch (3 old + 1 new)
+    // Only the new timestamp (ts3) should be forwarded due to highResTimeCache dedupe
+    child.processMetricDatapoints(mdef, m, secondBatch, ts3.toEpochMilli)
+
+    verify(processor, times(1)).sendToRegistry(
+      metaCaptor2.capture(),
+      fmCaptor2.capture(),
+      anyLong()
+    )
+
+    val sent = fmCaptor2.getValue
+    assertEquals(sent.datapoint.timestamp(), ts3)
   }
 
   test("HRM datapoints built correctly with GetMetricData batch (period < 60)") {
