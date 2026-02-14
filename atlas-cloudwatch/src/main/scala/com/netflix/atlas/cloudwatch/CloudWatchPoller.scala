@@ -35,6 +35,7 @@ import software.amazon.awssdk.services.cloudwatch.CloudWatchClient
 import software.amazon.awssdk.services.cloudwatch.model.Datapoint
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
 import software.amazon.awssdk.services.cloudwatch.model.GetMetricDataRequest
+import software.amazon.awssdk.services.cloudwatch.model.GetMetricStatisticsRequest
 import software.amazon.awssdk.services.cloudwatch.model.ListMetricsRequest
 import software.amazon.awssdk.services.cloudwatch.model.Metric
 import software.amazon.awssdk.services.cloudwatch.model.MetricDataQuery
@@ -59,17 +60,16 @@ import scala.util.Failure
 import scala.util.Success
 
 /**
-  * Poller for CloudWatch metrics. It is meant to handle daily or infrequently posted CloudWatch metrics
-  * that are not available via Firehose. For example, the S3 bucket aggregates.
-  *
-  * Schedules are organized by offsets for ONLY daily metrics at this point. The schedule runs
-  * frequently and checks the last polled timestamp to determine if polling should occur. Actual
-  * calls to CloudWatch will only happen once a day to keep polling costs down.
-  *
-  * TODO - Add support for other frequencies if we need them.
-  * TODO - Pekko/Pekka streamify it. It should be simple but I had a hard time parallelizing
-  * the calls and backpressuring properly, particularly with the async AWS client.
-  */
+ * Poller for CloudWatch metrics.
+ *
+ * - `pollListMetrics` runs ListMetrics on a slower cadence and populates a cache.
+ * - `poll` uses the cached metric list to fetch datapoints (GetMetricData / GetMetricStatistics).
+ *
+ * High-resolution metrics (period < 60s):
+ * - Use hrmFrequency as polling interval.
+ * - Use hrmListFrequency as discovery interval.
+ * - Deduplicate datapoints via highResTimeCache.
+ */
 class CloudWatchPoller(
   config: Config,
   registry: Registry,
@@ -115,8 +115,13 @@ class CloudWatchPoller(
   private val hrmWallOffset = registry.createId("atlas.cloudwatch.poller.hrm.wallOffset")
   private val polledPublishPath = registry.createId("atlas.cloudwatch.poller.publishPath")
   private val dpsPolled = registry.counter("atlas.cloudwatch.poller.dps.polled")
+
+  // Global polling frequencies
   private val frequency = config.getDuration("atlas.cloudwatch.poller.frequency").getSeconds
   private val hrmFrequency = config.getDuration("atlas.cloudwatch.poller.hrmFrequency").getSeconds
+
+  private val hrmListFrequency =
+    config.getDuration("atlas.cloudwatch.poller.hrmListFrequency").getSeconds
 
   private[cloudwatch] val flagMap = new ConcurrentHashMap[String, AtomicBoolean]()
 
@@ -155,6 +160,19 @@ class CloudWatchPoller(
 
   private[cloudwatch] val hrmLookback = config.getInt("atlas.cloudwatch.poller.hrmLookback")
 
+  // Cache for ListMetrics results: key = account|region|namespace|metricName
+  private[cloudwatch] val metricsCache =
+    new ConcurrentHashMap[String, List[Metric]]()
+
+  private def cacheKey(
+    account: String,
+    region: Region,
+    category: MetricCategory,
+    definition: MetricDefinition
+  ): String = {
+    s"$account|${region.toString}|${category.namespace}|${definition.name}"
+  }
+
   {
     // Scheduling Pollers Based on Offset
     offsetMap.foreach {
@@ -162,10 +180,21 @@ class CloudWatchPoller(
         logger.info(
           s"Scheduling poller for offset ${offset}s for total ${categories.size} categories"
         )
-        val scheduleFrequency = if (offset < 60) hrmFrequency else frequency
-        if (scheduleFrequency == hrmFrequency) {
+
+        val isHrm = categories.exists(_.period < 60)
+        val scheduleFrequency =
+          if (isHrm) hrmFrequency else frequency
+
+        if (isHrm) {
           logger.info(s"Polling for ${hrmLookback} high res data points in the past.")
+          // Separate ListMetrics discovery loop
+          system.scheduler.scheduleAtFixedRate(
+            FiniteDuration(hrmListFrequency, TimeUnit.SECONDS),
+            FiniteDuration(hrmListFrequency, TimeUnit.SECONDS)
+          )(() => pollListMetrics(offset, categories))(system.dispatcher)
         }
+
+        // Data polling loop
         system.scheduler.scheduleAtFixedRate(
           FiniteDuration(scheduleFrequency, TimeUnit.SECONDS),
           FiniteDuration(scheduleFrequency, TimeUnit.SECONDS)
@@ -173,6 +202,77 @@ class CloudWatchPoller(
     }
   }
 
+  /**
+   * Discovery loop: periodically run ListMetrics for HRM categories and populate metricsCache.
+   */
+  private[cloudwatch] def pollListMetrics(
+    offset: Int,
+    categories: List[MetricCategory]
+  ): Unit = {
+    if (!leaderStatus.hasLeadership) {
+      logger.info(s"Not the leader for ${offset}s, skipping CloudWatch ListMetrics polling.")
+      return
+    }
+
+    // Only HRM categories
+    val hrmCategories = categories.filter(_.period < 60)
+    if (hrmCategories.isEmpty) return
+
+    try {
+      accountSupplier.accounts.foreach {
+        case (account, regions) =>
+          regions.foreach {
+            case (region, namespaces) =>
+              if (namespaces.nonEmpty) {
+                val filtered = hrmCategories.filter(c => namespaces.contains(c.namespace))
+                if (filtered.nonEmpty) {
+                  val client = createClient(account, region)
+
+                  filtered.foreach { category =>
+                    category.toListRequests.foreach {
+                      case (definition, request) =>
+                        val key = cacheKey(account, region, category, definition)
+                        try {
+                          val paginator = client.listMetricsPaginator(request)
+                          val allMetrics = paginator.metrics().stream().toScala(List)
+                          val kept = allMetrics.filter { m =>
+                            category.dimensionsMatch(m.dimensions().asScala.toList) &&
+                            !category.filter.map(_.matches(toTagMap(m))).getOrElse(false)
+                          }
+                          metricsCache.put(key, kept)
+                          logger.info(
+                            s"Updated metrics cache for key=$key with ${kept.size} metrics"
+                          )
+                        } catch {
+                          case ex: Exception =>
+                            logger.error(
+                              s"Error listing metrics (discovery) for $account ${category.namespace} ${definition.name} in region $region",
+                              ex
+                            )
+                            registry
+                              .counter(
+                                errorListing.withTags("exception", ex.getClass.getSimpleName)
+                              )
+                              .increment()
+                        }
+                    }
+                  }
+                }
+              }
+          }
+      }
+    } catch {
+      case ex: Exception =>
+        logger.error("Unexpected exception in pollListMetrics.", ex)
+        registry
+          .counter(errorSetup.withTags("exception", ex.getClass.getSimpleName))
+          .increment()
+    }
+  }
+
+  /**
+   * Data polling loop: use cached metrics if available, otherwise fall back to ListMetrics once.
+   */
   private[cloudwatch] def poll(
     offset: Int,
     categories: List[MetricCategory],
@@ -268,12 +368,16 @@ class CloudWatchPoller(
   }
 
   private def shouldPoll(offset: Int, account: String, region: Region, period: Int): Boolean = {
+    val isHrm = period < 60
+    val interval =
+      if (isHrm) hrmFrequency.toInt else period
+
     if (
       offset <= 60 &&
       !fastPollingAccounts.contains(account) &&
       !fastBatchPollingAccounts.contains(account)
     ) false
-    else timeToRun(period, offset, account, region) > 0
+    else timeToRun(interval, offset, account, region) > 0
   }
 
   private def createClient(account: String, region: Region): CloudWatchClient = {
@@ -301,11 +405,16 @@ class CloudWatchPoller(
     }
   }
 
-  private def timeToRun(period: Int, offset: Int, account: String, region: Region): Long = {
+  private def timeToRun(
+    intervalSeconds: Int,
+    offset: Int,
+    account: String,
+    region: Region
+  ): Long = {
     var nextRun = 0L
     try {
       val previousRun = processor.lastSuccessfulPoll(runKey(offset, account, region))
-      nextRun = runAfter(offset, period)
+      nextRun = runAfter(offset, intervalSeconds)
       if (previousRun >= nextRun) {
         logger.info(
           s"Skipping CloudWatch polling for ${offset}s as we're within the polling interval. Previous $previousRun. Next $nextRun"
@@ -325,36 +434,7 @@ class CloudWatchPoller(
   }
 
   /**
-   * Per-(category, account, region, offset) worker that orchestrates polling CloudWatch
-   * for a single `MetricCategory`.
-   *
-   *   - For the given `category`, iterate over all metric definitions and:
-   *     - Issue `ListMetrics` requests to discover concrete CloudWatch metrics.
-   *     - For each discovered metric, either:
-   *       - Use the legacy per-metric `GetMetricStatistics` path, or
-   *       - Use the batched `GetMetricData` path (for fast batch polling accounts).
-   *   - Apply category-level dimension and tag filters before any stats API calls.
-   *   - For high-resolution metrics (period < 60 seconds):
-   *     - Align request time windows to the period boundary.
-   *     - Fetch datapoints over a configurable lookback window.
-   *     - Deduplicate datapoints per time series using `highResTimeCache`.
-   *     - Publish datapoints directly to the Spectator registry for LWC.
-   *   - For standard-resolution metrics (period >= 60 seconds):
-   *     - Update the CloudWatch metrics cache via [[CloudWatchMetricsProcessor.updateCache]].
-   *
-   * @param now
-   * Wall-clock timestamp at the start of the poll run; used for normalizing request
-   * windows and logging elapsed time.
-   * @param category
-   * Metric category that defines namespace, period, filters, and metric definitions.
-   * @param client
-   * CloudWatch client used for `ListMetrics`, `GetMetricStatistics`, and `GetMetricData`.
-   * @param account
-   * AWS account identifier being polled.
-   * @param region
-   * AWS region being polled.
-   * @param offset
-   * Polling offset (in seconds) used by [[CloudWatchPoller]] to stagger runs.
+   * Per-(category, account, region, offset) worker.
    */
   case class Poller(
     now: Instant,
@@ -374,18 +454,164 @@ class CloudWatchPoller(
       val futures = category.toListRequests.map { tuple =>
         val (definition, request) = tuple
         val promise = Promise[Done]()
-        executionContext.execute(ListMetrics(request, definition, promise))
+        val key = cacheKey(account, region, category, definition)
+        Option(metricsCache.get(key)) match {
+          case Some(metrics) =>
+            // Use cached metrics directly
+            executionContext.execute(
+              UseCachedMetrics(definition, metrics, promise)
+            )
+          case None =>
+            executionContext.execute(ListMetrics(request, definition, promise))
+        }
         promise.future
       }
 
       Future.reduceLeft(futures)((_, _) => Done).andThen {
         case Success(_) =>
           logger.info(
-            s"Finished polling with ${got.get()} of ${expecting.get()} for ${account} at ${offset} and ${
+            s"Finished polling with ${got.get()} of ${expecting.get()} for $account at $offset and ${
                 category.namespace
-              } in region ${region} in ${(System.currentTimeMillis() - nowMillis) / 1000.0} s"
+              } in region $region in ${(System.currentTimeMillis() - nowMillis) / 1000.0} s"
           )
         case Failure(_) => // bubble up
+      }
+    }
+
+    /** Shared logic for processing a concrete list of CloudWatch metrics. */
+    private def processConcreteMetrics(
+      metricsList: List[Metric],
+      definition: MetricDefinition,
+      promise: Promise[Done],
+      cacheKeyOpt: Option[String]
+    ): Unit = {
+
+      if (metricsList.isEmpty) {
+        registry
+          .counter(
+            emptyListing.withTags(
+              "account",
+              account,
+              "aws.namespace",
+              category.namespace,
+              "region",
+              region.toString
+            )
+          )
+          .increment()
+      }
+
+      val futures = new Array[Future[Done]](metricsList.size)
+      val promises = new Array[Promise[Done]](metricsList.size)
+      val batchCandidates = collection.mutable.ArrayBuffer[(Int, Metric)]()
+
+      var idx = 0
+      val throttled = Source
+        .fromIterator(() => metricsList.iterator)
+        .throttle(awsRequestLimit, 1.second)
+        .runForeach { metric =>
+          if (!category.dimensionsMatch(metric.dimensions().asScala.toList)) {
+            debugger.debugPolled(metric, IncomingMatch.DroppedTag, nowMillis, category)
+            dpsDroppedTags.increment()
+            futures(idx) = Future.successful(Done)
+          } else if (category.filter.map(_.matches(toTagMap(metric))).getOrElse(false)) {
+            debugger.debugPolled(metric, IncomingMatch.DroppedFilter, nowMillis, category)
+            dpsDroppedFilter.increment()
+            futures(idx) = Future.successful(Done)
+          } else {
+            val p = Promise[Done]()
+            promises(idx) = p
+            futures(idx) = p.future
+            expecting.incrementAndGet()
+
+            if (fastBatchPollingAccounts.contains(account)) {
+              batchCandidates += ((idx, metric))
+            } else {
+              executionContext.execute(FetchMetricStats(definition, metric, p))
+            }
+          }
+          idx += 1
+        }
+
+      throttled.onComplete {
+        case Success(_) =>
+          // Optionally populate cache for future polls (only for ListMetrics path)
+          cacheKeyOpt.foreach { key =>
+            try {
+              metricsCache.put(key, metricsList)
+            } catch {
+              case ex: Exception =>
+                logger.warn(s"Failed to update metrics cache for key $key", ex)
+            }
+          }
+
+          val batchFutureOpt =
+            if (fastBatchPollingAccounts.contains(account) && batchCandidates.nonEmpty) {
+              val metricBatches = batchCandidates.grouped(100).toList
+              val batchFutures = metricBatches.map { batch =>
+                val (indices, metrics) = batch.unzip
+                val perMetricPromises = indices.map(promises)
+                val batchPromise = Promise[Done]()
+                executionContext.execute(
+                  GetMetricDataBatch(
+                    definition,
+                    metrics.toList,
+                    perMetricPromises.toList,
+                    batchPromise
+                  )
+                )
+                batchPromise.future
+              }
+              Some(Future.reduceLeft(batchFutures)((_, _) => Done))
+            } else {
+              None
+            }
+
+          val allFutures =
+            batchFutureOpt match {
+              case Some(batchF) =>
+                for {
+                  _ <- batchF
+                  _ <- Future.sequence(futures.toList)
+                } yield Done
+              case None =>
+                Future.sequence(futures.toList).map(_ => Done)
+            }
+
+          allFutures.onComplete {
+            case Success(_) =>
+              promise.success(Done)
+            case Failure(ex) =>
+              logger.error(
+                s"Failed at least one polling for $account and ${category.namespace} ${definition.name} in region $region",
+                ex
+              )
+              promise.failure(ex)
+          }
+
+        case Failure(ex) =>
+          promise.failure(ex)
+      }
+    }
+
+    /** Use metrics already discovered and cached by pollListMetrics. */
+    private[cloudwatch] case class UseCachedMetrics(
+      definition: MetricDefinition,
+      metrics: List[Metric],
+      promise: Promise[Done]
+    ) extends Runnable {
+
+      @Override def run(): Unit = {
+        try {
+          processConcreteMetrics(metrics, definition, promise, cacheKeyOpt = None)
+        } catch {
+          case ex: Exception =>
+            logger.error(
+              s"Error in UseCachedMetrics for $account and ${category.namespace} ${definition.name} in region $region",
+              ex
+            )
+            promise.failure(ex)
+        }
       }
     }
 
@@ -395,112 +621,19 @@ class CloudWatchPoller(
       promise: Promise[Done]
     ) extends Runnable {
 
-      def process(metricsList: List[Metric]): Unit = {
-        if (metricsList.isEmpty) {
-          registry
-            .counter(
-              emptyListing.withTags(
-                "account",
-                account,
-                "aws.namespace",
-                category.namespace,
-                "region",
-                region.toString
-              )
-            )
-            .increment()
-        }
-
-        val futures = new Array[Future[Done]](metricsList.size)
-        val promises = new Array[Promise[Done]](metricsList.size)
-        val batchCandidates = collection.mutable.ArrayBuffer[(Int, Metric)]()
-
-        var idx = 0
-        val wtf = Source
-          .fromIterator(() => metricsList.iterator)
-          .throttle(awsRequestLimit, 1.second)
-          .runForeach { metric =>
-            if (!category.dimensionsMatch(metric.dimensions().asScala.toList)) {
-              debugger.debugPolled(metric, IncomingMatch.DroppedTag, nowMillis, category)
-              dpsDroppedTags.increment()
-              futures(idx) = Future.successful(Done)
-            } else if (category.filter.map(_.matches(toTagMap(metric))).getOrElse(false)) {
-              debugger.debugPolled(metric, IncomingMatch.DroppedFilter, nowMillis, category)
-              dpsDroppedFilter.increment()
-              futures(idx) = Future.successful(Done)
-            } else {
-              val p = Promise[Done]()
-              promises(idx) = p
-              futures(idx) = p.future
-              expecting.incrementAndGet()
-
-              if (fastBatchPollingAccounts.contains(account)) {
-                batchCandidates += ((idx, metric))
-              } else {
-                executionContext.execute(FetchMetricStats(definition, metric, p))
-              }
-            }
-            idx += 1
-          }
-
-        wtf.onComplete {
-          case Success(_) =>
-            val batchFutureOpt =
-              if (fastBatchPollingAccounts.contains(account) && batchCandidates.nonEmpty) {
-                // group by 100 metrics per batch → 400 queries (4 stats per metric)
-                val metricBatches = batchCandidates.grouped(100).toList
-
-                val batchFutures = metricBatches.map { batch =>
-                  val (indices, metrics) = batch.unzip
-                  val perMetricPromises = indices.map(promises)
-                  val batchPromise = Promise[Done]()
-                  executionContext.execute(
-                    GetMetricDataBatch(
-                      definition,
-                      metrics.toList,
-                      perMetricPromises.toList,
-                      batchPromise
-                    )
-                  )
-                  batchPromise.future
-                }
-
-                Some(Future.reduceLeft(batchFutures)((_, _) => Done))
-              } else {
-                None
-              }
-
-            val allFutures =
-              batchFutureOpt match {
-                case Some(batchF) =>
-                  for {
-                    _ <- batchF
-                    _ <- Future.sequence(futures.toList)
-                  } yield Done
-                case None =>
-                  Future.sequence(futures.toList).map(_ => Done)
-              }
-
-            allFutures.onComplete {
-              case Success(_) =>
-                promise.success(Done)
-              case Failure(ex) =>
-                logger.error(
-                  s"Failed at least one polling for $account and ${category.namespace} ${definition.name} in region $region",
-                  ex
-                )
-                promise.failure(ex)
-            }
-
-          case Failure(ex) =>
-            promise.failure(ex)
-        }
-      }
-
       @Override def run(): Unit = {
         try {
-          val metrics = client.listMetricsPaginator(request)
-          process(metrics.metrics().stream().toScala(List))
+          val metricsIterable = client.listMetricsPaginator(request)
+          val metricsList = metricsIterable.metrics().stream().toScala(List)
+
+          val key = cacheKey(account, region, category, definition)
+
+          processConcreteMetrics(
+            metricsList,
+            definition,
+            promise,
+            cacheKeyOpt = Some(key)
+          )
         } catch {
           case ex: Exception =>
             logger.error(
@@ -539,7 +672,6 @@ class CloudWatchPoller(
 
       @Override def run(): Unit = {
         try {
-          // Same time-range logic as FetchMetricStats
           var start = now.minusSeconds(minCacheEntries * category.period)
           val (startTime, endTime) =
             if (category.period < 60) {
@@ -586,7 +718,6 @@ class CloudWatchPoller(
 
           val response = client.getMetricData(request)
 
-          // Fill perMetricSeries from results
           response.metricDataResults().asScala.foreach { r =>
             idToMetricAndStat.get(r.id()) match {
               case Some((metricIdx, stat)) =>
@@ -614,7 +745,6 @@ class CloudWatchPoller(
             }
           }
 
-          // For each metric, build Datapoints and reuse processMetricDatapoints
           metrics.indices.foreach { i =>
             val m = metrics(i)
             val p = perMetricPromises(i)
@@ -661,7 +791,6 @@ class CloudWatchPoller(
         val out = collection.mutable.ListBuffer[Datapoint]()
         var i = 0
 
-        // Try to map the definition.unit string to a StandardUnit; fallback to NONE
         val standardUnit: StandardUnit =
           Option(definition.unit)
             .filter(_.nonEmpty)
@@ -696,9 +825,8 @@ class CloudWatchPoller(
       @Override def run(): Unit = {
         try {
           var start = now.minusSeconds(minCacheEntries * category.period)
-          val request =
+          val request: GetMetricStatisticsRequest =
             if (category.period < 60) {
-              // normalize timestamps for, hopefully, an improved alignment.
               var ts = now.toEpochMilli
               ts = ts - (ts % (category.period * 1000))
               registry
@@ -738,7 +866,8 @@ class CloudWatchPoller(
       }
     }
 
-    private def processMetricDatapoints(
+    /** High-res: dedupe via highResTimeCache; low-res: update cache. */
+    private[cloudwatch] def processMetricDatapoints(
       definition: MetricDefinition,
       metric: Metric,
       datapoints: Iterable[Datapoint],
@@ -757,7 +886,7 @@ class CloudWatchPoller(
       }
 
       if (category.period < 60) {
-        // high res path publish to registry
+        // high-res path publish to registry
         var foundValidData = false
         dpList.foreach { dp =>
           val firehoseMetric =
@@ -841,11 +970,11 @@ class CloudWatchPoller(
 
 object CloudWatchPoller {
 
-  private def runAfter(offset: Int, period: Int): Long = {
+  private def runAfter(offset: Int, intervalSeconds: Int): Long = {
     val now = System.currentTimeMillis()
-    val midnight = normalize(now, period)
+    val midnight = normalize(now, intervalSeconds)
     val start = midnight + (offset * 1000)
-    if (start < now) start + (period * 1000) else start
+    if (start < now) start + (intervalSeconds * 1000L) else start
   }
 
   private[cloudwatch] def runKey(offset: Int, account: String, region: Region): String = {
