@@ -1189,7 +1189,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
         )
         val lmr = ListMetricsResponse
           .builder()
-          .metrics(metrics.toArray *)
+          .metrics(metrics.toArray*)
           .build()
         when(client.listMetrics(any[ListMetricsRequest])).thenReturn(lmr)
         new ListMetricsIterable(client, req)
