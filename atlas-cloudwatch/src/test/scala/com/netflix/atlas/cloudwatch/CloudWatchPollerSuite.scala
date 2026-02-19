@@ -147,6 +147,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
         |    poller.frequency = "5m"
         |    poller.hrmFrequency = "5s"
         |    poller.hrmListFrequency = "5s"
+        |    poller.useHrmMetricsCache = false
         |    poller.hrmLookback = 6
         |
         |    cfg1 = {
@@ -1170,32 +1171,28 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
 
   def mockSuccess(): Unit = {
     when(client.listMetricsPaginator(any[ListMetricsRequest]))
-      .thenAnswer(new Answer[ListMetricsIterable] {
-        override def answer(
-          invocation: org.mockito.invocation.InvocationOnMock
-        ): ListMetricsIterable = {
-          val req = invocation.getArgument(0, classOf[ListMetricsRequest])
-          val metrics = List(
-            Metric
-              .builder()
-              .namespace("AWS/UT1")
-              .metricName(req.metricName())
-              .dimensions(Dimension.builder().name("MyTag").value("a").build())
-              .build(),
-            Metric
-              .builder()
-              .namespace("AWS/UT1")
-              .metricName(req.metricName())
-              .dimensions(Dimension.builder().name("MyTag").value("b").build())
-              .build()
-          )
-          val lmr = ListMetricsResponse
+      .thenAnswer((invocation: org.mockito.invocation.InvocationOnMock) => {
+        val req = invocation.getArgument(0, classOf[ListMetricsRequest])
+        val metrics = List(
+          Metric
             .builder()
-            .metrics(metrics.toArray*)
+            .namespace("AWS/UT1")
+            .metricName(req.metricName())
+            .dimensions(Dimension.builder().name("MyTag").value("a").build())
+            .build(),
+          Metric
+            .builder()
+            .namespace("AWS/UT1")
+            .metricName(req.metricName())
+            .dimensions(Dimension.builder().name("MyTag").value("b").build())
             .build()
-          when(client.listMetrics(any[ListMetricsRequest])).thenReturn(lmr)
-          new ListMetricsIterable(client, req)
-        }
+        )
+        val lmr = ListMetricsResponse
+          .builder()
+          .metrics(metrics.toArray*)
+          .build()
+        when(client.listMetrics(any[ListMetricsRequest])).thenReturn(lmr)
+        new ListMetricsIterable(client, req)
       })
 
     val dps = List(
