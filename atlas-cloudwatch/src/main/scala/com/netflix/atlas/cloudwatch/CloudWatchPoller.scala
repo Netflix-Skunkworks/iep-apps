@@ -195,7 +195,7 @@ class CloudWatchPoller(
         val isHrm = categories.exists(_.period < 60)
         val scheduleFrequency =
           if (isHrm) hrmFrequency else frequency
-       
+
         if (isHrm) {
           logger.info(
             s"Polling for ${hrmLookback} high res data points in the past. " +
@@ -265,7 +265,7 @@ class CloudWatchPoller(
                             val allMetrics = paginator.metrics().stream().toScala(List)
                             val kept = allMetrics.filter { m =>
                               category.dimensionsMatch(m.dimensions().asScala.toList) &&
-                                !category.filter.map(_.matches(toTagMap(m))).getOrElse(false)
+                              !category.filter.map(_.matches(toTagMap(m))).getOrElse(false)
                             }
 
                             val newSize = kept.size
@@ -284,7 +284,9 @@ class CloudWatchPoller(
                           } catch {
                             case ex: Exception =>
                               logger.error(
-                                s"Error listing metrics (discovery) for $account ${category.namespace} ${definition.name} in region $region",
+                                s"Error listing metrics (discovery) for $account ${
+                                    category.namespace
+                                  } ${definition.name} in region $region",
                                 ex
                               )
                               registry
