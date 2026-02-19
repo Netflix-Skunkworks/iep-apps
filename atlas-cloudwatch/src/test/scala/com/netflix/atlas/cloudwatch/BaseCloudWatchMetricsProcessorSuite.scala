@@ -15,7 +15,7 @@
  */
 package com.netflix.atlas.cloudwatch
 
-import com.fasterxml.jackson.core.JsonGenerator
+import tools.jackson.core.JsonGenerator
 import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.makeFirehoseMetric
 import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.nts
 import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.ts
@@ -207,32 +207,32 @@ object BaseCloudWatchMetricsProcessorSuite {
 
     def encode(json: JsonGenerator): Unit = {
       json.writeStartObject()
-      json.writeStringField("metric_stream_name", "Stream1")
+      json.writeStringProperty("metric_stream_name", "Stream1")
       for (i <- 0 until Math.min(dimensions, 2)) {
-        if (i == 0) json.writeStringField("account_id", "1234")
-        if (i == 1) json.writeStringField("region", "us-west-2")
+        if (i == 0) json.writeStringProperty("account_id", "1234")
+        if (i == 1) json.writeStringProperty("region", "us-west-2")
       }
-      json.writeStringField("namespace", "UT/Test")
+      json.writeStringProperty("namespace", "UT/Test")
       if (metric != null) {
-        json.writeStringField("metric_name", metric)
+        json.writeStringProperty("metric_name", metric)
       }
-      json.writeStringField("unit", "None")
+      json.writeStringProperty("unit", "None")
       if (wTimestamp) {
-        json.writeNumberField("timestamp", ts)
+        json.writeNumberProperty("timestamp", ts)
       }
       if (dimensions >= 3) {
-        json.writeObjectFieldStart("dimensions")
-        json.writeStringField("AwsTag", "AwsVal")
+        json.writeObjectPropertyStart("dimensions")
+        json.writeStringProperty("AwsTag", "AwsVal")
         json.writeEndObject()
       }
       if (values != null) {
-        json.writeObjectFieldStart("value")
+        json.writeObjectPropertyStart("value")
         for (i <- 0 until values.length) {
-          if (i == 0) json.writeNumberField("sum", values(i))
-          if (i == 1) json.writeNumberField("min", values(i))
-          if (i == 2) json.writeNumberField("max", values(i))
-          if (i == 3) json.writeNumberField("count", values(i))
-          if (i > 3) json.writeNumberField(s"val${i}", values(i))
+          if (i == 0) json.writeNumberProperty("sum", values(i))
+          if (i == 1) json.writeNumberProperty("min", values(i))
+          if (i == 2) json.writeNumberProperty("max", values(i))
+          if (i == 3) json.writeNumberProperty("count", values(i))
+          if (i > 3) json.writeNumberProperty(s"val${i}", values(i))
         }
         json.writeEndObject()
       }

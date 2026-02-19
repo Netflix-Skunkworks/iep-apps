@@ -15,9 +15,9 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import com.fasterxml.jackson.databind.JsonNode
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import munit.FunSuite
+import tools.jackson.databind.JsonNode
 
 class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardingTestConfig {
 
@@ -30,7 +30,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
   test("Fail when top level node is not an object") {
     assertFailure(
       validate("[]"),
-      "does not match any allowed primitive type"
+      "array found, object expected"
     )
   }
 
@@ -44,14 +44,14 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
 
     assertFailure(
       validate(config),
-      "object has missing required properties"
+      "required property"
     )
   }
 
   test("Fail for invalid email") {
     assertFailure(
       validate(makeConfigString(email = "app-oncall")),
-      "not a valid email address"
+      "does not match the email pattern"
     )
   }
 
@@ -66,7 +66,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
 
     assertFailure(
       validate(config),
-      "does not match any allowed primitive type"
+      "string found, array expected"
     )
   }
 
@@ -96,7 +96,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
       """.stripMargin
     assertFailure(
       validate(config),
-      "object has missing required properties"
+      "required property"
     )
   }
 
@@ -123,7 +123,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
     ).foreach { n =>
       assertFailure(
         validate(makeConfigString(metricName = n)),
-        "does not match input string"
+        "does not match the regex pattern"
       )
     }
   }
@@ -131,7 +131,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
   test("Fail for invalid atlasUri name") {
     assertFailure(
       validate(makeConfigString(atlasUri = "http://localhost?q=query")),
-      "does not match input string"
+      "does not match the regex pattern"
     )
   }
 
@@ -153,7 +153,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
 
     assertFailure(
       validate(config),
-      "does not match any allowed primitive type"
+      "object found, array expected"
     )
   }
 
@@ -184,7 +184,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
     ).foreach { d =>
       assertFailure(
         validate(makeConfigString().replace("$(nf.asg)", d)),
-        "does not match input string"
+        "does not match the regex pattern"
       )
     }
   }
@@ -210,7 +210,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
     ).foreach { d =>
       assertFailure(
         validate(makeConfigString().replace("$(nf.asg)", d)),
-        "does not match input string"
+        "does not match the regex pattern"
       )
     }
   }
@@ -227,7 +227,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
     ).foreach { a =>
       assertFailure(
         validate(makeConfigString(account = a)),
-        "does not match input string"
+        "does not match the regex pattern"
       )
     }
   }
@@ -244,7 +244,7 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
     ).foreach { r =>
       assertFailure(
         validate(makeConfigString(region = r)),
-        "does not match input string"
+        "does not match the regex pattern"
       )
     }
   }
@@ -256,14 +256,14 @@ class SchemaValidationSuite extends FunSuite with TestAssertions with CwForwardi
   test("checksToSkip entries cannot be empty") {
     assertFailure(
       validate(makeConfigString(checksToSkip = """[""]""")),
-      "string \"\" is too short"
+      "must be at least 1 characters long"
     )
   }
 
   test("checksToSkip should be a string array") {
     assertFailure(
       validate(makeConfigString(checksToSkip = "[1]")),
-      "does not match any allowed primitive type"
+      "integer found, string expected"
     )
   }
 

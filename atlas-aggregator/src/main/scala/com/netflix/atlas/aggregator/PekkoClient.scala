@@ -15,9 +15,9 @@
  */
 package com.netflix.atlas.aggregator
 
-import com.fasterxml.jackson.core.StreamReadFeature
-import com.fasterxml.jackson.core.StreamWriteFeature
-import com.fasterxml.jackson.dataformat.smile.SmileFactory
+import tools.jackson.core.StreamReadFeature
+import tools.jackson.core.StreamWriteFeature
+import tools.jackson.dataformat.smile.SmileFactory
 import com.netflix.atlas.pekko.AccessLogger
 import com.netflix.atlas.pekko.CustomMediaTypes
 import com.netflix.atlas.pekko.StreamOps

@@ -30,17 +30,17 @@ import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.node.ObjectNode
-import com.fasterxml.jackson.databind.node.TextNode
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.node.ObjectNode
+import tools.jackson.databind.node.StringNode
 import com.netflix.atlas.pekko.AccessLogger
 import com.netflix.atlas.pekko.StreamOps
 import com.netflix.atlas.core.util.Strings
 import com.netflix.atlas.eval.model.ArrayData
 import com.netflix.atlas.eval.model.TimeSeriesMessage
 import com.netflix.atlas.eval.stream.Evaluator
-import com.netflix.atlas.json.Json
-import com.netflix.atlas.json.JsonSupport
+import com.netflix.atlas.json3.Json
+import com.netflix.atlas.json3.JsonSupport
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.lwc.fwd.cw.*
 import com.netflix.iep.service.AbstractService
@@ -522,7 +522,7 @@ object ForwardingService extends StrictLogging {
     private def isNullOrEmpty(s: String): Boolean = s == null || s.isEmpty
 
     def isInvalid: Boolean =
-      !isDone && (isNullOrEmpty(data.key) || !data.data.fieldNames().hasNext)
+      !isDone && (isNullOrEmpty(data.key) || data.data.isEmpty)
 
     def isStart: Boolean = data.dataType == "start"
 
@@ -553,7 +553,7 @@ object ForwardingService extends StrictLogging {
   case class ConfigBinResponse(version: ConfigBinVersion, payload: JsonNode) {
 
     def isUpdate: Boolean = !isDelete
-    def isDelete: Boolean = payload.isTextual && payload.asText().isEmpty
+    def isDelete: Boolean = payload.isString && payload.stringValue().isEmpty
 
     def clusterConfig: ClusterConfig = {
       require(isUpdate, "cannot retrieve config from a delete response")
@@ -569,7 +569,7 @@ object ForwardingService extends StrictLogging {
     }
 
     def delete(version: ConfigBinVersion): ConfigBinResponse = {
-      apply(version, new TextNode(""))
+      apply(version, new StringNode(""))
     }
   }
 

@@ -20,16 +20,16 @@ import org.apache.pekko.http.scaladsl.model.HttpRequest
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives.*
 import org.apache.pekko.http.scaladsl.server.Route
-import com.fasterxml.jackson.core.JsonParser
+import tools.jackson.core.JsonParser
 import com.netflix.atlas.pekko.CustomDirectives.customJson
 import com.netflix.atlas.pekko.CustomDirectives.endpointPath
 import com.netflix.atlas.pekko.CustomDirectives.parseEntity
 import com.netflix.atlas.pekko.WebApi
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor
 import com.netflix.atlas.cloudwatch.FirehoseMetric
-import com.netflix.atlas.json.Json
-import com.netflix.atlas.json.JsonParserHelper.foreachField
-import com.netflix.atlas.json.JsonParserHelper.foreachItem
+import com.netflix.atlas.json3.Json
+import com.netflix.atlas.json3.JsonParserHelper.foreachField
+import com.netflix.atlas.json3.JsonParserHelper.foreachItem
 import com.netflix.atlas.webapi.CloudWatchFirehoseEndpoint.decodeCommonTags
 import com.netflix.atlas.webapi.CloudWatchFirehoseEndpoint.decodeMetricJson
 import com.netflix.spectator.api.Registry
@@ -81,7 +81,7 @@ class CloudWatchFirehoseEndpoint(
     val receivedTimestamp = System.currentTimeMillis()
     try {
       foreachField(parser) {
-        case "requestId" => requestId = parser.nextTextValue()
+        case "requestId" => requestId = parser.nextStringValue()
         case "timestamp" => timestamp = parser.nextLongValue(0L)
         case "records" =>
           foreachItem(parser) {
@@ -91,7 +91,7 @@ class CloudWatchFirehoseEndpoint(
                   // catch the exception here in the case one data set is errant but the others are alright.
                   // At least we should get _some_ data that way.
                   Using.resource(
-                    Json.newJsonParser(Base64.getDecoder.decode(parser.nextTextValue()))
+                    Json.newJsonParser(Base64.getDecoder.decode(parser.nextStringValue()))
                   ) { p =>
                     val datapoints = decodeMetricJson(p, commonTags)
                     processor.processDatapoints(datapoints, receivedTimestamp)
@@ -149,12 +149,12 @@ object CloudWatchFirehoseEndpoint extends StrictLogging {
     var dimensions = List.newBuilder[Dimension]
     while (t != null) {
       foreachField(parser) {
-        case "metric_stream_name" => metricStreamName = parser.nextTextValue()
-        case "account_id"         => accountId = parser.nextTextValue
-        case "region"             => region = parser.nextTextValue
-        case "namespace"          => namespace = parser.nextTextValue
-        case "metric_name"        => metricName = parser.nextTextValue
-        case "unit"               => dp.unit(parser.nextTextValue())
+        case "metric_stream_name" => metricStreamName = parser.nextStringValue()
+        case "account_id"         => accountId = parser.nextStringValue
+        case "region"             => region = parser.nextStringValue
+        case "namespace"          => namespace = parser.nextStringValue
+        case "metric_name"        => metricName = parser.nextStringValue
+        case "unit"               => dp.unit(parser.nextStringValue())
         case "dimensions"         => decodeDimensions(parser, dimensions)
         case "timestamp" =>
           dp.timestamp(Instant.ofEpochMilli(parser.nextLongValue(0L)))
@@ -210,7 +210,7 @@ object CloudWatchFirehoseEndpoint extends StrictLogging {
   ): Unit = {
     foreachField(parser) {
       case key =>
-        val value = parser.nextTextValue()
+        val value = parser.nextStringValue()
         if (value != null) {
           dimensions += Dimension
             .builder()
@@ -225,16 +225,16 @@ object CloudWatchFirehoseEndpoint extends StrictLogging {
     foreachField(parser) {
       case "sum" =>
         parser.nextToken()
-        dp.sum(parser.getDoubleValue)
+        dp.sum(parser.getDoubleValue())
       case "count" =>
         parser.nextToken()
-        dp.sampleCount(parser.getDoubleValue)
+        dp.sampleCount(parser.getDoubleValue())
       case "max" =>
         parser.nextToken()
-        dp.maximum(parser.getDoubleValue)
+        dp.maximum(parser.getDoubleValue())
       case "min" =>
         parser.nextToken()
-        dp.minimum(parser.getDoubleValue)
+        dp.minimum(parser.getDoubleValue())
       case unknown => // Ignore unknown fields
         // TODO - Extend this if we need to record any of the other fields offered by AWS.
         // Note that each field is an additional financial cost though.

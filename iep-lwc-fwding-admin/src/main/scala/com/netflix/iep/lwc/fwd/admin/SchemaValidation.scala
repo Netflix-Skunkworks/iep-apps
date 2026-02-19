@@ -15,37 +15,39 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import com.fasterxml.jackson.databind.JsonNode
-import com.github.fge.jsonschema.main.JsonSchema
-import com.github.fge.jsonschema.main.JsonSchemaFactory
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
+import com.networknt.schema.Schema
+import com.networknt.schema.SchemaRegistry
+import com.networknt.schema.SpecificationVersion
 import com.typesafe.scalalogging.StrictLogging
+import tools.jackson.databind.JsonNode
 
 import scala.io.Source
 import scala.jdk.CollectionConverters.*
 
 class SchemaValidation extends StrictLogging {
 
-  val schema: JsonSchema = {
+  val schema: Schema = {
     val reader = Source.fromResource("cw-fwding-cfg-schema.json").reader()
     try {
-      JsonSchemaFactory
-        .byDefault()
-        .getJsonSchema(Json.decode[SchemaCfg](reader).schema)
+      val tree = Json.decode[JsonNode](reader)
+      val registry = SchemaRegistry.withDefaultDialect(SpecificationVersion.DRAFT_4)
+      val schema = registry.getSchema(tree.get("schema"))
+      schema.initializeValidators()
+      schema
     } finally {
       reader.close()
     }
   }
 
   def validate(json: JsonNode): Unit = {
-    val pr = schema.validate(json)
-    if (!pr.isSuccess) {
+    val errors =
+      schema.validate(json, ctx => ctx.executionConfig(cfg => cfg.formatAssertionsEnabled(true)))
+    if (!errors.isEmpty) {
       throw new IllegalArgumentException(
-        pr.asScala.map(_.getMessage).mkString("\n")
+        errors.asScala.map(_.getMessage).mkString("\n")
       )
     }
   }
 
 }
-
-case class SchemaCfg(schema: JsonNode, validationHook: String)

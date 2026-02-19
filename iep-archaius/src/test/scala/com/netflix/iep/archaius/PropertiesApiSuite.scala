@@ -25,7 +25,7 @@ import org.apache.pekko.http.scaladsl.model.headers.*
 import org.apache.pekko.http.scaladsl.testkit.RouteTestTimeout
 import com.netflix.atlas.pekko.RequestHandler
 import com.netflix.atlas.pekko.testkit.MUnitRouteSuite
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.ManualClock
 

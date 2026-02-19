@@ -22,7 +22,7 @@ import org.apache.pekko.http.scaladsl.model.MediaTypes
 import org.apache.pekko.http.scaladsl.model.StatusCode
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
-import com.fasterxml.jackson.core.JsonParser
+import tools.jackson.core.JsonParser
 import com.netflix.atlas.pekko.CustomDirectives.*
 import com.netflix.atlas.pekko.WebApi
 import com.netflix.spectator.api.Counter

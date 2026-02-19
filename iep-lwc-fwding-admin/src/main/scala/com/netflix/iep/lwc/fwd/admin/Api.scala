@@ -23,10 +23,10 @@ import org.apache.pekko.http.scaladsl.server.Directives.*
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshaller
 import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshaller.*
-import com.fasterxml.jackson.databind.JsonNode
+import com.netflix.atlas.json3.Json
 import com.netflix.atlas.pekko.CustomDirectives.*
 import com.netflix.atlas.pekko.WebApi
-import com.netflix.atlas.json.Json
+import tools.jackson.databind.JsonNode
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.Report
 import com.typesafe.scalalogging.StrictLogging
@@ -44,7 +44,7 @@ class Api(
     with StrictLogging {
 
   private implicit val configUnmarshaller: Unmarshaller[HttpEntity, JsonNode] =
-    byteArrayUnmarshaller.map(Json.decode[JsonNode](_))
+    byteArrayUnmarshaller.map(bytes => Json.decode[JsonNode](bytes))
 
   private implicit val blockingDispatcher: MessageDispatcher =
     system.dispatchers.lookup("blocking-dispatcher")
@@ -67,7 +67,7 @@ class Api(
         entity(as[JsonNode]) { json =>
           complete {
             Json
-              .decode[List[Report]](json)
+              .decode[List[Report]](json.toString)
               .foreach { report =>
                 val enqueued = markerService.queue.offer(report)
                 if (!enqueued) {
@@ -104,7 +104,7 @@ class Api(
       delete {
         entity(as[JsonNode]) { json =>
           complete {
-            purger.purge(Json.decode[List[ExpressionId]](json))
+            purger.purge(Json.decode[List[ExpressionId]](json.toString))
           }
         }
       }

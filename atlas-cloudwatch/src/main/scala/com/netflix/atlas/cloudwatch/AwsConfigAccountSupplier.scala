@@ -17,8 +17,8 @@ package com.netflix.atlas.cloudwatch
 
 import org.apache.pekko.actor.ActorSystem
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.normalize
-import com.netflix.atlas.json.Json
-import com.netflix.atlas.json.JsonParserHelper.foreachField
+import com.netflix.atlas.json3.Json
+import com.netflix.atlas.json3.JsonParserHelper.foreachField
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
@@ -107,9 +107,9 @@ class AwsConfigAccountSupplier(
             var resource: String = null
             var region: String = null
             foreachField(parser) {
-              case "accountId"    => account = parser.nextTextValue()
-              case "resourceType" => resource = parser.nextTextValue()
-              case "awsRegion"    => region = parser.nextTextValue()
+              case "accountId"    => account = parser.nextStringValue()
+              case "resourceType" => resource = parser.nextStringValue()
+              case "awsRegion"    => region = parser.nextStringValue()
               case _ =>
                 parser.nextToken()
                 parser.skipChildren()

@@ -28,9 +28,9 @@ import org.apache.pekko.stream.scaladsl.Flow
 import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
-import com.fasterxml.jackson.databind.JsonMappingException
+import tools.jackson.databind.DatabindException
 import com.netflix.atlas.pekko.AccessLogger
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.typesafe.config.ConfigFactory
 import munit.FunSuite
 
@@ -102,7 +102,7 @@ class DruidClientSuite extends FunSuite {
   }
 
   test("get datasources bad json output") {
-    intercept[JsonMappingException] {
+    intercept[DatabindException] {
       val json = """{"foo":"bar"}"""
       val data = Source.single[ByteString](ByteString(json))
       val entity = HttpEntity(MediaTypes.`application/json`, data)

@@ -30,7 +30,7 @@ import com.netflix.atlas.pekko.AccessLogger
 import com.netflix.atlas.eval.model.ArrayData
 import com.netflix.atlas.eval.model.TimeSeriesMessage
 import com.netflix.atlas.eval.stream.Evaluator
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.iep.lwc.fwd.cw.*
 import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory

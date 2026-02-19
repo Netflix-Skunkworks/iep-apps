@@ -17,7 +17,8 @@ package com.netflix.atlas.aggregator
 
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.util.ByteString
-import com.fasterxml.jackson.core.JsonGenerator
+import tools.jackson.core.JsonGenerator
+import tools.jackson.core.ObjectWriteContext
 import com.netflix.atlas.core.util.FastGzipOutputStream
 import com.netflix.spectator.api.Measurement
 import com.netflix.spectator.atlas.Publisher
@@ -76,7 +77,7 @@ object PekkoPublisher {
   private def encode(payload: AnyRef): ByteString = {
     val baos = PekkoClient.getOrCreateStream
     Using.resource(new FastGzipOutputStream(baos)) { out =>
-      Using.resource(PekkoClient.factory.createGenerator(out)) { gen =>
+      Using.resource(PekkoClient.factory.createGenerator(ObjectWriteContext.empty, out)) { gen =>
         payload match {
           case p: PublishPayload => encode(gen, p)
           case p: EvalPayload    => encode(gen, p)
@@ -91,7 +92,7 @@ object PekkoPublisher {
   private def encode(gen: JsonGenerator, payload: PublishPayload): Unit = {
     // Common tags are always empty for this use-case and can be omitted
     gen.writeStartObject()
-    gen.writeArrayFieldStart("metrics")
+    gen.writeArrayPropertyStart("metrics")
     val metrics = payload.getMetrics
     val n = metrics.size()
     var i = 0
@@ -106,29 +107,29 @@ object PekkoPublisher {
   private def encode(gen: JsonGenerator, m: Measurement): Unit = {
     val id = m.id
     gen.writeStartObject()
-    gen.writeObjectFieldStart("tags")
-    gen.writeStringField("name", id.name)
+    gen.writeObjectPropertyStart("tags")
+    gen.writeStringProperty("name", id.name)
     val n = id.size
     var i = 1
     while (i < n) {
       val k = id.getKey(i)
       val v = id.getValue(i)
-      gen.writeStringField(k, v)
+      gen.writeStringProperty(k, v)
       i += 1
     }
     gen.writeEndObject()
-    gen.writeNumberField("timestamp", m.timestamp)
-    gen.writeNumberField("value", m.value)
+    gen.writeNumberProperty("timestamp", m.timestamp)
+    gen.writeNumberProperty("value", m.value)
     gen.writeEndObject()
   }
 
   private def encode(gen: JsonGenerator, payload: EvalPayload): Unit = {
     gen.writeStartObject()
-    gen.writeNumberField("timestamp", payload.getTimestamp)
-    gen.writeArrayFieldStart("metrics")
+    gen.writeNumberProperty("timestamp", payload.getTimestamp)
+    gen.writeArrayPropertyStart("metrics")
     encodeMetrics(gen, payload.getMetrics)
     gen.writeEndArray()
-    gen.writeArrayFieldStart("messages")
+    gen.writeArrayPropertyStart("messages")
     encodeMessages(gen, payload.getMessages)
     gen.writeEndArray()
     gen.writeEndObject()
@@ -143,11 +144,11 @@ object PekkoPublisher {
     while (i < n) {
       val m = metrics.get(i)
       gen.writeStartObject()
-      gen.writeStringField("id", m.getId)
-      gen.writeObjectFieldStart("tags")
-      m.getTags.forEach((k, v) => gen.writeStringField(k, v))
+      gen.writeStringProperty("id", m.getId)
+      gen.writeObjectPropertyStart("tags")
+      m.getTags.forEach((k, v) => gen.writeStringProperty(k, v))
       gen.writeEndObject()
-      gen.writeNumberField("value", m.getValue)
+      gen.writeNumberProperty("value", m.getValue)
       gen.writeEndObject()
       i += 1
     }
@@ -162,10 +163,10 @@ object PekkoPublisher {
     while (i < n) {
       val m = msgs.get(i)
       gen.writeStartObject()
-      gen.writeStringField("id", m.getId)
-      gen.writeObjectFieldStart("message")
-      gen.writeStringField("type", m.getMessage.getType.name())
-      gen.writeStringField("message", m.getMessage.getMessage)
+      gen.writeStringProperty("id", m.getId)
+      gen.writeObjectPropertyStart("message")
+      gen.writeStringProperty("type", m.getMessage.getType.name())
+      gen.writeStringProperty("message", m.getMessage.getMessage)
       gen.writeEndObject()
       gen.writeEndObject()
       i += 1

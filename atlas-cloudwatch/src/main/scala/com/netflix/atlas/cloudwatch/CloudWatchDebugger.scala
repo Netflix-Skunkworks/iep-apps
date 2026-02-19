@@ -20,7 +20,7 @@ import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor.toTagMap
 import com.netflix.atlas.cloudwatch.IncomingMatch.IncomingMatch
 import com.netflix.atlas.cloudwatch.InsertState.InsertState
 import com.netflix.atlas.cloudwatch.ScrapeState.ScrapeState
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.atlas.util.XXHasher
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.atlas.impl.Parser
@@ -138,36 +138,36 @@ class CloudWatchDebugger(
       val stream = new ByteArrayOutputStream()
       Using.resource(Json.newJsonGenerator(stream)) { json =>
         json.writeStartObject()
-        json.writeStringField("state", "incoming")
-        json.writeNumberField("hash", dp.xxHash)
-        json.writeNumberField("rts", timestamp)
-        json.writeStringField("ns", dp.namespace)
-        json.writeStringField("metric", dp.metricName)
-        json.writeObjectFieldStart("tags")
-        dp.dimensions.foreach(d => json.writeStringField(d.name(), d.value()))
+        json.writeStringProperty("state", "incoming")
+        json.writeNumberProperty("hash", dp.xxHash)
+        json.writeNumberProperty("rts", timestamp)
+        json.writeStringProperty("ns", dp.namespace)
+        json.writeStringProperty("metric", dp.metricName)
+        json.writeObjectPropertyStart("tags")
+        dp.dimensions.foreach(d => json.writeStringProperty(d.name(), d.value()))
         json.writeEndObject()
-        json.writeNumberField("dts", dp.datapoint.timestamp().toEpochMilli)
-        json.writeNumberField(
+        json.writeNumberProperty("dts", dp.datapoint.timestamp().toEpochMilli)
+        json.writeNumberProperty(
           "ageFromNow",
           (timestamp - dp.datapoint.timestamp().toEpochMilli).toInt / 1000
         )
-        json.writeNumberField("sum", dp.datapoint.sum())
-        json.writeNumberField("min", dp.datapoint.minimum())
-        json.writeNumberField("max", dp.datapoint.maximum())
-        json.writeNumberField("count", dp.datapoint.sampleCount())
-        json.writeStringField("unit", dp.datapoint.unit().toString)
+        json.writeNumberProperty("sum", dp.datapoint.sum())
+        json.writeNumberProperty("min", dp.datapoint.minimum())
+        json.writeNumberProperty("max", dp.datapoint.maximum())
+        json.writeNumberProperty("count", dp.datapoint.sampleCount())
+        json.writeStringProperty("unit", dp.datapoint.unit().toString)
 
-        json.writeStringField("filtered", incomingMatch.toString)
+        json.writeStringProperty("filtered", incomingMatch.toString)
         if (insertState.isDefined) {
-          json.writeStringField("insert", insertState.get.toString)
+          json.writeStringProperty("insert", insertState.get.toString)
         }
 
         if (category.isDefined) {
           val cat = category.get
-          json.writeObjectFieldStart("cat")
-          json.writeNumberField("p", cat.period)
-          json.writeNumberField("go", cat.graceOverride)
-          json.writeArrayFieldStart("tags")
+          json.writeObjectPropertyStart("cat")
+          json.writeNumberProperty("p", cat.period)
+          json.writeNumberProperty("go", cat.graceOverride)
+          json.writeArrayPropertyStart("tags")
           cat.dimensions.foreach(d => json.writeString(d))
           json.writeEndArray()
           json.writeEndObject()
@@ -176,17 +176,17 @@ class CloudWatchDebugger(
         if (!cacheEntries.isEmpty) {
           var step = 0L
           var last = 0L
-          json.writeArrayFieldStart("cached")
+          json.writeArrayPropertyStart("cached")
           for (i <- 0 until cacheEntries.size()) {
             val d = cacheEntries.get(i)
             val dts = d.getTimestamp
             json.writeStartObject()
-            json.writeNumberField("ts", dts)
-            json.writeNumberField("offFromWindow", (ts - dts).toInt / 1000)
-            json.writeNumberField("sum", d.getSum())
-            json.writeNumberField("min", d.getMin())
-            json.writeNumberField("max", d.getMax)
-            json.writeNumberField("count", d.getCount)
+            json.writeNumberProperty("ts", dts)
+            json.writeNumberProperty("offFromWindow", (ts - dts).toInt / 1000)
+            json.writeNumberProperty("sum", d.getSum())
+            json.writeNumberProperty("min", d.getMin())
+            json.writeNumberProperty("max", d.getMax)
+            json.writeNumberProperty("count", d.getCount)
             if (last != 0) {
               step += (dts - last)
             }
@@ -197,7 +197,7 @@ class CloudWatchDebugger(
           json.writeEndArray()
 
           if (cacheEntries.size() >= 2) {
-            json.writeNumberField("avgStep", ((step / (cacheEntries.size() - 1)) / 1000).toInt)
+            json.writeNumberProperty("avgStep", ((step / (cacheEntries.size() - 1)) / 1000).toInt)
           }
         }
         json.writeEndObject()
@@ -257,41 +257,41 @@ class CloudWatchDebugger(
       val stream = new ByteArrayOutputStream()
       Using.resource(Json.newJsonGenerator(stream)) { json =>
         json.writeStartObject()
-        json.writeStringField("state", "incoming")
-        json.writeNumberField("hash", hashCode)
-        json.writeNumberField("rts", timestamp)
-        json.writeStringField("ns", metric.namespace())
-        json.writeStringField("metric", metric.metricName())
-        json.writeObjectFieldStart("tags")
-        metric.dimensions.asScala.foreach(d => json.writeStringField(d.name(), d.value()))
+        json.writeStringProperty("state", "incoming")
+        json.writeNumberProperty("hash", hashCode)
+        json.writeNumberProperty("rts", timestamp)
+        json.writeStringProperty("ns", metric.namespace())
+        json.writeStringProperty("metric", metric.metricName())
+        json.writeObjectPropertyStart("tags")
+        metric.dimensions.asScala.foreach(d => json.writeStringProperty(d.name(), d.value()))
         json.writeEndObject()
 
-        json.writeStringField("filtered", incomingMatch.toString)
-        json.writeObjectFieldStart("cat")
-        json.writeNumberField("p", category.period)
-        json.writeNumberField("go", category.graceOverride)
-        json.writeArrayFieldStart("tags")
+        json.writeStringProperty("filtered", incomingMatch.toString)
+        json.writeObjectPropertyStart("cat")
+        json.writeNumberProperty("p", category.period)
+        json.writeNumberProperty("go", category.graceOverride)
+        json.writeArrayPropertyStart("tags")
         category.dimensions.foreach(d => json.writeString(d))
         json.writeEndArray()
         json.writeEndObject()
         dpAdded.map { dp =>
-          json.writeNumberField("dpAdded", dp.timestamp().toEpochMilli)
+          json.writeNumberProperty("dpAdded", dp.timestamp().toEpochMilli)
         }
 
         if (!dataPoints.isEmpty) {
           var step = 0L
           var last = 0L
-          json.writeArrayFieldStart("polledData")
+          json.writeArrayPropertyStart("polledData")
           for (i <- 0 until dataPoints.size()) {
             val d = dataPoints.get(i)
             val dts = d.timestamp().toEpochMilli
             json.writeStartObject()
-            json.writeNumberField("ts", dts)
-            json.writeNumberField("offFromWindow", (ts - dts).toInt / 1000)
-            json.writeNumberField("sum", d.sum())
-            json.writeNumberField("min", d.minimum())
-            json.writeNumberField("max", d.maximum())
-            json.writeNumberField("count", d.sampleCount())
+            json.writeNumberProperty("ts", dts)
+            json.writeNumberProperty("offFromWindow", (ts - dts).toInt / 1000)
+            json.writeNumberProperty("sum", d.sum())
+            json.writeNumberProperty("min", d.minimum())
+            json.writeNumberProperty("max", d.maximum())
+            json.writeNumberProperty("count", d.sampleCount())
             if (last != 0) {
               step += (dts - last)
             }
@@ -302,7 +302,7 @@ class CloudWatchDebugger(
           json.writeEndArray()
 
           if (dataPoints.size() >= 2) {
-            json.writeNumberField("avgStep", ((step / (dataPoints.size() - 1)) / 1000).toInt)
+            json.writeNumberProperty("avgStep", ((step / (dataPoints.size() - 1)) / 1000).toInt)
           }
         }
         json.writeEndObject()
@@ -369,35 +369,35 @@ class CloudWatchDebugger(
       val stream = new ByteArrayOutputStream()
       Using.resource(Json.newJsonGenerator(stream)) { json =>
         json.writeStartObject()
-        json.writeStringField("state", "scrape")
-        json.writeStringField("s", scrapeState.toString)
-        json.writeNumberField("sts", scrapeTimestamp)
-        json.writeStringField("ns", cacheEntry.getNamespace)
-        json.writeStringField("metric", cacheEntry.getMetric)
-        json.writeObjectFieldStart("tags")
+        json.writeStringProperty("state", "scrape")
+        json.writeStringProperty("s", scrapeState.toString)
+        json.writeNumberProperty("sts", scrapeTimestamp)
+        json.writeStringProperty("ns", cacheEntry.getNamespace)
+        json.writeStringProperty("metric", cacheEntry.getMetric)
+        json.writeObjectPropertyStart("tags")
         cacheEntry.getDimensionsList.asScala.foreach(d =>
-          json.writeStringField(d.getName, d.getValue)
+          json.writeStringProperty(d.getName, d.getValue)
         )
         json.writeEndObject()
 
         if (value.isDefined) {
           val dp = value.get
-          json.writeObjectFieldStart("publishValue")
-          json.writeNumberField("ageScrape", (scrapeTimestamp - dp.getTimestamp).toInt / 1000)
-          json.writeNumberField("ageOffset", (offsetTimestamp - dp.getTimestamp).toInt / 1000)
-          json.writeNumberField("sum", dp.getSum)
-          json.writeNumberField("min", dp.getMin)
-          json.writeNumberField("max", dp.getMax)
-          json.writeNumberField("count", dp.getCount)
+          json.writeObjectPropertyStart("publishValue")
+          json.writeNumberProperty("ageScrape", (scrapeTimestamp - dp.getTimestamp).toInt / 1000)
+          json.writeNumberProperty("ageOffset", (offsetTimestamp - dp.getTimestamp).toInt / 1000)
+          json.writeNumberProperty("sum", dp.getSum)
+          json.writeNumberProperty("min", dp.getMin)
+          json.writeNumberProperty("max", dp.getMax)
+          json.writeNumberProperty("count", dp.getCount)
           json.writeEndObject()
         }
 
         if (category.isDefined) {
           val cat = category.get
-          json.writeObjectFieldStart("cat")
-          json.writeNumberField("p", cat.period)
-          json.writeNumberField("go", cat.graceOverride)
-          json.writeArrayFieldStart("tags")
+          json.writeObjectPropertyStart("cat")
+          json.writeNumberProperty("p", cat.period)
+          json.writeNumberProperty("go", cat.graceOverride)
+          json.writeArrayPropertyStart("tags")
           cat.dimensions.foreach(d => json.writeString(d))
           json.writeEndArray()
           json.writeEndObject()
@@ -406,17 +406,17 @@ class CloudWatchDebugger(
         if (cacheEntry.getDataCount > 0) {
           var step = 0L
           var last = 0L
-          json.writeArrayFieldStart("cached")
+          json.writeArrayPropertyStart("cached")
           for (i <- 0 until cacheEntry.getDataCount) {
             val d = cacheEntry.getData(i)
             val dts = d.getTimestamp
             json.writeStartObject()
-            json.writeNumberField("ts", dts)
-            json.writeNumberField("ageScrape", (ts - dts).toInt / 1000)
-            json.writeNumberField("sum", d.getSum())
-            json.writeNumberField("min", d.getMin())
-            json.writeNumberField("max", d.getMax)
-            json.writeNumberField("count", d.getCount)
+            json.writeNumberProperty("ts", dts)
+            json.writeNumberProperty("ageScrape", (ts - dts).toInt / 1000)
+            json.writeNumberProperty("sum", d.getSum())
+            json.writeNumberProperty("min", d.getMin())
+            json.writeNumberProperty("max", d.getMax)
+            json.writeNumberProperty("count", d.getCount)
             if (last != 0) {
               step += (dts - last)
             }
@@ -428,7 +428,7 @@ class CloudWatchDebugger(
 
           if (cacheEntry.getDataCount >= 2) {
             step = ((step / (cacheEntry.getDataCount - 1)) / 1000).toInt
-            json.writeNumberField("avgStep", step)
+            json.writeNumberProperty("avgStep", step)
             registry.distributionSummary(scrapeStep.withTags(tags)).record(step)
           }
         }

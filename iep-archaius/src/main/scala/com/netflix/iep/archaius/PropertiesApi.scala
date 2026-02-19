@@ -15,13 +15,6 @@
  */
 package com.netflix.iep.archaius
 
-import com.fasterxml.jackson.annotation.JsonInclude
-import com.fasterxml.jackson.databind.DeserializationFeature
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.SerializationFeature
-import com.fasterxml.jackson.databind.json.JsonMapper
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
-
 import java.io.StringWriter
 import java.util.Properties
 import org.apache.pekko.actor.ActorRefFactory
@@ -35,15 +28,13 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Route
 import com.netflix.atlas.pekko.CustomDirectives.*
 import com.netflix.atlas.pekko.WebApi
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.frigga.Names
 
 class PropertiesApi(
   val propContext: PropertiesContext,
   implicit val actorRefFactory: ActorRefFactory
 ) extends WebApi {
-
-  import PropertiesApi.*
 
   private val index = Map(
     "description" -> "Read-Only Fast Properties for Atlas Deploy",
@@ -72,7 +63,7 @@ class PropertiesApi(
       complete(
         HttpResponse(
           StatusCodes.OK,
-          entity = HttpEntity(MediaTypes.`application/json`, mapper.writeValueAsString(index))
+          entity = HttpEntity(MediaTypes.`application/json`, Json.encode(index))
         )
       )
     }
@@ -103,18 +94,4 @@ class PropertiesApi(
 object PropertiesApi {
 
   case class Property(id: String, cluster: String, key: String, value: String, timestamp: Long)
-
-  private val mapper: ObjectMapper = {
-    JsonMapper
-      .builder()
-      .defaultPropertyInclusion(
-        JsonInclude.Value.construct(JsonInclude.Include.NON_ABSENT, JsonInclude.Include.NON_ABSENT)
-      )
-      .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-      .disable(DeserializationFeature.READ_DATE_TIMESTAMPS_AS_NANOSECONDS)
-      .disable(SerializationFeature.FAIL_ON_EMPTY_BEANS)
-      .disable(SerializationFeature.WRITE_DATE_TIMESTAMPS_AS_NANOSECONDS)
-      .addModule(DefaultScalaModule)
-      .build()
-  }
 }

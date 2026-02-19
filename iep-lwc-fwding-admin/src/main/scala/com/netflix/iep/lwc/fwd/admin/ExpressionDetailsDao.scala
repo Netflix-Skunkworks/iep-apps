@@ -15,7 +15,7 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.iep.lwc.fwd.admin.Timer.*
 import com.netflix.iep.lwc.fwd.cw.*
 import com.netflix.spectator.api.Registry

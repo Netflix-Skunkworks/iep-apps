@@ -17,7 +17,7 @@ package com.netflix.atlas.slotting
 
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Functions
 import com.netflix.spectator.api.Registry

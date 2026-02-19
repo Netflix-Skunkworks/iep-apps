@@ -24,7 +24,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.http.scaladsl.testkit.RouteTestTimeout
 import com.netflix.atlas.pekko.RequestHandler
 import com.netflix.atlas.pekko.testkit.MUnitRouteSuite
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 
 import scala.collection.immutable.SortedMap
 import scala.concurrent.duration.*

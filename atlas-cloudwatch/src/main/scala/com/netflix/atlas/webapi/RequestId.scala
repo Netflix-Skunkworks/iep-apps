@@ -17,7 +17,7 @@ package com.netflix.atlas.webapi
 
 import org.apache.pekko.http.scaladsl.model.ContentTypes
 import org.apache.pekko.http.scaladsl.model.HttpEntity
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.atlas.webapi.RequestId.getByteArrayOutputStream
 
 import java.io.ByteArrayOutputStream
@@ -40,10 +40,10 @@ case class RequestId(requestId: String, timestamp: Long, exception: Option[Excep
     val stream = getByteArrayOutputStream
     Using.resource(Json.newJsonGenerator(stream)) { json =>
       json.writeStartObject()
-      json.writeStringField("requestId", requestId)
-      json.writeNumberField("timestamp", timestamp)
+      json.writeStringProperty("requestId", requestId)
+      json.writeNumberProperty("timestamp", timestamp)
       exception.map { ex =>
-        json.writeStringField("errorMessage", ex.getMessage)
+        json.writeStringProperty("errorMessage", ex.getMessage)
       }
       json.writeEndObject()
     }

@@ -16,13 +16,13 @@
 package com.netflix.iep.lwc.fwd.admin
 
 import org.apache.pekko.actor.ActorSystem
-import com.fasterxml.jackson.databind.JsonNode
 import com.netflix.atlas.eval.stream.Evaluator
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 import com.typesafe.scalalogging.StrictLogging
 import munit.FunSuite
+import tools.jackson.databind.JsonNode
 
 class CwExprValidationsSuite
     extends FunSuite

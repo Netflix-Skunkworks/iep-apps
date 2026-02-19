@@ -33,16 +33,16 @@ import org.apache.pekko.stream.scaladsl.Flow
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
-import com.fasterxml.jackson.core.JsonToken
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.node.ObjectNode
-import com.fasterxml.jackson.module.scala.JavaTypeable
+import tools.jackson.core.JsonToken
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.node.ObjectNode
+import tools.jackson.module.scala.JavaTypeable
 import com.netflix.atlas.pekko.AccessLogger
 import com.netflix.atlas.pekko.ByteStringInputStream
 import com.netflix.atlas.core.model.TagKey
 import com.netflix.atlas.core.util.Strings
-import com.netflix.atlas.json.Json
-import com.netflix.atlas.json.JsonParserHelper
+import com.netflix.atlas.json3.Json
+import com.netflix.atlas.json3.JsonParserHelper
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
@@ -213,7 +213,7 @@ class DruidClient(
     data: ByteString
   ): List[GroupByDatapoint] = {
     Using.resource(Json.newJsonParser(inputStream(data))) { parser =>
-      import com.netflix.atlas.json.JsonParserHelper.*
+      import com.netflix.atlas.json3.JsonParserHelper.*
       val builder = List.newBuilder[GroupByDatapoint]
       foreachItem(parser) {
         require(parser.currentToken() == JsonToken.START_ARRAY)
@@ -226,7 +226,7 @@ class DruidClient(
         // do a client side filtering to remove entries with null values.
         val tags = dimensions
           .map { d =>
-            d -> parser.nextTextValue()
+            d -> parser.nextStringValue()
           }
           .filterNot(t => isNullOrEmpty(t._2))
           .toMap
@@ -241,11 +241,11 @@ class DruidClient(
           }
         } else if (valueToken != JsonToken.VALUE_NULL) {
           // Floating point value. In some cases histogram can be null, ignore those entries.
-          import com.fasterxml.jackson.core.JsonToken.*
+          import tools.jackson.core.JsonToken.*
           val value = valueToken match {
             case VALUE_NUMBER_INT   => parser.getValueAsLong.toDouble
             case VALUE_NUMBER_FLOAT => parser.getValueAsDouble
-            case VALUE_STRING       => java.lang.Double.parseDouble(parser.getText)
+            case VALUE_STRING       => java.lang.Double.parseDouble(parser.getString)
             case t => JsonParserHelper.fail(parser, s"expected VALUE_NUMBER_FLOAT but received $t")
           }
           builder += GroupByDatapoint(timestamp, tags, value)
@@ -347,14 +347,14 @@ object DruidClient {
       val defaultStep = 60000
       // https://druid.apache.org/docs/latest/querying/granularities
       queryGranularity match {
-        case g if g.isTextual =>
+        case g if g.isString =>
           // none is up to millisecond, use 1s. For all others treat as 1m
-          g.textValue().toLowerCase(Locale.US) match {
+          g.stringValue().toLowerCase(Locale.US) match {
             case "none" | "second" => 1000
             case _                 => defaultStep
           }
         case g: ObjectNode =>
-          g.get("type").textValue() match {
+          g.get("type").stringValue() match {
             case "duration" => g.get("duration").asLong()
             case _          => defaultStep
           }

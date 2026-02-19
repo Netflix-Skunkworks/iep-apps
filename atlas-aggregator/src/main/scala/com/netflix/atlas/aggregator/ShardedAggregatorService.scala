@@ -30,6 +30,7 @@ import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.stream.scaladsl.Keep
 import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.util.ByteString
+import tools.jackson.core.ObjectWriteContext
 
 import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -189,7 +190,7 @@ object ShardedAggregatorService {
 
     // Start generating output
     val baos = PekkoClient.getOrCreateStream
-    Using.resource(PekkoClient.factory.createGenerator(baos)) { gen =>
+    Using.resource(PekkoClient.factory.createGenerator(ObjectWriteContext.empty, baos)) { gen =>
       gen.writeStartArray()
       gen.writeNumber(strings.length)
       var i = 0

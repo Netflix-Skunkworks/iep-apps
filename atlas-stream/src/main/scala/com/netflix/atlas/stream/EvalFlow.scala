@@ -32,7 +32,7 @@ import org.apache.pekko.stream.stage.OutHandler
 import com.netflix.atlas.pekko.DiagnosticMessage
 import com.netflix.atlas.pekko.StreamOps
 import com.netflix.atlas.eval.stream.Evaluator.MessageEnvelope
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.typesafe.scalalogging.StrictLogging
 import org.reactivestreams.Publisher
 

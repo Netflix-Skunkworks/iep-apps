@@ -15,8 +15,8 @@
  */
 package com.netflix.atlas.aggregator
 
-import com.fasterxml.jackson.core.JsonParser
-import com.fasterxml.jackson.core.JsonToken
+import tools.jackson.core.JsonParser
+import tools.jackson.core.JsonToken
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.netflix.atlas.core.model.TagKey
 import com.netflix.atlas.core.util.IdMap
@@ -69,7 +69,7 @@ class PayloadDecoder(
 ) extends StrictLogging {
 
   import PayloadDecoder.*
-  import com.netflix.atlas.json.JsonParserHelper.*
+  import com.netflix.atlas.json3.JsonParserHelper.*
 
   /**
     * Decode payload and send the updates to the aggregator implementation.

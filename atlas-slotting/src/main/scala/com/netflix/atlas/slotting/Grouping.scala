@@ -15,7 +15,7 @@
  */
 package com.netflix.atlas.slotting
 
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.spectator.api.Counter
 import com.netflix.spectator.ipc.ServerGroup
 import com.typesafe.scalalogging.StrictLogging

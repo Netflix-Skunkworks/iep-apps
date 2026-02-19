@@ -15,7 +15,7 @@
  */
 package com.netflix.atlas.slotting
 
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.atlas.pekko.CustomDirectives.*
 import com.netflix.atlas.pekko.WebApi
 import com.netflix.spectator.ipc.ServerGroup

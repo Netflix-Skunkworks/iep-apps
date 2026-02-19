@@ -16,7 +16,7 @@
 package com.netflix.iep.archaius
 
 import org.apache.pekko.actor.Actor
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest

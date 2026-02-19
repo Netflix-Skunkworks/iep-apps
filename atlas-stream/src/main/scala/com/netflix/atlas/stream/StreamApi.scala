@@ -35,7 +35,7 @@ import com.netflix.atlas.pekko.WebApi
 import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.eval.stream.Evaluator.DataSource
 import com.netflix.atlas.eval.stream.Evaluator.DataSources
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.typesafe.config.Config
 
 import scala.concurrent.duration.*

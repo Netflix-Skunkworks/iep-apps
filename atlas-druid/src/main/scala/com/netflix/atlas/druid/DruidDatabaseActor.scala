@@ -40,7 +40,7 @@ import com.netflix.atlas.core.model.TagKey
 import com.netflix.atlas.core.model.TimeSeries
 import com.netflix.atlas.core.util.ArrayHelper
 import com.netflix.atlas.core.util.ListHelper
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.atlas.webapi.GraphApi.DataRequest
 import com.netflix.spectator.impl.PatternMatcher
 import com.typesafe.config.Config

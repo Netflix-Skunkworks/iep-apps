@@ -17,8 +17,8 @@ package com.netflix.atlas.aggregator
 
 import com.netflix.atlas.pekko.DiagnosticMessage
 import com.netflix.atlas.core.validation.ValidationResult
-import com.netflix.atlas.json.Json
-import com.netflix.atlas.json.JsonSupport
+import com.netflix.atlas.json3.Json
+import com.netflix.atlas.json3.JsonSupport
 
 /**
   * Message returned to the user if some of the datapoints sent fail validation rules.
