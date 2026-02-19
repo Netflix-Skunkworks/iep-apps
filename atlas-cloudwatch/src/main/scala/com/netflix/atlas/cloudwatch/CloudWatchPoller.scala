@@ -123,6 +123,12 @@ class CloudWatchPoller(
   private val hrmListFrequency =
     config.getDuration("atlas.cloudwatch.poller.hrmListFrequency").getSeconds
 
+  private val useHrmMetricsCache =
+    if (config.hasPath("atlas.cloudwatch.poller.useHrmMetricsCache"))
+      config.getBoolean("atlas.cloudwatch.poller.useHrmMetricsCache")
+    else
+      false
+
   private[cloudwatch] val flagMap = new ConcurrentHashMap[String, AtomicBoolean]()
 
   private[cloudwatch] val offsetMap = {
@@ -160,9 +166,13 @@ class CloudWatchPoller(
 
   private[cloudwatch] val hrmLookback = config.getInt("atlas.cloudwatch.poller.hrmLookback")
 
-  // Cache for ListMetrics results: key = account|region|namespace|metricName
+  // Cache for ListMetrics results: key = account|region|namespace|dims|metricName
   private[cloudwatch] val metricsCache =
     new ConcurrentHashMap[String, List[Metric]]()
+
+  // Track previous cache sizes to log diffs per key
+  private[cloudwatch] val metricsCacheSizes =
+    new ConcurrentHashMap[String, Int]()
 
   private def cacheKey(
     account: String,
@@ -170,7 +180,8 @@ class CloudWatchPoller(
     category: MetricCategory,
     definition: MetricDefinition
   ): String = {
-    s"$account|${region.toString}|${category.namespace}|${definition.name}"
+    val dimKey = category.dimensions.mkString(",") // configured dimension names
+    s"$account|${region.toString}|${category.namespace}|$dimKey|${definition.name}"
   }
 
   {
@@ -184,14 +195,18 @@ class CloudWatchPoller(
         val isHrm = categories.exists(_.period < 60)
         val scheduleFrequency =
           if (isHrm) hrmFrequency else frequency
-
+       
         if (isHrm) {
-          logger.info(s"Polling for ${hrmLookback} high res data points in the past.")
-          // Separate ListMetrics discovery loop
-          system.scheduler.scheduleAtFixedRate(
-            FiniteDuration(hrmListFrequency, TimeUnit.SECONDS),
-            FiniteDuration(hrmListFrequency, TimeUnit.SECONDS)
-          )(() => pollListMetrics(offset, categories))(system.dispatcher)
+          logger.info(
+            s"Polling for ${hrmLookback} high res data points in the past. " +
+              s"HRM metrics cache enabled = $useHrmMetricsCache"
+          )
+          if (useHrmMetricsCache) {
+            system.scheduler.scheduleAtFixedRate(
+              FiniteDuration(hrmListFrequency, TimeUnit.SECONDS),
+              FiniteDuration(hrmListFrequency, TimeUnit.SECONDS)
+            )(() => pollListMetrics(offset, categories))(system.dispatcher)
+          }
         }
 
         // Data polling loop
@@ -214,6 +229,11 @@ class CloudWatchPoller(
       return
     }
 
+    if (!useHrmMetricsCache) {
+      logger.info("HRM metrics cache disabled via feature flag; skipping pollListMetrics.")
+      return
+    }
+
     // Only HRM categories
     val hrmCategories = categories.filter(_.period < 60)
     if (hrmCategories.isEmpty) return
@@ -221,44 +241,63 @@ class CloudWatchPoller(
     try {
       accountSupplier.accounts.foreach {
         case (account, regions) =>
-          regions.foreach {
-            case (region, namespaces) =>
-              if (namespaces.nonEmpty) {
-                val filtered = hrmCategories.filter(c => namespaces.contains(c.namespace))
-                if (filtered.nonEmpty) {
-                  val client = createClient(account, region)
+          // Only cache for fast-batch accounts
+          val isFastBatch = fastBatchPollingAccounts.contains(account)
+          if (!isFastBatch) {
+            logger.debug(
+              s"Skipping pollListMetrics for account=$account " +
+                "because it is not in fastBatchPollingAccounts."
+            )
+          } else {
+            regions.foreach {
+              case (region, namespaces) =>
+                if (namespaces.nonEmpty) {
+                  val filtered = hrmCategories.filter(c => namespaces.contains(c.namespace))
+                  if (filtered.nonEmpty) {
+                    val client = createClient(account, region)
 
-                  filtered.foreach { category =>
-                    category.toListRequests.foreach {
-                      case (definition, request) =>
-                        val key = cacheKey(account, region, category, definition)
-                        try {
-                          val paginator = client.listMetricsPaginator(request)
-                          val allMetrics = paginator.metrics().stream().toScala(List)
-                          val kept = allMetrics.filter { m =>
-                            category.dimensionsMatch(m.dimensions().asScala.toList) &&
-                            !category.filter.map(_.matches(toTagMap(m))).getOrElse(false)
-                          }
-                          metricsCache.put(key, kept)
-                          logger.info(
-                            s"Updated metrics cache for key=$key with ${kept.size} metrics"
-                          )
-                        } catch {
-                          case ex: Exception =>
-                            logger.error(
-                              s"Error listing metrics (discovery) for $account ${category.namespace} ${definition.name} in region $region",
-                              ex
+                    filtered.foreach { category =>
+                      category.toListRequests.foreach {
+                        case (definition, request) =>
+                          val key = cacheKey(account, region, category, definition)
+                          try {
+                            val paginator = client.listMetricsPaginator(request)
+                            val allMetrics = paginator.metrics().stream().toScala(List)
+                            val kept = allMetrics.filter { m =>
+                              category.dimensionsMatch(m.dimensions().asScala.toList) &&
+                                !category.filter.map(_.matches(toTagMap(m))).getOrElse(false)
+                            }
+
+                            val newSize = kept.size
+                            val oldSize = Option(metricsCacheSizes.get(key)).getOrElse(0)
+
+                            // Update the cache content
+                            metricsCache.put(key, kept)
+                            // Track size for next time
+                            metricsCacheSizes.put(key, newSize)
+
+                            logger.info(
+                              s"Updated metrics cache for key=$key " +
+                                s"(account=$account, region=$region, ns=${category.namespace}, metric=${definition.name}) " +
+                                s"size change: $oldSize -> $newSize"
                             )
-                            registry
-                              .counter(
-                                errorListing.withTags("exception", ex.getClass.getSimpleName)
+                          } catch {
+                            case ex: Exception =>
+                              logger.error(
+                                s"Error listing metrics (discovery) for $account ${category.namespace} ${definition.name} in region $region",
+                                ex
                               )
-                              .increment()
-                        }
+                              registry
+                                .counter(
+                                  errorListing.withTags("exception", ex.getClass.getSimpleName)
+                                )
+                                .increment()
+                          }
+                      }
                     }
                   }
                 }
-              }
+            }
           }
       }
     } catch {
@@ -455,15 +494,32 @@ class CloudWatchPoller(
         val (definition, request) = tuple
         val promise = Promise[Done]()
         val key = cacheKey(account, region, category, definition)
-        Option(metricsCache.get(key)) match {
-          case Some(metrics) =>
-            // Use cached metrics directly
-            executionContext.execute(
-              UseCachedMetrics(definition, metrics, promise)
-            )
-          case None =>
-            executionContext.execute(ListMetrics(request, definition, promise))
+        val cached = Option(metricsCache.get(key))
+
+        if (useHrmMetricsCache && fastBatchPollingAccounts.contains(account)) {
+          cached match {
+            case Some(metrics) if metrics.nonEmpty =>
+              logger.info(
+                s"[HRM] Using cached metrics for key=$key, size=${metrics.size} " +
+                  s"(ns=${category.namespace}, metric=${definition.name}, account=$account, region=$region)"
+              )
+              executionContext.execute(
+                UseCachedMetrics(definition, metrics, promise)
+              )
+
+            case _ =>
+              logger.info(
+                s"[HRM] No cached metrics or empty cache for key=$key, using ListMetrics " +
+                  s"(ns=${category.namespace}, metric=${definition.name}, account=$account, region=$region)"
+              )
+              metricsCache.remove(key)
+              executionContext.execute(ListMetrics(request, definition, promise))
+          }
+        } else {
+          // Cache disabled or non fast-batch account → always use ListMetrics directly
+          executionContext.execute(ListMetrics(request, definition, promise))
         }
+
         promise.future
       }
 
@@ -537,11 +593,13 @@ class CloudWatchPoller(
         case Success(_) =>
           // Optionally populate cache for future polls (only for ListMetrics path)
           cacheKeyOpt.foreach { key =>
-            try {
-              metricsCache.put(key, metricsList)
-            } catch {
-              case ex: Exception =>
-                logger.warn(s"Failed to update metrics cache for key $key", ex)
+            if (useHrmMetricsCache && fastBatchPollingAccounts.contains(account)) {
+              try {
+                metricsCache.put(key, metricsList)
+              } catch {
+                case ex: Exception =>
+                  logger.warn(s"Failed to update metrics cache for key $key", ex)
+              }
             }
           }
 

@@ -147,6 +147,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
         |    poller.frequency = "5m"
         |    poller.hrmFrequency = "5s"
         |    poller.hrmListFrequency = "5s"
+        |    poller.useHrmMetricsCache = false
         |    poller.hrmLookback = 6
         |
         |    cfg1 = {
