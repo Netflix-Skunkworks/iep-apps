@@ -22,7 +22,7 @@ import com.netflix.atlas.pekko.StreamOps.SourceQueue
 import com.netflix.atlas.pekko.RequestHandler
 import com.netflix.atlas.pekko.StreamOps
 import com.netflix.atlas.eval.stream.Evaluator
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
 import com.netflix.iep.lwc.fwd.cw.Report

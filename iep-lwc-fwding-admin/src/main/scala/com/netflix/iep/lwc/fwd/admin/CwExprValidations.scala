@@ -15,13 +15,13 @@
  */
 package com.netflix.iep.lwc.fwd.admin
 
-import com.fasterxml.jackson.databind.JsonNode
+import tools.jackson.databind.JsonNode
 import com.netflix.atlas.core.model.DataExpr
 import com.netflix.atlas.core.model.Query.*
 import com.netflix.atlas.core.model.StyleExpr
 import com.netflix.atlas.core.model.TimeSeriesExpr
 import com.netflix.atlas.eval.stream.Evaluator
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.iep.lwc.fwd.cw.ClusterConfig
 import com.netflix.iep.lwc.fwd.cw.ForwardingDimension
 import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
@@ -49,7 +49,7 @@ class CwExprValidations(interpreter: ExprInterpreter, evaluator: Evaluator) exte
   )
 
   def validate(json: JsonNode): Unit = {
-    val config = Json.decode[ClusterConfig](json)
+    val config = Json.decode[ClusterConfig](json.toString)
 
     validateChecksToSkip(config)
 

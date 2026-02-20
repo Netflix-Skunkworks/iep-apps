@@ -28,13 +28,13 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.model.Uri
 import org.apache.pekko.http.scaladsl.server.Directives.*
 import org.apache.pekko.http.scaladsl.server.Route
-import com.fasterxml.jackson.core.JsonParser
+import tools.jackson.core.JsonParser
 import com.netflix.atlas.pekko.AccessLogger
 import com.netflix.atlas.pekko.CustomDirectives.*
 import com.netflix.atlas.pekko.WebApi
 import com.netflix.atlas.core.model.DefaultSettings
-import com.netflix.atlas.json.Json
-import com.netflix.atlas.json.JsonParserHelper.*
+import com.netflix.atlas.json3.Json
+import com.netflix.atlas.json3.JsonParserHelper.*
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.histogram.BucketCounter
 import com.netflix.spectator.api.histogram.BucketFunctions
@@ -135,9 +135,9 @@ object BridgeApi {
         foreachField(parser) {
           case "name" =>
             // Shouldn't be present on common tags
-            commonName = parser.nextTextValue()
+            commonName = parser.nextStringValue()
           case key =>
-            val value = parser.nextTextValue()
+            val value = parser.nextStringValue()
             if (value != null) {
               commonTags(i) = key
               commonTags(i + 1) = value
@@ -156,9 +156,9 @@ object BridgeApi {
             case "tags" =>
               foreachField(parser) {
                 case "name" =>
-                  name = parser.nextTextValue()
+                  name = parser.nextStringValue()
                 case key =>
-                  val value = parser.nextTextValue()
+                  val value = parser.nextStringValue()
                   if (value != null) {
                     tags(j) = key
                     tags(j + 1) = value
@@ -194,11 +194,11 @@ object BridgeApi {
   }
 
   private def getValue(parser: JsonParser): Double = {
-    import com.fasterxml.jackson.core.JsonToken.*
+    import tools.jackson.core.JsonToken.*
     parser.nextToken() match {
       case START_ARRAY        => nextDouble(parser)
       case VALUE_NUMBER_FLOAT => parser.getValueAsDouble()
-      case VALUE_STRING       => java.lang.Double.valueOf(parser.getText())
+      case VALUE_STRING       => java.lang.Double.valueOf(parser.getString())
       case t                  => fail(parser, s"expected VALUE_NUMBER_FLOAT but received $t")
     }
   }

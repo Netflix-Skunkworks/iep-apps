@@ -16,7 +16,7 @@
 package com.netflix.atlas.slotting
 
 import java.time.Instant
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.spectator.api.DefaultRegistry
 import munit.FunSuite
 import software.amazon.awssdk.services.autoscaling.model.AutoScalingGroup

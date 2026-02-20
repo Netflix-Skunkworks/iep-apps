@@ -17,7 +17,7 @@ package com.netflix.atlas.stream
 
 import com.netflix.atlas.eval.stream.Evaluator.DataSource
 import com.netflix.atlas.eval.stream.Evaluator.DataSources
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.*

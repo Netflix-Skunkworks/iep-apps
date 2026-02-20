@@ -23,7 +23,7 @@ import org.apache.pekko.http.scaladsl.server.Directives.*
 import org.apache.pekko.http.scaladsl.server.Route
 import com.netflix.atlas.pekko.CustomDirectives.*
 import com.netflix.atlas.pekko.WebApi
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 
 /**
   * Dump the stats for the expressions flowing through the bridge.

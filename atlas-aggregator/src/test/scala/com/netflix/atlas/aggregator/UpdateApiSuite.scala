@@ -19,12 +19,11 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.model.HttpEntity
 import org.apache.pekko.http.scaladsl.model.StatusCode
 import org.apache.pekko.http.scaladsl.model.StatusCodes
-import com.fasterxml.jackson.core.JsonFactory
 import com.netflix.atlas.pekko.ByteStringInputStream
 import com.netflix.atlas.core.util.RefIntHashMap
 import com.netflix.atlas.core.util.SortedTagMap
 import com.netflix.atlas.core.util.Strings
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.spectator.api.Clock
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.ManualClock
@@ -36,7 +35,6 @@ import munit.FunSuite
 class UpdateApiSuite extends FunSuite {
 
   private val system = ActorSystem("UpdateApiSuite")
-  private val factory = new JsonFactory()
 
   private val aggrTag = Tag.of("atlas.dstype", "sum")
 
@@ -49,7 +47,7 @@ class UpdateApiSuite extends FunSuite {
   test("simple payload") {
     val clock = new ManualClock()
     val service = createAggrService(clock)
-    val parser = factory.createParser("""
+    val parser = Json.newJsonParser("""
         |[
         |  2,
         |  "name",
@@ -69,7 +67,7 @@ class UpdateApiSuite extends FunSuite {
   test("payload with additional tags") {
     val clock = new ManualClock()
     val service = createAggrService(clock)
-    val parser = factory.createParser("""
+    val parser = Json.newJsonParser("""
         |[
         |  6,
         |  "name",
@@ -96,7 +94,7 @@ class UpdateApiSuite extends FunSuite {
   test("payload with invalid characters") {
     val clock = new ManualClock()
     val service = createAggrService(clock)
-    val parser = factory.createParser("""
+    val parser = Json.newJsonParser("""
         |[
         |  6,
         |  "name",
@@ -143,7 +141,7 @@ class UpdateApiSuite extends FunSuite {
         42.0
       )
     )
-    val parser = factory.createParser(json)
+    val parser = Json.newJsonParser(json)
     assertEquals(UpdateApi.processPayload(parser, service).status, StatusCodes.OK)
     clock.setWallTime(62000)
     val id = Id
@@ -156,7 +154,7 @@ class UpdateApiSuite extends FunSuite {
   test("percentile node rollup") {
     val clock = new ManualClock()
     val service = createAggrService(clock)
-    val parser = factory.createParser("""
+    val parser = Json.newJsonParser("""
         |[
         |  7,
         |  "name",
@@ -223,7 +221,7 @@ class UpdateApiSuite extends FunSuite {
   private def validationTest(ts: List[SortedTagMap], expectedStatus: StatusCode): FailureMessage = {
     val clock = new ManualClock()
     val service = createAggrService(clock)
-    val parser = factory.createParser(createPayload(ts, 0, 1.0))
+    val parser = Json.newJsonParser(createPayload(ts, 0, 1.0))
     val response = UpdateApi.processPayload(parser, service)
     assertEquals(response.status, expectedStatus)
     assert(response.entity.isStrict())

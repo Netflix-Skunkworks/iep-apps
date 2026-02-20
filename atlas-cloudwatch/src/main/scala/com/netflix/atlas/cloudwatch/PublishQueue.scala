@@ -31,7 +31,7 @@ import com.netflix.atlas.pekko.PekkoHttpClient
 import com.netflix.atlas.pekko.CustomMediaTypes
 import com.netflix.atlas.pekko.StreamOps
 import com.netflix.atlas.core.model.DsType
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Functions
 import com.netflix.spectator.api.Id

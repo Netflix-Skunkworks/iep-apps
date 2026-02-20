@@ -29,7 +29,7 @@ import com.netflix.atlas.pekko.CustomDirectives.*
 import com.netflix.atlas.pekko.WebApi
 import com.netflix.atlas.druid.ExplainApi.ExplainRequest
 import com.netflix.atlas.eval.graph.Grapher
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.atlas.webapi.GraphApi.DataRequest
 import com.typesafe.config.Config
 

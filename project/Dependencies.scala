@@ -4,9 +4,9 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val atlas      = "1.8.0-rc.42"
+    val atlas      = "1.9.0-rc.1"
     val aws2       = "2.41.22"
-    val iep        = "5.1.11"
+    val iep        = "6.0.0"
     val log4j      = "2.25.3"
     val pekko      = "1.4.0"
     val pekkoHttpV = "1.3.0"
@@ -14,7 +14,7 @@ object Dependencies {
     val servo      = "0.13.2"
     val slf4j      = "2.0.17"
     val spectator  = "1.9.4"
-    val spring     = "6.1.16"
+    val spring     = "7.0.4"
     val avroV      = "1.12.1"
 
     val crossScala = Seq(scala)
@@ -24,7 +24,7 @@ object Dependencies {
   val avro               = "org.apache.avro" % "avro" % avroV
   val atlasCore          = "com.netflix.atlas_v1" %% "atlas-core" % atlas
   val atlasEval          = "com.netflix.atlas_v1" %% "atlas-eval" % atlas
-  val atlasJson          = "com.netflix.atlas_v1" %% "atlas-json" % atlas
+  val atlasJson          = "com.netflix.atlas_v1" %% "atlas-json3" % atlas
   val atlasPekkoTestkit  = "com.netflix.atlas_v1" %% "atlas-pekko-testkit" % atlas
   val atlasSpringEval    = "com.netflix.atlas_v1" %% "atlas-spring-eval" % atlas
   val atlasSpringPekko   = "com.netflix.atlas_v1" %% "atlas-spring-pekko" % atlas
@@ -51,7 +51,7 @@ object Dependencies {
   val iepSpringJmx       = "com.netflix.iep" % "iep-spring-jmxport" % iep
   val iepSpringLeader    = "com.netflix.iep" % "iep-spring-leader" % iep
   val jedis              = "redis.clients" % "jedis" % "7.2.1"
-  val jsonSchema         = "com.github.java-json-tools" % "json-schema-validator" % "2.2.14"
+  val jsonSchema         = "com.networknt" % "json-schema-validator" % "3.0.0"
   val jsr305             = "com.google.code.findbugs" % "jsr305" % "3.0.2"
   val log4jApi           = "org.apache.logging.log4j" % "log4j-api" % log4j
   val log4jCore          = "org.apache.logging.log4j" % "log4j-core" % log4j

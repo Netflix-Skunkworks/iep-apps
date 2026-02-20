@@ -26,7 +26,7 @@ import com.netflix.atlas.core.stacklang.Interpreter
 import com.netflix.atlas.druid.DruidClient.*
 import com.netflix.atlas.eval.graph.DefaultSettings
 import com.netflix.atlas.eval.graph.Grapher
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.atlas.webapi.GraphApi.DataRequest
 import com.typesafe.config.ConfigFactory
 import munit.FunSuite

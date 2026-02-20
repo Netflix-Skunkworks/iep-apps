@@ -32,10 +32,10 @@ import org.apache.pekko.stream.scaladsl.RestartFlow
 import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
-import com.fasterxml.jackson.databind.JsonNode
+import tools.jackson.databind.JsonNode
 import com.netflix.atlas.core.util.Strings
 import com.netflix.atlas.eval.stream.Evaluator
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
@@ -160,7 +160,7 @@ class LoadGenWsService(
 
       dataNode.get("message") match {
         case node: JsonNode if node.has("data") => record("timeseries")
-        case node: JsonNode if node.has("type") => record(node.get("type").asText)
+        case node: JsonNode if node.has("type") => record(node.get("type").stringValue())
         case _                                  => record("unknown")
       }
     } catch {

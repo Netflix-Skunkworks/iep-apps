@@ -30,7 +30,7 @@ import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.stream.scaladsl.Source
 import com.netflix.atlas.pekko.AccessLogger
 import com.netflix.atlas.pekko.StreamOps
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.iep.lwc.fwd.cw.*
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging

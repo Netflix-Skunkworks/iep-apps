@@ -22,14 +22,14 @@ import org.apache.pekko.http.scaladsl.model.HttpRequest
 import org.apache.pekko.http.scaladsl.model.HttpResponse
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.model.headers.RawHeader
-import com.fasterxml.jackson.core.io.JsonEOFException
+import tools.jackson.core.JacksonException
 import com.netflix.atlas.pekko.testkit.MUnitRouteSuite
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor
 import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.CWDP
 import com.netflix.atlas.cloudwatch.BaseCloudWatchMetricsProcessorSuite.ts
 import com.netflix.atlas.cloudwatch.FirehoseMetric
 import com.netflix.atlas.core.util.FastGzipOutputStream
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.atlas.webapi.CloudWatchFirehoseEndpoint.decodeMetricJson
 import com.netflix.atlas.webapi.CloudWatchFirehoseEndpointSuite.generateRequest
 import com.netflix.atlas.webapi.CloudWatchFirehoseEndpointSuite.makeFirehosePayload
@@ -160,7 +160,7 @@ class CloudWatchFirehoseEndpointSuite extends MUnitRouteSuite {
       CWDP("MetricA", Array[Double](42.0, 10.0, 32.0, 2.0)),
       CWDP("MetricB", Array[Double](1.0, 1.0, 1.0, 1.0), 2)
     )
-    intercept[JsonEOFException] {
+    intercept[JacksonException] {
       Using.resource(Json.newJsonParser(json.substring(0, 256))) { parser =>
         decodeMetricJson(parser, List.empty)
       }
@@ -268,7 +268,7 @@ class CloudWatchFirehoseEndpointSuite extends MUnitRouteSuite {
           "id",
           "data",
           "ex",
-          "JsonParseException"
+          "StreamReadException"
         )
         .count(),
       dataParse
@@ -280,7 +280,7 @@ class CloudWatchFirehoseEndpointSuite extends MUnitRouteSuite {
           "id",
           "outer",
           "ex",
-          "CharConversionException"
+          "JacksonIOException"
         )
         .count(),
       outerParse
@@ -419,10 +419,10 @@ object CloudWatchFirehoseEndpointSuite {
     Using.resource(Json.newJsonGenerator(stream)) { json =>
       json.writeStartObject()
       if (!missingHeader) {
-        json.writeStringField("requestId", "0001")
-        json.writeNumberField("timestamp", ts + 35_000)
+        json.writeStringProperty("requestId", "0001")
+        json.writeNumberProperty("timestamp", ts + 35_000)
       }
-      json.writeArrayFieldStart("records")
+      json.writeArrayPropertyStart("records")
 
       if (!empty) {
         json.writeStartObject()
@@ -430,7 +430,7 @@ object CloudWatchFirehoseEndpointSuite {
           CWDP("MetricA", Array[Double](42.0, 10.0, 32.0, 2.0)),
           CWDP("MetricB", Array[Double](1.0, 1.0, 1.0, 1.0), 2)
         )
-        json.writeStringField("data", Base64.getEncoder.encodeToString(data.getBytes()))
+        json.writeStringProperty("data", Base64.getEncoder.encodeToString(data.getBytes()))
         json.writeEndObject()
 
         json.writeStartObject()
@@ -441,13 +441,13 @@ object CloudWatchFirehoseEndpointSuite {
             CWDP("MetricC", Array[Double](2.0, 2.0, 2.0, 1.0))
           )
         }
-        json.writeStringField("data", Base64.getEncoder.encodeToString(data.getBytes()))
+        json.writeStringProperty("data", Base64.getEncoder.encodeToString(data.getBytes()))
         json.writeEndObject()
       }
 
       json.writeEndArray()
 
-      if (extra) json.writeStringField("Ignore", "me")
+      if (extra) json.writeStringProperty("Ignore", "me")
       json.writeEndObject()
     }
     val ba = stream.toByteArray

@@ -37,7 +37,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 import com.netflix.atlas.pekko.AccessLogger
 import com.netflix.atlas.pekko.ByteStringInputStream
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.iep.service.AbstractService
 import com.netflix.spectator.api.Functions
 import com.netflix.spectator.api.Registry

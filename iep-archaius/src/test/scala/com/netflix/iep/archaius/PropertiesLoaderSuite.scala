@@ -19,7 +19,7 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.ImplicitSender
 import org.apache.pekko.testkit.TestActorRef
 import org.apache.pekko.testkit.TestKitBase
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.ManualClock
 import com.typesafe.config.Config

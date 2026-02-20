@@ -23,7 +23,7 @@ import org.apache.pekko.stream.scaladsl.Flow
 import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.stream.scaladsl.Source
 import com.netflix.atlas.pekko.AccessLogger
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.iep.lwc.fwd.cw.ClusterConfig
 import com.netflix.iep.lwc.fwd.cw.ExpressionId
 import com.netflix.iep.lwc.fwd.cw.ForwardingExpression

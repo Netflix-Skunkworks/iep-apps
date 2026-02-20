@@ -30,7 +30,7 @@ import org.apache.pekko.testkit.TestKitBase
 import com.netflix.atlas.pekko.PekkoHttpClient
 import com.netflix.atlas.pekko.CustomMediaTypes
 import com.netflix.atlas.core.model.Datapoint
-import com.netflix.atlas.json.Json
+import com.netflix.atlas.json3.Json
 import com.netflix.atlas.webapi.PublishApi.FailureMessage
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.DefaultRegistry
