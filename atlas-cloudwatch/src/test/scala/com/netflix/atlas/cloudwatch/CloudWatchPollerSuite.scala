@@ -540,9 +540,9 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
         .build()
 
     val firstBatch = List(
-      dp(ts0, 10.0),
+      dp(ts2, 10.0),
       dp(ts1, 20.0),
-      dp(ts2, 30.0)
+      dp(ts0, 30.0)
     )
 
     // Second batch includes the same three timestamps plus one new one (ts3)
@@ -813,6 +813,130 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     assertEquals(f1.datapoint.sampleCount(), java.lang.Double.valueOf(7.0))
   }
 
+  test("HRM lookback dedupes datapoints via highResTimeCache with bounded retention") {
+    // HRM config: period 1s, hrmLookback 6, hrmFrequency 3s
+    val cfg = ConfigFactory
+      .parseString(
+        """
+          |atlas {
+          |  cloudwatch {
+          |    account.polling.requestLimit = 100
+          |    account.polling.fastPolling = []
+          |    account.polling.fastBatchPolling = []
+          |    categories = ["ut-hrm-dedupe"]
+          |    poller.frequency = "5m"
+          |    poller.hrmFrequency = "3s"
+          |    poller.hrmLookback = 6
+          |    poller.hrmListFrequency = "5s"
+          |    poller.useHrmMetricsCache = false
+          |
+          |    ut-hrm-dedupe = {
+          |      namespace = "AWS/UT1"
+          |      period = 1s
+          |      poll-offset = 8h
+          |
+          |      dimensions = ["MyTag"]
+          |      metrics = [
+          |        {
+          |          name = "HRMMetric"
+          |          alias = "aws.ut1.hrm.dedupe"
+          |          conversion = "sum,rate"
+          |        }
+          |      ]
+          |    }
+          |  }
+          |}
+          |""".stripMargin
+      )
+      .withFallback(config)
+
+    // Re-mock processor so we can capture sendToRegistry calls for this test
+    processor = mock(classOf[CloudWatchMetricsProcessor])
+    val registry2 = new DefaultRegistry()
+    val poller2 = new CloudWatchPoller(
+      cfg,
+      registry2,
+      leaderStatus,
+      accountSupplier,
+      rules,
+      clientFactory,
+      processor,
+      debugger
+    )
+
+    // HRM category from this poller
+    val category = poller2
+      .offsetMap(Duration.ofHours(8).getSeconds.toInt)
+      .find(_.namespace == "AWS/UT1")
+      .getOrElse(sys.error("HRM category not found"))
+
+    val child = poller2.Poller(timestamp, category, client, account, region, 60)
+    val (mdef, _) = getListReq(poller2)
+
+    // Metric with a single dimension
+    val m = Metric
+      .builder()
+      .namespace("AWS/UT1")
+      .metricName("HRMMetric")
+      .dimensions(Dimension.builder().name("MyTag").value("a").build())
+      .build()
+
+    // Three datapoints at t-2, t-1, t
+    val ts0 = timestamp.minusSeconds(2)
+    val ts1 = timestamp.minusSeconds(1)
+    val ts2 = timestamp
+
+    def dp(ts: Instant, v: Double): Datapoint =
+      Datapoint
+        .builder()
+        .sum(v)
+        .minimum(v)
+        .maximum(v)
+        .sampleCount(1.0)
+        .timestamp(ts)
+        .build()
+
+    val firstBatch = List(
+      dp(ts0, 10.0),
+      dp(ts1, 20.0),
+      dp(ts2, 30.0)
+    )
+
+    // Second batch includes the same three timestamps plus one new one at t+1
+    val ts3 = timestamp.plusSeconds(1)
+    val secondBatch = firstBatch :+ dp(ts3, 40.0)
+
+    val metaCaptor1 = ArgumentCaptor.forClass(classOf[MetricMetadata])
+    val fmCaptor1 = ArgumentCaptor.forClass(classOf[FirehoseMetric])
+
+    // First call: all 3 datapoints are new → all 3 should be sent
+    child.processMetricDatapoints(mdef, m, firstBatch, ts2.toEpochMilli)
+    verify(processor, times(3)).sendToRegistry(
+      metaCaptor1.capture(),
+      fmCaptor1.capture(),
+      anyLong()
+    )
+
+    // Reset mocks for the second invocation
+    reset(processor)
+
+    val metaCaptor2 = ArgumentCaptor.forClass(classOf[MetricMetadata])
+    val fmCaptor2 = ArgumentCaptor.forClass(classOf[FirehoseMetric])
+
+    // Second call: three old + one new timestamp
+    // Only the new timestamp (ts3) should be forwarded due to per-(series,ts) dedupe
+    child.processMetricDatapoints(mdef, m, secondBatch, ts3.toEpochMilli)
+
+    verify(processor, times(1)).sendToRegistry(
+      metaCaptor2.capture(),
+      fmCaptor2.capture(),
+      anyLong()
+    )
+
+    val sent = fmCaptor2.getValue
+    assertEquals(sent.datapoint.timestamp(), ts3)
+  }
+  
   test("Poller#FetchMetricStats success") {
     val poller = getPoller()
     val child = getChild(poller)
