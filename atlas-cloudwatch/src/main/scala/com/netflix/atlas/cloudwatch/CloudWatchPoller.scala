@@ -44,7 +44,9 @@ import software.amazon.awssdk.services.cloudwatch.model.StandardUnit
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.Optional
-import java.util.concurrent.{ConcurrentHashMap, ConcurrentLinkedDeque, TimeUnit}
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedDeque
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
@@ -79,7 +81,7 @@ class CloudWatchPoller(
   processor: CloudWatchMetricsProcessor,
   debugger: CloudWatchDebugger
 )(implicit val system: ActorSystem)
-  extends StrictLogging {
+    extends StrictLogging {
 
   private implicit val executionContext: ExecutionContext =
     system.dispatchers.lookup("aws-poller-io-dispatcher")
@@ -265,7 +267,7 @@ class CloudWatchPoller(
                             val allMetrics = paginator.metrics().stream().toScala(List)
                             val kept = allMetrics.filter { m =>
                               category.dimensionsMatch(m.dimensions().asScala.toList) &&
-                                !category.filter.map(_.matches(toTagMap(m))).getOrElse(false)
+                              !category.filter.map(_.matches(toTagMap(m))).getOrElse(false)
                             }
 
                             val newSize = kept.size
@@ -285,8 +287,8 @@ class CloudWatchPoller(
                             case ex: Exception =>
                               logger.error(
                                 s"Error listing metrics (discovery) for $account ${
-                                  category.namespace
-                                } ${definition.name} in region $region",
+                                    category.namespace
+                                  } ${definition.name} in region $region",
                                 ex
                               )
                               registry
@@ -415,8 +417,8 @@ class CloudWatchPoller(
 
     if (
       offset <= 60 &&
-        !fastPollingAccounts.contains(account) &&
-        !fastBatchPollingAccounts.contains(account)
+      !fastPollingAccounts.contains(account) &&
+      !fastBatchPollingAccounts.contains(account)
     ) false
     else timeToRun(interval, offset, account, region) > 0
   }
@@ -491,7 +493,6 @@ class CloudWatchPoller(
     private[cloudwatch] val expecting = new AtomicInteger()
     private[cloudwatch] val got = new AtomicInteger()
 
-
     /**
      * Returns true if this (series, timestamp) has not been seen before and records it.
      * Uses a bounded RecentTimestamps per series: size limited to 2 * hrmLookback.
@@ -543,8 +544,8 @@ class CloudWatchPoller(
         case Success(_) =>
           logger.info(
             s"Finished polling with ${got.get()} of ${expecting.get()} for $account at $offset and ${
-              category.namespace
-            } in region $region in ${(System.currentTimeMillis() - nowMillis) / 1000.0} s"
+                category.namespace
+              } in region $region in ${(System.currentTimeMillis() - nowMillis) / 1000.0} s"
           )
         case Failure(_) => // bubble up
       }
@@ -932,8 +933,8 @@ class CloudWatchPoller(
           case ex: Exception =>
             logger.error(
               s"Error getting metric ${metric.metricName()} for $account at $offset and ${
-                category.namespace
-              } ${definition.name} in region $region",
+                  category.namespace
+                } ${definition.name} in region $region",
               ex
             )
             registry
@@ -1048,7 +1049,7 @@ class CloudWatchPoller(
             FirehoseMetric("", metric.namespace(), metric.metricName(), dimensions, dp)
           registry.counter(polledPublishPath.withTag("path", "cache")).increment()
           processor.updateCache(firehoseMetric, category, nowMillis).onComplete {
-            case Success(_) => logger.debug("Cache update success")
+            case Success(_)  => logger.debug("Cache update success")
             case Failure(ex) => logger.error(s"Cache update failed: ${ex.getMessage}")
           }
         }
@@ -1056,11 +1057,11 @@ class CloudWatchPoller(
     }
   }
 
-
   // Helper structure to track recent timestamps per series with bounded size.
   class RecentTimestamps(maxSize: Int) {
 
     private val deque = new ConcurrentLinkedDeque[Long]()
+
     private val set = java.util.Collections.newSetFromMap(
       new java.util.concurrent.ConcurrentHashMap[Long, java.lang.Boolean]()
     )

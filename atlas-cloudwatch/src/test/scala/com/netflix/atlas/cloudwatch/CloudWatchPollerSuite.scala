@@ -936,7 +936,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val sent = fmCaptor2.getValue
     assertEquals(sent.datapoint.timestamp(), ts3)
   }
-  
+
   test("Poller#FetchMetricStats success") {
     val poller = getPoller()
     val child = getChild(poller)
