@@ -39,35 +39,43 @@ class PublishRouter(
     extends StrictLogging {
 
   private val schedulers = Executors.newScheduledThreadPool(2)
-  private val baseURI = config.getString("atlas.cloudwatch.account.routing.uri")
-  private val baseConfigURI = config.getString("atlas.cloudwatch.account.routing.config-uri")
-  private val baseEvalURI = config.getString("atlas.cloudwatch.account.routing.eval-uri")
+
+  // Root routing config
+  private val routingCfg = config.getConfig("atlas.cloudwatch.account.routing")
+  private val baseURI = routingCfg.getString("uri")
+  private val baseConfigURI = routingCfg.getString("config-uri")
+  private val baseEvalURI = routingCfg.getString("eval-uri")
 
   private val missingAccount =
     registry.counter("atlas.cloudwatch.queue.dps.dropped", "reason", "missingAccount")
 
-  private[cloudwatch] val mainQueue = buildPubQueue(config, "main", NetflixEnvironment.region())
+  // mainQueue is not tied to a specific route, so we pass routingCfg as the "route" config
+  private[cloudwatch] val mainQueue =
+    buildPubQueue(config, routingCfg, "main", NetflixEnvironment.region())
 
   //                                      acct,       region, queue
   private[cloudwatch] val accountMap: Map[String, Map[String, PublishQueue]] = {
     var accounts = Map.empty[String, Map[String, PublishQueue]]
+
     config
       .getConfigList("atlas.cloudwatch.account.routing.routes")
       .asScala
-      .foreach { cfg =>
-        val stack = cfg.getString("stack")
-        cfg
+      .foreach { routeCfg =>
+        val stack = routeCfg.getString("stack")
+        routeCfg
           .getConfigList("accounts")
           .asScala
           .foreach { c =>
             val account = c.getString("account")
             if (accounts.contains(account)) {
               throw new IllegalArgumentException(
-                s"Account ${account} can only appear once in the config."
+                s"Account $account can only appear once in the config."
               )
             }
+
             //                     region, queue
             var routes = Map.empty[String, PublishQueue]
+
             if (c.hasPath("routing")) {
               routes = c
                 .getConfig("routing")
@@ -75,12 +83,13 @@ class PublishRouter(
                 .asScala
                 .map { r =>
                   val destination = r.getValue.unwrapped().toString
-                  r.getKey -> buildPubQueue(config, stack, destination)
+                  // NOTE: pass routeCfg so buildPubQueue can see dual-registry flags
+                  r.getKey -> buildPubQueue(config, routeCfg, stack, destination)
                 }
                 .toMap
             }
 
-            // Skip the _DEFAULT queue, if current region entry already present in "routing"
+            // Skip the _DEFAULT queue if current region entry already present in "routing"
             if (routes.contains(NetflixEnvironment.region())) {
               routes += (defaultKey -> routes.getOrElse(
                 NetflixEnvironment.region(),
@@ -91,6 +100,7 @@ class PublishRouter(
             } else {
               routes += defaultKey -> buildPubQueue(
                 config,
+                routeCfg,
                 stack,
                 NetflixEnvironment.region()
               )
@@ -99,8 +109,10 @@ class PublishRouter(
             accounts += account -> routes
           }
       }
+
     accounts
   }
+
   logger.info(s"Loaded ${accountMap.size} accounts plus main.")
 
   /**
@@ -150,13 +162,36 @@ class PublishRouter(
     getQueue(datapoint.tags)
   }
 
+  /**
+   * Build a PublishQueue for a given stack+destination.
+   *
+   * @param config    full app config
+   * @param routeCfg  config block for the specific route (one element from routes[])
+   * @param stack     logical stack for this route (e.g., "stackA")
+   * @param destination region / destination (e.g., "us-west-1")
+   */
   private[cloudwatch] def buildPubQueue(
     config: Config,
+    routeCfg: Config,
     stack: String,
     destination: String
   ): PublishQueue = {
+
+    // Whether this route wants dual-registry
+    val dualRegistryEnabled =
+      routeCfg.hasPath("dual-registry") && routeCfg.getBoolean("dual-registry")
+
+    // Secondary stack to use when dual-registry is enabled (e.g., "stackC")
+    val dualRegistryStackOpt: Option[String] =
+      if (dualRegistryEnabled && routeCfg.hasPath("dual-registry-stack"))
+        Some(routeCfg.getString("dual-registry-stack"))
+      else
+        None
+
     val cfg = config.getConfig("atlas.cloudwatch.account.routing")
-    val pubConfig = new PublishConfig(
+
+    // Primary publish config (STACK = stack, e.g., "stackA")
+    val primaryPubConfig = new PublishConfig(
       cfg,
       baseURI
         .replaceAll("\\$\\{STACK\\}", stack)
@@ -170,18 +205,57 @@ class PublishRouter(
       status,
       registry
     )
-    val streamingRegistryClient = new PublishClient(pubConfig)
+    val primaryClient = new PublishClient(primaryPubConfig)
+
+    // Optional secondary publish config (STACK = dual-registry-stack, e.g., "stackC")
+    val secondaryClientOpt: Option[PublishClient] =
+      dualRegistryStackOpt.map { dualStack =>
+        val secondaryPubConfig = new PublishConfig(
+          cfg,
+          baseURI
+            .replaceAll("\\$\\{STACK\\}", dualStack)
+            .replaceAll("\\$\\{REGION\\}", destination),
+          baseConfigURI
+            .replaceAll("\\$\\{STACK\\}", dualStack)
+            .replaceAll("\\$\\{REGION\\}", destination),
+          baseEvalURI
+            .replaceAll("\\$\\{STACK\\}", dualStack)
+            .replaceAll("\\$\\{REGION\\}", destination),
+          status,
+          registry
+        )
+        new PublishClient(secondaryPubConfig)
+      }
+
+    if (dualRegistryEnabled && secondaryClientOpt.isEmpty) {
+      logger.warn(
+        s"dual-registry=true for stack=$stack but dual-registry-stack is not set or invalid. " +
+          "Proceeding with primary registry only."
+      )
+    }
 
     logger.info(
-      s"Setup queue for stack ${stack} publishing URI ${pubConfig.uri}, " +
-        s"lwc-config URI ${pubConfig.configUri}, eval URI ${pubConfig.evalUri}"
+      s"Setup queue for stack=$stack destination=$destination " +
+        s"primary URI=${primaryPubConfig.uri}, lwc-config URI=${primaryPubConfig.configUri}, " +
+        s"eval URI=${primaryPubConfig.evalUri}, " +
+        s"dualRegistryEnabled=$dualRegistryEnabled secondaryConfigured=${secondaryClientOpt.isDefined}"
     )
+
+    secondaryClientOpt.foreach { c =>
+      logger.info(
+        s"Secondary registry for stack=$stack destination=$destination " +
+          s"URI=${c.config.uri}, lwc-config URI=${c.config.configUri}, eval URI=${c.config.evalUri}"
+      )
+    }
+
     new PublishQueue(
       cfg,
       registry,
       stack + "-" + destination,
       status,
-      streamingRegistryClient,
+      primaryClient,
+      secondaryClientOpt,
+      dualRegistryEnabled = dualRegistryEnabled && secondaryClientOpt.isDefined,
       httpClient,
       schedulers
     )

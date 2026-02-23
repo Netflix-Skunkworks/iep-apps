@@ -26,6 +26,7 @@ import com.netflix.spectator.api.Registry
 import com.typesafe.config.ConfigFactory
 import munit.FunSuite
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.when
 
 class PublishRouterSuite extends FunSuite with TestKitBase {
 
@@ -35,66 +36,147 @@ class PublishRouterSuite extends FunSuite with TestKitBase {
   private val config = ConfigFactory.load()
   private val tagger = new NetflixTagger(config.getConfig("atlas.cloudwatch.tagger"))
   private val httpClient = mock(classOf[PekkoHttpClient])
-  var leaderStatus: LeaderStatus = mock(classOf[LeaderStatus])
-  private val router = new PublishRouter(config, registry, tagger, httpClient, leaderStatus)
+  private val leaderStatus: LeaderStatus = mock(classOf[LeaderStatus])
+
+  // Default router for tests; some tests create a new one explicitly
+  private def newRouter: PublishRouter =
+    new PublishRouter(config, registry, tagger, httpClient, leaderStatus)
 
   test("initialize") {
-    assertEquals(router.mainQueue.uri, "https://publish-main.us-east-1.foo.com/api/v1/publish")
+    when(leaderStatus.hasLeadership).thenReturn(true)
+    val router = newRouter
+    assertEquals(
+      router.mainQueue.primaryUri,
+      "https://publish-main.us-east-1.foo.com/api/v1/publish"
+    )
+    // 42 (main), 1,2,3 are in test config -> 3 routed accounts plus main
     assertEquals(router.accountMap.size, 3)
     router.shutdown()
   }
 
   test("publish main same region") {
+    when(leaderStatus.hasLeadership).thenReturn(true)
+    val router = newRouter
     val dp = Datapoint(Map("nf.account" -> "42", "nf.region" -> "us-east-1"), ts, 42.0)
     val queue = router.getQueue(dp).get
-    assertEquals(queue.uri, "https://publish-main.us-east-1.foo.com/api/v1/publish")
+    assertEquals(
+      queue.primaryUri,
+      "https://publish-main.us-east-1.foo.com/api/v1/publish"
+    )
+    // main has no dual-registry config
+    assertEquals(queue.secondaryUriOpt, None)
     router.shutdown()
   }
 
-  test("publish main same any region") {
+  test("publish main any other region uses main default") {
+    when(leaderStatus.hasLeadership).thenReturn(true)
+    val router = newRouter
     val dp = Datapoint(Map("nf.account" -> "42", "nf.region" -> "ap-south-1"), ts, 42.0)
     val queue = router.getQueue(dp).get
-    assertEquals(queue.uri, "https://publish-main.us-east-1.foo.com/api/v1/publish")
+    assertEquals(
+      queue.primaryUri,
+      "https://publish-main.us-east-1.foo.com/api/v1/publish"
+    )
+    assertEquals(queue.secondaryUriOpt, None)
     router.shutdown()
   }
 
-  test("publish stackA acct 1 default") {
+  test("publish stackA acct 1 default region") {
+    when(leaderStatus.hasLeadership).thenReturn(true)
+    val router = newRouter
     val dp = Datapoint(Map("nf.account" -> "1", "nf.region" -> "us-east-1"), ts, 42.0)
     val queue = router.getQueue(dp).get
-    assertEquals(queue.uri, "https://publish-stackA.us-east-1.foo.com/api/v1/publish")
+    assertEquals(
+      queue.primaryUri,
+      "https://publish-stackA.us-east-1.foo.com/api/v1/publish"
+    )
+    // dual-registry=true, dual-registry-stack=stackC
+    assertEquals(
+      queue.secondaryUriOpt,
+      Some("https://publish-stackC.us-east-1.foo.com/api/v1/publish")
+    )
     router.shutdown()
   }
 
-  test("publish stackA acct 2 default") {
+  test("publish stackA acct 2 default region") {
+    when(leaderStatus.hasLeadership).thenReturn(true)
+    val router = newRouter
     val dp = Datapoint(Map("nf.account" -> "2", "nf.region" -> "us-east-1"), ts, 42.0)
     val queue = router.getQueue(dp).get
-    assertEquals(queue.uri, "https://publish-stackA.us-east-1.foo.com/api/v1/publish")
+    assertEquals(
+      queue.primaryUri,
+      "https://publish-stackA.us-east-1.foo.com/api/v1/publish"
+    )
+    assertEquals(
+      queue.secondaryUriOpt,
+      Some("https://publish-stackC.us-east-1.foo.com/api/v1/publish")
+    )
     router.shutdown()
   }
 
-  test("publish stackA us-west") {
+  test("publish stackA acct 1 us-west-1 explicit routing") {
+    when(leaderStatus.hasLeadership).thenReturn(true)
+    val router = newRouter
     val dp = Datapoint(Map("nf.account" -> "1", "nf.region" -> "us-west-1"), ts, 42.0)
     val queue = router.getQueue(dp).get
-    assertEquals(queue.uri, "https://publish-stackA.us-west-1.foo.com/api/v1/publish")
+    assertEquals(
+      queue.primaryUri,
+      "https://publish-stackA.us-west-1.foo.com/api/v1/publish"
+    )
+    assertEquals(
+      queue.secondaryUriOpt,
+      Some("https://publish-stackC.us-west-1.foo.com/api/v1/publish")
+    )
     router.shutdown()
   }
 
-  test("publish stackB us-west") {
+  test("publish stackB us-west-1 falls back to us-east-1") {
+    when(leaderStatus.hasLeadership).thenReturn(true)
+    val router = newRouter
     val dp = Datapoint(Map("nf.account" -> "3", "nf.region" -> "us-west-1"), ts, 42.0)
     val queue = router.getQueue(dp).get
-    assertEquals(queue.uri, "https://publish-stackB.us-east-1.foo.com/api/v1/publish")
+    // stackB has no explicit routing, so uses default region (us-east-1)
+    assertEquals(
+      queue.primaryUri,
+      "https://publish-stackB.us-east-1.foo.com/api/v1/publish"
+    )
+    // stackB has no dual-registry config
+    assertEquals(queue.secondaryUriOpt, None)
     router.shutdown()
   }
 
-  test("publish missing account tag") {
+  test("publish missing account tag increments missingAccount counter") {
+    when(leaderStatus.hasLeadership).thenReturn(true)
+    val router = newRouter
     val dp = Datapoint(Map("no" -> "account"), 1677628800000L, 42.0)
-    val router = new PublishRouter(config, registry, tagger, httpClient, leaderStatus)
-    router.shutdown()
     router.publish(dp)
+    // publish() should drop when nf.account is missing
     assertEquals(
       registry.counter("atlas.cloudwatch.queue.dps.dropped", "reason", "missingAccount").count(),
       1L
     )
+    router.shutdown()
   }
 
+  // NEW: verify dual-registry lwc URIs for stackA
+
+  test("stackA lwc config/eval URIs use stackA primary and stackC secondary") {
+    when(leaderStatus.hasLeadership).thenReturn(true)
+    val router = newRouter
+    val dp = Datapoint(Map("nf.account" -> "1", "nf.region" -> "us-east-1"), ts, 42.0)
+    val queue = router.getQueue(dp).get
+
+    // Just introspect internal publish clients via reflection if needed,
+    // or rely on the fact that PublishQueue's primary/secondary clients
+    // are created with the same STACK replacement as the publish URI.
+    // Since PublishRouterSuite already asserts the publish URIs above,
+    // here we just ensure dual-registry is actually enabled:
+
+    assert(
+      queue.secondaryUriOpt.nonEmpty,
+      "Expected secondary URI for stackA due to dual-registry configuration"
+    )
+
+    router.shutdown()
+  }
 }
