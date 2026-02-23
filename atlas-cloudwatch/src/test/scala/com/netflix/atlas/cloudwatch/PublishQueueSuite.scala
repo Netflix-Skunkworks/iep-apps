@@ -40,6 +40,8 @@ import com.typesafe.config.ConfigFactory
 import munit.FunSuite
 import org.mockito.ArgumentMatchers.any
 import org.mockito.ArgumentMatchers.anyLong
+import org.mockito.ArgumentMatchers.{eq => eqTo}
+import org.mockito.ArgumentMatchers.argThat
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
 import org.mockito.Mockito.times
@@ -64,6 +66,7 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
   private var httpClient = mock(classOf[PekkoHttpClient])
   private var httpCaptor = ArgumentCaptor.forClass(classOf[HttpRequest])
   private var publishClient = mock(classOf[PublishClient])
+  private var secondaryPublishClient = mock(classOf[PublishClient])
   private var scheduler = mock(classOf[ScheduledExecutorService])
   private val timestamp = 1672531200000L
   private val config = ConfigFactory.load().getConfig("atlas.cloudwatch.account.routing")
@@ -74,6 +77,7 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     httpClient = mock(classOf[PekkoHttpClient])
     httpCaptor = ArgumentCaptor.forClass(classOf[HttpRequest])
     publishClient = mock(classOf[PublishClient])
+    secondaryPublishClient = mock(classOf[PublishClient])
     scheduler = mock(classOf[ScheduledExecutorService])
     leaderStatus = mock(classOf[LeaderStatus])
 
@@ -231,20 +235,82 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     verify(scheduler, times(1)).schedule(any[Runnable], anyLong, any[TimeUnit])
   }
 
-  test("updateRegistry rate 5s") {
+  test("updateRegistry rate 5s primary only") {
     mockResponse(StatusCodes.OK)
     val dp = new AtlasDatapoint(Map("name" -> "metric.foo"), Instant.now().toEpochMilli, 1, 5_000)
     val queue = getQueue
     queue.updateRegistry(dp, mockAZDP())
     verify(publishClient, times(1)).updateCounter(Id.create("metric.foo"), 5)
+    verify(secondaryPublishClient, never()).updateCounter(any[Id], any[Double])
   }
 
-  test("updateRegistry rate 60s") {
+  test("updateRegistry rate 60s primary only") {
     mockResponse(StatusCodes.OK)
     val dp = new AtlasDatapoint(Map("name" -> "metric.foo"), Instant.now().toEpochMilli, 1, 60_000)
     val queue = getQueue
     queue.updateRegistry(dp, mockAZDP())
     verify(publishClient, times(1)).updateCounter(Id.create("metric.foo"), 60)
+    verify(secondaryPublishClient, never()).updateCounter(any[Id], any[Double])
+  }
+
+  test("updateRegistry dual-registry rate updates both registries") {
+    mockResponse(StatusCodes.OK)
+    val dp = new AtlasDatapoint(Map("name" -> "metric.dual"), Instant.now().toEpochMilli, 2, 5_000)
+    val queue = getDualQueue
+    queue.updateRegistry(dp, mockAZDP())
+
+    // 2 * (step/1000) = 2 * 5 = 10
+    verify(publishClient, times(1))
+      .updateCounter(
+        argThat[Id](id => id.name() == "metric.dual"),
+        eqTo(10.0d)
+      )
+
+    verify(secondaryPublishClient, times(1))
+      .updateCounter(
+        argThat[Id](id => id.name() == "metric.dual"),
+        eqTo(10.0d)
+      )
+  }
+
+  test("updateRegistry dual-registry gauge updates both registries") {
+    mockResponse(StatusCodes.OK)
+    val dp = new AtlasDatapoint(
+      Map("name" -> "metric.gauge", "atlas.dstype" -> "gauge"),
+      Instant.now().toEpochMilli,
+      3.14,
+      5_000
+    )
+    val queue = getDualQueue
+    queue.updateRegistry(dp, mockAZDP())
+
+    verify(publishClient, times(1))
+      .updateGauge(
+        argThat[Id](id => id.name() == "metric.gauge"),
+        eqTo(3.14d)
+      )
+
+    verify(secondaryPublishClient, times(1))
+      .updateGauge(
+        argThat[Id](id => id.name() == "metric.gauge"),
+        eqTo(3.14d)
+      )
+  }
+
+  test("updateRegistry dual-registry disabled does not call secondary") {
+    mockResponse(StatusCodes.OK)
+    val dp =
+      new AtlasDatapoint(Map("name" -> "metric.single"), Instant.now().toEpochMilli, 1, 5_000)
+    // dualRegistryEnabled = false even though secondaryClientOpt is defined
+    val queue = getQueueWithSecondaryEnabledFlag(false)
+    queue.updateRegistry(dp, mockAZDP())
+
+    verify(publishClient, times(1))
+      .updateCounter(
+        argThat[Id](id => id.name() == "metric.single"),
+        eqTo(5.0d)
+      )
+    verify(secondaryPublishClient, never()).updateCounter(any[Id], any[Double])
   }
 
   def assertCounters(
@@ -265,6 +331,7 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     }
   }
 
+  /** Queue with primary only (no secondary, dualRegistryEnabled = false) */
   def getQueue: PublishQueue = {
     val pubClientConf = new PublishConfig(
       config,
@@ -275,12 +342,67 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
       registry
     )
     when(publishClient.config).thenReturn(pubClientConf)
+
     new PublishQueue(
       config,
       registry,
       "main",
       leaderStatus,
       publishClient,
+      None,
+      dualRegistryEnabled = false,
+      httpClient,
+      scheduler
+    )
+  }
+
+  /** Queue with both primary and secondary, dualRegistryEnabled = true */
+  def getDualQueue: PublishQueue = {
+    val pubClientConf = new PublishConfig(
+      config,
+      null,
+      null,
+      null,
+      leaderStatus,
+      registry
+    )
+    when(publishClient.config).thenReturn(pubClientConf)
+    when(secondaryPublishClient.config).thenReturn(pubClientConf)
+
+    new PublishQueue(
+      config,
+      registry,
+      "main",
+      leaderStatus,
+      publishClient,
+      Some(secondaryPublishClient),
+      dualRegistryEnabled = true,
+      httpClient,
+      scheduler
+    )
+  }
+
+  /** Helper to build a queue with a secondary client but configurable dualRegistryEnabled flag */
+  def getQueueWithSecondaryEnabledFlag(dualEnabled: Boolean): PublishQueue = {
+    val pubClientConf = new PublishConfig(
+      config,
+      null,
+      null,
+      null,
+      leaderStatus,
+      registry
+    )
+    when(publishClient.config).thenReturn(pubClientConf)
+    when(secondaryPublishClient.config).thenReturn(pubClientConf)
+
+    new PublishQueue(
+      config,
+      registry,
+      "main",
+      leaderStatus,
+      publishClient,
+      Some(secondaryPublishClient),
+      dualRegistryEnabled = dualEnabled,
       httpClient,
       scheduler
     )

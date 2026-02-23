@@ -53,15 +53,17 @@ import scala.util.Success
 import scala.util.Try
 
 /**
-  * Simple queue for batching data points to be sent to publish proxy. Retries occur only on 429s, 504s or exceptions
-  * from the client.
-  */
+ * Simple queue for batching data points to be sent to publish proxy. Retries occur only on 429s, 504s or exceptions
+ * from the client.
+ */
 class PublishQueue(
   config: Config,
   registry: Registry,
   val stack: String,
   val status: LeaderStatus,
-  registryPublishClient: PublishClient,
+  primaryClient: PublishClient,
+  secondaryClientOpt: Option[PublishClient],
+  dualRegistryEnabled: Boolean,
   httpClient: PekkoHttpClient,
   scheduler: ScheduledExecutorService
 )(implicit system: ActorSystem)
@@ -71,18 +73,30 @@ class PublishQueue(
 
   private val datapointsDropped =
     registry.createId("atlas.cloudwatch.queue.dps.dropped", "stack", stack)
-  private val datapointsSent = registry.counter("atlas.cloudwatch.queue.dps.sent", "stack", stack)
-  private val retryAttempts = registry.counter("atlas.cloudwatch.queue.retries", "stack", stack)
-  private val droppedRetries = registry.counter(datapointsDropped.withTags("reason", "maxRetries"))
+
+  private val datapointsSent =
+    registry.counter("atlas.cloudwatch.queue.dps.sent", "stack", stack)
+
+  private val retryAttempts =
+    registry.counter("atlas.cloudwatch.queue.retries", "stack", stack)
+
+  private val droppedRetries =
+    registry.counter(datapointsDropped.withTags("reason", "maxRetries"))
 
   private val registrySent =
     registry.createId("atlas.cloudwatch.queue.registry.sent", "stack", stack)
+
+  private val secondaryRegistrySent =
+    registry.createId("atlas.cloudwatch.queue.registry.secondary.sent", "stack", stack)
 
   private val maxRetries = getSetting("maxRetries")
   private val queueSize = getSetting("queueSize")
   private val batchSize = getSetting("batchSize")
   private val batchTimeout = getDurationSetting("batchTimeout")
-  private[cloudwatch] val uri = registryPublishClient.config.uri
+
+  // HTTP publish URI (primary only)
+  private[cloudwatch] val primaryUri = primaryClient.config.uri
+  private[cloudwatch] val secondaryUriOpt = secondaryClientOpt.map(_.config.uri)
 
   private val lastUpdateTimestamp =
     PolledMeter
@@ -100,29 +114,50 @@ class PublishQueue(
     .toMat(Sink.ignore)(Keep.left)
     .run()
 
+  /**
+   * Update Atlas registries (primary, and optionally secondary) with the datapoint.
+   */
   def updateRegistry(dp: AtlasDatapoint, cwDatapoint: CloudWatchDatapoint): Unit = {
     val atlasDp = toDoubleValue(dp)
-    if (dp.dsType == DsType.Rate) {
-      val value = atlasDp.value * (dp.step / 1000)
-      registryPublishClient.updateCounter(atlasDp.id, value)
-      registry
-        .counter(
-          updateSelfMetrics(dp, cwDatapoint)
-        )
-        .increment()
-    } else if (dp.dsType == DsType.Gauge) {
-      registryPublishClient.updateGauge(atlasDp.id, atlasDp.value)
-      registry
-        .counter(
-          updateSelfMetrics(dp, cwDatapoint)
-        )
-        .increment()
-    } else {
-      logger.error(s"Unknown ds type, skip updating registry ${dp.dsType}")
+
+    def update(client: PublishClient): Unit = {
+      if (dp.dsType == DsType.Rate) {
+        val value = atlasDp.value * (dp.step / 1000)
+        client.updateCounter(atlasDp.id, value)
+      } else if (dp.dsType == DsType.Gauge) {
+        client.updateGauge(atlasDp.id, atlasDp.value)
+      } else {
+        logger.error(s"Unknown ds type, skip updating registry ${dp.dsType}")
+      }
+    }
+
+    // Primary registry
+    update(primaryClient)
+    registry
+      .counter(primarySelfMetricsId(dp, cwDatapoint))
+      .increment()
+
+    // Secondary registry (if enabled)
+    if (dualRegistryEnabled) {
+      secondaryClientOpt.foreach { c =>
+        try {
+          update(c)
+          registry
+            .counter(secondarySelfMetricsId(dp, cwDatapoint))
+            .increment()
+        } catch {
+          case ex: Throwable =>
+            logger.warn(s"Failed updating secondary registry for stack=$stack", ex)
+        }
+      }
     }
   }
 
-  private def updateSelfMetrics(dp: AtlasDatapoint, cwDatapoint: CloudWatchDatapoint) = {
+  private def baseSelfMetricsId(
+    baseId: Id,
+    dp: AtlasDatapoint,
+    cwDatapoint: CloudWatchDatapoint
+  ): Id = {
     val rawUnit = cwDatapoint.unitAsString()
     val unit = if (rawUnit == null || rawUnit.isEmpty) "NO_UNIT" else rawUnit
 
@@ -136,7 +171,7 @@ class PublishQueue(
       logger.warn(s"[updateSelfMetrics] missing/empty unit: cwDatapoint=$cwDatapoint")
     }
 
-    registrySent.withTags(
+    baseId.withTags(
       "type",
       dp.dsType.toString,
       "unit",
@@ -147,6 +182,16 @@ class PublishQueue(
       metricName
     )
   }
+
+  private def primarySelfMetricsId(
+    dp: AtlasDatapoint,
+    cwDatapoint: CloudWatchDatapoint
+  ): Id = baseSelfMetricsId(registrySent, dp, cwDatapoint)
+
+  private def secondarySelfMetricsId(
+    dp: AtlasDatapoint,
+    cwDatapoint: CloudWatchDatapoint
+  ): Id = baseSelfMetricsId(secondaryRegistrySent, dp, cwDatapoint)
 
   private def toDoubleValue(
     datapoint: AtlasDatapoint
@@ -170,7 +215,7 @@ class PublishQueue(
   ): Future[NotUsed] = {
     val request = HttpRequest(
       HttpMethods.POST,
-      uri = uri,
+      uri = primaryUri,
       entity = HttpEntity(
         CustomMediaTypes.`application/x-jackson-smile`,
         ByteString.fromArrayUnsafe(payload)
@@ -201,7 +246,7 @@ class PublishQueue(
         }
 
       case Failure(ex) =>
-        logger.error(s"Failed publishing to ${uri} for ${stack}", ex)
+        logger.error(s"Failed publishing to $primaryUri for $stack", ex)
         retry(payload, retries, size)
         promise.complete(Try(NotUsed))
     }
