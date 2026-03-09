@@ -26,6 +26,7 @@ import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
+import java.time.Duration
 import java.util.concurrent.Executors
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
@@ -210,6 +211,19 @@ class PublishRouter(
     // Optional secondary publish config (STACK = dual-registry-stack, e.g., "stackC")
     val secondaryClientOpt: Option[PublishClient] =
       dualRegistryStackOpt.map { dualStack =>
+        // Parse route-level overrides (if present)
+        val stepOverride: Option[Duration] =
+          if (routeCfg.hasPath("dual-registry-step"))
+            Some(Duration.parse(routeCfg.getString("dual-registry-step")))
+          else
+            None
+
+        val lwcStepOverride: Option[Duration] =
+          if (routeCfg.hasPath("dual-registry-lwc-step"))
+            Some(Duration.parse(routeCfg.getString("dual-registry-lwc-step")))
+          else
+            None
+
         val secondaryPubConfig = new PublishConfig(
           cfg,
           baseURI
@@ -222,7 +236,9 @@ class PublishRouter(
             .replaceAll("\\$\\{STACK\\}", dualStack)
             .replaceAll("\\$\\{REGION\\}", destination),
           status,
-          registry
+          registry,
+          stepOverride,
+          lwcStepOverride
         )
         new PublishClient(secondaryPubConfig)
       }
