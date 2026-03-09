@@ -40,7 +40,7 @@ import com.typesafe.config.ConfigFactory
 import munit.FunSuite
 import org.mockito.ArgumentMatchers.any
 import org.mockito.ArgumentMatchers.anyLong
-import org.mockito.ArgumentMatchers.{eq => eqTo}
+import org.mockito.ArgumentMatchers.eq as eqTo
 import org.mockito.ArgumentMatchers.argThat
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.never
@@ -50,6 +50,7 @@ import org.mockito.Mockito.when
 import org.mockito.ArgumentCaptor
 import org.mockito.stubbing.Answer
 
+import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
@@ -251,6 +252,67 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     queue.updateRegistry(dp, mockAZDP())
     verify(publishClient, times(1)).updateCounter(Id.create("metric.foo"), 60)
     verify(secondaryPublishClient, never()).updateCounter(any[Id], any[Double])
+  }
+
+  test("dual-registry step overrides are applied to secondary client") {
+    val configStr =
+      """
+        |atlas.cloudwatch.account {
+        | routing {
+        |  queue {
+        |       maxRetries = 1000,
+        |       queueSize = 1000,
+        |       batchSize = 1000,
+        |       batchTimeout = 1
+        |  }
+        |  uri        = "https://publish-${STACK}.${REGION}.foo.com/api/v1/publish"
+        |  config-uri = "https://lwc-${STACK}.${REGION}.foo.com/api/v1/expressions"
+        |  eval-uri   = "https://lwc-${STACK}.${REGION}.foo.com/api/v1/evaluate"
+        |
+        |  routes = [
+        |    {
+        |      stack                = "stackA"
+        |      dual-registry        = true
+        |      dual-registry-stack  = "stackC"
+        |      dual-registry-step        = "PT2S"
+        |      dual-registry-lwc-step    = "PT1S"
+        |      accounts = [
+        |        {
+        |          account = "1"
+        |        }
+        |      ]
+        |    }
+        |  ]
+        |}}
+        |""".stripMargin
+
+    val cfg = ConfigFactory.parseString(configStr)
+    val registry = new DefaultRegistry()
+    val tagger = mock(classOf[Tagger])
+    val httpClient = mock(classOf[com.netflix.atlas.pekko.PekkoHttpClient])
+    val leaderStatus = mock(classOf[LeaderStatus])
+    when(leaderStatus.hasLeadership).thenReturn(true)
+
+    val router = new PublishRouter(cfg, registry, tagger, httpClient, leaderStatus)
+
+    // account "1", default region (_DEFAULT) will map to a queue with dual-registry enabled
+    val queueOpt = router.accountMap.get("1").flatMap(_.get(PublishRouter.defaultKey))
+    assert(queueOpt.isDefined, "queue for account 1 should be defined")
+
+    val queue = queueOpt.get
+
+    // Reach into the secondary client and verify its config has overrides applied
+    val secondaryClientOpt: Option[PublishClient] = queue.secondaryClient
+
+    assert(
+      secondaryClientOpt.isDefined,
+      "secondary client should be defined for dual-registry route"
+    )
+
+    val secondaryConfig = secondaryClientOpt.get.config
+
+    assertEquals(secondaryConfig.step(), Duration.ofSeconds(2))
+    assertEquals(secondaryConfig.lwcStep(), Duration.ofSeconds(1))
   }
 
   test("updateRegistry dual-registry rate updates both registries") {

@@ -98,6 +98,8 @@ class PublishQueue(
   private[cloudwatch] val primaryUri = primaryClient.config.uri
   private[cloudwatch] val secondaryUriOpt = secondaryClientOpt.map(_.config.uri)
 
+  def secondaryClient: Option[PublishClient] = secondaryClientOpt
+
   private val lastUpdateTimestamp =
     PolledMeter
       .using(registry)

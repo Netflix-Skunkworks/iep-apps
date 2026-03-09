@@ -25,6 +25,8 @@ import com.netflix.spectator.atlas.impl.EvaluatorConfig
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
+import java.time.Duration
+
 class PublishClient(val config: PublishConfig) extends StrictLogging {
 
   private val publishRegistry = new AtlasRegistry(Clock.SYSTEM, config)
@@ -52,11 +54,21 @@ class PublishConfig(
   configUriParam: String,
   evalUriParam: String,
   status: LeaderStatus,
-  registry: Registry
+  registry: Registry,
+  overrideStep: Option[Duration] = None,
+  overrideLwcStep: Option[Duration] = None
 ) extends AtlasConfig
     with EvaluatorConfig {
 
   private val maxMeters = super.maxNumberOfMeters()
+
+  /** Step override for publishing if provided, else use AtlasConfig default. */
+  override def step(): Duration =
+    overrideStep.getOrElse(super.step())
+
+  /** Step override for LWC if provided, else use AtlasConfig default. */
+  override def lwcStep(): Duration =
+    overrideLwcStep.getOrElse(super.lwcStep())
 
   override def get(k: String): String = {
     val prop = s"atlas.cloudwatch.account.routing.$k"
