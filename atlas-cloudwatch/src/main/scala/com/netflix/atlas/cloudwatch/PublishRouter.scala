@@ -253,14 +253,16 @@ class PublishRouter(
     logger.info(
       s"Setup queue for stack=$stack destination=$destination " +
         s"primary URI=${primaryPubConfig.uri}, lwc-config URI=${primaryPubConfig.configUri}, " +
-        s"eval URI=${primaryPubConfig.evalUri}, " +
+        s"eval URI=${primaryPubConfig.evalUri} lwcStep=${primaryPubConfig.lwcStep()}, Step=${primaryPubConfig.step()}," +
         s"dualRegistryEnabled=$dualRegistryEnabled secondaryConfigured=${secondaryClientOpt.isDefined}"
     )
 
     secondaryClientOpt.foreach { c =>
       logger.info(
         s"Secondary registry for stack=$stack destination=$destination " +
-          s"URI=${c.config.uri}, lwc-config URI=${c.config.configUri}, eval URI=${c.config.evalUri}"
+          s"URI=${c.config.uri}, lwc-config URI=${c.config.configUri}, eval URI=${
+              c.config.evalUri
+            }, lwcStep=${c.config.lwcStep()}, Step=${c.config.step()},"
       )
     }
 
