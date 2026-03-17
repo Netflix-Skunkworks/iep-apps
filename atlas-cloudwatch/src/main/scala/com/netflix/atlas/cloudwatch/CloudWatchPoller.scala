@@ -830,7 +830,7 @@ class CloudWatchPoller(
               series.max.nonEmpty || series.min.nonEmpty || series.sum.nonEmpty || series.cnt.nonEmpty
 
             if (series.timestamps.isEmpty || !hasAnyStat) {
-              logger.info(
+              logger.debug(
                 s"[HRM] GetMetricDataBatch: empty series for account=$account region=$region " +
                   s"ns=${category.namespace} metricName=${m.metricName()} def=${definition.name} " +
                   s"timestamps=${series.timestamps.size} max=${series.max.size} " +
