@@ -325,11 +325,13 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
     context: EvalContext,
     expr: DataExpr
   ): Source[List[TimeSeries], NotUsed] = {
+    // Adjust start time for druid fetch to avoid alignment issue of /v2/fetch chunks
+    val druidContext = context.copy(start = context.start - context.step)
     val offset = expr.offset.toMillis
     val fetchContext =
-      if (offset == 0L) context
+      if (offset == 0L) druidContext
       else {
-        context.copy(context.start - offset, context.end - offset)
+        druidContext.copy(druidContext.start - offset, druidContext.end - offset)
       }
     val query = expr.query
 
