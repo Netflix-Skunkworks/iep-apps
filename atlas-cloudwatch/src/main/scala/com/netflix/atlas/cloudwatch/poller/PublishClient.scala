@@ -98,6 +98,10 @@ class PublishConfig(
     enabled()
   }
 
+  override def lwcIgnorePublishStep: Boolean = {
+    false
+  }
+
   override def debugRegistry(): Registry = registry
 
   /**
