@@ -28,7 +28,7 @@ import com.netflix.atlas.pekko.CustomDirectives.*
 import com.netflix.atlas.pekko.WebApi
 import com.netflix.atlas.core.index.TagQuery
 import com.netflix.atlas.core.model.CustomVocabulary
-import com.netflix.atlas.core.model.ModelExtractors
+import com.netflix.atlas.core.model.ModelDataTypes
 import com.netflix.atlas.core.model.Query
 import com.netflix.atlas.core.model.StyleExpr
 import com.netflix.atlas.core.stacklang.Interpreter
@@ -48,8 +48,8 @@ class ForeachApi(config: Config, implicit val actorRefFactory: ActorRefFactory) 
 
   private def evalGraph(expr: String): List[StyleExpr] = {
     interpreter.execute(expr).stack.map {
-      case ModelExtractors.PresentationType(e) => e
-      case v                                   => throw new MatchError(v)
+      case ModelDataTypes.PresentationType(e) => e
+      case v                                  => throw new MatchError(v)
     }
   }
 

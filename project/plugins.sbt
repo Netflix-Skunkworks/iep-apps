@@ -1,13 +1,13 @@
 addSbtPlugin("com.github.sbt"            % "sbt-pgp"              % "2.3.1")
 addSbtPlugin("com.github.sbt"            % "sbt-release"          % "1.4.0")
-addSbtPlugin("pl.project13.scala"        % "sbt-jmh"              % "0.4.7")
+addSbtPlugin("pl.project13.scala"        % "sbt-jmh"              % "0.4.8")
 addSbtPlugin("com.github.sbt"            % "sbt-git"              % "2.1.0")
 addSbtPlugin("com.typesafe.sbt"          % "sbt-native-packager"  % "1.3.12")
 
-addSbtPlugin("org.scalameta"             % "sbt-scalafmt"         % "2.4.6")
+addSbtPlugin("org.scalameta"             % "sbt-scalafmt"         % "2.5.4")
 
 // for compiling protobuf in the Cloud Watch module
-addSbtPlugin("com.github.sbt"            % "sbt-protobuf"         % "0.8.0")
+addSbtPlugin("com.github.sbt"            % "sbt-protobuf"         % "0.8.3")
 
 // Convenient helpers, not required
 addSbtPlugin("com.timushev.sbt"          % "sbt-updates"          % "0.6.4")
