@@ -17,7 +17,7 @@ package com.netflix.iep.lwc.fwd.admin
 
 import org.apache.pekko.http.scaladsl.model.Uri
 import com.netflix.atlas.core.model.CustomVocabulary
-import com.netflix.atlas.core.model.ModelExtractors
+import com.netflix.atlas.core.model.ModelDataTypes
 import com.netflix.atlas.core.model.StyleExpr
 import com.netflix.atlas.core.stacklang.Interpreter
 import com.typesafe.config.Config
@@ -42,8 +42,8 @@ class ExprInterpreter(config: Config) {
 
   def doEval(expr: String): List[StyleExpr] = {
     interpreter.execute(expr).stack.map {
-      case ModelExtractors.PresentationType(t) => t
-      case v                                   => throw new MatchError(v)
+      case ModelDataTypes.PresentationType(t) => t
+      case v                                  => throw new MatchError(v)
     }
   }
 }
