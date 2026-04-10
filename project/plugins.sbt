@@ -7,7 +7,7 @@ addSbtPlugin("com.typesafe.sbt"          % "sbt-native-packager"  % "1.3.12")
 addSbtPlugin("org.scalameta"             % "sbt-scalafmt"         % "2.5.4")
 
 // for compiling protobuf in the Cloud Watch module
-addSbtPlugin("com.github.sbt"            % "sbt-protobuf"         % "0.8.0")
+addSbtPlugin("com.github.sbt"            % "sbt-protobuf"         % "0.8.3")
 
 // Convenient helpers, not required
 addSbtPlugin("com.timushev.sbt"          % "sbt-updates"          % "0.6.4")
