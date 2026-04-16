@@ -18,10 +18,9 @@ package com.netflix.atlas.cloudwatch
 import com.netflix.atlas.webapi.CloudWatchLogEvent
 import munit.FunSuite
 import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.testkit.{TestKitBase}
+import org.apache.pekko.testkit.TestKitBase
 
-
-class OTelCloudWatchLogsProcessorSuite extends FunSuite with TestKitBase  {
+class OTelCloudWatchLogsProcessorSuite extends FunSuite with TestKitBase {
 
   test("process sample mixed logs and capture unique patterns") {
     val processor = new TestableOTelCloudWatchLogsProcessor
@@ -112,7 +111,6 @@ class OTelCloudWatchLogsProcessorSuite extends FunSuite with TestKitBase  {
     val patterns = processor.newPatterns
 
     // Basic sanity: we should see some patterns, and count should be <= number of events
-  
 
     // Helper to find a pattern containing some substring
     def patternContaining(sub: String): Option[(String, String, String)] =
@@ -121,19 +119,19 @@ class OTelCloudWatchLogsProcessorSuite extends FunSuite with TestKitBase  {
     // Example assertions: we expect some representative patterns:
 
     // s6 service start/started pattern
-    patternContaining("s6-rc: info: service nginx-monitor: starting") 
+    patternContaining("s6-rc: info: service nginx-monitor: starting")
 
     // nginx notice pattern with TS and numeric normalization
-    patternContaining("[notice]") 
+    patternContaining("[notice]")
 
     // nginx warn with IP
-    patternContaining("[warn]") 
+    patternContaining("[warn]")
 
     // JSON nginx access log pattern
-    patternContaining("[NGINX] {\"timestamp\":\"<TS>") 
+    patternContaining("[NGINX] {\"timestamp\":\"<TS>")
 
     // Python logging style with nflx_genai
-    patternContaining("nflx_genai.agents.runner - INFO - Starting server on <IP>:<NUM>") 
+    patternContaining("nflx_genai.agents.runner - INFO - Starting server on <IP>:<NUM>")
   }
 
   override implicit def system: ActorSystem = ???

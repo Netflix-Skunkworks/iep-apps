@@ -26,7 +26,8 @@ import com.netflix.atlas.pekko.CustomDirectives.endpointPath
 import com.netflix.atlas.pekko.CustomDirectives.parseEntity
 import com.netflix.atlas.pekko.WebApi
 import com.netflix.atlas.json3.Json
-import com.netflix.atlas.json3.JsonParserHelper.{foreachField, foreachItem}
+import com.netflix.atlas.json3.JsonParserHelper.foreachField
+import com.netflix.atlas.json3.JsonParserHelper.foreachItem
 import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
 
@@ -37,15 +38,18 @@ class CloudWatchLogsFirehoseEndpoint(
   registry: Registry,
   logsProcessor: CloudWatchLogsProcessor
 )(implicit val system: ActorSystem)
-  extends WebApi
+    extends WebApi
     with StrictLogging {
 
   private val recordsReceived =
     registry.counter("atlas.cloudwatchlogs.firehose.records")
+
   private val logEventsReceived =
     registry.counter("atlas.cloudwatchlogs.firehose.logEvents")
+
   private val unknownField =
     registry.counter("atlas.cloudwatchlogs.firehose.parse.unknown")
+
   private val parseException =
     registry.createId("atlas.cloudwatchlogs.firehose.parse.exception")
 
@@ -54,7 +58,7 @@ class CloudWatchLogsFirehoseEndpoint(
       endpointPath("api" / "v2" / "firehose") {
         handleReq
       } ~
-        complete(StatusCodes.NotFound)
+      complete(StatusCodes.NotFound)
     }
   }
 
@@ -166,7 +170,7 @@ class CloudWatchLogsFirehoseEndpoint(
         parser.nextToken()
         parser.skipChildren()
     }
-    
+
     if (messageType != "DATA_MESSAGE") {
       logger.info(
         s"Skipping CW Logs payload with messageType=$messageType, " +
@@ -249,6 +253,7 @@ final case class CloudWatchLogEvent(
  * Processor interface now includes subscriptionFilters.
  */
 trait CloudWatchLogsProcessor {
+
   def process(
     owner: String,
     logGroup: String,

@@ -15,7 +15,8 @@
  */
 package com.netflix.atlas.cloudwatch
 
-import com.netflix.atlas.webapi.{CloudWatchLogEvent, CloudWatchLogsProcessor}
+import com.netflix.atlas.webapi.CloudWatchLogEvent
+import com.netflix.atlas.webapi.CloudWatchLogsProcessor
 import com.typesafe.scalalogging.StrictLogging
 
 import java.util.concurrent.ConcurrentHashMap
@@ -40,7 +41,7 @@ class OTelCloudWatchLogsProcessor extends CloudWatchLogsProcessor with StrictLog
       // Derive a normalized "pattern" from the message text
       val pattern = derivePattern(msg)
 
-      // Scope uniqueness by logGroup + pattern 
+      // Scope uniqueness by logGroup + pattern
       val key = s"$logGroup::$pattern"
 
       // Only log when we see a new pattern for the first time
@@ -54,8 +55,8 @@ class OTelCloudWatchLogsProcessor extends CloudWatchLogsProcessor with StrictLog
           sample = msg
         )
       }
-      
-      // TODO: send an OTel log record if it passes the log rule criteria
+
+    // TODO: send an OTel log record if it passes the log rule criteria
     }
   }
 
@@ -73,7 +74,7 @@ class OTelCloudWatchLogsProcessor extends CloudWatchLogsProcessor with StrictLog
         s"pattern=$pattern sample=${sample.take(500)}"
     )
   }
-  
+
   /**
    * Generic log line parser:
    * - If it's Lambda-style "\t" format, extract requestId/level/message.
@@ -109,7 +110,7 @@ class OTelCloudWatchLogsProcessor extends CloudWatchLogsProcessor with StrictLog
     // If it looks like JSON, keep it but normalize numbers/ids inside
     val isJsonLike =
       (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
-        (trimmed.startsWith("[") && trimmed.endsWith("]"))
+      (trimmed.startsWith("[") && trimmed.endsWith("]"))
 
     if (isJsonLike) {
       normalizeJsonish(trimmed)
