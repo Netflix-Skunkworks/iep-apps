@@ -20,7 +20,6 @@ import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives.*
 import org.apache.pekko.http.scaladsl.server.Route
 import tools.jackson.core.JsonParser
-
 import com.netflix.atlas.pekko.CustomDirectives.customJson
 import com.netflix.atlas.pekko.CustomDirectives.endpointPath
 import com.netflix.atlas.pekko.CustomDirectives.parseEntity
@@ -32,6 +31,7 @@ import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
 
 import java.util.Base64
+import scala.collection.mutable.ListBuffer
 import scala.util.Using
 
 class CloudWatchLogsFirehoseEndpoint(
@@ -140,7 +140,6 @@ class CloudWatchLogsFirehoseEndpoint(
    * Returns number of logEvents processed.
    */
   private def decodeAndProcessCloudWatchLogsPayload(parser: JsonParser): Int = {
-    import scala.collection.mutable.ListBuffer
 
     var messageType: String = null
     var logGroup: String = null
@@ -152,21 +151,31 @@ class CloudWatchLogsFirehoseEndpoint(
     foreachField(parser) {
       case "messageType" =>
         messageType = parser.nextStringValue()
+
       case "owner" =>
         owner = parser.nextStringValue()
+
       case "logGroup" =>
         logGroup = parser.nextStringValue()
+
       case "logStream" =>
         logStream = parser.nextStringValue()
+
       case "subscriptionFilters" =>
         foreachItem(parser) {
-          subscriptionFilters += parser.nextStringValue()
+          val value = parser.getValueAsString()
+          if (value != null) {
+            subscriptionFilters += value
+          }
         }
+
       case "logEvents" =>
         foreachItem(parser) {
           events += decodeSingleLogEvent(parser)
         }
-      case _ =>
+
+      case other =>
+        logger.warn(s"Skipping unknown firehose logs payload field: $other")
         parser.nextToken()
         parser.skipChildren()
     }
