@@ -38,7 +38,7 @@ class CloudWatchLogsFirehoseEndpoint(
   registry: Registry,
   logsProcessor: CloudWatchLogsProcessor
 )(implicit val system: ActorSystem)
-  extends WebApi
+    extends WebApi
     with StrictLogging {
 
   private val recordsReceived =
@@ -58,7 +58,7 @@ class CloudWatchLogsFirehoseEndpoint(
       endpointPath("api" / "v2" / "firehose") {
         handleReq
       } ~
-        complete(StatusCodes.NotFound)
+      complete(StatusCodes.NotFound)
     }
   }
 
