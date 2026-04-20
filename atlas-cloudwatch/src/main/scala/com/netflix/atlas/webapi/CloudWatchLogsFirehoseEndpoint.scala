@@ -57,8 +57,7 @@ class CloudWatchLogsFirehoseEndpoint(
     (post | put) {
       endpointPath("api" / "v1" / "firehoseLogs") {
         handleReq
-      } ~
-      complete(StatusCodes.NotFound)
+      }
     }
   }
 
