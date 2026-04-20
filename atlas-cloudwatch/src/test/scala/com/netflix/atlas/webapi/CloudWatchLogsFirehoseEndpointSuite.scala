@@ -51,12 +51,11 @@ class CloudWatchLogsFirehoseEndpointSuite extends MUnitRouteSuite with StrictLog
 
   test("logs firehose success") {
     val payload = CloudWatchLogsFirehoseEndpointSuite.makeFirehosePayload()
-    val req = CloudWatchLogsFirehoseEndpointSuite.generateRequest("/api/v2/firehose", payload)
+    val req = CloudWatchLogsFirehoseEndpointSuite.generateRequest("/api/v1/firehoseLogs", payload)
 
     val handler = new CloudWatchLogsFirehoseEndpoint(registry, logsProcessor)
     req ~> handler.routes ~> check {
       assertEquals(StatusCodes.OK, status)
-      System.out.print("v2/status : " + status)
       assertParse(expectedEventsTotal = 4)
       assertCounters(parsedRecords = 2, parsedEvents = 4)
       assertResponse(response, missing = false, withException = false)
@@ -66,7 +65,7 @@ class CloudWatchLogsFirehoseEndpointSuite extends MUnitRouteSuite with StrictLog
   test("logs firehose non DATA_MESSAGE is skipped") {
     val payload =
       CloudWatchLogsFirehoseEndpointSuite.makeFirehosePayload(nonDataMessage = true)
-    val req = CloudWatchLogsFirehoseEndpointSuite.generateRequest("/api/v2/firehose", payload)
+    val req = CloudWatchLogsFirehoseEndpointSuite.generateRequest("/api/v1/firehoseLogs", payload)
 
     val handler = new CloudWatchLogsFirehoseEndpoint(registry, logsProcessor)
     req ~> handler.routes ~> check {
@@ -81,7 +80,7 @@ class CloudWatchLogsFirehoseEndpointSuite extends MUnitRouteSuite with StrictLog
   test("logs firehose malformed outer json") {
     val payload =
       CloudWatchLogsFirehoseEndpointSuite.makeFirehosePayload(malformed = true)
-    val req = CloudWatchLogsFirehoseEndpointSuite.generateRequest("/api/v2/firehose", payload)
+    val req = CloudWatchLogsFirehoseEndpointSuite.generateRequest("/api/v1/firehoseLogs", payload)
 
     val handler = new CloudWatchLogsFirehoseEndpoint(registry, logsProcessor)
     req ~> handler.routes ~> check {

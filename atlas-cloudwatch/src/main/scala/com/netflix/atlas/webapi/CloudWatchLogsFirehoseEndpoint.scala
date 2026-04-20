@@ -55,7 +55,7 @@ class CloudWatchLogsFirehoseEndpoint(
 
   override def routes: Route = {
     (post | put) {
-      endpointPath("api" / "v2" / "firehose") {
+      endpointPath("api" / "v1" / "firehoseLogs") {
         handleReq
       } ~
       complete(StatusCodes.NotFound)
