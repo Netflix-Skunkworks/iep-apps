@@ -134,5 +134,41 @@ class OTelCloudWatchLogsProcessorSuite extends FunSuite with TestKitBase {
     patternContaining("nflx_genai.agents.runner - INFO - Starting server on <IP>:<NUM>")
   }
 
+  test("processor sends OTEL logs and captures patterns") {
+    val sink = new StubOtelLogSink
+    val handler = new TestableOTelCloudWatchLogsProcessor(sink)
+    val events = List(
+      CloudWatchLogEvent(
+        "id1",
+        1L,
+        "2026-04-20T12:00:00.000Z\treq-123\tINFO\tFirst message",
+        None,
+        None
+      ),
+      CloudWatchLogEvent(
+        "id2",
+        2L,
+        "2026-04-20T12:00:01.000Z\treq-456\tWARN\tSecond message",
+        None,
+        None
+      )
+    )
+
+    handler.process(
+      owner = "123456789012",
+      logGroup = "/aws/lambda/my-func",
+      logStream = "2026/04/17/[$LATEST]abc",
+      subscriptionFilters = List("my-sub"),
+      events = events
+    )
+
+    val logs = handler.sentLogs
+    assertEquals(logs.size, 2)
+    assertEquals(logs.head.level, "INFO")
+    assertEquals(logs.head.logger, "cwlogs.subscription")
+    assert(logs.exists(_.message.contains("First message")))
+    assert(logs.exists(_.message.contains("Second message")))
+  }
+
   override implicit def system: ActorSystem = ???
 }
