@@ -30,7 +30,10 @@ import com.netflix.atlas.json3.JsonParserHelper.foreachItem
 import com.netflix.spectator.api.Registry
 import com.typesafe.scalalogging.StrictLogging
 
+import java.io.ByteArrayInputStream
+import java.io.InputStream
 import java.util.Base64
+import java.util.zip.GZIPInputStream
 import scala.collection.mutable.ListBuffer
 import scala.util.Using
 
@@ -91,10 +94,12 @@ class CloudWatchLogsFirehoseEndpoint(
                 if (b64 != null) {
                   try {
                     val bytes = Base64.getDecoder.decode(b64)
-                    Using.resource(Json.newJsonParser(bytes)) { p =>
-                      val count = decodeAndProcessCloudWatchLogsPayload(p)
-                      recordsReceived.increment()
-                      logEventsReceived.increment(count)
+                    Using.resource(inputStream(bytes)) { in =>
+                      Using.resource(Json.newJsonParser(in)) { p =>
+                        val count = decodeAndProcessCloudWatchLogsPayload(p)
+                        recordsReceived.increment()
+                        logEventsReceived.increment(count)
+                      }
                     }
                   } catch {
                     case ex: Exception =>
@@ -130,6 +135,20 @@ class CloudWatchLogsFirehoseEndpoint(
         incrementException(ex)
         RequestId(requestId, timestamp, Some(ex))
     }
+  }
+
+  private def isGzip(bytes: Array[Byte]): Boolean =
+    bytes.length > 2 &&
+    bytes(0) == 0x1F.toByte && bytes(1) == 0x8B.toByte
+
+  /**
+   * Create an InputStream for reading the content of the bytes. If the data is
+   * gzip compressed, then it will be wrapped in a GZIPInputStream to handle the
+   * decompression of the data.
+   */
+  private def inputStream(bytes: Array[Byte]): InputStream = {
+    val in: InputStream = new ByteArrayInputStream(bytes)
+    if (isGzip(bytes)) new GZIPInputStream(in) else in
   }
 
   /**
