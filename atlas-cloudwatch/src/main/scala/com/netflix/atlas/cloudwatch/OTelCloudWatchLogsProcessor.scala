@@ -22,7 +22,10 @@ import com.typesafe.scalalogging.StrictLogging
 import java.util.concurrent.ConcurrentHashMap
 import scala.jdk.CollectionConverters.*
 
-class OTelCloudWatchLogsProcessor extends CloudWatchLogsProcessor with StrictLogging {
+class OTelCloudWatchLogsProcessor(
+  sink: OtelLogSink = OtelTcpSink
+) extends CloudWatchLogsProcessor
+    with StrictLogging {
 
   private val seenPatterns =
     new ConcurrentHashMap[String, java.lang.Boolean]().asScala
@@ -35,28 +38,53 @@ class OTelCloudWatchLogsProcessor extends CloudWatchLogsProcessor with StrictLog
     events: List[CloudWatchLogEvent]
   ): Unit = {
 
-    events.foreach { ev =>
-      val (_, _, msg) = parseLogLine(ev.message)
+    logger.info(
+      s"Processing ${events.length} logEvents from logGroup=$logGroup, logStream=$logStream"
+    )
 
-      // Derive a normalized "pattern" from the message text
-      val pattern = derivePattern(msg)
+    events.zipWithIndex.foreach {
+      case (ev, idx) =>
+        val (requestIdOpt, levelRaw, msg) = parseLogLine(ev.message)
+        val level = Option(levelRaw).filter(_.nonEmpty).getOrElse("INFO").toUpperCase
 
-      // Scope uniqueness by logGroup + pattern
-      val key = s"$logGroup::$pattern"
+        // Derive a normalized "pattern" from the message text
+        val pattern = derivePattern(msg)
 
-      // Only log when we see a new pattern for the first time
-      val isNew = seenPatterns.putIfAbsent(key, java.lang.Boolean.TRUE).isEmpty
-      if (isNew) {
-        onNewPattern(
-          logGroup = logGroup,
-          logStream = logStream,
-          subscriptionFilters = subscriptionFilters,
-          pattern = pattern,
-          sample = msg
+        // Scope uniqueness by logGroup + pattern
+        val key = s"$logGroup::$pattern"
+
+        // Only log when we see a new pattern for the first time
+        val isNew = seenPatterns.putIfAbsent(key, java.lang.Boolean.TRUE).isEmpty
+        if (isNew) {
+          onNewPattern(
+            logGroup = logGroup,
+            logStream = logStream,
+            subscriptionFilters = subscriptionFilters,
+            pattern = pattern,
+            sample = msg
+          )
+        }
+
+        val tags: Map[String, Any] = Map(
+          "nf.app"         -> "ObservabilityLogsExporter",
+          "aws_request_id" -> requestIdOpt.orNull,
+          "aws_account"    -> ev.account.orNull,
+          "aws_region"     -> ev.region.orNull,
+          "aws_log_group"  -> logGroup,
+          "aws_log_stream" -> logStream,
+          "cw_event_id"    -> ev.id,
+          "line_index"     -> idx,
+          "source"         -> subscriptionFilters.mkString("/")
         )
-      }
 
-    // TODO: send an OTel log record if it passes the log rule criteria
+        val logDoc = OtelTcpLogger.buildLog(
+          message = msg,
+          level = level,
+          loggerName = "cwlogs.subscription",
+          tags = tags
+        )
+
+        sink.send(logDoc)
     }
   }
 
@@ -98,16 +126,11 @@ class OTelCloudWatchLogsProcessor extends CloudWatchLogsProcessor with StrictLog
     }
   }
 
-  /**
-   * Derive a "pattern" from a raw message string by normalizing variable parts.
-   * This is heuristic and can be tuned for your data.
-   */
   private def derivePattern(msg: String): String = {
     if (msg == null || msg.isEmpty) return "<EMPTY>"
 
     val trimmed = msg.trim
 
-    // If it looks like JSON, keep it but normalize numbers/ids inside
     val isJsonLike =
       (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
       (trimmed.startsWith("[") && trimmed.endsWith("]"))
@@ -119,70 +142,39 @@ class OTelCloudWatchLogsProcessor extends CloudWatchLogsProcessor with StrictLog
     }
   }
 
-  /**
-   * Basic normalization appropriate for text logs:
-   * - Replace ISO timestamps with <TS>
-   * - Replace nginx-style timestamps with <TS>
-   * - Replace UUID-like strings with <UUID>
-   * - Replace large numbers and PIDs with <NUM>
-   * - Collapse whitespace
-   *
-   * Example:
-   *   "2026/04/16 02:44:34 [notice] 105#105: start worker process 117"
-   *   -> "<TS> [notice] <NUM>#<NUM>: start worker process <NUM>"
-   */
   private def normalizeText(s: String): String = {
     var t = s
 
-    // ISO8601 timestamp: 2026-04-16T02:44:34.988Z
     t = t.replaceAll(
       raw"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z",
       "<TS>"
     )
-
-    // ISO8601 with space and comma: 2026-04-16 02:44:34,988
     t = t.replaceAll(
       raw"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:,\d+)?",
       "<TS>"
     )
-
-    // nginx-style timestamp: 2026/04/16 02:44:34
     t = t.replaceAll(
       raw"\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}",
       "<TS>"
     )
-
-    // UUID
     t = t.replaceAll(
       raw"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b",
       "<UUID>"
     )
-
-    // IP addresses
     t = t.replaceAll(
       raw"\b\d{1,3}(?:\.\d{1,3}){3}\b",
       "<IP>"
     )
-
-    // Numeric IDs / PIDs / ports etc. (4+ digits)
     t = t.replaceAll(
       raw"\b\d{4,}\b",
       "<NUM>"
     )
-
-    // Collapse repeated spaces
     t = t.replaceAll(raw"\s+", " ").trim
 
     t
   }
 
-  /**
-   * For JSON-ish logs we can still use text normalization.
-   * If you later want to parse JSON properly and normalize field-by-field,
-   * you can plug that in here.
-   */
   private def normalizeJsonish(s: String): String = {
-    // For now just reuse text normalization; it will replace numbers, UUIDs, etc.
     normalizeText(s)
   }
 }

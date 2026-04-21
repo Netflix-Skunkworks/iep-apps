@@ -22,6 +22,8 @@ import com.netflix.atlas.cloudwatch.CloudWatchPoller
 import com.netflix.atlas.cloudwatch.CloudWatchRules
 import com.netflix.atlas.cloudwatch.NetflixTagger
 import com.netflix.atlas.cloudwatch.OTelCloudWatchLogsProcessor
+import com.netflix.atlas.cloudwatch.OtelLogSink
+import com.netflix.atlas.cloudwatch.OtelTcpSink
 import com.netflix.atlas.cloudwatch.PublishRouter
 import com.netflix.atlas.cloudwatch.RedisClusterCloudWatchMetricsProcessor
 import com.netflix.atlas.cloudwatch.Tagger
@@ -79,8 +81,11 @@ class CloudWatchConfiguration extends StrictLogging {
   }
 
   @Bean
-  def oTelCloudWatchLogsProcessor(): OTelCloudWatchLogsProcessor =
-    new OTelCloudWatchLogsProcessor()
+  def otelLogSink(): OtelLogSink = OtelTcpSink
+
+  @Bean
+  def oTelCloudWatchLogsProcessor(otelSink: OtelLogSink): OTelCloudWatchLogsProcessor =
+    new OTelCloudWatchLogsProcessor(otelSink)
 
   @Bean
   def tagger(config: Config): Tagger = new NetflixTagger(
