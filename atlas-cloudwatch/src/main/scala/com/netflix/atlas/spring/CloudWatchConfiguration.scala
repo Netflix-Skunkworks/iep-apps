@@ -84,8 +84,11 @@ class CloudWatchConfiguration extends StrictLogging {
   def otelLogSink(): OtelLogSink = OtelTcpSink
 
   @Bean
-  def oTelCloudWatchLogsProcessor(otelSink: OtelLogSink): OTelCloudWatchLogsProcessor =
-    new OTelCloudWatchLogsProcessor(otelSink)
+  def oTelCloudWatchLogsProcessor(
+    config: Config,
+    otelSink: OtelLogSink
+  ): OTelCloudWatchLogsProcessor =
+    new OTelCloudWatchLogsProcessor(config, otelSink)
 
   @Bean
   def tagger(config: Config): Tagger = new NetflixTagger(
