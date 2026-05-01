@@ -17,12 +17,14 @@ package com.netflix.atlas.cloudwatch
 
 import com.netflix.atlas.webapi.CloudWatchLogEvent
 import com.netflix.atlas.webapi.CloudWatchLogsProcessor
+import com.netflix.iep.aws2.AwsClientFactory
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
 class OTelCloudWatchLogsProcessor(
   config: Config,
-  sink: OtelLogSink = OtelTcpSink
+  sink: OtelLogSink = OtelTcpSink,
+  clientFactory: AwsClientFactory
 ) extends CloudWatchLogsProcessor
     with StrictLogging {
 
@@ -31,6 +33,9 @@ class OTelCloudWatchLogsProcessor(
       config.getInt("atlas.cloudwatch.logs.maxPerBatch")
     else
       10
+
+  // Local in‑memory cache for log group tags
+  private val tagCache = new LogGroupTagCache(clientFactory)
 
   override def process(
     owner: String,
@@ -44,12 +49,23 @@ class OTelCloudWatchLogsProcessor(
       s"Processing ${events.length} logEvents from logGroup=$logGroup, logStream=$logStream"
     )
 
+    // Take the first event to get account/region (all events in this batch are same account/region)
+    val (accountOpt, regionOpt) =
+      events.headOption.map(ev => (Option(ev.account), Option(ev.region))).getOrElse((None, None))
+
+    // Fetch tags once per batch (cached per logGroup)
+    val logGroupTags: Map[String, String] =
+      (for {
+        account <- accountOpt.get
+        region  <- regionOpt.get
+      } yield tagCache.getTags(logGroup, account, region)).getOrElse(Map.empty)
+
     events.take(maxPerBatch).zipWithIndex.foreach {
       case (ev, idx) =>
         val (requestIdOpt, levelRaw, msg) = parseLogLine(ev.message)
         val level = Option(levelRaw).filter(_.nonEmpty).getOrElse("INFO").toUpperCase
 
-        val tags: Map[String, Any] = Map(
+        val baseTags: Map[String, Any] = Map(
           "nf.app"         -> "ObservabilityLogsExporter",
           "aws_request_id" -> requestIdOpt.orNull,
           "aws_account"    -> ev.account.orNull,
@@ -61,11 +77,15 @@ class OTelCloudWatchLogsProcessor(
           "source"         -> subscriptionFilters.mkString("/")
         )
 
+        // logGroupTags: Map[String, String] from cache
+        val mergedTags: Map[String, Any] =
+          baseTags ++ logGroupTags // logGroupTags values win for duplicate keys
+
         val logDoc = OtelTcpLogger.buildLog(
           message = msg,
           level = level,
           loggerName = "cwlogs.subscription",
-          tags = tags
+          tags = mergedTags
         )
 
         sink.send(logDoc)

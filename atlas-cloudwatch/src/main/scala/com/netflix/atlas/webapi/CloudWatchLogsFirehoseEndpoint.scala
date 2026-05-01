@@ -199,7 +199,7 @@ class CloudWatchLogsFirehoseEndpoint(
     }
 
     if (messageType != "DATA_MESSAGE") {
-      logger.info(
+      logger.debug(
         s"Skipping CW Logs payload with messageType=$messageType, " +
           s"logGroup=$logGroup, logStream=$logStream, owner=$owner"
       )
