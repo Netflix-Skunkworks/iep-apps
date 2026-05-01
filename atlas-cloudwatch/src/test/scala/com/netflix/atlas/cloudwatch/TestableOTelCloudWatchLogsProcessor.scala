@@ -28,7 +28,8 @@ class TestableOTelCloudWatchLogsProcessor(
   val sinkStub: StubOtelLogSink = new StubOtelLogSink
 ) extends OTelCloudWatchLogsProcessor(
       ConfigFactory.load().getConfig("atlas.cloudwatch.logs"),
-      sinkStub
+      sinkStub,
+      null
     ) {
 
   // (group, pattern, sample)
