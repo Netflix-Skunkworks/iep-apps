@@ -50,10 +50,10 @@ class LogsPublishQueue(
   private val sinkDispatcher: ExecutionContext =
     system.dispatchers.lookup("logs-sink-dispatcher")
 
-  private val queueSize   = config.getInt("atlas.cloudwatch.logs.queue.queueSize")
+  private val queueSize = config.getInt("atlas.cloudwatch.logs.queue.queueSize")
   private val parallelism = config.getInt("atlas.cloudwatch.logs.queue.parallelism")
 
-  private val logsSent    = registry.counter("atlas.cloudwatch.logs.queue.sent")
+  private val logsSent = registry.counter("atlas.cloudwatch.logs.queue.sent")
   private val logsDropped = registry.counter("atlas.cloudwatch.logs.queue.dropped")
 
   private val queue = StreamOps
