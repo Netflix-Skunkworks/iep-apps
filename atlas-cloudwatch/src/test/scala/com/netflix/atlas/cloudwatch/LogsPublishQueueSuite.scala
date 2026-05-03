@@ -22,10 +22,10 @@ import munit.FunSuite
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.testkit.TestKitBase
 
-
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+
 class LogsPublishQueueSuite extends FunSuite with TestKitBase {
 
   override implicit def system: ActorSystem = ActorSystem(getClass.getSimpleName)
