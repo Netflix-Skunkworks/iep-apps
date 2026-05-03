@@ -21,9 +21,10 @@ import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor
 import com.netflix.atlas.cloudwatch.CloudWatchPoller
 import com.netflix.atlas.cloudwatch.CloudWatchRules
 import com.netflix.atlas.cloudwatch.NetflixTagger
+import com.netflix.atlas.cloudwatch.LogsPublishQueue
 import com.netflix.atlas.cloudwatch.OTelCloudWatchLogsProcessor
 import com.netflix.atlas.cloudwatch.OtelLogSink
-import com.netflix.atlas.cloudwatch.OtelTcpSink
+import com.netflix.atlas.cloudwatch.OtelTcpLogger
 import com.netflix.atlas.cloudwatch.PublishRouter
 import com.netflix.atlas.cloudwatch.RedisClusterCloudWatchMetricsProcessor
 import com.netflix.atlas.cloudwatch.Tagger
@@ -81,7 +82,14 @@ class CloudWatchConfiguration extends StrictLogging {
   }
 
   @Bean
-  def otelLogSink(): OtelLogSink = OtelTcpSink
+  def otelLogSink(
+    config: Config,
+    registry: Optional[Registry],
+    system: ActorSystem
+  ): OtelLogSink = {
+    val r = registry.orElseGet(() => globalRegistry())
+    new LogsPublishQueue(config, r, OtelTcpLogger.sendLog)(system)
+  }
 
   @Bean
   def oTelCloudWatchLogsProcessor(
