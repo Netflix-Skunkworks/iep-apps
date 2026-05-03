@@ -27,7 +27,7 @@ import scala.jdk.CollectionConverters.*
 class TestableOTelCloudWatchLogsProcessor(
   val sinkStub: StubOtelLogSink = new StubOtelLogSink
 ) extends OTelCloudWatchLogsProcessor(
-      ConfigFactory.load().getConfig("atlas.cloudwatch.logs"),
+      ConfigFactory.load(),
       sinkStub,
       null
     ) {

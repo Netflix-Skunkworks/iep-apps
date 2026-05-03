@@ -28,11 +28,9 @@ class OTelCloudWatchLogsProcessor(
 ) extends CloudWatchLogsProcessor
     with StrictLogging {
 
-  private val maxPerBatch: Int =
-    if (config.hasPath("atlas.cloudwatch.logs.maxPerBatch"))
-      config.getInt("atlas.cloudwatch.logs.maxPerBatch")
-    else
-      10
+  // Max events per sendBatch chunk — bounds burst rate to the OTel collector.
+  // Large streams are split into multiple chunks rather than truncated.
+  private val maxPerBatch: Int = config.getInt("atlas.cloudwatch.logs.maxPerBatch")
 
   // Local in‑memory cache for log group tags
   private val tagCache = new LogGroupTagCache(clientFactory)
@@ -60,7 +58,9 @@ class OTelCloudWatchLogsProcessor(
         region  <- regionOpt.get
       } yield tagCache.getTags(logGroup, account, region)).getOrElse(Map.empty)
 
-    val batch = events.take(maxPerBatch).zipWithIndex.map {
+    // Build OtelLog for every event, preserving global line_index across chunks
+    // so the collector can reconstruct exact order even across chunk boundaries.
+    val allLogs = events.zipWithIndex.map {
       case (ev, idx) =>
         val (requestIdOpt, levelRaw, msg) = parseLogLine(ev.message)
         val level = Option(levelRaw).filter(_.nonEmpty).getOrElse("INFO").toUpperCase
@@ -88,7 +88,10 @@ class OTelCloudWatchLogsProcessor(
         )
     }
 
-    sink.sendBatch(batch)
+    // Split into bounded chunks so each sendBatch call delivers at most maxPerBatch
+    // events to the OTel collector — prevents a single large stream from causing
+    // a burst of TCP sends that could OOM the collector.
+    allLogs.grouped(maxPerBatch).foreach(sink.sendBatch)
   }
 
   /**
