@@ -60,7 +60,7 @@ class OTelCloudWatchLogsProcessor(
         region  <- regionOpt.get
       } yield tagCache.getTags(logGroup, account, region)).getOrElse(Map.empty)
 
-    events.take(maxPerBatch).zipWithIndex.foreach {
+    val batch = events.take(maxPerBatch).zipWithIndex.map {
       case (ev, idx) =>
         val (requestIdOpt, levelRaw, msg) = parseLogLine(ev.message)
         val level = Option(levelRaw).filter(_.nonEmpty).getOrElse("INFO").toUpperCase
@@ -77,19 +77,18 @@ class OTelCloudWatchLogsProcessor(
           "source"         -> subscriptionFilters.mkString("/")
         )
 
-        // logGroupTags: Map[String, String] from cache
-        val mergedTags: Map[String, Any] =
-          baseTags ++ logGroupTags // logGroupTags values win for duplicate keys
+        // logGroupTags values win for duplicate keys
+        val mergedTags: Map[String, Any] = baseTags ++ logGroupTags
 
-        val logDoc = OtelTcpLogger.buildLog(
+        OtelTcpLogger.buildLog(
           message = msg,
           level = level,
           loggerName = "cwlogs.subscription",
           tags = mergedTags
         )
-
-        sink.send(logDoc)
     }
+
+    sink.sendBatch(batch)
   }
 
   /**

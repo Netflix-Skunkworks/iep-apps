@@ -112,7 +112,7 @@ object OtelTcpLogger extends StrictLogging {
 
 object OtelTcpSink extends OtelLogSink {
 
-  override def send(log: OtelLog): Unit = {
-    OtelTcpLogger.sendLog(log)
+  override def sendBatch(logs: Seq[OtelLog]): Unit = {
+    logs.foreach(OtelTcpLogger.sendLog)
   }
 }
