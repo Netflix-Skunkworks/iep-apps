@@ -88,7 +88,7 @@ class CloudWatchConfiguration extends StrictLogging {
     system: ActorSystem
   ): OtelLogSink = {
     val r = registry.orElseGet(() => globalRegistry())
-    new LogsPublishQueue(config, r, OtelTcpLogger.sendLog)(system)
+    new LogsPublishQueue(config, r, OtelTcpLogger.sendBatch)(system)
   }
 
   @Bean

@@ -27,22 +27,23 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
 /**
- * Bounded async queue that drains log batches to OtelTcpLogger.sendLog.
+ * Bounded async queue that drains log batches to OtelTcpLogger.sendBatch.
  *
  * Each element in the queue is a batch of OtelLog entries from a single log stream.
- * Up to `parallelism` batches are processed concurrently (one per stream), while logs
- * within each batch are sent sequentially — preserving intra-stream order.
+ * Up to `parallelism` batches are processed concurrently (one per stream), with each
+ * batch sent over a single TCP connection — one socket open/write/close per batch
+ * instead of one per log. This eliminates per-log goroutine pressure on the OTel collector.
  *
  * Absorbs traffic bursts: callers never block on TCP I/O. When the queue is full the
  * batch is dropped (counted) rather than causing OOM in the OTel collector.
  *
  * TCP sends run on a dedicated thread pool (logs-sink-dispatcher) so blocking calls
- * and retry sleeps inside sendLog never starve the main Akka dispatcher.
+ * and retry sleeps never starve the main Akka dispatcher.
  */
 class LogsPublishQueue(
   config: Config,
   registry: Registry,
-  sendLog: OtelLog => Unit
+  tcpSendBatch: Seq[OtelLog] => Unit
 )(implicit system: ActorSystem)
     extends OtelLogSink
     with StrictLogging {
@@ -64,10 +65,9 @@ class LogsPublishQueue(
     .blockingQueue[Seq[OtelLog]](registry, "logsQueue", queueSize)
     .mapAsync(parallelism) { batch =>
       Future {
-        batch.foreach { log =>
-          sendLog(log)
-          logsSent.increment()
-        }
+        // One TCP connection for the entire batch — all logs written then socket closed.
+        tcpSendBatch(batch)
+        logsSent.increment(batch.size)
       }(sinkDispatcher).recover {
         case e: Exception =>
           logger.warn(s"Failed to send log batch to OTel collector: ${e.getMessage}", e)

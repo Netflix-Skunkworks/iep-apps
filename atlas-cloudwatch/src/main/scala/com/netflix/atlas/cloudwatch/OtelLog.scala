@@ -63,18 +63,22 @@ object OtelTcpLogger extends StrictLogging {
     )
   }
 
-  private def trySend(line: String, attempt: Int): Boolean = {
+  // Serialize all logs up-front so JSON encoding never happens inside the socket write.
+  private def trySendBatch(lines: Seq[String], attempt: Int): Boolean = {
     var socket: Socket = null
     try {
       socket = new Socket()
       socket.connect(new InetSocketAddress(host, port), connectTimeout.toMillis.toInt)
       val writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream, "UTF-8"))
-      writer.write(line)
+      lines.foreach(writer.write)
       writer.flush()
       true
     } catch {
       case e: Exception =>
-        logger.warn(s"[otel-tcp-logger] attempt $attempt: error sending log: ${e.getMessage}", e)
+        logger.warn(
+          s"[otel-tcp-logger] attempt $attempt: error sending batch of ${lines.size}: ${e.getMessage}",
+          e
+        )
         false
     } finally {
       if (socket != null) {
@@ -90,14 +94,17 @@ object OtelTcpLogger extends StrictLogging {
     }
   }
 
-  def sendLog(log: OtelLog): Unit = {
-    val json = Json.encode(log)
-    val line = json + "\n"
+  /**
+   * Send all logs in a single TCP connection — one socket open/write/close per batch
+   * instead of one per log. Retries the whole batch on connection or write failure.
+   */
+  def sendBatch(logs: Seq[OtelLog]): Unit = {
+    val lines = logs.map(log => Json.encode(log) + "\n")
 
     var attempt = 1
     var done = false
     while (attempt <= maxAttempts && !done) {
-      if (trySend(line, attempt)) {
+      if (trySendBatch(lines, attempt)) {
         done = true
       } else if (attempt < maxAttempts) {
         Thread.sleep(retryDelay.toMillis)
@@ -112,7 +119,5 @@ object OtelTcpLogger extends StrictLogging {
 
 object OtelTcpSink extends OtelLogSink {
 
-  override def sendBatch(logs: Seq[OtelLog]): Unit = {
-    logs.foreach(OtelTcpLogger.sendLog)
-  }
+  override def sendBatch(logs: Seq[OtelLog]): Unit = OtelTcpLogger.sendBatch(logs)
 }
