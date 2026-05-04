@@ -24,7 +24,6 @@ import org.apache.pekko.testkit.TestKitBase
 
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
 
 class LogsPublishQueueSuite extends FunSuite with TestKitBase {
 
@@ -94,11 +93,11 @@ class LogsPublishQueueSuite extends FunSuite with TestKitBase {
   test("sendBatch exception drops whole batch and increments dropped by batch size") {
     val registry = new DefaultRegistry()
     val received = new LinkedBlockingQueue[String]()
-    val callCount = new AtomicInteger(0)
 
     val queue = makeQueue(
       batch => {
-        if (callCount.incrementAndGet() == 1)
+        // Fail deterministically based on content, not call order — avoids race with parallelism>1
+        if (batch.exists(_.message.startsWith("will-fail")))
           throw new RuntimeException("TCP error")
         else
           batch.foreach(log => received.put(log.message))
