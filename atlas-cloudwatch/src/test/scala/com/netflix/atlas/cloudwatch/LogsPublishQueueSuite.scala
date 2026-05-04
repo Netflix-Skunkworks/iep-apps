@@ -34,7 +34,7 @@ class LogsPublishQueueSuite extends FunSuite with TestKitBase {
     OtelLog(System.currentTimeMillis(), msg, "INFO", "test.logger", Map("env" -> "test"))
 
   private def makeQueue(
-    sendLog: OtelLog => Unit,
+    tcpSendBatch: Seq[OtelLog] => Unit,
     registry: Registry = new DefaultRegistry(),
     queueSize: Int = 1000,
     parallelism: Int = 4
@@ -43,25 +43,25 @@ class LogsPublishQueueSuite extends FunSuite with TestKitBase {
       s"""atlas.cloudwatch.logs.queue.queueSize = $queueSize
          |atlas.cloudwatch.logs.queue.parallelism = $parallelism""".stripMargin
     )
-    new LogsPublishQueue(cfg, registry, sendLog)
+    new LogsPublishQueue(cfg, registry, tcpSendBatch)
   }
 
-  test("batch is delivered to sendLog") {
-    val received = new LinkedBlockingQueue[OtelLog]()
-    val queue = makeQueue(log => received.put(log))
+  test("batch is delivered to sendBatch as a single call") {
+    val received = new LinkedBlockingQueue[Seq[OtelLog]]()
+    val queue = makeQueue(batch => received.put(batch))
 
-    queue.sendBatch(List(sampleLog("hello")))
+    val logs = List(sampleLog("a"), sampleLog("b"), sampleLog("c"))
+    queue.sendBatch(logs)
 
     val delivered = received.poll(10, TimeUnit.SECONDS)
     assertNotEquals(delivered, null)
-    assertEquals(delivered.message, "hello")
+    assertEquals(delivered.map(_.message), List("a", "b", "c"))
   }
 
   test("logs within a batch are delivered in order") {
     val received = new LinkedBlockingQueue[String]()
-    val queue = makeQueue(log => received.put(log.message))
+    val queue = makeQueue(batch => batch.foreach(log => received.put(log.message)))
 
-    // Single batch — logs are always sequential within a batch regardless of parallelism
     queue.sendBatch((1 to 5).map(i => sampleLog(s"msg-$i")))
 
     val messages = (1 to 5).map(_ => received.poll(10, TimeUnit.SECONDS))
@@ -70,52 +70,47 @@ class LogsPublishQueueSuite extends FunSuite with TestKitBase {
 
   test("batches from different streams are processed concurrently") {
     val received = new LinkedBlockingQueue[String]()
-    val queue = makeQueue(log => received.put(log.message))
+    val queue = makeQueue(batch => batch.foreach(log => received.put(log.message)))
 
     queue.sendBatch(List(sampleLog("stream-a-1"), sampleLog("stream-a-2")))
     queue.sendBatch(List(sampleLog("stream-b-1"), sampleLog("stream-b-2")))
 
     val messages = (1 to 4).map(_ => received.poll(10, TimeUnit.SECONDS)).toSet
-    assertEquals(
-      messages,
-      Set("stream-a-1", "stream-a-2", "stream-b-1", "stream-b-2")
-    )
+    assertEquals(messages, Set("stream-a-1", "stream-a-2", "stream-b-1", "stream-b-2"))
   }
 
-  test("sent counter increments once per log") {
+  test("sent counter increments by batch size on success") {
     val registry = new DefaultRegistry()
-    val received = new LinkedBlockingQueue[OtelLog]()
-    val queue = makeQueue(log => received.put(log), registry)
+    val received = new LinkedBlockingQueue[Seq[OtelLog]]()
+    val queue = makeQueue(batch => received.put(batch), registry)
 
     queue.sendBatch(List(sampleLog("a"), sampleLog("b"), sampleLog("c")))
-    (1 to 3).foreach(_ => received.poll(10, TimeUnit.SECONDS))
+    received.poll(10, TimeUnit.SECONDS)
     Thread.sleep(200)
 
     assertEquals(registry.counter("atlas.cloudwatch.logs.queue.sent").count(), 3L)
   }
 
-  test("sendLog exception drops the batch and increments dropped by batch size") {
+  test("sendBatch exception drops whole batch and increments dropped by batch size") {
     val registry = new DefaultRegistry()
-    val successReceived = new LinkedBlockingQueue[String]()
+    val received = new LinkedBlockingQueue[String]()
     val callCount = new AtomicInteger(0)
 
     val queue = makeQueue(
-      log => {
+      batch => {
         if (callCount.incrementAndGet() == 1)
           throw new RuntimeException("TCP error")
         else
-          successReceived.put(log.message)
+          batch.foreach(log => received.put(log.message))
       },
       registry
     )
 
-    // First batch will fail on the first log (exception thrown mid-batch)
     queue.sendBatch(List(sampleLog("will-fail"), sampleLog("also-dropped")))
-    // Second batch succeeds
     queue.sendBatch(List(sampleLog("ok-1"), sampleLog("ok-2")))
 
-    assertEquals(successReceived.poll(10, TimeUnit.SECONDS), "ok-1")
-    assertEquals(successReceived.poll(10, TimeUnit.SECONDS), "ok-2")
+    assertEquals(received.poll(10, TimeUnit.SECONDS), "ok-1")
+    assertEquals(received.poll(10, TimeUnit.SECONDS), "ok-2")
 
     Thread.sleep(200)
     assertEquals(registry.counter("atlas.cloudwatch.logs.queue.dropped").count(), 2L)
