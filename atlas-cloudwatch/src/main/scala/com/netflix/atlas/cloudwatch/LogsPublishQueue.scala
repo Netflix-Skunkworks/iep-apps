@@ -27,10 +27,14 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
 /**
- * Bounded async queue that drains OtelLog entries to OtelTcpLogger.sendLog.
+ * Bounded async queue that drains log batches to OtelTcpLogger.sendLog.
+ *
+ * Each element in the queue is a batch of OtelLog entries from a single log stream.
+ * Up to `parallelism` batches are processed concurrently (one per stream), while logs
+ * within each batch are sent sequentially — preserving intra-stream order.
  *
  * Absorbs traffic bursts: callers never block on TCP I/O. When the queue is full the
- * entry is dropped (counted) rather than causing OOM in the OTel collector.
+ * batch is dropped (counted) rather than causing OOM in the OTel collector.
  *
  * TCP sends run on a dedicated thread pool (logs-sink-dispatcher) so blocking calls
  * and retry sleeps inside sendLog never starve the main Akka dispatcher.
@@ -57,19 +61,21 @@ class LogsPublishQueue(
   private val logsDropped = registry.counter("atlas.cloudwatch.logs.queue.dropped")
 
   private val queue = StreamOps
-    .blockingQueue[OtelLog](registry, "logsQueue", queueSize)
-    .mapAsync(parallelism) { log =>
+    .blockingQueue[Seq[OtelLog]](registry, "logsQueue", queueSize)
+    .mapAsync(parallelism) { batch =>
       Future {
-        sendLog(log)
-        logsSent.increment()
+        batch.foreach { log =>
+          sendLog(log)
+          logsSent.increment()
+        }
       }(sinkDispatcher).recover {
         case e: Exception =>
-          logger.warn(s"Failed to send log to OTel collector: ${e.getMessage}", e)
-          logsDropped.increment()
+          logger.warn(s"Failed to send log batch to OTel collector: ${e.getMessage}", e)
+          logsDropped.increment(batch.size)
       }
     }
     .toMat(Sink.ignore)(Keep.left)
     .run()
 
-  override def send(log: OtelLog): Unit = queue.offer(log)
+  override def sendBatch(logs: Seq[OtelLog]): Unit = queue.offer(logs)
 }

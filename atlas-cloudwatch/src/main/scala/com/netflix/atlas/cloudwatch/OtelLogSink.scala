@@ -16,5 +16,10 @@
 package com.netflix.atlas.cloudwatch
 
 trait OtelLogSink {
-  def send(log: OtelLog): Unit
+
+  /**
+   * Send a batch of logs that all belong to the same log stream.
+   * Implementations must preserve the order of logs within the batch.
+   */
+  def sendBatch(logs: Seq[OtelLog]): Unit
 }

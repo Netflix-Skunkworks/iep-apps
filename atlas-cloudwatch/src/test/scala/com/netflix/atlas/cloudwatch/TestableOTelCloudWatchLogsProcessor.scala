@@ -27,7 +27,7 @@ import scala.jdk.CollectionConverters.*
 class TestableOTelCloudWatchLogsProcessor(
   val sinkStub: StubOtelLogSink = new StubOtelLogSink
 ) extends OTelCloudWatchLogsProcessor(
-      ConfigFactory.load().getConfig("atlas.cloudwatch.logs"),
+      ConfigFactory.load(),
       sinkStub,
       null
     ) {
@@ -49,8 +49,8 @@ class StubOtelLogSink extends OtelLogSink {
 
   private val queue = new ConcurrentLinkedQueue[OtelLog]()
 
-  override def send(log: OtelLog): Unit = {
-    queue.add(log)
+  override def sendBatch(logs: Seq[OtelLog]): Unit = {
+    logs.foreach(queue.add)
   }
 
   def logs: List[OtelLog] =
