@@ -147,6 +147,40 @@ class DefaultTaggerSuite extends FunSuite {
     assertEquals(tagger(withARN), expected)
   }
 
+  test("extra-directives produce additional tags without affecting primary extraction") {
+    val cfg = ConfigFactory.parseString("""
+        |extractors = [
+        |  {
+        |    name = "OutputARN"
+        |    directives = [
+        |      {
+        |        pattern = "arn:aws:\\w+:([a-z\\-0-9]+):\\d+:output:\\d-[a-zA-Z0-9]+-[a-zA-Z0-9]+:(.*)"
+        |        alias = "aws.output"
+        |      }
+        |    ]
+        |    extra-directives = [
+        |      {
+        |        pattern = "arn:aws:\\w+:[a-z\\-0-9]+:\\d+:output:(\\d-[a-zA-Z0-9]+-[a-zA-Z0-9]+):.*"
+        |        alias = "aws.outputId"
+        |      }
+        |    ]
+        |  }
+        |]
+        |mappings = []
+        |common-tags = []
+        |valid-tag-characters = "-._A-Za-z0-9"
+        |valid-tag-value-characters = []
+      """.stripMargin)
+
+    val arn =
+      "arn:aws:mediaconnect:us-east-1:662787462842:output:1-DAIFVwkGVVtWCVNU-0526d3e30ac0:FuryMak_090_USE1_01"
+    val dims = List(Dimension.builder().name("OutputARN").value(arn).build())
+    val tagger = new DefaultTagger(cfg)
+    val result = tagger(dims)
+    assertEquals(result.get("aws.output"), Some("us-east-1-FuryMak_090_USE1_01"))
+    assertEquals(result.get("aws.outputId"), Some("1-DAIFVwkGVVtWCVNU-0526d3e30ac0"))
+  }
+
   test("syntax error in extractor pattern throws") {
     val cfg = ConfigFactory.parseString("""
         |extractors = [

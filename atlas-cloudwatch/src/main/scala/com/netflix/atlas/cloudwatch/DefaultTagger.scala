@@ -61,6 +61,25 @@ class DefaultTagger(config: Config) extends Tagger {
     }
     .toMap
 
+  private val extraExtractors: Map[String, List[(Regex, String)]] = config
+    .getConfigList("extractors")
+    .asScala
+    .flatMap { c =>
+      if (c.hasPath("extra-directives")) {
+        val directives = c
+          .getConfigList("extra-directives")
+          .asScala
+          .map { cl =>
+            cl.getString("pattern").r -> cl.getString("alias")
+          }
+          .toList
+        Some(c.getString("name") -> directives)
+      } else {
+        None
+      }
+    }
+    .toMap
+
   private val mappings: Map[String, String] = config
     .getConfigList("mappings")
     .asScala
@@ -73,12 +92,12 @@ class DefaultTagger(config: Config) extends Tagger {
     .map(c => c.getString("key") -> c.getString("value"))
     .toMap
 
-  private def toTag(dimension: Dimension): (String, String) = {
+  private def toTags(dimension: Dimension): List[(String, String)] = {
     val cwName = dimension.name
     val cwValue = dimension.value
 
     val extractor = DefaultTagger.ValueExtractor(cwValue)
-    extractors
+    val primary = extractors
       .get(cwName)
       .flatMap { directives =>
         directives.collectFirst {
@@ -86,6 +105,17 @@ class DefaultTagger(config: Config) extends Tagger {
         }
       }
       .getOrElse(mappings.getOrElse(cwName, cwName) -> cwValue)
+
+    val extras = extraExtractors
+      .get(cwName)
+      .toList
+      .flatMap { directives =>
+        directives.collect {
+          case extractor(a, v) => a -> v
+        }
+      }
+
+    primary :: extras
   }
 
   override def fixTags(d: Datapoint): Datapoint = {
@@ -99,7 +129,7 @@ class DefaultTagger(config: Config) extends Tagger {
   }
 
   override def apply(dimensions: List[Dimension]): Map[String, String] = {
-    commonTags ++ dimensions.map(toTag).toMap
+    commonTags ++ dimensions.flatMap(toTags).toMap
   }
 }
 
