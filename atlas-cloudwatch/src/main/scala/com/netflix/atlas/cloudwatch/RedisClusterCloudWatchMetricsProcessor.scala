@@ -28,6 +28,7 @@ import com.typesafe.scalalogging.StrictLogging
 import redis.clients.jedis.CommandObjects
 import redis.clients.jedis.Protocol.Command
 import redis.clients.jedis.RedisClusterClient
+import redis.clients.jedis.RedisProtocol
 import redis.clients.jedis.params.ScanParams
 import redis.clients.jedis.params.SetParams
 import redis.clients.jedis.util.JedisClusterCRC16
@@ -102,7 +103,7 @@ class RedisClusterCloudWatchMetricsProcessor(
   private val scanParams = new ScanParams()
     .`match`("cwf:*")
     .count(config.getInt("atlas.redis-cluster.scan.count"))
-  private val commandObjects = new CommandObjects()
+  private val commandObjects = new CommandObjects(RedisProtocol.RESP2)
   private val maxBatch = config.getInt("atlas.redis-cluster.batch.size")
   private val pollKey = "cw_last_poll_"
 
