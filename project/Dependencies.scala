@@ -52,7 +52,7 @@ object Dependencies {
   val iepSpringJmx       = "com.netflix.iep" % "iep-spring-jmxport" % iep
   val iepSpringLeader    = "com.netflix.iep" % "iep-spring-leader" % iep
   val jedis              = "redis.clients" % "jedis" % "7.5.2"
-  val jsonSchema         = "com.networknt" % "json-schema-validator" % "3.0.1"
+  val jsonSchema         = "com.networknt" % "json-schema-validator" % "3.0.3"
   val jsr305             = "com.google.code.findbugs" % "jsr305" % "3.0.2"
   val log4jApi           = "org.apache.logging.log4j" % "log4j-api" % log4j
   val log4jCore          = "org.apache.logging.log4j" % "log4j-core" % log4j
