@@ -41,6 +41,7 @@ import software.amazon.awssdk.services.cloudwatch.model.PutMetricDataRequest
 import software.amazon.awssdk.services.cloudwatch.model.PutMetricDataResponse
 
 import java.time.Instant
+import java.util.regex.Pattern
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
@@ -194,6 +195,79 @@ class ForwardingServiceSuite extends FunSuite {
 
     assert(msg.isInvalid)
     assert(!msg.isUpdate)
+  }
+
+  //
+  // expressionMatchesInstance / effectiveRegionEnv tests
+  //
+
+  private val legacyFilter = Pattern.compile(".*atlas-main[.]us-east-1[.]test[.]example[.]com.*")
+  private val instanceRegion = "us-east-1"
+  private val instanceEnv = "test"
+
+  test("effectiveRegionEnv: regional namespace") {
+    val uri = "http://localhost/api/v1/graph?q=name,cpu,:eq,:sum&ns=main-us-east-1.test"
+    assertEquals(effectiveRegionEnv(uri), Some((Some("us-east-1"), "test")))
+  }
+
+  test("effectiveRegionEnv: global namespace no region") {
+    val uri = "http://localhost/api/v1/graph?q=name,cpu,:eq,:sum&ns=main.test"
+    assertEquals(effectiveRegionEnv(uri), Some((None, "test")))
+  }
+
+  test("effectiveRegionEnv: service name with hyphens") {
+    val uri = "http://localhost/api/v1/graph?q=name,cpu,:eq,:sum&ns=iep-us-east-1.prod"
+    assertEquals(effectiveRegionEnv(uri), Some((Some("us-east-1"), "prod")))
+  }
+
+  test("effectiveRegionEnv: no ns param") {
+    val uri = "http://atlas-main.us-east-1.test.example.com/api/v1/graph?q=name,cpu,:eq,:sum"
+    assertEquals(effectiveRegionEnv(uri), None)
+  }
+
+  test("expressionMatchesInstance: legacy URI passes through unchanged") {
+    val uri = "http://atlas-main.us-east-1.test.example.com/api/v1/graph?q=name,cpu,:eq,:sum"
+    assert(expressionMatchesInstance(uri, legacyFilter, instanceRegion, instanceEnv))
+  }
+
+  test("expressionMatchesInstance: legacy URI wrong region drops") {
+    val uri = "http://atlas-main.us-east-2.test.example.com/api/v1/graph?q=name,cpu,:eq,:sum"
+    assert(!expressionMatchesInstance(uri, legacyFilter, instanceRegion, instanceEnv))
+  }
+
+  test("expressionMatchesInstance: ns= regional match") {
+    val uri = "http://localhost/api/v1/graph?q=name,cpu,:eq,:sum&ns=main-us-east-1.test"
+    assert(expressionMatchesInstance(uri, legacyFilter, instanceRegion, instanceEnv))
+  }
+
+  test("expressionMatchesInstance: ns= regional region mismatch") {
+    val uri = "http://localhost/api/v1/graph?q=name,cpu,:eq,:sum&ns=main-us-east-2.test"
+    assert(!expressionMatchesInstance(uri, legacyFilter, instanceRegion, instanceEnv))
+  }
+
+  test("expressionMatchesInstance: ns= regional env mismatch") {
+    val uri = "http://localhost/api/v1/graph?q=name,cpu,:eq,:sum&ns=main-us-east-1.prod"
+    assert(!expressionMatchesInstance(uri, legacyFilter, instanceRegion, instanceEnv))
+  }
+
+  test("expressionMatchesInstance: ns= global namespace matches us-east-1") {
+    val uri = "http://localhost/api/v1/graph?q=name,cpu,:eq,:sum&ns=main.test"
+    assert(expressionMatchesInstance(uri, legacyFilter, "us-east-1", instanceEnv))
+  }
+
+  test("expressionMatchesInstance: ns= global namespace drops non-us-east-1 region") {
+    val uri = "http://localhost/api/v1/graph?q=name,cpu,:eq,:sum&ns=main.test"
+    assert(!expressionMatchesInstance(uri, legacyFilter, "us-west-2", instanceEnv))
+  }
+
+  test("expressionMatchesInstance: ns= global namespace env mismatch") {
+    val uri = "http://localhost/api/v1/graph?q=name,cpu,:eq,:sum&ns=main.prod"
+    assert(!expressionMatchesInstance(uri, legacyFilter, "us-east-1", instanceEnv))
+  }
+
+  test("expressionMatchesInstance: no ns= and no legacy match drops") {
+    val uri = "http://localhost/api/v1/graph?q=name,cpu,:eq,:sum"
+    assert(!expressionMatchesInstance(uri, legacyFilter, instanceRegion, instanceEnv))
   }
 
   //

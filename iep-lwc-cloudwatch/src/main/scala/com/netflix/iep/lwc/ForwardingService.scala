@@ -108,6 +108,8 @@ class ForwardingService(
   override def startImpl(): Unit = {
     val putEnabled = config.getBoolean("iep.lwc.cloudwatch.put-enabled")
     val pattern = Pattern.compile(config.getString("iep.lwc.cloudwatch.filter"))
+    val instanceRegion = config.getString("netflix.iep.env.region")
+    val instanceEnv = config.getString("netflix.iep.env.environment")
     val uri = config.getString("iep.lwc.cloudwatch.uri")
     val namespace = config.getString("iep.lwc.cloudwatch.namespace")
     val adminUri = Uri(config.getString("iep.lwc.cloudwatch.admin-uri"))
@@ -133,7 +135,9 @@ class ForwardingService(
         numConfigs.set(configs.size)
         val filtered = configs.map {
           case (key, config) =>
-            val exprs = config.expressions.filter(e => pattern.matcher(e.atlasUri).matches())
+            val exprs = config.expressions.filter(e =>
+              expressionMatchesInstance(e.atlasUri, pattern, instanceRegion, instanceEnv)
+            )
             key -> config.copy(expressions = exprs)
         }
         configStats.updateConfigs(filtered)
@@ -206,6 +210,41 @@ object ForwardingService extends StrictLogging {
   type Client = Flow[(HttpRequest, AccessLogger), (Try[HttpResponse], AccessLogger), NotUsed]
 
   private val MaxFrameLength = 65536
+
+  private val awsRegionPattern = Pattern.compile("[a-z]+-[a-z]+-\\d")
+
+  def effectiveRegionEnv(atlasUri: String): Option[(Option[String], String)] = {
+    val uri = Uri(atlasUri)
+    uri.query().get("ns").flatMap { ns =>
+      val dotIdx = ns.lastIndexOf('.')
+      if (dotIdx < 0) None
+      else {
+        val env = ns.substring(dotIdx + 1)
+        val prefix = ns.substring(0, dotIdx)
+        val m = awsRegionPattern.matcher(prefix)
+        val region = if (m.find()) Some(m.group()) else None
+        Some((region, env))
+      }
+    }
+  }
+
+  def expressionMatchesInstance(
+    atlasUri: String,
+    legacyPattern: Pattern,
+    instanceRegion: String,
+    instanceEnv: String
+  ): Boolean = {
+    if (legacyPattern.matcher(atlasUri).matches()) return true
+    effectiveRegionEnv(atlasUri) match {
+      case None =>
+        logger.warn(s"dropping expression with no ns= param and no legacy filter match: $atlasUri")
+        false
+      case Some((None, env)) =>
+        instanceRegion == "us-east-1" && env == instanceEnv
+      case Some((Some(region), env)) =>
+        region == instanceRegion && env == instanceEnv
+    }
+  }
 
   def autoReconnectHttpSource(uri: String, client: Client): Source[ByteString, NotUsed] = {
     Source
