@@ -201,7 +201,7 @@ class ForwardingServiceSuite extends FunSuite {
   // expressionMatchesInstance / effectiveRegionEnv tests
   //
 
-  private val legacyFilter = Pattern.compile(".*atlas-main[.]us-east-1[.]test[.]example[.]com.*")
+  private val legacyFilter = Pattern.compile(".*atlas-foo[.]us-east-1[.]test[.]example[.]com.*")
   private val instanceRegion = "us-east-1"
   private val instanceEnv = "test"
 
@@ -221,17 +221,17 @@ class ForwardingServiceSuite extends FunSuite {
   }
 
   test("effectiveRegionEnv: no ns param") {
-    val uri = "http://atlas-main.us-east-1.test.example.com/api/v1/graph?q=name,cpu,:eq,:sum"
+    val uri = "http://atlas-foo.us-east-1.test.example.com/api/v1/graph?q=name,cpu,:eq,:sum"
     assertEquals(effectiveRegionEnv(uri), None)
   }
 
   test("expressionMatchesInstance: legacy URI passes through unchanged") {
-    val uri = "http://atlas-main.us-east-1.test.example.com/api/v1/graph?q=name,cpu,:eq,:sum"
+    val uri = "http://atlas-foo.us-east-1.test.example.com/api/v1/graph?q=name,cpu,:eq,:sum"
     assert(expressionMatchesInstance(uri, legacyFilter, instanceRegion, instanceEnv))
   }
 
   test("expressionMatchesInstance: legacy URI wrong region drops") {
-    val uri = "http://atlas-main.us-east-2.test.example.com/api/v1/graph?q=name,cpu,:eq,:sum"
+    val uri = "http://atlas-foo.us-east-2.test.example.com/api/v1/graph?q=name,cpu,:eq,:sum"
     assert(!expressionMatchesInstance(uri, legacyFilter, instanceRegion, instanceEnv))
   }
 
