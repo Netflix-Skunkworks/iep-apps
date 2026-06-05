@@ -24,13 +24,11 @@ import java.util.regex.Pattern
   *
   * Supports two URI styles:
   *
-  * Legacy: region/env embedded in the hostname
-  *   http://atlas-iep.us-east-1.iepprod.example.com/api/v1/graph?q=...
+  * Legacy: region/env embedded in the hostname, matched via the configured filter regex.
   *
-  * New (atlas-query): region/env carried via query parameters
-  *   http://atlas-query.example.com/api/v1/graph?q=...&ns=iep-us-east-1.prod
-  *   http://atlas-query.example.com/api/v1/graph?q=...&ns=main.prod&cq=nf.region,us-east-1,:eq
-  *   http://atlas-query.example.com/api/v1/graph?q=...nf.region,us-east-1,:eq...&ns=main.prod
+  * New (atlas-query): region/env carried via query parameters. Region is resolved
+  * from the ns= namespace string, then cq= common query, then q= query, in that order.
+  * Global expressions (ns= with no region from any source) are not supported.
   */
 object ExpressionScope {
 
