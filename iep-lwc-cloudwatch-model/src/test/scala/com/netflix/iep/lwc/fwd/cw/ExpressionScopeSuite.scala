@@ -52,12 +52,14 @@ class ExpressionScopeSuite extends FunSuite {
   }
 
   test("effectiveRegionEnv: region from cq= when not in namespace") {
-    val uri = "http://localhost/api/v1/graph?q=name,cpu,:eq,:sum&ns=main.prod&cq=nf.region,us-east-1,:eq"
+    val uri =
+      "http://localhost/api/v1/graph?q=name,cpu,:eq,:sum&ns=main.prod&cq=nf.region,us-east-1,:eq"
     assertEquals(effectiveRegionEnv(uri), Some((Some("us-east-1"), "prod")))
   }
 
   test("effectiveRegionEnv: region from q= when not in namespace or cq") {
-    val uri = "http://localhost/api/v1/graph?q=name,cpu,:eq,nf.region,us-east-1,:eq,:and,:sum&ns=main.prod"
+    val uri =
+      "http://localhost/api/v1/graph?q=name,cpu,:eq,nf.region,us-east-1,:eq,:and,:sum&ns=main.prod"
     assertEquals(effectiveRegionEnv(uri), Some((Some("us-east-1"), "prod")))
   }
 
@@ -111,17 +113,20 @@ class ExpressionScopeSuite extends FunSuite {
   }
 
   test("matchesInstance: ns= global with cq= region match") {
-    val uri = "http://localhost/api/v1/graph?q=name,cpu,:eq,:sum&ns=main.test&cq=nf.region,us-east-1,:eq"
+    val uri =
+      "http://localhost/api/v1/graph?q=name,cpu,:eq,:sum&ns=main.test&cq=nf.region,us-east-1,:eq"
     assert(matchesInstance(uri, legacyFilter, instanceRegion, instanceEnv))
   }
 
   test("matchesInstance: ns= global with cq= region mismatch") {
-    val uri = "http://localhost/api/v1/graph?q=name,cpu,:eq,:sum&ns=main.test&cq=nf.region,us-west-2,:eq"
+    val uri =
+      "http://localhost/api/v1/graph?q=name,cpu,:eq,:sum&ns=main.test&cq=nf.region,us-west-2,:eq"
     assert(!matchesInstance(uri, legacyFilter, instanceRegion, instanceEnv))
   }
 
   test("matchesInstance: ns= global with q= region match") {
-    val uri = "http://localhost/api/v1/graph?q=name,cpu,:eq,nf.region,us-east-1,:eq,:and,:sum&ns=main.test"
+    val uri =
+      "http://localhost/api/v1/graph?q=name,cpu,:eq,nf.region,us-east-1,:eq,:and,:sum&ns=main.test"
     assert(matchesInstance(uri, legacyFilter, instanceRegion, instanceEnv))
   }
 }
