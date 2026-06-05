@@ -23,6 +23,7 @@ import com.netflix.atlas.core.model.TimeSeriesExpr
 import com.netflix.atlas.eval.stream.Evaluator
 import com.netflix.atlas.json3.Json
 import com.netflix.iep.lwc.fwd.cw.ClusterConfig
+import com.netflix.iep.lwc.fwd.cw.ExpressionScope
 import com.netflix.iep.lwc.fwd.cw.ForwardingDimension
 import com.netflix.iep.lwc.fwd.cw.ForwardingExpression
 import com.typesafe.scalalogging.StrictLogging
@@ -32,6 +33,7 @@ class CwExprValidations(interpreter: ExprInterpreter, evaluator: Evaluator) exte
   private val validations = List(
     Validation("SingleExpression", true, (_, exprs) => singleExpression(exprs)),
     Validation("ValidStreamingExpr", true, (expr, _) => validStreamingExpr(expr)),
+    Validation("RegionScope", true, (expr, _) => regionScope(expr)),
     Validation("AsgGrouping", false, asgGrouping),
     Validation("AccountGrouping", false, accountGrouping),
     Validation("AllGroupingsMapped", true, allGroupingsMapped),
@@ -79,6 +81,21 @@ class CwExprValidations(interpreter: ExprInterpreter, evaluator: Evaluator) exte
         throw new IllegalArgumentException(s"Invalid validation: $name")
       )
       .required
+  }
+
+  def regionScope(expr: ForwardingExpression): Unit = {
+    ExpressionScope.effectiveRegionEnv(expr.atlasUri) match {
+      case Some((None, _)) =>
+        throw new IllegalArgumentException(
+          "global expressions are not supported for CW forwarding; " +
+            "add region scope via ns=<service>-<region>.<env>, " +
+            "cq=nf.region,<region>,:eq, or nf.region,<region>,:eq in the query"
+        )
+      case Some((Some(_), _)) =>
+      // ns= present with determinable region scope, OK
+      case None =>
+      // no ns= param, legacy URI — region scoping handled by the forwarder filter
+    }
   }
 
   def validStreamingExpr(expr: ForwardingExpression): Unit = {

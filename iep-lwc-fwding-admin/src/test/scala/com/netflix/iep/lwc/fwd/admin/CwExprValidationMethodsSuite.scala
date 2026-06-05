@@ -39,6 +39,72 @@ class CwExprValidationMethodsSuite
     new Evaluator(config, new NoopRegistry(), system)
   )
 
+  //
+  // regionScope tests
+  //
+
+  test("regionScope: legacy URI without ns= passes") {
+    val expr = ForwardingExpression(
+      "http://localhost/api/v1/graph?q=name,cpu,:eq,(,nf.account,nf.asg,),:by",
+      "$(nf.account)",
+      None,
+      "cpu",
+      List(ForwardingDimension("AutoScalingGroupName", "$(nf.asg)"))
+    )
+    validations.regionScope(expr)
+  }
+
+  test("regionScope: ns= with region in namespace passes") {
+    val expr = ForwardingExpression(
+      "http://localhost/api/v1/graph?q=name,cpu,:eq,(,nf.account,nf.asg,),:by&ns=main-us-east-1.prod",
+      "$(nf.account)",
+      None,
+      "cpu",
+      List(ForwardingDimension("AutoScalingGroupName", "$(nf.asg)"))
+    )
+    validations.regionScope(expr)
+  }
+
+  test("regionScope: ns= with region in cq= passes") {
+    val expr = ForwardingExpression(
+      "http://localhost/api/v1/graph?q=name,cpu,:eq,(,nf.account,nf.asg,),:by&ns=main.prod&cq=nf.region,us-east-1,:eq",
+      "$(nf.account)",
+      None,
+      "cpu",
+      List(ForwardingDimension("AutoScalingGroupName", "$(nf.asg)"))
+    )
+    validations.regionScope(expr)
+  }
+
+  test("regionScope: ns= with region in q= passes") {
+    val expr = ForwardingExpression(
+      "http://localhost/api/v1/graph?q=name,cpu,:eq,nf.region,us-east-1,:eq,:and,(,nf.account,nf.asg,),:by&ns=main.prod",
+      "$(nf.account)",
+      None,
+      "cpu",
+      List(ForwardingDimension("AutoScalingGroupName", "$(nf.asg)"))
+    )
+    validations.regionScope(expr)
+  }
+
+  test("regionScope: global expression (ns= with no region) is rejected") {
+    val expr = ForwardingExpression(
+      "http://localhost/api/v1/graph?q=name,cpu,:eq,(,nf.account,nf.asg,),:by&ns=main.prod",
+      "$(nf.account)",
+      None,
+      "cpu",
+      List(ForwardingDimension("AutoScalingGroupName", "$(nf.asg)"))
+    )
+    assertFailure(
+      validations.regionScope(expr),
+      "global expressions are not supported for CW forwarding"
+    )
+  }
+
+  //
+  // end regionScope tests
+  //
+
   test("Only one expression allowed") {
     val config = makeConfig(
       atlasUri = """
