@@ -211,22 +211,8 @@ object ForwardingService extends StrictLogging {
 
   private val MaxFrameLength = 65536
 
-  private val awsRegionPattern = Pattern.compile("[a-z]+-[a-z]+-\\d")
-
-  def effectiveRegionEnv(atlasUri: String): Option[(Option[String], String)] = {
-    val uri = Uri(atlasUri)
-    uri.query().get("ns").flatMap { ns =>
-      val dotIdx = ns.lastIndexOf('.')
-      if (dotIdx < 0) None
-      else {
-        val env = ns.substring(dotIdx + 1)
-        val prefix = ns.substring(0, dotIdx)
-        val m = awsRegionPattern.matcher(prefix)
-        val region = if (m.find()) Some(m.group()) else None
-        Some((region, env))
-      }
-    }
-  }
+  def effectiveRegionEnv(atlasUri: String): Option[(Option[String], String)] =
+    ExpressionScope.effectiveRegionEnv(atlasUri)
 
   def expressionMatchesInstance(
     atlasUri: String,
@@ -234,16 +220,22 @@ object ForwardingService extends StrictLogging {
     instanceRegion: String,
     instanceEnv: String
   ): Boolean = {
-    if (legacyPattern.matcher(atlasUri).matches()) return true
-    effectiveRegionEnv(atlasUri) match {
-      case None =>
-        logger.warn(s"dropping expression with no ns= param and no legacy filter match: $atlasUri")
-        false
-      case Some((None, env)) =>
-        instanceRegion == "us-east-1" && env == instanceEnv
-      case Some((Some(region), env)) =>
-        region == instanceRegion && env == instanceEnv
+    val matches =
+      ExpressionScope.matchesInstance(atlasUri, legacyPattern, instanceRegion, instanceEnv)
+    if (!matches) {
+      ExpressionScope.effectiveRegionEnv(atlasUri) match {
+        case None =>
+          logger.warn(
+            s"dropping expression with no ns= param and no legacy filter match: $atlasUri"
+          )
+        case Some((None, _)) =>
+          logger.warn(
+            s"dropping global expression (no region scope), not supported for CW forwarding: $atlasUri"
+          )
+        case _ =>
+      }
     }
+    matches
   }
 
   def autoReconnectHttpSource(uri: String, client: Client): Source[ByteString, NotUsed] = {
