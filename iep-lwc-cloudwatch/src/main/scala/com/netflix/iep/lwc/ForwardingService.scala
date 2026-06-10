@@ -223,12 +223,12 @@ object ForwardingService extends StrictLogging {
       // Resolve the scope once and use it for both the decision and the drop log message.
       ExpressionScope.effectiveRegionEnv(atlasUri) match {
         case None =>
-          logger.warn(
+          logger.debug(
             s"dropping expression with no ns= param and no legacy filter match: $atlasUri"
           )
           false
         case Some(ExpressionScope(_, None)) =>
-          logger.warn(
+          logger.debug(
             s"dropping global expression (no region scope), not supported for CW forwarding: $atlasUri"
           )
           false
