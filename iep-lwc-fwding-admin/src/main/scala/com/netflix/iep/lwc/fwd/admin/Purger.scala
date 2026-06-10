@@ -41,7 +41,9 @@ import scala.util.Success
 import scala.util.Try
 
 trait Purger {
+
   def purge(expressions: List[ExpressionId]): Future[Done]
+  def purgeInvalid(expressions: List[ExpressionId]): Future[Done]
 }
 
 class PurgerImpl(
@@ -62,6 +64,28 @@ class PurgerImpl(
 
   private def encodeUriParam(param: String): String = {
     URLEncoder.encode(param, "UTF-8")
+  }
+
+  override def purgeInvalid(expressions: List[ExpressionId]): Future[Done] = {
+    Source(expressions.groupBy(_.key).toList)
+      .flatMapConcat {
+        case (k, ids) =>
+          Source
+            .single(k)
+            .via(getClusterConfig(cwExprUri, client))
+            .map(cfg => (k, ids, cfg))
+      }
+      .flatMapConcat {
+        case (k, ids, cfg) =>
+          val updated = cfg.copy(expressions = cfg.expressions.diff(ids.map(_.expression)))
+          Source
+            .single((k, updated))
+            .via(doPurge(cwExprUriForUpdate, client))
+            .map(_ => ids)
+      }
+      .mapConcat(identity)
+      .via(deleteExprIds(expressionDetailsDao))
+      .runWith(Sink.ignore)
   }
 
   override def purge(expressions: List[ExpressionId]): Future[Done] = {
@@ -211,6 +235,20 @@ object PurgerImpl extends StrictLogging {
         }
         NotUsed
       })
+  }
+
+  def deleteExprIds(
+    expressionDetailsDao: ExpressionDetailsDao
+  ): Flow[ExpressionId, NotUsed, NotUsed] = {
+    Flow[ExpressionId]
+      .map { id =>
+        Try(expressionDetailsDao.delete(id)) match {
+          case Failure(e) => logger.error(s"Error deleting expression from DynamoDB", e)
+          case _          =>
+        }
+        NotUsed
+      }
+      .withAttributes(ActorAttributes.dispatcher(BlockingDispatcher))
   }
 
   def removeExprDetails(

@@ -92,4 +92,16 @@ class AppConfiguration {
   def cwExprValidations(interpreter: ExprInterpreter, evaluator: Evaluator): CwExprValidations = {
     new CwExprValidations(interpreter, evaluator)
   }
+
+  @Bean
+  def expressionSanityChecker(
+    config: Optional[Config],
+    expressionDetailsDao: ExpressionDetailsDao,
+    cwExprValidations: CwExprValidations,
+    purger: Purger,
+    system: ActorSystem
+  ): ExpressionSanityChecker = {
+    val c = config.orElseGet(() => ConfigFactory.load())
+    new ExpressionSanityChecker(c, expressionDetailsDao, cwExprValidations, purger, system)
+  }
 }
