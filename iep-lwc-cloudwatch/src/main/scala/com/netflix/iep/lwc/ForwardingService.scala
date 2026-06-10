@@ -211,31 +211,31 @@ object ForwardingService extends StrictLogging {
 
   private val MaxFrameLength = 65536
 
-  def effectiveRegionEnv(atlasUri: String): Option[(Option[String], String)] =
-    ExpressionScope.effectiveRegionEnv(atlasUri)
-
   def expressionMatchesInstance(
     atlasUri: String,
     legacyPattern: Pattern,
     instanceRegion: String,
     instanceEnv: String
   ): Boolean = {
-    val matches =
-      ExpressionScope.matchesInstance(atlasUri, legacyPattern, instanceRegion, instanceEnv)
-    if (!matches) {
+    if (legacyPattern.matcher(atlasUri).matches()) {
+      true
+    } else {
+      // Resolve the scope once and use it for both the decision and the drop log message.
       ExpressionScope.effectiveRegionEnv(atlasUri) match {
         case None =>
           logger.warn(
             s"dropping expression with no ns= param and no legacy filter match: $atlasUri"
           )
-        case Some((None, _)) =>
+          false
+        case Some(ExpressionScope(_, None)) =>
           logger.warn(
             s"dropping global expression (no region scope), not supported for CW forwarding: $atlasUri"
           )
-        case _ =>
+          false
+        case Some(ExpressionScope(env, Some(region))) =>
+          region == instanceRegion && env == instanceEnv
       }
     }
-    matches
   }
 
   def autoReconnectHttpSource(uri: String, client: Client): Source[ByteString, NotUsed] = {

@@ -179,6 +179,9 @@ lazy val `iep-lwc-bridge` = project
 
 lazy val `iep-lwc-cloudwatch-model` = project
   .configure(BuildSettings.profile)
+  .settings(libraryDependencies ++= Seq(
+    Dependencies.atlasCore
+  ))
 
 lazy val `iep-lwc-cloudwatch` = project
   .configure(BuildSettings.profile)

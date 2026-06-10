@@ -85,13 +85,13 @@ class CwExprValidations(interpreter: ExprInterpreter, evaluator: Evaluator) exte
 
   def regionScope(expr: ForwardingExpression): Unit = {
     ExpressionScope.effectiveRegionEnv(expr.atlasUri) match {
-      case Some((None, _)) =>
+      case Some(ExpressionScope(_, None)) =>
         throw new IllegalArgumentException(
           "global expressions are not supported for CW forwarding; " +
             "add region scope via ns=<service>-<region>.<env>, " +
             "cq=nf.region,<region>,:eq, or nf.region,<region>,:eq in the query"
         )
-      case Some((Some(_), _)) =>
+      case Some(ExpressionScope(_, Some(_))) =>
       // ns= present with determinable region scope, OK
       case None =>
       // no ns= param, legacy URI — region scoping handled by the forwarder filter
