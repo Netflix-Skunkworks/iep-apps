@@ -48,6 +48,7 @@ class ApiSuite extends MUnitRouteSuite with CwForwardingTestConfig with StrictLo
   private val markerService = new MarkerServiceTest()(Materializer(system))
 
   private val purger = new Purger {
+
     override def purge(expressions: List[ExpressionId]): Future[Done] = Future(Done)
     override def purgeInvalid(expressions: List[ExpressionId]): Future[Done] = Future(Done)
   }
