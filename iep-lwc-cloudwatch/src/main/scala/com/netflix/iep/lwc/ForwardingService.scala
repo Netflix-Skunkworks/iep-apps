@@ -108,6 +108,8 @@ class ForwardingService(
   override def startImpl(): Unit = {
     val putEnabled = config.getBoolean("iep.lwc.cloudwatch.put-enabled")
     val pattern = Pattern.compile(config.getString("iep.lwc.cloudwatch.filter"))
+    val instanceRegion = config.getString("netflix.iep.env.region")
+    val instanceEnv = config.getString("netflix.iep.env.environment")
     val uri = config.getString("iep.lwc.cloudwatch.uri")
     val namespace = config.getString("iep.lwc.cloudwatch.namespace")
     val adminUri = Uri(config.getString("iep.lwc.cloudwatch.admin-uri"))
@@ -133,7 +135,9 @@ class ForwardingService(
         numConfigs.set(configs.size)
         val filtered = configs.map {
           case (key, config) =>
-            val exprs = config.expressions.filter(e => pattern.matcher(e.atlasUri).matches())
+            val exprs = config.expressions.filter(e =>
+              expressionMatchesInstance(e.atlasUri, pattern, instanceRegion, instanceEnv)
+            )
             key -> config.copy(expressions = exprs)
         }
         configStats.updateConfigs(filtered)
@@ -206,6 +210,33 @@ object ForwardingService extends StrictLogging {
   type Client = Flow[(HttpRequest, AccessLogger), (Try[HttpResponse], AccessLogger), NotUsed]
 
   private val MaxFrameLength = 65536
+
+  def expressionMatchesInstance(
+    atlasUri: String,
+    legacyPattern: Pattern,
+    instanceRegion: String,
+    instanceEnv: String
+  ): Boolean = {
+    if (legacyPattern.matcher(atlasUri).matches()) {
+      true
+    } else {
+      // Resolve the scope once and use it for both the decision and the drop log message.
+      ExpressionScope.effectiveRegionEnv(atlasUri) match {
+        case None =>
+          logger.warn(
+            s"dropping expression with no ns= param and no legacy filter match: $atlasUri"
+          )
+          false
+        case Some(ExpressionScope(_, None)) =>
+          logger.warn(
+            s"dropping global expression (no region scope), not supported for CW forwarding: $atlasUri"
+          )
+          false
+        case Some(ExpressionScope(env, Some(region))) =>
+          region == instanceRegion && env == instanceEnv
+      }
+    }
+  }
 
   def autoReconnectHttpSource(uri: String, client: Client): Source[ByteString, NotUsed] = {
     Source
