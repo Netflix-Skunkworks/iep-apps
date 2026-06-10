@@ -180,12 +180,7 @@ object ShardedAggregatorService {
         stringTable.put(v, 0)
       }
     }
-    val strings = new Array[String](stringTable.size)
-    var i = 0
-    stringTable.foreach { (k, _) =>
-      strings(i) = k
-      i += 1
-    }
+    val strings = stringTable.toMap.keys.toArray
     java.util.Arrays.sort(strings.asInstanceOf[Array[AnyRef]])
 
     // Start generating output
