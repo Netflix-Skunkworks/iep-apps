@@ -280,9 +280,12 @@ object PayloadDecoder {
 
   /**
     * For internal usage after validation has already been performed. Avoids the cost of
-    * validation and data cleaning steps that are normally done while reading.
+    * validation and data cleaning steps that are normally done while reading. The strings
+    * are still canonicalized through the cache so that equal tag keys/values share a single
+    * instance. This lets downstream equality checks (registry getOrCreate, query index match
+    * caches) short-circuit on reference equality rather than comparing characters.
     */
-  val internal: PayloadDecoder = new PayloadDecoder(s => s, NoValidation, ts => ts)
+  val internal: PayloadDecoder = new PayloadDecoder(canonicalize, NoValidation, ts => ts)
 
   /**
     * Get a default instance for reading/writing the payloads. It will perform full validation
@@ -297,6 +300,18 @@ object PayloadDecoder {
       // occur multiple times for the same string, but that is not a problem here.
       value = allowedCharacters.replaceNonMembers(s, '_')
       stringCache.put(s, value)
+    }
+    value
+  }
+
+  private def canonicalize(s: String): String = {
+    var value = stringCache.getIfPresent(s)
+    if (value == null) {
+      // No character replacement is needed for internal traffic, so the first-seen instance
+      // becomes the canonical one. As with replaceInvalidCharacters, a benign race may briefly
+      // leave two instances for the same value until the cache settles.
+      stringCache.put(s, s)
+      value = s
     }
     value
   }
