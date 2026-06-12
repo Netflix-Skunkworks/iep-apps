@@ -22,6 +22,7 @@ import org.apache.pekko.actor.ActorRef
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.Sink
 import org.apache.pekko.stream.scaladsl.Source
+import com.netflix.atlas.core.db.TimeSeriesBuffer
 import com.netflix.atlas.core.index.TagQuery
 import com.netflix.atlas.core.model.ArrayTimeSeq
 import com.netflix.atlas.core.model.ConsolidationFunction
@@ -618,7 +619,11 @@ object DruidDatabaseActor {
         if (stats.count == 0)
           None
         else
-          Some(TimeSeries(commonTags ++ tags, seq))
+          // Use TimeSeriesBuffer rather than TimeSeries(tags, seq) so the label is
+          // computed lazily. These raw rows are immediately re-aggregated and re-labeled
+          // by the eval below, so their labels are never read and the toLabel cost (a
+          // large share of allocations for big group by queries) is avoided.
+          Some(new TimeSeriesBuffer(commonTags ++ tags, seq))
     }
   }
 
