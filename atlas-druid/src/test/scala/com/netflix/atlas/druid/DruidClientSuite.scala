@@ -19,6 +19,7 @@ import java.io.IOException
 import java.net.ConnectException
 import java.nio.charset.StandardCharsets
 import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.EntityStreamSizeException
 import org.apache.pekko.http.scaladsl.model.HttpEntity
 import org.apache.pekko.http.scaladsl.model.HttpRequest
 import org.apache.pekko.http.scaladsl.model.HttpResponse
@@ -99,6 +100,18 @@ class DruidClientSuite extends FunSuite {
       val future = client.datasources.runWith(Sink.head)
       Await.result(future, Duration.Inf)
     }
+  }
+
+  test("response exceeding size limit maps to IllegalStateException") {
+    val ex = intercept[IllegalStateException] {
+      val data = Source.failed[ByteString](EntityStreamSizeException(10L, Some(20L)))
+      val entity = HttpEntity(MediaTypes.`application/json`, data)
+      val response = HttpResponse(StatusCodes.OK, entity = entity)
+      val client = newClient(Success(response))
+      val future = client.datasources.runWith(Sink.head)
+      Await.result(future, Duration.Inf)
+    }
+    assert(ex.getMessage.contains("response size exceeds"))
   }
 
   test("get datasources bad json output") {

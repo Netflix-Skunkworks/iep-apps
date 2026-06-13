@@ -21,6 +21,7 @@ import java.time.Duration
 import java.time.Instant
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.EntityStreamSizeException
 import org.apache.pekko.http.scaladsl.model.HttpEntity
 import org.apache.pekko.http.scaladsl.model.HttpMethods
 import org.apache.pekko.http.scaladsl.model.HttpRequest
@@ -79,10 +80,7 @@ class DruidClient(
       case Failure(t)                => Source.failed[HttpResponse](t)
     }
     .flatMapConcat { res =>
-      res.entity
-        .withoutSizeLimit()
-        .dataBytes
-        .fold(ByteString.empty)(_ ++ _)
+      res.entity.dataBytes.fold(ByteString.empty)(_ ++ _)
     }
     .map { data =>
       if (data.startsWith(gzipMagicHeader)) {
@@ -91,6 +89,10 @@ class DruidClient(
         logger.trace(s"raw response payload: ${data.decodeString(StandardCharsets.UTF_8)}")
       }
       data
+    }
+    .mapError {
+      case e: EntityStreamSizeException =>
+        new IllegalStateException(s"druid response size exceeds limit of ${e.limit} bytes", e)
     }
 
   private def isOK(res: HttpResponse): Boolean = res.status == StatusCodes.OK
