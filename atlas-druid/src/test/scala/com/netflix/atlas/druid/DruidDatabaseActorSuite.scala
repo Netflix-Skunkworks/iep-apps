@@ -496,10 +496,10 @@ class DruidDatabaseActorSuite extends FunSuite {
     val ctx = EvalContext(0L, 300_000L, 60_000L)
     val mapper: Double => Double = v => v
     val data = List(
-      GroupByDatapoint(60_000L, Map("k" -> "in"), 1.0),         // in window
+      GroupByDatapoint(60_000L, Map("k" -> "in"), 1.0), // in window
       GroupByDatapoint(60_000L, Map("k" -> "nan"), Double.NaN), // in window but NaN
-      GroupByDatapoint(-60_000L, Map("k" -> "below"), 2.0),     // before window
-      GroupByDatapoint(600_000L, Map("k" -> "above"), 3.0)      // after window
+      GroupByDatapoint(-60_000L, Map("k" -> "below"), 2.0), // before window
+      GroupByDatapoint(600_000L, Map("k" -> "above"), 3.0) // after window
     )
     val result = toTimeSeries(Map("name" -> "foo"), ctx, data, Long.MaxValue, mapper)
     assertEquals(result.map(_.tags("k")), List("in"))
