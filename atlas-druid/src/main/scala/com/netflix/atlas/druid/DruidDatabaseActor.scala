@@ -344,8 +344,9 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
             (v: Double) => v
           else
             createValueMapper(normalizeRates, metricContext, expr)
-        client.data(groupByQuery).map { result =>
-          val candidates = toTimeSeries(tags, metricContext, result, maxDataSize, valueMapper)
+        val accumulator = new TimeSeriesAccumulator(tags, metricContext, maxDataSize, valueMapper)
+        client.parseDatapoints(groupByQuery)(accumulator).map { acc =>
+          val candidates = acc.result()
           // See behavior on multi-value dimensions:
           // http://druid.io/docs/latest/querying/groupbyquery.html
           //
@@ -585,42 +586,51 @@ object DruidDatabaseActor {
     case _                    => false
   }
 
-  def toTimeSeries(
+  /**
+    * Folds group by datapoints into one array per output series as they are consumed. Doing this
+    * incrementally as the response is parsed avoids materializing the full set of datapoints,
+    * bounding peak memory by the number of output series rather than the response size.
+    */
+  class TimeSeriesAccumulator(
     commonTags: Map[String, String],
     context: EvalContext,
-    data: List[GroupByDatapoint],
     limit: Long,
     valueMapper: Double => Double
-  ): List[TimeSeries] = {
-    val arrays = scala.collection.mutable.HashMap.empty[Map[String, String], Array[Double]]
-    val length = context.bufferSize
-    val bytesPerTimeSeries = 8L * length
-    data.foreach { d =>
-      val t = d.timestamp
-      val i = ((t - context.start) / context.step).toInt
+  ) extends DatapointConsumer {
+
+    private val arrays = scala.collection.mutable.HashMap.empty[Map[String, String], Array[Double]]
+    private val length = context.bufferSize
+    private val bytesPerTimeSeries = 8L * length
+
+    override def accept(timestamp: Long, tags: Map[String, String], value: Double): Unit = {
+      val i = ((timestamp - context.start) / context.step).toInt
       if (i >= 0 && i < length) {
-        val v = valueMapper(d.value)
+        val v = valueMapper(value)
         // Only materialize a buffer for groups with a non-NaN value in the window. Groups
         // with data only in neighboring time segments, or that are entirely NaN, contribute
         // nothing and are skipped to avoid allocating and aggregating empty arrays.
         if (!java.lang.Double.isNaN(v)) {
-          val array = arrays.getOrElseUpdate(d.tags, ArrayHelper.fill(length, Double.NaN))
+          val array = arrays.getOrElseUpdate(tags, ArrayHelper.fill(length, Double.NaN))
           array(i) = v
         }
       }
-      // Stop early if data size is too large to avoid GC issues
+      // Stop early if data size is too large to avoid GC issues. This caps the number of
+      // retained series and now fires while the response is still being parsed.
       if (arrays.size * bytesPerTimeSeries > limit) {
         throw new IllegalStateException(s"data size exceeds $limit bytes")
       }
     }
-    arrays.toList.map {
-      case (tags, vs) =>
-        val seq = new ArrayTimeSeq(DsType.Rate, context.start + context.step, context.step, vs)
-        // Use TimeSeriesBuffer rather than TimeSeries(tags, seq) so the label is
-        // computed lazily. These raw rows are immediately re-aggregated and re-labeled
-        // by the eval below, so their labels are never read and the toLabel cost (a
-        // large share of allocations for big group by queries) is avoided.
-        new TimeSeriesBuffer(commonTags ++ tags, seq)
+
+    def result(): List[TimeSeries] = {
+      arrays.toList.map {
+        case (tags, vs) =>
+          val seq = new ArrayTimeSeq(DsType.Rate, context.start + context.step, context.step, vs)
+          // Use TimeSeriesBuffer rather than TimeSeries(tags, seq) so the label is
+          // computed lazily. These raw rows are immediately re-aggregated and re-labeled
+          // by the eval below, so their labels are never read and the toLabel cost (a
+          // large share of allocations for big group by queries) is avoided.
+          new TimeSeriesBuffer(commonTags ++ tags, seq)
+      }
     }
   }
 

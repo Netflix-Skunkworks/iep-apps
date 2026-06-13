@@ -279,6 +279,30 @@ class DruidClientSuite extends FunSuite {
     assertEquals(actual, expected)
   }
 
+  private def collectViaParse(file: String, query: DataQuery): List[GroupByDatapoint] = {
+    import com.netflix.atlas.core.util.Streams.*
+    val payload = Using.resource(resource(file))(byteArray)
+    val response = HttpResponse(StatusCodes.OK, entity = payload)
+    val client = newClient(Success(response))
+    val builder = List.newBuilder[GroupByDatapoint]
+    val consumer: DatapointConsumer = (timestamp, tags, value) =>
+      builder += GroupByDatapoint(timestamp, tags, value)
+    val future = client.parseDatapoints(query)(consumer).runWith(Sink.ignore)
+    Await.result(future, Duration.Inf)
+    builder.result()
+  }
+
+  test("parseDatapoints matches groupBy: array response with null filtering") {
+    val query =
+      GroupByQuery("test", List(DefaultDimensionSpec("percentile", "percentile")), Nil, Nil)
+    assertEquals(collectViaParse("groupByResponseArray.json", query), executeGroupByRequest)
+  }
+
+  test("parseDatapoints matches groupBy: histogram response") {
+    val query = GroupByQuery("test", Nil, Nil, List(Aggregation.timer("value")))
+    assertEquals(collectViaParse("groupByResponseHisto.json", query), executeGroupByHistogramRequest)
+  }
+
   test("aggregation encode, timer type") {
     val aggr = Aggregation.timer("foo")
     val json = Json.encode(aggr)
