@@ -34,7 +34,6 @@ import com.netflix.atlas.core.model.Query
 import com.netflix.atlas.core.model.Query.KeyQuery
 import com.netflix.atlas.core.model.Query.KeyValueQuery
 import com.netflix.atlas.core.model.Query.PatternQuery
-import com.netflix.atlas.core.model.SummaryStats
 import com.netflix.atlas.core.model.Tag
 import com.netflix.atlas.core.model.TagKey
 import com.netflix.atlas.core.model.TimeSeries
@@ -597,32 +596,31 @@ object DruidDatabaseActor {
     val length = context.bufferSize
     val bytesPerTimeSeries = 8L * length
     data.foreach { d =>
-      val tags = d.tags
-      val array = arrays.getOrElseUpdate(tags, ArrayHelper.fill(length, Double.NaN))
       val t = d.timestamp
       val i = ((t - context.start) / context.step).toInt
       if (i >= 0 && i < length) {
-        array(i) = valueMapper(d.value)
+        val v = valueMapper(d.value)
+        // Only materialize a buffer for groups with a non-NaN value in the window. Groups
+        // with data only in neighboring time segments, or that are entirely NaN, contribute
+        // nothing and are skipped to avoid allocating and aggregating empty arrays.
+        if (!java.lang.Double.isNaN(v)) {
+          val array = arrays.getOrElseUpdate(d.tags, ArrayHelper.fill(length, Double.NaN))
+          array(i) = v
+        }
       }
       // Stop early if data size is too large to avoid GC issues
       if (arrays.size * bytesPerTimeSeries > limit) {
         throw new IllegalStateException(s"data size exceeds $limit bytes")
       }
     }
-    arrays.toList.flatMap {
+    arrays.toList.map {
       case (tags, vs) =>
-        // Ignore entries with no non-NaN values, this sometimes occurs for groups if
-        // there is data for neighboring time segments
         val seq = new ArrayTimeSeq(DsType.Rate, context.start + context.step, context.step, vs)
-        val stats = SummaryStats(seq, context.start, context.end)
-        if (stats.count == 0)
-          None
-        else
-          // Use TimeSeriesBuffer rather than TimeSeries(tags, seq) so the label is
-          // computed lazily. These raw rows are immediately re-aggregated and re-labeled
-          // by the eval below, so their labels are never read and the toLabel cost (a
-          // large share of allocations for big group by queries) is avoided.
-          Some(new TimeSeriesBuffer(commonTags ++ tags, seq))
+        // Use TimeSeriesBuffer rather than TimeSeries(tags, seq) so the label is
+        // computed lazily. These raw rows are immediately re-aggregated and re-labeled
+        // by the eval below, so their labels are never read and the toLabel cost (a
+        // large share of allocations for big group by queries) is avoided.
+        new TimeSeriesBuffer(commonTags ++ tags, seq)
     }
   }
 

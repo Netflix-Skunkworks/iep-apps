@@ -492,6 +492,20 @@ class DruidDatabaseActorSuite extends FunSuite {
     assertEquals(mapper(1.0), 1.0)
   }
 
+  test("toTimeSeries: drops NaN-only and out-of-window groups") {
+    val ctx = EvalContext(0L, 300_000L, 60_000L)
+    val mapper: Double => Double = v => v
+    val data = List(
+      GroupByDatapoint(60_000L, Map("k" -> "in"), 1.0),         // in window
+      GroupByDatapoint(60_000L, Map("k" -> "nan"), Double.NaN), // in window but NaN
+      GroupByDatapoint(-60_000L, Map("k" -> "below"), 2.0),     // before window
+      GroupByDatapoint(600_000L, Map("k" -> "above"), 3.0)      // after window
+    )
+    val result = toTimeSeries(Map("name" -> "foo"), ctx, data, Long.MaxValue, mapper)
+    assertEquals(result.map(_.tags("k")), List("in"))
+    assertEquals(result.head.tags("name"), "foo")
+  }
+
   test("validate: simple expr with name") {
     val query = evalQuery("app,www,:eq,name,cpu,:eq,:and")
     validate(query)
