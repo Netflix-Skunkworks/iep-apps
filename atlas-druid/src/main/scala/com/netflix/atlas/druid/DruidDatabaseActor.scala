@@ -30,7 +30,6 @@ import com.netflix.atlas.core.model.DataExpr
 import com.netflix.atlas.core.model.DefaultSettings
 import com.netflix.atlas.core.model.DsType
 import com.netflix.atlas.core.model.EvalContext
-import com.netflix.atlas.core.model.LazyTimeSeries
 import com.netflix.atlas.core.model.Query
 import com.netflix.atlas.core.model.Query.KeyQuery
 import com.netflix.atlas.core.model.Query.KeyValueQuery
@@ -366,7 +365,7 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
             else {
               matchingSeries.map { ts =>
                 val seq = new ReduceStepTimeSeq(ts.data, fetchContext.step)
-                LazyTimeSeries(ts.tags, ts.label, seq)
+                TimeSeries(ts.tags, seq)
               }
             }
 
