@@ -300,7 +300,10 @@ class DruidClientSuite extends FunSuite {
 
   test("parseDatapoints matches groupBy: histogram response") {
     val query = GroupByQuery("test", Nil, Nil, List(Aggregation.timer("value")))
-    assertEquals(collectViaParse("groupByResponseHisto.json", query), executeGroupByHistogramRequest)
+    assertEquals(
+      collectViaParse("groupByResponseHisto.json", query),
+      executeGroupByHistogramRequest
+    )
   }
 
   test("aggregation encode, timer type") {
