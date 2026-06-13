@@ -21,6 +21,7 @@ import java.time.Duration
 import java.time.Instant
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.EntityStreamSizeException
 import org.apache.pekko.http.scaladsl.model.HttpEntity
 import org.apache.pekko.http.scaladsl.model.HttpMethods
 import org.apache.pekko.http.scaladsl.model.HttpRequest
@@ -79,10 +80,7 @@ class DruidClient(
       case Failure(t)                => Source.failed[HttpResponse](t)
     }
     .flatMapConcat { res =>
-      res.entity
-        .withoutSizeLimit()
-        .dataBytes
-        .fold(ByteString.empty)(_ ++ _)
+      res.entity.dataBytes.fold(ByteString.empty)(_ ++ _)
     }
     .map { data =>
       if (data.startsWith(gzipMagicHeader)) {
@@ -91,6 +89,10 @@ class DruidClient(
         logger.trace(s"raw response payload: ${data.decodeString(StandardCharsets.UTF_8)}")
       }
       data
+    }
+    .mapError {
+      case e: EntityStreamSizeException =>
+        new IllegalStateException(s"druid response size exceeds limit of ${e.limit} bytes", e)
     }
 
   private def isOK(res: HttpResponse): Boolean = res.status == StatusCodes.OK
@@ -207,14 +209,59 @@ class DruidClient(
     }
   }
 
+  /**
+    * Parse a data query response, folding each datapoint into `consumer` as it is decoded rather
+    * than collecting the datapoints into a `List`, and emit the populated consumer so the caller
+    * reads its result from the stream. The consumer is expected to fold into a compact
+    * representation (e.g. one array per output series), which for a wide group by with many time
+    * buckets bounds peak memory by the size of that result rather than by the response size.
+    */
+  def parseDatapoints[C <: DatapointConsumer](query: DataQuery)(consumer: C): Source[C, NotUsed] = {
+    query match {
+      case q: GroupByQuery =>
+        val dimensions = q.dimensions.map(_.outputName)
+        val timer = q.aggregations.exists(_.aggrType == "timer")
+        Source
+          .single(mkRequest(q))
+          .via(loggingClient)
+          .map { data =>
+            decodeGroupBy(dimensions, timer, data)(consumer)
+            consumer
+          }
+      case q: TimeseriesQuery =>
+        Source
+          .single(mkRequest(q))
+          .via(loggingClient)
+          .map { data =>
+            Using
+              .resource(inputStream(data)) { in =>
+                Json.decode[List[TimeseriesDatapoint]](in)
+              }
+              .foreach(d => consumer.accept(d.timestampMillis, Map.empty, d.result.value))
+            consumer
+          }
+    }
+  }
+
   private def parseResult(
     dimensions: List[String],
     timer: Boolean,
     data: ByteString
   ): List[GroupByDatapoint] = {
+    val builder = List.newBuilder[GroupByDatapoint]
+    decodeGroupBy(dimensions, timer, data) { (timestamp, tags, value) =>
+      builder += GroupByDatapoint(timestamp, tags, value)
+    }
+    builder.result()
+  }
+
+  private def decodeGroupBy(
+    dimensions: List[String],
+    timer: Boolean,
+    data: ByteString
+  )(consumer: DatapointConsumer): Unit = {
     Using.resource(Json.newJsonParser(inputStream(data))) { parser =>
       import com.netflix.atlas.json3.JsonParserHelper.*
-      val builder = List.newBuilder[GroupByDatapoint]
       foreachItem(parser) {
         require(parser.currentToken() == JsonToken.START_ARRAY)
         val timestamp = nextLong(parser)
@@ -223,13 +270,14 @@ class DruidClient(
         // null values as being the same. Some older threads suggest server side filtering
         // for null values may not be reliable. This could be fixed now, but as it is a fairly
         // rare occurrence in our use-cases and unlikely to have a big performance benefit, we
-        // do a client side filtering to remove entries with null values.
-        val tags = dimensions
-          .map { d =>
-            d -> parser.nextStringValue()
-          }
-          .filterNot(t => isNullOrEmpty(t._2))
-          .toMap
+        // do a client side filtering to remove entries with null values. The tag map is built
+        // directly to avoid the intermediate list of pairs allocated per datapoint.
+        val tagsBuilder = Map.newBuilder[String, String]
+        dimensions.foreach { d =>
+          val v = parser.nextStringValue()
+          if (!isNullOrEmpty(v)) tagsBuilder += d -> v
+        }
+        val tags = tagsBuilder.result()
 
         val valueToken = parser.nextToken()
         if (valueToken == JsonToken.START_OBJECT) {
@@ -237,7 +285,7 @@ class DruidClient(
           foreachField(parser) { idx =>
             val key = toPercentileBucket(idx, timer)
             val datapointTags = tags + (TagKey.percentile -> key)
-            builder += GroupByDatapoint(timestamp, datapointTags, nextLong(parser).toDouble)
+            consumer.accept(timestamp, datapointTags, nextLong(parser).toDouble)
           }
         } else if (valueToken != JsonToken.VALUE_NULL) {
           // Floating point value. In some cases histogram can be null, ignore those entries.
@@ -248,11 +296,10 @@ class DruidClient(
             case VALUE_STRING       => java.lang.Double.parseDouble(parser.getString)
             case t => JsonParserHelper.fail(parser, s"expected VALUE_NUMBER_FLOAT but received $t")
           }
-          builder += GroupByDatapoint(timestamp, tags, value)
+          consumer.accept(timestamp, tags, value)
         }
         parser.nextToken() // skip end array token
       }
-      builder.result()
     }
   }
 
@@ -588,11 +635,22 @@ object DruidClient {
 
   case class GroupByDatapoint(timestamp: Long, tags: Map[String, String], value: Double)
 
+  /**
+    * Consumer invoked for each datapoint as a data query response is parsed. The timestamp and
+    * value are passed as primitives rather than wrapped in a `GroupByDatapoint` so that callers
+    * folding the stream avoid both the wrapper allocation and the boxing a generic function would
+    * incur on the per-datapoint hot path.
+    */
+  trait DatapointConsumer {
+    def accept(timestamp: Long, tags: Map[String, String], value: Double): Unit
+  }
+
   case class TimeseriesDatapoint(timestamp: String, result: TimeseriesResult) {
 
+    def timestampMillis: Long = Instant.parse(timestamp).toEpochMilli
+
     def toGroupByDatapoint: GroupByDatapoint = {
-      val t = Instant.parse(timestamp).toEpochMilli
-      GroupByDatapoint(t, Map.empty, result.value)
+      GroupByDatapoint(timestampMillis, Map.empty, result.value)
     }
   }
 

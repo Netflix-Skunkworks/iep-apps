@@ -19,6 +19,7 @@ import java.io.IOException
 import java.net.ConnectException
 import java.nio.charset.StandardCharsets
 import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.http.scaladsl.model.EntityStreamSizeException
 import org.apache.pekko.http.scaladsl.model.HttpEntity
 import org.apache.pekko.http.scaladsl.model.HttpRequest
 import org.apache.pekko.http.scaladsl.model.HttpResponse
@@ -99,6 +100,18 @@ class DruidClientSuite extends FunSuite {
       val future = client.datasources.runWith(Sink.head)
       Await.result(future, Duration.Inf)
     }
+  }
+
+  test("response exceeding size limit maps to IllegalStateException") {
+    val ex = intercept[IllegalStateException] {
+      val data = Source.failed[ByteString](EntityStreamSizeException(10L, Some(20L)))
+      val entity = HttpEntity(MediaTypes.`application/json`, data)
+      val response = HttpResponse(StatusCodes.OK, entity = entity)
+      val client = newClient(Success(response))
+      val future = client.datasources.runWith(Sink.head)
+      Await.result(future, Duration.Inf)
+    }
+    assert(ex.getMessage.contains("response size exceeds"))
   }
 
   test("get datasources bad json output") {
@@ -277,6 +290,33 @@ class DruidClientSuite extends FunSuite {
     val expected = executeGroupByRequest.filter(_.tags.nonEmpty)
     val actual = executeGroupByHistogramRequest
     assertEquals(actual, expected)
+  }
+
+  private def collectViaParse(file: String, query: DataQuery): List[GroupByDatapoint] = {
+    import com.netflix.atlas.core.util.Streams.*
+    val payload = Using.resource(resource(file))(byteArray)
+    val response = HttpResponse(StatusCodes.OK, entity = payload)
+    val client = newClient(Success(response))
+    val builder = List.newBuilder[GroupByDatapoint]
+    val consumer: DatapointConsumer = (timestamp, tags, value) =>
+      builder += GroupByDatapoint(timestamp, tags, value)
+    val future = client.parseDatapoints(query)(consumer).runWith(Sink.ignore)
+    Await.result(future, Duration.Inf)
+    builder.result()
+  }
+
+  test("parseDatapoints matches groupBy: array response with null filtering") {
+    val query =
+      GroupByQuery("test", List(DefaultDimensionSpec("percentile", "percentile")), Nil, Nil)
+    assertEquals(collectViaParse("groupByResponseArray.json", query), executeGroupByRequest)
+  }
+
+  test("parseDatapoints matches groupBy: histogram response") {
+    val query = GroupByQuery("test", Nil, Nil, List(Aggregation.timer("value")))
+    assertEquals(
+      collectViaParse("groupByResponseHisto.json", query),
+      executeGroupByHistogramRequest
+    )
   }
 
   test("aggregation encode, timer type") {

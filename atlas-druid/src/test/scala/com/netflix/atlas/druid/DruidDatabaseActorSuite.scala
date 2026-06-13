@@ -492,18 +492,39 @@ class DruidDatabaseActorSuite extends FunSuite {
     assertEquals(mapper(1.0), 1.0)
   }
 
-  test("toTimeSeries: drops NaN-only and out-of-window groups") {
+  test("TimeSeriesAccumulator: drops NaN-only and out-of-window groups") {
     val ctx = EvalContext(0L, 300_000L, 60_000L)
-    val mapper: Double => Double = v => v
-    val data = List(
-      GroupByDatapoint(60_000L, Map("k" -> "in"), 1.0), // in window
-      GroupByDatapoint(60_000L, Map("k" -> "nan"), Double.NaN), // in window but NaN
-      GroupByDatapoint(-60_000L, Map("k" -> "below"), 2.0), // before window
-      GroupByDatapoint(600_000L, Map("k" -> "above"), 3.0) // after window
-    )
-    val result = toTimeSeries(Map("name" -> "foo"), ctx, data, Long.MaxValue, mapper)
+    val acc = new TimeSeriesAccumulator(Map("name" -> "foo"), ctx, Long.MaxValue, v => v)
+    acc.accept(60_000L, Map("k" -> "in"), 1.0) // in window
+    acc.accept(60_000L, Map("k" -> "nan"), Double.NaN) // in window but NaN
+    acc.accept(-60_000L, Map("k" -> "below"), 2.0) // before window
+    acc.accept(600_000L, Map("k" -> "above"), 3.0) // after window
+    val result = acc.result()
     assertEquals(result.map(_.tags("k")), List("in"))
     assertEquals(result.head.tags("name"), "foo")
+  }
+
+  test("TimeSeriesAccumulator: multiple datapoints fold into one series") {
+    val ctx = EvalContext(0L, 300_000L, 60_000L)
+    val acc = new TimeSeriesAccumulator(Map("name" -> "foo"), ctx, Long.MaxValue, v => v)
+    acc.accept(60_000L, Map("k" -> "a"), 1.0)
+    acc.accept(120_000L, Map("k" -> "a"), 2.0)
+    val result = acc.result()
+    assertEquals(result.size, 1)
+    assertEquals(result.head.tags, Map("name" -> "foo", "k" -> "a"))
+  }
+
+  test("TimeSeriesAccumulator: enforces byte limit across groups") {
+    val ctx = EvalContext(0L, 300_000L, 60_000L)
+    val bytesPerSeries = 8L * ctx.bufferSize
+    // Limit only allows a single series; a second distinct group should trip the guard.
+    val acc = new TimeSeriesAccumulator(Map("name" -> "foo"), ctx, bytesPerSeries, v => v)
+    acc.accept(60_000L, Map("k" -> "a"), 1.0)
+    acc.accept(120_000L, Map("k" -> "a"), 2.0) // same group, still one series
+    val ex = intercept[IllegalStateException] {
+      acc.accept(60_000L, Map("k" -> "b"), 3.0)
+    }
+    assert(ex.getMessage.contains("data size exceeds"))
   }
 
   test("validate: simple expr with name") {
