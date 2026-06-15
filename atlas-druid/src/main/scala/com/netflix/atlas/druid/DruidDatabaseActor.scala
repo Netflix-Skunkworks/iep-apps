@@ -38,6 +38,7 @@ import com.netflix.atlas.core.model.Tag
 import com.netflix.atlas.core.model.TagKey
 import com.netflix.atlas.core.model.TimeSeries
 import com.netflix.atlas.core.util.ArrayHelper
+import com.netflix.atlas.core.util.ConcatMap
 import com.netflix.atlas.core.util.ListHelper
 import com.netflix.atlas.json3.Json
 import com.netflix.atlas.webapi.GraphApi.DataRequest
@@ -629,7 +630,12 @@ object DruidDatabaseActor {
           // computed lazily. These raw rows are immediately re-aggregated and re-labeled
           // by the eval below, so their labels are never read and the toLabel cost (a
           // large share of allocations for big group by queries) is avoided.
-          new TimeSeriesBuffer(commonTags ++ tags, seq)
+          //
+          // ConcatMap is a lazy view of `commonTags ++ tags` that avoids materializing a
+          // new map per output series. The combined tags are only read a bounded number of
+          // times (query matching and the re-aggregation/labeling in eval), which is the
+          // access pattern the view is intended for.
+          new TimeSeriesBuffer(new ConcatMap(commonTags, tags), seq)
       }
     }
   }
