@@ -978,7 +978,7 @@ class CloudWatchPoller(
           if (isNewHighResDatapoint(hash, ts)) {
             val metaData = MetricMetadata(category, definition, toAWSDimensions(firehoseMetric))
             registry.counter(polledPublishPath.withTag("path", "registry")).increment()
-            processor.sendToRegistry(metaData, firehoseMetric, nowMillis)
+            processor.sendToRegistry(metaData, firehoseMetric, ts)
 
             foundValidData = true
             debugger.debugPolled(metric, IncomingMatch.Accepted, endTimeMillis, category)

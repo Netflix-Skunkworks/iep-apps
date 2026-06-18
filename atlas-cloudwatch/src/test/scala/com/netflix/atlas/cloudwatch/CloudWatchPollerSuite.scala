@@ -937,6 +937,109 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     assertEquals(sent.datapoint.timestamp(), ts3)
   }
 
+  test("HRM datapoints are published with per-datapoint timestamp, not poller nowMillis") {
+    // Verifies the fix for the bug where all HRM datapoints in a polling run were stamped
+    // with nowMillis (the poller task start time) instead of each dp's own timestamp.
+    // With hrmFrequency=5s and hrmLookback=5, 5 datapoints would all land in the same
+    // Atlas bucket and sum to 5× the actual value.
+    val cfg = ConfigFactory
+      .parseString(
+        """
+          |atlas {
+          |  cloudwatch {
+          |    account.polling.requestLimit = 100
+          |    account.polling.fastPolling = []
+          |    account.polling.fastBatchPolling = []
+          |    categories = ["ut-hrm-ts"]
+          |    poller.frequency = "5m"
+          |    poller.hrmFrequency = "5s"
+          |    poller.hrmLookback = 5
+          |
+          |    ut-hrm-ts = {
+          |      namespace = "AWS/UT1"
+          |      period = 1s
+          |      poll-offset = 8h
+          |
+          |      dimensions = ["MyTag"]
+          |      metrics = [
+          |        {
+          |          name = "HRMMetric"
+          |          alias = "aws.ut1.hrm.ts"
+          |          conversion = "sum,rate"
+          |        }
+          |      ]
+          |    }
+          |  }
+          |}
+          |""".stripMargin
+      )
+      .withFallback(config)
+
+    processor = mock(classOf[CloudWatchMetricsProcessor])
+    val registry2 = new DefaultRegistry()
+    val poller2 = new CloudWatchPoller(
+      cfg,
+      registry2,
+      leaderStatus,
+      accountSupplier,
+      rules,
+      clientFactory,
+      processor,
+      debugger
+    )
+
+    val category = poller2
+      .offsetMap(Duration.ofHours(8).getSeconds.toInt)
+      .find(_.namespace == "AWS/UT1")
+      .getOrElse(sys.error("HRM category not found"))
+
+    // nowMillis for the Poller is timestamp; the 5 datapoints are at t-4 through t
+    val child = poller2.Poller(timestamp, category, client, account, region, 60)
+    val (mdef, _) = getListReq(poller2)
+
+    val m = Metric
+      .builder()
+      .namespace("AWS/UT1")
+      .metricName("HRMMetric")
+      .dimensions(Dimension.builder().name("MyTag").value("a").build())
+      .build()
+
+    def dp(ts: Instant, v: Double): Datapoint =
+      Datapoint
+        .builder()
+        .sum(v)
+        .minimum(v)
+        .maximum(v)
+        .sampleCount(1.0)
+        .timestamp(ts)
+        .build()
+
+    // 5 consecutive 1-second datapoints, simulating one hrmFrequency=5s polling run
+    val dpTs0 = timestamp.minusSeconds(4)
+    val dpTs1 = timestamp.minusSeconds(3)
+    val dpTs2 = timestamp.minusSeconds(2)
+    val dpTs3 = timestamp.minusSeconds(1)
+    val dpTs4 = timestamp
+    val batch = List(dp(dpTs0, 10.0), dp(dpTs1, 10.0), dp(dpTs2, 10.0), dp(dpTs3, 10.0), dp(dpTs4, 10.0))
+
+    val tsCaptor = ArgumentCaptor.forClass(classOf[Long])
+    child.processMetricDatapoints(mdef, m, batch, timestamp.toEpochMilli)
+
+    verify(processor, times(5)).sendToRegistry(
+      any[MetricMetadata],
+      any[FirehoseMetric],
+      tsCaptor.capture()
+    )
+
+    val publishedTimestamps = tsCaptor.getAllValues
+    // Each datapoint must carry its own timestamp, not the shared nowMillis (timestamp)
+    assertEquals(publishedTimestamps.get(0), dpTs0.toEpochMilli)
+    assertEquals(publishedTimestamps.get(1), dpTs1.toEpochMilli)
+    assertEquals(publishedTimestamps.get(2), dpTs2.toEpochMilli)
+    assertEquals(publishedTimestamps.get(3), dpTs3.toEpochMilli)
+    assertEquals(publishedTimestamps.get(4), dpTs4.toEpochMilli)
+  }
+
   test("Poller#FetchMetricStats success") {
     val poller = getPoller()
     val child = getChild(poller)
