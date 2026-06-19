@@ -1020,8 +1020,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val dpTs2 = timestamp.minusSeconds(2)
     val dpTs3 = timestamp.minusSeconds(1)
     val dpTs4 = timestamp
-    val batch =
-      List(dp(dpTs0, 10.0), dp(dpTs1, 10.0), dp(dpTs2, 10.0), dp(dpTs3, 10.0), dp(dpTs4, 10.0))
+    val batch = List(dp(dpTs0, 10.0), dp(dpTs1, 10.0), dp(dpTs2, 10.0), dp(dpTs3, 10.0), dp(dpTs4, 10.0))
 
     val tsCaptor = ArgumentCaptor.forClass(classOf[Long])
     child.processMetricDatapoints(mdef, m, batch, timestamp.toEpochMilli)
