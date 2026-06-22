@@ -21,6 +21,7 @@ import com.netflix.iep.config.DynamicConfigManager
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicLong
+import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.Utils
 import com.netflix.spectator.atlas.impl.DataExpr.Aggregator
@@ -59,8 +60,7 @@ class ExpressionsEvaluator(configMgr: DynamicConfigManager, registry: Registry)
 
   private var subscriptions = Set.empty[Subscription]
 
-  @volatile private[lwc] var index =
-    QueryIndex.newInstance[Subscription](() => new CaffeineCache[Subscription])
+  @volatile private[lwc] var index = QueryIndex.newInstance[Subscription](new NoopRegistry)
 
   private val statsMap = new ConcurrentHashMap[String, SubscriptionStats]()
 

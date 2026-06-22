@@ -7,7 +7,7 @@ object BuildSettings {
     "-deprecation",
     "-unchecked",
     "-feature",
-    "-release", "21",
+    "-release", "25",
   )
 
   lazy val checkLicenseHeaders = taskKey[Unit]("Check the license headers for all source files.")
@@ -24,7 +24,7 @@ object BuildSettings {
         case _            => compilerFlags ++ Seq("-source", "3.3", "-Wunused:all", "-Werror")
       }
     },
-    javacOptions ++= Seq("--release", "21"),
+    javacOptions ++= Seq("--release", "25"),
     crossPaths := true,
     crossScalaVersions := Dependencies.Versions.crossScala,
     sourcesInBase := false,
