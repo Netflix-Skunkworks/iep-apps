@@ -9,6 +9,7 @@ lazy val `iep-apps` = project.in(file("."))
     `atlas-stream`,
     `iep-archaius`,
     `iep-lwc-bridge`,
+    `iep-lwc-bridge-jmh`,
     `iep-lwc-cloudwatch-model`,
     `iep-lwc-cloudwatch`,
     `iep-lwc-fwding-admin`,
@@ -162,7 +163,6 @@ lazy val `iep-lwc-bridge` = project
   .settings(libraryDependencies ++= Seq(
     Dependencies.atlasCore,
     Dependencies.atlasSpringPekko,
-    Dependencies.caffeine,
     Dependencies.frigga,
     Dependencies.iepDynConfig,
     Dependencies.iepSpring,
@@ -176,6 +176,16 @@ lazy val `iep-lwc-bridge` = project
     Dependencies.pekkoTestkit % "test",
     Dependencies.atlasPekkoTestkit % "test",
     Dependencies.munit % "test"
+  ))
+
+// Benchmarks for the bridge query index cache. Kept as a separate module so the JMH dependencies
+// and benchmark sources (and the Caffeine comparison) stay off the deployable bridge classpath.
+lazy val `iep-lwc-bridge-jmh` = project
+  .configure(BuildSettings.profile)
+  .dependsOn(`iep-lwc-bridge`)
+  .enablePlugins(pl.project13.scala.sbt.SbtJmh)
+  .settings(libraryDependencies ++= Seq(
+    Dependencies.caffeine
   ))
 
 lazy val `iep-lwc-cloudwatch-model` = project
