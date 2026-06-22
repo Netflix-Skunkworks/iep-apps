@@ -15,6 +15,7 @@ object Dependencies {
     val slf4j      = "2.0.18"
     val spectator  = "1.9.8"
     val spring     = "7.0.4"
+    val springBoot = "4.0.6"
     val avroV      = "1.12.1"
 
     val crossScala = Seq(scala)
@@ -82,7 +83,8 @@ object Dependencies {
   val spectatorLog4j     = "com.netflix.spectator" % "spectator-ext-log4j2" % spectator
   val spectatorM2        = "com.netflix.spectator" % "spectator-reg-metrics2" % spectator
   val spectatorSandbox   = "com.netflix.spectator" % "spectator-ext-sandbox" % spectator
-  val springContext      = "org.springframework" % "spring-context" % spring
+  val springBootAutoconfigure = "org.springframework.boot" % "spring-boot-autoconfigure" % Versions.springBoot
+  val springContext           = "org.springframework" % "spring-context" % spring
   val typesafeConfig     = "com.typesafe" % "config" % "1.4.8"
 }
 

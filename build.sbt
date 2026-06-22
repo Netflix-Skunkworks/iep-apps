@@ -60,6 +60,7 @@ lazy val `atlas-cloudwatch` = project
     Dependencies.protobuf,
     Dependencies.spectatorAtlas,
     Dependencies.spectatorApi,
+    Dependencies.springBootAutoconfigure,
 
     Dependencies.atlasPekkoTestkit % "test",
     Dependencies.atlasWebApi % "test",

@@ -42,6 +42,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import redis.clients.jedis.Connection
+
 import redis.clients.jedis.DefaultJedisClientConfig
 import redis.clients.jedis.HostAndPort
 import redis.clients.jedis.RedisClusterClient
@@ -55,7 +56,10 @@ import java.util.Optional
 class CloudWatchConfiguration extends StrictLogging {
 
   @Bean
-  def cloudWatchRules(config: Config): CloudWatchRules = new CloudWatchRules(config)
+  def cloudWatchRules(config: Config): CloudWatchRules = {
+    logger.info(s"CloudWatch service mode: ${config.getString("atlas.cloudwatch.mode")}")
+    new CloudWatchRules(config)
+  }
 
   @Bean
   @ConditionalOnExpression("!'streaming'.equals('${atlas.cloudwatch.mode:both}')")
