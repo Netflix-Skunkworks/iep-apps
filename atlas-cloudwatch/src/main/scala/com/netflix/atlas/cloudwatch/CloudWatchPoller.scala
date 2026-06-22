@@ -516,7 +516,7 @@ class CloudWatchPoller(
         if (useHrmMetricsCache && fastBatchPollingAccounts.contains(account)) {
           cached match {
             case Some(metrics) if metrics.nonEmpty =>
-              logger.info(
+              logger.debug(
                 s"[HRM] Using cached metrics for key=$key, size=${metrics.size} " +
                   s"(ns=${category.namespace}, metric=${definition.name}, account=$account, region=$region)"
               )
