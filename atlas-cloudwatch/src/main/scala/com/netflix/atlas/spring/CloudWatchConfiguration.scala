@@ -38,6 +38,7 @@ import com.typesafe.scalalogging.StrictLogging
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig
 import org.apache.pekko.actor.ActorSystem
 import org.springframework.beans.factory.annotation.Qualifier
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import redis.clients.jedis.Connection
@@ -57,6 +58,7 @@ class CloudWatchConfiguration extends StrictLogging {
   def cloudWatchRules(config: Config): CloudWatchRules = new CloudWatchRules(config)
 
   @Bean
+  @ConditionalOnExpression("!'streaming'.equals('${atlas.cloudwatch.mode:both}')")
   def getCloudWatchPoller(
     config: Config,
     registry: Optional[Registry],
