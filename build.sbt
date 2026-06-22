@@ -162,6 +162,7 @@ lazy val `iep-lwc-bridge` = project
   .settings(libraryDependencies ++= Seq(
     Dependencies.atlasCore,
     Dependencies.atlasSpringPekko,
+    Dependencies.caffeine,
     Dependencies.frigga,
     Dependencies.iepDynConfig,
     Dependencies.iepSpring,
