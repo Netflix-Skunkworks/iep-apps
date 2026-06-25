@@ -149,6 +149,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
         |    poller.hrmListFrequency = "5s"
         |    poller.useHrmMetricsCache = false
         |    poller.hrmLookback = 6
+        |    poller.hrmEndOffset = 1
         |
         |    cfg1 = {
         |      namespace = "AWS/CFG1"
@@ -473,6 +474,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
           |    poller.frequency = "5m"
           |    poller.hrmFrequency = "3s"
           |    poller.hrmLookback = 6
+          |    poller.hrmEndOffset = 1
           |
           |    ut-hrm-dedupe = {
           |      namespace = "AWS/UT1"
@@ -594,6 +596,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
           |    poller.frequency = "5m"
           |    poller.hrmFrequency = "5s"
           |    poller.hrmLookback = 2
+          |    poller.hrmEndOffset = 1
           |
           |    ut-hrm = {
           |      namespace = "AWS/UT1"
@@ -722,6 +725,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
           |    poller.frequency = "5m"
           |    poller.hrmFrequency = "5s"
           |    poller.hrmLookback = 2
+          |    poller.hrmEndOffset = 1
           |
           |    ut-hrm = {
           |      namespace = "AWS/UT1"
@@ -827,6 +831,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
           |    poller.frequency = "5m"
           |    poller.hrmFrequency = "3s"
           |    poller.hrmLookback = 6
+          |    poller.hrmEndOffset = 1
           |    poller.hrmListFrequency = "5s"
           |    poller.useHrmMetricsCache = false
           |
@@ -1033,6 +1038,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
         |    poller.frequency = "5m"
         |    poller.hrmFrequency = "5m"
         |    poller.hrmLookback = 6
+        |    poller.hrmEndOffset = 1
         |
         |    ut1 = {
         |      namespace = "AWS/UT1"
