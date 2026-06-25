@@ -167,7 +167,6 @@ class CloudWatchPoller(
   private[cloudwatch] val highResTimeCache = new ConcurrentHashMap[Long, RecentTimestamps]()
 
   private[cloudwatch] val hrmLookback = config.getInt("atlas.cloudwatch.poller.hrmLookback")
-  private[cloudwatch] val hrmEndOffset = config.getInt("atlas.cloudwatch.poller.hrmEndOffset")
 
   // Cache for ListMetrics results: key = account|region|namespace|dims|metricName
   private[cloudwatch] val metricsCache =
@@ -756,9 +755,8 @@ class CloudWatchPoller(
               registry
                 .counter(hrmRequest.withTags("period", category.period.toString))
                 .increment()
-              val end = ts - (hrmEndOffset * category.period * 1000)
-              start = Instant.ofEpochMilli(end - (hrmLookback * category.period * 1000))
-              (start, Instant.ofEpochMilli(end))
+              start = Instant.ofEpochMilli(ts - (hrmLookback * category.period * 1000))
+              (start, Instant.ofEpochMilli(ts))
             } else {
               (start, now)
             }
@@ -913,10 +911,9 @@ class CloudWatchPoller(
               registry
                 .counter(hrmRequest.withTags("period", category.period.toString))
                 .increment()
-              val end = ts - (hrmEndOffset * category.period * 1000)
-              start = Instant.ofEpochMilli(end - (hrmLookback * category.period * 1000))
+              start = Instant.ofEpochMilli(ts - (hrmLookback * category.period * 1000))
               MetricMetadata(category, definition, metric.dimensions().asScala.toList)
-                .toGetRequest(start, Instant.ofEpochMilli(end))
+                .toGetRequest(start, Instant.ofEpochMilli(ts))
             } else {
               MetricMetadata(category, definition, metric.dimensions().asScala.toList)
                 .toGetRequest(start, now)
