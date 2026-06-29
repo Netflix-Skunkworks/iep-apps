@@ -44,6 +44,7 @@ class PublishClientSuite extends FunSuite {
       null,
       status,
       new DefaultRegistry(),
+      Some(step),
       Some(step)
     )
     new PublishClient(cfg)
