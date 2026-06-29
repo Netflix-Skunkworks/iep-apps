@@ -125,7 +125,7 @@ class PublishQueue(
     def update(client: PublishClient): Unit = {
       if (dp.dsType == DsType.Rate) {
         val value = atlasDp.value * (dp.step / 1000)
-        client.updateCounter(atlasDp.id, value)
+        client.updateStepCounter(atlasDp.id, value)
       } else if (dp.dsType == DsType.Gauge) {
         client.updateGauge(atlasDp.id, atlasDp.value)
       } else {
