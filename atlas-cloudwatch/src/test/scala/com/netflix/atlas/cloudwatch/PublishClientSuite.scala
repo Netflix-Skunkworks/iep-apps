@@ -39,9 +39,9 @@ class PublishClientSuite extends FunSuite {
     when(status.hasLeadership).thenReturn(true)
     val cfg = new PublishConfig(
       config,
-      null,
-      null,
-      null,
+      "http://localhost:7101/api/v1/publish",
+      "http://localhost:7102/api/v1/expressions",
+      "http://localhost:7102/api/v1/evaluate",
       status,
       new DefaultRegistry(),
       Some(step),
