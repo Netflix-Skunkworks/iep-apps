@@ -57,6 +57,15 @@ class PublishClient(val config: PublishConfig) extends StrictLogging {
     publishRegistry.counter(id).add(value)
   }
 
+  private[cloudwatch] def drainStepCounter(id: Id): Double = {
+    Option(stepCounters.get(id))
+      .map { ref =>
+        val d = ref.getAndSet(null)
+        if (d == null) Double.NaN else d.toDouble / stepSecs
+      }
+      .getOrElse(Double.NaN)
+  }
+
   def updateStepCounter(id: Id, value: Double): Unit = {
     val ref = stepCounters.computeIfAbsent(
       id,
