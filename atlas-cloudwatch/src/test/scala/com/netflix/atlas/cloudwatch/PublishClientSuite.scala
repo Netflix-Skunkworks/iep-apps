@@ -115,6 +115,6 @@ class PublishClientSuite extends FunSuite {
     // drainStepCounter returns NaN because the ref was never populated
     assert(client.drainStepCounter(id).isNaN)
     // counter holds the value directly
-    assertEquals(client.publishRegistry.counter(id).count(), 5.0)
+    assertEquals(client.publishRegistry.counter(id).count(), 5L)
   }
 }
