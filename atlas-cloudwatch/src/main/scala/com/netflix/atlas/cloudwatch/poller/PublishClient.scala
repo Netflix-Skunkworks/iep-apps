@@ -43,11 +43,17 @@ class PublishClient(val config: PublishConfig) extends StrictLogging {
   )
 
   private val stepSecs = config.step().getSeconds.toDouble
+  private val useStepCounter = config.useStepCounter
 
   // Per-series accumulator refs. PolledMeter drains each ref on its poll cycle:
   // returns the accumulated sum as a rate (sum/stepSecs), or NaN if no data arrived
   // in that step — giving gaps instead of false 0s for missing CW datapoints.
   private val stepCounters = new ConcurrentHashMap[Id, AtomicReference[java.lang.Double]]()
+
+  def updateRate(id: Id, value: Double): Unit = {
+    if (useStepCounter) updateStepCounter(id, value)
+    else updateCounter(id, value)
+  }
 
   def updateGauge(id: Id, value: Double): Unit = {
     publishRegistry.maxGauge(id).set(value)
@@ -154,6 +160,10 @@ class PublishConfig(
   override def evaluatorStepSize(): Long = {
     lwcStep().toMillis
   }
+
+  def useStepCounter: Boolean =
+    !config.hasPath("atlas.cloudwatch.poller.useStepCounter") ||
+    config.getBoolean("atlas.cloudwatch.poller.useStepCounter")
 
   override def parallelMeasurementPolling(): Boolean = {
     true

@@ -241,8 +241,8 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     val dp = new AtlasDatapoint(Map("name" -> "metric.foo"), Instant.now().toEpochMilli, 1, 5_000)
     val queue = getQueue
     queue.updateRegistry(dp, mockAZDP())
-    verify(publishClient, times(1)).updateStepCounter(Id.create("metric.foo"), 5)
-    verify(secondaryPublishClient, never()).updateStepCounter(any[Id], any[Double])
+    verify(publishClient, times(1)).updateRate(Id.create("metric.foo"), 5)
+    verify(secondaryPublishClient, never()).updateRate(any[Id], any[Double])
   }
 
   test("updateRegistry rate 60s primary only") {
@@ -250,8 +250,8 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     val dp = new AtlasDatapoint(Map("name" -> "metric.foo"), Instant.now().toEpochMilli, 1, 60_000)
     val queue = getQueue
     queue.updateRegistry(dp, mockAZDP())
-    verify(publishClient, times(1)).updateStepCounter(Id.create("metric.foo"), 60)
-    verify(secondaryPublishClient, never()).updateStepCounter(any[Id], any[Double])
+    verify(publishClient, times(1)).updateRate(Id.create("metric.foo"), 60)
+    verify(secondaryPublishClient, never()).updateRate(any[Id], any[Double])
   }
 
   test("dual-registry step overrides are applied to secondary client") {
@@ -323,13 +323,13 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
 
     // 2 * (step/1000) = 2 * 5 = 10
     verify(publishClient, times(1))
-      .updateStepCounter(
+      .updateRate(
         argThat[Id](id => id.name() == "metric.dual"),
         eqTo(10.0d)
       )
 
     verify(secondaryPublishClient, times(1))
-      .updateStepCounter(
+      .updateRate(
         argThat[Id](id => id.name() == "metric.dual"),
         eqTo(10.0d)
       )
@@ -368,11 +368,11 @@ class PublishQueueSuite extends FunSuite with TestKitBase {
     queue.updateRegistry(dp, mockAZDP())
 
     verify(publishClient, times(1))
-      .updateStepCounter(
+      .updateRate(
         argThat[Id](id => id.name() == "metric.single"),
         eqTo(5.0d)
       )
-    verify(secondaryPublishClient, never()).updateStepCounter(any[Id], any[Double])
+    verify(secondaryPublishClient, never()).updateRate(any[Id], any[Double])
   }
 
   def assertCounters(

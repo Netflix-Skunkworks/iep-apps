@@ -20,6 +20,7 @@ import com.netflix.atlas.cloudwatch.poller.PublishConfig
 import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.DefaultRegistry
 import com.typesafe.config.ConfigFactory
+import com.typesafe.config.ConfigValueFactory
 import munit.FunSuite
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.when
@@ -32,11 +33,14 @@ class PublishClientSuite extends FunSuite {
   private val step = Duration.ofSeconds(1)
   private val stepSecs = step.getSeconds.toDouble
 
-  private def makeClient(): PublishClient = {
+  private def makeClient(useStepCounter: Boolean = true): PublishClient = {
     val status = mock(classOf[LeaderStatus])
     when(status.hasLeadership).thenReturn(true)
     val cfg = new PublishConfig(
-      config,
+      config.withValue(
+        "atlas.cloudwatch.poller.useStepCounter",
+        ConfigValueFactory.fromAnyRef(useStepCounter)
+      ),
       "http://localhost:7101/api/v1/publish",
       "http://localhost:7102/api/v1/expressions",
       "http://localhost:7102/api/v1/evaluate",
@@ -95,5 +99,22 @@ class PublishClientSuite extends FunSuite {
     client.updateStepCounter(id2, 20.0)
     assertEquals(client.drainStepCounter(id1), 10.0 / stepSecs)
     assertEquals(client.drainStepCounter(id2), 20.0 / stepSecs)
+  }
+
+  test("updateRate: routes to updateStepCounter when useStepCounter=true") {
+    val client = makeClient(useStepCounter = true)
+    val id = client.publishRegistry.createId("test.metric")
+    client.updateRate(id, 5.0)
+    assertEquals(client.drainStepCounter(id), 5.0 / stepSecs)
+  }
+
+  test("updateRate: routes to updateCounter when useStepCounter=false") {
+    val client = makeClient(useStepCounter = false)
+    val id = client.publishRegistry.createId("test.metric")
+    client.updateRate(id, 5.0)
+    // drainStepCounter returns NaN because the ref was never populated
+    assert(client.drainStepCounter(id).isNaN)
+    // counter holds the value directly
+    assertEquals(client.publishRegistry.counter(id).count(), 5.0)
   }
 }
