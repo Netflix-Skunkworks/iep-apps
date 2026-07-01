@@ -19,6 +19,7 @@ import com.netflix.iep.leader.api.LeaderStatus
 import com.netflix.spectator.api.Clock
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.Registry
+import com.netflix.spectator.api.patterns.PolledMeter
 import com.netflix.spectator.atlas.AtlasConfig
 import com.netflix.spectator.atlas.AtlasRegistry
 import com.netflix.spectator.atlas.impl.EvaluatorConfig
@@ -26,10 +27,12 @@ import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
 import java.time.Duration
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicReference
 
 class PublishClient(val config: PublishConfig) extends StrictLogging {
 
-  private val publishRegistry = new AtlasRegistry(Clock.SYSTEM, config)
+  private[cloudwatch] val publishRegistry = new AtlasRegistry(Clock.SYSTEM, config)
 
   publishRegistry.start()
 
@@ -39,12 +42,55 @@ class PublishClient(val config: PublishConfig) extends StrictLogging {
       }, lwc-config URI ${config.configUri}, eval URI ${config.evalUri}"
   )
 
+  private val stepSecs = config.step().getSeconds.toDouble
+  private val useStepCounter = config.useStepCounter
+
+  // Per-series accumulator refs. PolledMeter drains each ref on its poll cycle:
+  // returns the accumulated sum as a rate (sum/stepSecs), or NaN if no data arrived
+  // in that step — giving gaps instead of false 0s for missing CW datapoints.
+  private val stepCounters = new ConcurrentHashMap[Id, AtomicReference[java.lang.Double]]()
+
+  def updateRate(id: Id, value: Double): Unit = {
+    if (useStepCounter) updateStepCounter(id, value)
+    else updateCounter(id, value)
+  }
+
   def updateGauge(id: Id, value: Double): Unit = {
     publishRegistry.maxGauge(id).set(value)
   }
 
   def updateCounter(id: Id, value: Double): Unit = {
     publishRegistry.counter(id).add(value)
+  }
+
+  private[cloudwatch] def drainStepCounter(id: Id): Double = {
+    Option(stepCounters.get(id))
+      .map { ref =>
+        val d = ref.getAndSet(null)
+        if (d == null) Double.NaN else d.toDouble / stepSecs
+      }
+      .getOrElse(Double.NaN)
+  }
+
+  def updateStepCounter(id: Id, value: Double): Unit = {
+    val ref = stepCounters.computeIfAbsent(
+      id,
+      newId => {
+        val r = new AtomicReference[java.lang.Double](null)
+        PolledMeter
+          .using(publishRegistry)
+          .withId(newId)
+          .monitorValue(
+            r,
+            (v: AtomicReference[java.lang.Double]) => {
+              val d = v.getAndSet(null)
+              if (d == null) Double.NaN else d.toDouble / stepSecs
+            }
+          )
+        r
+      }
+    )
+    ref.getAndUpdate(cur => if (cur == null) value else cur + value)
   }
 }
 
@@ -114,6 +160,10 @@ class PublishConfig(
   override def evaluatorStepSize(): Long = {
     lwcStep().toMillis
   }
+
+  def useStepCounter: Boolean =
+    !config.hasPath("atlas.cloudwatch.poller.useStepCounter") ||
+    config.getBoolean("atlas.cloudwatch.poller.useStepCounter")
 
   override def parallelMeasurementPolling(): Boolean = {
     true
