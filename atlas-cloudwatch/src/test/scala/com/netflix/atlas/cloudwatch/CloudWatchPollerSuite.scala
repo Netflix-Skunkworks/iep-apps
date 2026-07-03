@@ -137,7 +137,8 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   }
 
   test("init multiple offsets") {
-    val cfg = ConfigFactory.parseString("""
+    val cfg = ConfigFactory
+      .parseString("""
         |atlas {
         |  cloudwatch {
         |    account.polling.requestLimit = 100
@@ -183,6 +184,7 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
         |  }
         |}
         |""".stripMargin)
+      .withFallback(config)
     val poller = getPoller(cfg)
     var categories = poller.offsetMap(300)
     assertEquals(categories.count(_.namespace == "AWS/CFG1"), 1)
