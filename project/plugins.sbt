@@ -4,7 +4,7 @@ addSbtPlugin("pl.project13.scala"        % "sbt-jmh"              % "0.4.8")
 addSbtPlugin("com.github.sbt"            % "sbt-git"              % "2.1.0")
 addSbtPlugin("com.typesafe.sbt"          % "sbt-native-packager"  % "1.3.12")
 
-addSbtPlugin("org.scalameta"             % "sbt-scalafmt"         % "2.5.4")
+addSbtPlugin("org.scalameta"             % "sbt-scalafmt"         % "2.6.1")
 
 // for compiling protobuf in the Cloud Watch module
 addSbtPlugin("com.github.sbt"            % "sbt-protobuf"         % "0.8.3")
