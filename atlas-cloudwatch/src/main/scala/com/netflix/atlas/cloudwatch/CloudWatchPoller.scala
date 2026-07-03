@@ -35,7 +35,9 @@ import software.amazon.awssdk.services.cloudwatch.CloudWatchClient
 import software.amazon.awssdk.services.cloudwatch.model.Datapoint
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
 import software.amazon.awssdk.services.cloudwatch.model.GetMetricDataRequest
+import software.amazon.awssdk.services.cloudwatch.model.GetMetricDataResponse
 import software.amazon.awssdk.services.cloudwatch.model.GetMetricStatisticsRequest
+import software.amazon.awssdk.services.cloudwatch.model.GetMetricStatisticsResponse
 import software.amazon.awssdk.services.cloudwatch.model.ListMetricsRequest
 import software.amazon.awssdk.services.cloudwatch.model.Metric
 import software.amazon.awssdk.services.cloudwatch.model.MetricDataQuery
@@ -113,6 +115,10 @@ class CloudWatchPoller(
   // We backfilled after getting an older value.
   private val hrmBackfill = registry.createId("atlas.cloudwatch.poller.hrm.backfill")
   private val hrmDuplicate = registry.createId("atlas.cloudwatch.poller.hrm.duplicate")
+
+  // We got an empty window on the first try and re-queried within the same run.
+  private val hrmMissingSampleRetry =
+    registry.createId("atlas.cloudwatch.poller.hrm.missingSampleRetry")
   // offset from wallclock in ms
   private val hrmWallOffset = registry.createId("atlas.cloudwatch.poller.hrm.wallOffset")
   private val polledPublishPath = registry.createId("atlas.cloudwatch.poller.publishPath")
@@ -167,6 +173,22 @@ class CloudWatchPoller(
   private[cloudwatch] val highResTimeCache = new ConcurrentHashMap[Long, RecentTimestamps]()
 
   private[cloudwatch] val hrmLookback = config.getInt("atlas.cloudwatch.poller.hrmLookback")
+
+  private[cloudwatch] val missingSampleRetryEnabled =
+    config.getBoolean("atlas.cloudwatch.poller.missingSampleRetry.enabled")
+
+  private[cloudwatch] val missingSampleRetryMinDelayMillis =
+    config.getDuration("atlas.cloudwatch.poller.missingSampleRetry.minDelay").toMillis
+
+  private[cloudwatch] val missingSampleRetryMaxDelayMillis =
+    config.getDuration("atlas.cloudwatch.poller.missingSampleRetry.maxDelay").toMillis
+
+  /** Jittered delay, in millis, before re-querying a window that came back empty. */
+  private[cloudwatch] def missingSampleRetryDelayMillis(): Long = {
+    val span = missingSampleRetryMaxDelayMillis - missingSampleRetryMinDelayMillis
+    if (span <= 0) missingSampleRetryMinDelayMillis
+    else missingSampleRetryMinDelayMillis + scala.util.Random.nextLong(span)
+  }
 
   // Cache for ListMetrics results: key = account|region|namespace|dims|metricName
   private[cloudwatch] val metricsCache =
@@ -791,63 +813,114 @@ class CloudWatchPoller(
             .metricDataQueries(queries.asJava)
             .build()
 
-          val response = client.getMetricData(request)
+          def mergeResponse(resp: GetMetricDataResponse): Unit = {
+            resp.metricDataResults().asScala.foreach { r =>
+              idToMetricAndStat.get(r.id()) match {
+                case Some((metricIdx, stat)) =>
+                  val s = perMetricSeries(metricIdx)
+                  val ts = r.timestamps().asScala
+                  val vs = r.values().asScala
 
-          response.metricDataResults().asScala.foreach { r =>
-            idToMetricAndStat.get(r.id()) match {
-              case Some((metricIdx, stat)) =>
-                val s = perMetricSeries(metricIdx)
-                val ts = r.timestamps().asScala
-                val vs = r.values().asScala
-
-                if (ts.nonEmpty && vs.nonEmpty) {
-                  stat match {
-                    case "max" =>
-                      s.timestamps ++= ts
-                      s.max ++= vs
-                    case other =>
-                      if (s.timestamps.isEmpty) s.timestamps ++= ts
-                      other match {
-                        case "min" => s.min ++= vs
-                        case "sum" => s.sum ++= vs
-                        case "cnt" => s.cnt ++= vs
-                      }
+                  if (ts.nonEmpty && vs.nonEmpty) {
+                    stat match {
+                      case "max" =>
+                        s.timestamps ++= ts
+                        s.max ++= vs
+                      case other =>
+                        if (s.timestamps.isEmpty) s.timestamps ++= ts
+                        other match {
+                          case "min" => s.min ++= vs
+                          case "sum" => s.sum ++= vs
+                          case "cnt" => s.cnt ++= vs
+                        }
+                    }
                   }
-                }
 
-              case None =>
-                logger.warn(s"Received MetricDataResult with unknown id ${r.id()}")
+                case None =>
+                  logger.warn(s"Received MetricDataResult with unknown id ${r.id()}")
+              }
             }
           }
 
-          metrics.indices.foreach { i =>
-            val m = metrics(i)
-            val p = perMetricPromises(i)
-            val series = perMetricSeries(i)
+          mergeResponse(client.getMetricData(request))
 
-            // We only treat it as empty if there are no timestamps, or all stat buffers are empty.
+          def isEmptySeries(idx: Int): Boolean = {
+            val series = perMetricSeries(idx)
             val hasAnyStat =
               series.max.nonEmpty || series.min.nonEmpty || series.sum.nonEmpty || series.cnt.nonEmpty
-
-            if (series.timestamps.isEmpty || !hasAnyStat) {
-              logger.debug(
-                s"[HRM] GetMetricDataBatch: empty series for account=$account region=$region " +
-                  s"ns=${category.namespace} metricName=${m.metricName()} def=${definition.name} " +
-                  s"timestamps=${series.timestamps.size} max=${series.max.size} " +
-                  s"min=${series.min.size} sum=${series.sum.size} cnt=${series.cnt.size}"
-              )
-              debugger.debugPolled(m, IncomingMatch.DroppedEmpty, nowMillis, category)
-              got.incrementAndGet()
-              p.success(Done)
-            } else {
-              val datapoints = buildDatapointList(series, definition)
-              processMetricDatapoints(definition, m, datapoints, endTime.toEpochMilli)
-              got.incrementAndGet()
-              p.success(Done)
-            }
+            series.timestamps.isEmpty || !hasAnyStat
           }
 
-          batchPromise.success(Done)
+          def finish(): Unit = {
+            metrics.indices.foreach { i =>
+              val m = metrics(i)
+              val p = perMetricPromises(i)
+              val series = perMetricSeries(i)
+
+              if (isEmptySeries(i)) {
+                logger.debug(
+                  s"[HRM] GetMetricDataBatch: empty series for account=$account region=$region " +
+                    s"ns=${category.namespace} metricName=${m.metricName()} def=${definition.name} " +
+                    s"timestamps=${series.timestamps.size} max=${series.max.size} " +
+                    s"min=${series.min.size} sum=${series.sum.size} cnt=${series.cnt.size}"
+                )
+                debugger.debugPolled(m, IncomingMatch.DroppedEmpty, nowMillis, category)
+                got.incrementAndGet()
+                p.success(Done)
+              } else {
+                val datapoints = buildDatapointList(series, definition)
+                processMetricDatapoints(definition, m, datapoints, endTime.toEpochMilli)
+                got.incrementAndGet()
+                p.success(Done)
+              }
+            }
+
+            batchPromise.success(Done)
+          }
+
+          val missingIdx =
+            if (category.period < 60 && missingSampleRetryEnabled)
+              metrics.indices.filter(isEmptySeries)
+            else
+              IndexedSeq.empty
+          val retryQueries =
+            if (missingIdx.isEmpty) Nil
+            else
+              queries.filter { q =>
+                idToMetricAndStat.get(q.id()).exists { case (idx, _) => missingIdx.contains(idx) }
+              }
+
+          if (retryQueries.isEmpty) {
+            finish()
+          } else {
+            // Re-query only the still-missing metrics for the same window, off-thread, so
+            // this poller thread isn't blocked waiting on the jittered delay.
+            registry.counter(hrmMissingSampleRetry).increment(retryQueries.size.toLong)
+            val delay = FiniteDuration(missingSampleRetryDelayMillis(), TimeUnit.MILLISECONDS)
+            system.scheduler.scheduleOnce(delay) {
+              try {
+                val retryRequest = GetMetricDataRequest
+                  .builder()
+                  .startTime(startTime)
+                  .endTime(endTime)
+                  .metricDataQueries(retryQueries.asJava)
+                  .build()
+                mergeResponse(client.getMetricData(retryRequest))
+              } catch {
+                case ex: Exception =>
+                  logger.error(
+                    s"Error re-querying missing HRM samples for $account at $offset and ${
+                        category.namespace
+                      } ${definition.name} in region $region",
+                    ex
+                  )
+                  registry
+                    .counter(errorStats.withTags("exception", ex.getClass.getSimpleName))
+                    .increment()
+              }
+              finish()
+            }
+          }
 
         } catch {
           case ex: Exception =>
@@ -921,14 +994,44 @@ class CloudWatchPoller(
 
           val response = client.getMetricStatistics(request)
 
-          if (response.datapoints().isEmpty) {
-            debugger.debugPolled(metric, IncomingMatch.DroppedEmpty, nowMillis, category)
-          } else {
-            val endMs = request.endTime().toEpochMilli
-            processMetricDatapoints(definition, metric, response.datapoints().asScala, endMs)
+          def finish(resp: GetMetricStatisticsResponse): Unit = {
+            if (resp.datapoints().isEmpty) {
+              debugger.debugPolled(metric, IncomingMatch.DroppedEmpty, nowMillis, category)
+            } else {
+              val endMs = request.endTime().toEpochMilli
+              processMetricDatapoints(definition, metric, resp.datapoints().asScala, endMs)
+            }
+            got.incrementAndGet()
+            promise.success(Done)
           }
-          got.incrementAndGet()
-          promise.success(Done)
+
+          if (response.datapoints().isEmpty && category.period < 60 && missingSampleRetryEnabled) {
+            // Re-query the same window, off-thread, so this poller thread isn't blocked
+            // waiting on the jittered delay.
+            registry.counter(hrmMissingSampleRetry).increment()
+            val delay = FiniteDuration(missingSampleRetryDelayMillis(), TimeUnit.MILLISECONDS)
+            system.scheduler.scheduleOnce(delay) {
+              val retryResponse =
+                try {
+                  Some(client.getMetricStatistics(request))
+                } catch {
+                  case ex: Exception =>
+                    logger.error(
+                      s"Error re-querying missing HRM sample for ${
+                          metric.metricName()
+                        } for $account at $offset and ${category.namespace} ${definition.name} in region $region",
+                      ex
+                    )
+                    registry
+                      .counter(errorStats.withTags("exception", ex.getClass.getSimpleName))
+                      .increment()
+                    None
+                }
+              finish(retryResponse.getOrElse(response))
+            }
+          } else {
+            finish(response)
+          }
         } catch {
           case ex: Exception =>
             logger.error(
