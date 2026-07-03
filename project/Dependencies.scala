@@ -85,7 +85,7 @@ object Dependencies {
   val spectatorSandbox   = "com.netflix.spectator" % "spectator-ext-sandbox" % spectator
   val springBootAutoconfigure = "org.springframework.boot" % "spring-boot-autoconfigure" % Versions.springBoot
   val springContext           = "org.springframework" % "spring-context" % spring
-  val typesafeConfig     = "com.typesafe" % "config" % "1.4.8"
+  val typesafeConfig     = "com.typesafe" % "config" % "1.4.9"
 }
 
 // format: on
