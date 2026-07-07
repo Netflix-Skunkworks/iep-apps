@@ -51,7 +51,7 @@ class AwsConfigAccountSupplier(
   registry: Registry,
   clientFactory: AwsClientFactory
 )(implicit val system: ActorSystem)
-    extends AwsAccountSupplier
+  extends AwsAccountSupplier
     with StrictLogging {
 
   private val aggregator = config.getString("atlas.cloudwatch.account.supplier.aws.aggregator")
@@ -71,7 +71,7 @@ class AwsConfigAccountSupplier(
   private val initialized = new AtomicBoolean()
 
   @volatile private[cloudwatch] var rawAccountResources
-    : Map[String, Map[Region, Map[String, Set[String]]]] = null
+  : Map[String, Map[Region, Map[String, Set[String]]]] = null
   @volatile private[cloudwatch] var filtered: Map[String, Map[Region, Set[String]]] = null
 
   private val runner: Runnable = () => {
@@ -108,9 +108,9 @@ class AwsConfigAccountSupplier(
             var resource: String = null
             var region: String = null
             foreachField(parser) {
-              case "accountId"    => account = parser.nextStringValue()
+              case "accountId" => account = parser.nextStringValue()
               case "resourceType" => resource = parser.nextStringValue()
-              case "awsRegion"    => region = parser.nextStringValue()
+              case "awsRegion" => region = parser.nextStringValue()
               case _ =>
                 parser.nextToken()
                 parser.skipChildren()
@@ -120,15 +120,15 @@ class AwsConfigAccountSupplier(
             if (regions.contains(region)) {
               val r = region match {
                 case "global" => Region.AWS_GLOBAL
-                case other    => Region.of(other)
+                case other => Region.of(other)
               }
               var regions = map.getOrElse(account, Map.empty)
               var nss = regions.getOrElse(r, Map.empty)
               val (ns, remainder) = splitResource(resource)
               var set = nss.getOrElse(ns, Set.empty)
               set += remainder
-              nss += ns      -> set
-              regions += r   -> nss
+              nss += ns -> set
+              regions += r -> nss
               map += account -> regions
             } else {
               skipped += 1
