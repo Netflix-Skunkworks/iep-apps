@@ -39,19 +39,19 @@ import scala.util.Random
 import scala.util.Using
 
 /**
-  * Periodically calls configuration aggregators for a list of accounts and active
-  * resources in each region. The list is filtered through the regions we want in the config
-  * and accounts can be allowed or denied via a list and "is-allow" flag.
-  *
-  * Note that on startup, the config is loaded and exceptions thrown so that we don't start
-  * an instance that isn't ready to handle data.
-  */
+ * Periodically calls configuration aggregators for a list of accounts and active
+ * resources in each region. The list is filtered through the regions we want in the config
+ * and accounts can be allowed or denied via a list and "is-allow" flag.
+ *
+ * Note that on startup, the config is loaded and exceptions thrown so that we don't start
+ * an instance that isn't ready to handle data.
+ */
 class AwsConfigAccountSupplier(
   config: Config,
   registry: Registry,
   clientFactory: AwsClientFactory
 )(implicit val system: ActorSystem)
-    extends AwsAccountSupplier
+  extends AwsAccountSupplier
     with StrictLogging {
 
   private val aggregator = config.getString("atlas.cloudwatch.account.supplier.aws.aggregator")
@@ -71,7 +71,7 @@ class AwsConfigAccountSupplier(
   private val initialized = new AtomicBoolean()
 
   @volatile private[cloudwatch] var rawAccountResources
-    : Map[String, Map[Region, Map[String, Set[String]]]] = null
+  : Map[String, Map[Region, Map[String, Set[String]]]] = null
   @volatile private[cloudwatch] var filtered: Map[String, Map[Region, Set[String]]] = null
 
   private val runner: Runnable = () => {
@@ -108,9 +108,9 @@ class AwsConfigAccountSupplier(
             var resource: String = null
             var region: String = null
             foreachField(parser) {
-              case "accountId"    => account = parser.nextStringValue()
+              case "accountId" => account = parser.nextStringValue()
               case "resourceType" => resource = parser.nextStringValue()
-              case "awsRegion"    => region = parser.nextStringValue()
+              case "awsRegion" => region = parser.nextStringValue()
               case _ =>
                 parser.nextToken()
                 parser.skipChildren()
@@ -120,15 +120,15 @@ class AwsConfigAccountSupplier(
             if (regions.contains(region)) {
               val r = region match {
                 case "global" => Region.AWS_GLOBAL
-                case other    => Region.of(other)
+                case other => Region.of(other)
               }
               var regions = map.getOrElse(account, Map.empty)
               var nss = regions.getOrElse(r, Map.empty)
               val (ns, remainder) = splitResource(resource)
               var set = nss.getOrElse(ns, Set.empty)
               set += remainder
-              nss += ns      -> set
-              regions += r   -> nss
+              nss += ns -> set
+              regions += r -> nss
               map += account -> regions
             } else {
               skipped += 1
@@ -193,13 +193,14 @@ class AwsConfigAccountSupplier(
           val delay = Random.nextLong(math.min(backoff, maxDelay.toMillis).max(1))
           logger.warn(
             s"Initial load of AWS accounts and resources failed (attempt ${attempt}/${maxAttempts})," +
-            s" retrying in ${delay}ms",
+              s" retrying in ${delay}ms",
             ex
           )
           Thread.sleep(delay)
       }
     }
   }
+
   runWithRetry(maxAttempts = 5, baseDelay = 1.second, maxDelay = 30.seconds)
 
   private val delay = {
