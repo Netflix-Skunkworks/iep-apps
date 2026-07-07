@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import scala.compat.java8.StreamConverters.StreamHasToScala
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.duration.DurationLong
+import scala.concurrent.duration.FiniteDuration
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 import scala.util.Random
 import scala.util.Using
@@ -174,8 +175,32 @@ class AwsConfigAccountSupplier(
       .record(System.currentTimeMillis() - start, TimeUnit.MILLISECONDS)
     initialized.set(true)
   }
-  // run now to make sure we have access and can start
-  runner.run()
+
+  // Run now to make sure we have access and can start. AWS Config's SelectAggregateResourceConfig
+  // API can be rate limited, and thundering-herd restarts across instances can compound it, so
+  // retry with exponential backoff and full jitter rather than failing bean creation outright.
+  private def runWithRetry(maxAttempts: Int, baseDelay: FiniteDuration, maxDelay: FiniteDuration): Unit = {
+    var attempt = 0
+    var done = false
+    while (!done) {
+      attempt += 1
+      try {
+        runner.run()
+        done = true
+      } catch {
+        case ex: Exception if attempt < maxAttempts =>
+          val backoff = baseDelay.toMillis * (1L << (attempt - 1))
+          val delay = Random.nextLong(math.min(backoff, maxDelay.toMillis).max(1))
+          logger.warn(
+            s"Initial load of AWS accounts and resources failed (attempt ${attempt}/${maxAttempts})," +
+            s" retrying in ${delay}ms",
+            ex
+          )
+          Thread.sleep(delay)
+      }
+    }
+  }
+  runWithRetry(maxAttempts = 5, baseDelay = 1.second, maxDelay = 30.seconds)
 
   private val delay = {
     val now = System.currentTimeMillis()
