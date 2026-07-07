@@ -22,6 +22,7 @@ import org.apache.pekko.actor.ActorSystem
 
 import java.util.Optional
 import org.apache.pekko.http.scaladsl.Http
+import org.apache.pekko.http.scaladsl.HttpsConnectionContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -34,9 +35,19 @@ class AppConfiguration {
   }
 
   @Bean
-  def druidClient(config: Optional[Config], system: ActorSystem): DruidClient = {
+  def druidClient(
+    config: Optional[Config],
+    connectionContext: Optional[HttpsConnectionContext],
+    system: ActorSystem
+  ): DruidClient = {
     val c = config.orElseGet(() => ConfigFactory.load())
     implicit val sys: ActorSystem = system
-    new DruidClient(c.getConfig("atlas.druid"), system, Http().superPool[AccessLogger]())
+    val http = Http()
+    // Use an injected connection context if one is provided, e.g. to support mTLS. This
+    // allows an internal packaging to supply a client certificate without adding the
+    // dependency here. Otherwise fall back to the default client context.
+    val ctx = connectionContext.orElseGet(() => http.defaultClientHttpsContext)
+    val client = http.superPool[AccessLogger](connectionContext = ctx)
+    new DruidClient(c.getConfig("atlas.druid"), system, client)
   }
 }
