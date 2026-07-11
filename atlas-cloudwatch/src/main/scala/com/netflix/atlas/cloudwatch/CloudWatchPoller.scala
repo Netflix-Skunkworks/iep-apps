@@ -32,6 +32,7 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.Source
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.cloudwatch.CloudWatchClient
+import software.amazon.awssdk.services.cloudwatch.model.CloudWatchException
 import software.amazon.awssdk.services.cloudwatch.model.Datapoint
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
 import software.amazon.awssdk.services.cloudwatch.model.GetMetricDataRequest
@@ -91,6 +92,8 @@ class CloudWatchPoller(
   private val errorListing = registry.createId("atlas.cloudwatch.poller.failure", "call", "list")
   private val errorStats = registry.createId("atlas.cloudwatch.poller.failure", "call", "metric")
   private val emptyListing = registry.createId("atlas.cloudwatch.poller.emptyList")
+  // Cached ListMetrics results that were not refreshed within the staleness threshold
+  private val staleCache = registry.createId("atlas.cloudwatch.poller.staleCache")
 
   private val globalLastUpdate =
     PolledMeter
@@ -176,6 +179,36 @@ class CloudWatchPoller(
   private[cloudwatch] val metricsCacheSizes =
     new ConcurrentHashMap[String, Int]()
 
+  // Epoch millis of the last successful discovery refresh per key. Used to detect a key
+  // that is stuck serving a stale list (e.g. because discovery keeps failing/throttling
+  // for it) so new dimension combinations don't silently go missing indefinitely.
+  private[cloudwatch] val metricsCacheLastRefresh =
+    new ConcurrentHashMap[String, Long]()
+
+  // A cached metrics list older than this is no longer trusted blindly; the data-poll
+  // path will force a live ListMetrics fetch instead. A few missed discovery cycles are
+  // tolerated before treating the cache as stale.
+  private[cloudwatch] val cacheStalenessMs = hrmListFrequency * 1000 * 3
+
+  // Discovery cadence is throttled per account (CloudWatch's ListMetrics limit is per
+  // account/region), and this tracks the current effective per-account rate. An account
+  // that's actively being rate limited gets its own rate turned down for the next cycle so
+  // it backs off instead of hammering a limit it's already exceeding; other accounts run
+  // on independent streams and are unaffected.
+  private[cloudwatch] val accountDiscoveryLimit = new ConcurrentHashMap[String, Int]()
+
+  // Guards against a scheduled discovery tick starting a second, overlapping run for an
+  // account whose previous discovery pass (possibly slowed by backoff) hasn't finished yet.
+  private[cloudwatch] val discoveryInFlight = ConcurrentHashMap.newKeySet[String]()
+
+  private def isThrottlingException(ex: Throwable): Boolean = ex match {
+    case e: CloudWatchException =>
+      val code = Option(e.awsErrorDetails()).map(_.errorCode()).getOrElse("")
+      code.equalsIgnoreCase("Throttling") ||
+      Option(e.getMessage).exists(_.contains("Rate exceeded"))
+    case _ => false
+  }
+
   private def cacheKey(
     account: String,
     region: Region,
@@ -241,66 +274,168 @@ class CloudWatchPoller(
     if (hrmCategories.isEmpty) return
 
     try {
-      accountSupplier.accounts.foreach {
-        case (account, regions) =>
-          // Only cache for fast-batch accounts
-          val isFastBatch = fastBatchPollingAccounts.contains(account)
-          if (!isFastBatch) {
-            logger.debug(
-              s"Skipping pollListMetrics for account=$account " +
-                "because it is not in fastBatchPollingAccounts."
+      // Build one discovery worklist per account and throttle+run each account's stream
+      // independently and concurrently. CloudWatch's ListMetrics rate limit is enforced
+      // per account/region, so a single shared throttled stream across all accounts is
+      // the wrong isolation boundary: runForeach processes items sequentially, so one
+      // account with many dimension combinations (or one that's actively being
+      // rate-limited and retrying with backoff) sits in front of the queue and starves
+      // discovery for every other, healthy account behind it. Per-account streams keep a
+      // throttled/misbehaving account from delaying anyone else's cache refresh.
+      //
+      // Priority order follows the account order declared in
+      // atlas.cloudwatch.account.polling.fastBatchPolling, so the accounts operators care
+      // about most get their discovery streams kicked off first.
+      val priorityOrder = fastBatchPollingAccounts.asScala.toList.zipWithIndex.toMap
+      val perAccountWork = accountSupplier.accounts.toList
+        .filter { case (account, _) => priorityOrder.contains(account) }
+        .sortBy { case (account, _) => priorityOrder(account) }
+        .map {
+          case (account, regions) =>
+            val items = for {
+              (region, namespaces) <- regions.toList
+              if namespaces.nonEmpty
+              category <- hrmCategories
+              if namespaces.contains(category.namespace)
+              (definition, request) <- category.toListRequests
+            } yield (region, category, definition, request)
+            account -> items
+        }
+
+      perAccountWork.foreach {
+        case (account, items) =>
+          if (!discoveryInFlight.add(account)) {
+            logger.warn(
+              s"[HRM] Discovery still in flight for account=$account from a prior cycle; " +
+                "skipping this tick rather than piling up overlapping runs."
             )
           } else {
-            regions.foreach {
-              case (region, namespaces) =>
-                if (namespaces.nonEmpty) {
-                  val filtered = hrmCategories.filter(c => namespaces.contains(c.namespace))
-                  if (filtered.nonEmpty) {
-                    val client = createClient(account, region)
+            val effectiveLimit =
+              Option(accountDiscoveryLimit.get(account)).getOrElse(awsRequestLimit)
+            val sawThrottling = new java.util.concurrent.atomic.AtomicBoolean(false)
 
-                    filtered.foreach { category =>
-                      category.toListRequests.foreach {
-                        case (definition, request) =>
-                          val key = cacheKey(account, region, category, definition)
-                          try {
-                            val paginator = client.listMetricsPaginator(request)
-                            val allMetrics = paginator.metrics().stream().toScala(List)
-                            val kept = allMetrics.filter { m =>
-                              category.dimensionsMatch(m.dimensions().asScala.toList) &&
-                              !category.filter.map(_.matches(toTagMap(m))).getOrElse(false)
-                            }
-
-                            val newSize = kept.size
-                            val oldSize = Option(metricsCacheSizes.get(key)).getOrElse(0)
-
-                            // Update the cache content
-                            metricsCache.put(key, kept)
-                            // Track size for next time
-                            metricsCacheSizes.put(key, newSize)
-
-                            logger.info(
-                              s"Updated metrics cache for key=$key " +
-                                s"(account=$account, region=$region, ns=${category.namespace}, metric=${definition.name}) " +
-                                s"size change: $oldSize -> $newSize"
-                            )
-                          } catch {
-                            case ex: Exception =>
-                              logger.error(
-                                s"Error listing metrics (discovery) for $account ${
-                                    category.namespace
-                                  } ${definition.name} in region $region",
-                                ex
-                              )
-                              registry
-                                .counter(
-                                  errorListing.withTags("exception", ex.getClass.getSimpleName)
-                                )
-                                .increment()
-                          }
+            try {
+              val discovery = Source
+                .fromIterator(() => items.iterator)
+                .throttle(effectiveLimit, 1.second)
+                .runForeach {
+                  case (region, category, definition, request) =>
+                    val key = cacheKey(account, region, category, definition)
+                    try {
+                      val client = createClient(account, region)
+                      val paginator = client.listMetricsPaginator(request)
+                      val allMetrics = paginator.metrics().stream().toScala(List)
+                      logger.info(
+                        s"[HRM] ListMetrics response for key=$key (account=$account, " +
+                          s"region=$region, ns=${category.namespace}, metric=${definition.name}): " +
+                          s"${allMetrics.size} dimension combinations returned by AWS"
+                      )
+                      val kept = allMetrics.filter { m =>
+                        category.dimensionsMatch(m.dimensions().asScala.toList) &&
+                        !category.filter.map(_.matches(toTagMap(m))).getOrElse(false)
                       }
+
+                      val isFirstCache = !metricsCache.containsKey(key)
+                      val oldList = Option(metricsCache.get(key)).getOrElse(List.empty[Metric])
+                      val newSize = kept.size
+                      val oldSize = oldList.size
+
+                      // Diff against what was cached before this refresh so newly appeared
+                      // (or disappeared) dimension combinations are visible individually,
+                      // not just as a net size change that can mask churn (e.g. one new
+                      // combo appearing while another drops in the same cycle).
+                      val added = kept.diff(oldList)
+                      val removed = oldList.diff(kept)
+
+                      // Update the cache content
+                      metricsCache.put(key, kept)
+                      // Track size and last-refresh time for next time
+                      metricsCacheSizes.put(key, newSize)
+                      metricsCacheLastRefresh.put(key, System.currentTimeMillis())
+
+                      added.foreach { m =>
+                        logger.info(
+                          s"[HRM] New dimension combination cached for key=$key: " +
+                            s"${toTagMap(m)} " +
+                            s"(account=$account, region=$region, ns=${category.namespace}, metric=${definition.name})"
+                        )
+                      }
+                      removed.foreach { m =>
+                        logger.info(
+                          s"[HRM] Dimension combination no longer active for key=$key: " +
+                            s"${toTagMap(m)} " +
+                            s"(account=$account, region=$region, ns=${category.namespace}, metric=${definition.name})"
+                        )
+                      }
+
+                      if (isFirstCache) {
+                        logger.info(
+                          s"[HRM] Initial metrics cache populated for key=$key " +
+                            s"(account=$account, region=$region, ns=${category.namespace}, metric=${definition.name}) " +
+                            s"size: $newSize, content: ${kept.map(toTagMap)}"
+                        )
+                      } else if (oldSize != newSize) {
+                        logger.info(
+                          s"Updated metrics cache for key=$key " +
+                            s"(account=$account, region=$region, ns=${category.namespace}, metric=${definition.name}) " +
+                            s"size change: $oldSize -> $newSize, content: ${kept.map(toTagMap)}"
+                        )
+                      } else {
+                        logger.info(
+                          s"Refreshed metrics cache for key=$key " +
+                            s"(account=$account, region=$region, ns=${category.namespace}, metric=${definition.name}) " +
+                            s"size unchanged: $newSize"
+                        )
+                      }
+                    } catch {
+                      case ex: Exception =>
+                        if (isThrottlingException(ex)) sawThrottling.set(true)
+                        logger.error(
+                          s"Error listing metrics (discovery) for $account ${category.namespace} ${definition.name} in region $region",
+                          ex
+                        )
+                        registry
+                          .counter(
+                            errorListing.withTags("exception", ex.getClass.getSimpleName)
+                          )
+                          .increment()
                     }
-                  }
                 }
+
+              // Deliberately not awaited: accounts run fully independently of each other, so
+              // a slow/backed-off account never blocks discovery for the rest. The in-flight
+              // guard above prevents the next scheduled tick from starting a second run for
+              // this account before this one finishes, and each account's own effective rate
+              // is adjusted for next cycle based on whether it hit throttling this time.
+              discovery.onComplete { result =>
+                if (sawThrottling.get()) {
+                  val backedOff = math.max(1, effectiveLimit / 2)
+                  accountDiscoveryLimit.put(account, backedOff)
+                  logger.warn(
+                    s"[HRM] Discovery for account=$account hit CloudWatch throttling; " +
+                      s"reducing its discovery rate to $backedOff/sec for the next cycle."
+                  )
+                } else {
+                  val recovered = math.min(awsRequestLimit, effectiveLimit + 1)
+                  accountDiscoveryLimit.put(account, recovered)
+                }
+                result.failed.foreach { ex =>
+                  logger.error(s"Discovery stream failed for account=$account", ex)
+                }
+                discoveryInFlight.remove(account)
+              }(system.dispatcher)
+            } catch {
+              case ex: Exception =>
+                // Guards against synchronous failures during stream setup/materialization
+                // (e.g. "Trying to materialize stream after materializer has been shutdown").
+                // Without this, such an exception would both skip every account still left
+                // in this tick's iteration and leave this account stuck in discoveryInFlight
+                // forever, since .onComplete would never be attached to release it.
+                logger.error(s"Failed to start discovery stream for account=$account", ex)
+                registry
+                  .counter(errorSetup.withTags("exception", ex.getClass.getSimpleName))
+                  .increment()
+                discoveryInFlight.remove(account)
             }
           }
       }
@@ -514,8 +649,10 @@ class CloudWatchPoller(
         val cached = Option(metricsCache.get(key))
 
         if (useHrmMetricsCache && fastBatchPollingAccounts.contains(account)) {
+          val lastRefresh = Option(metricsCacheLastRefresh.get(key)).getOrElse(0L)
+          val cacheAgeMs = System.currentTimeMillis() - lastRefresh
           cached match {
-            case Some(metrics) if metrics.nonEmpty =>
+            case Some(metrics) if metrics.nonEmpty && cacheAgeMs <= cacheStalenessMs =>
               logger.debug(
                 s"[HRM] Using cached metrics for key=$key, size=${metrics.size} " +
                   s"(ns=${category.namespace}, metric=${definition.name}, account=$account, region=$region)"
@@ -523,6 +660,20 @@ class CloudWatchPoller(
               executionContext.execute(
                 UseCachedMetrics(definition, metrics, promise)
               )
+
+            case Some(metrics) if metrics.nonEmpty =>
+              // Discovery hasn't refreshed this key recently enough to trust it blindly;
+              // a new dimension combination could have appeared and gone missing. Force a
+              // live ListMetrics fetch instead of continuing to serve the stale list.
+              logger.warn(
+                s"[HRM] Cache for key=$key is stale (age=${cacheAgeMs}ms, " +
+                  s"threshold=${cacheStalenessMs}ms), forcing live ListMetrics " +
+                  s"(ns=${category.namespace}, metric=${definition.name}, account=$account, region=$region)"
+              )
+              registry
+                .counter(staleCache.withTags("aws.namespace", category.namespace))
+                .increment()
+              executionContext.execute(ListMetrics(request, definition, promise))
 
             case _ =>
               logger.info(
@@ -556,7 +707,7 @@ class CloudWatchPoller(
       metricsList: List[Metric],
       definition: MetricDefinition,
       promise: Promise[Done],
-      cacheKeyOpt: Option[String]
+      cacheKeyOpt: Option[(String, Long)]
     ): Unit = {
 
       if (metricsList.isEmpty) {
@@ -609,15 +760,81 @@ class CloudWatchPoller(
       throttled.onComplete {
         case Success(_) =>
           // Optionally populate cache for future polls (only for ListMetrics path)
-          cacheKeyOpt.foreach { key =>
-            if (useHrmMetricsCache && fastBatchPollingAccounts.contains(account)) {
-              try {
-                metricsCache.put(key, metricsList)
-              } catch {
-                case ex: Exception =>
-                  logger.warn(s"Failed to update metrics cache for key $key", ex)
+          cacheKeyOpt.foreach {
+            case (key, fetchStartedAt) =>
+              if (useHrmMetricsCache && fastBatchPollingAccounts.contains(account)) {
+                try {
+                  val lastRefresh = Option(metricsCacheLastRefresh.get(key)).getOrElse(0L)
+                  if (lastRefresh >= fetchStartedAt) {
+                    // Some other refresh (discovery cycle or another live fetch) already
+                    // wrote a view of this key that is as new as or newer than the one we
+                    // just fetched here. Writing ours now would regress the cache to an
+                    // older snapshot while also resetting its last-refresh clock, making the
+                    // stale regression look freshly refreshed. Skip it.
+                    logger.info(
+                      s"[HRM] Skipping cache write for key=$key (account=$account, " +
+                        s"region=$region, ns=${category.namespace}, metric=${definition.name}, " +
+                        s"via=live-fetch): existing cache entry (refreshed at $lastRefresh) is " +
+                        s"already as fresh as this fetch (started at $fetchStartedAt)."
+                    )
+                  } else {
+                    // Cache the same filtered view the discovery loop caches, so this
+                    // fallback path doesn't pollute the cache with dimension combinations
+                    // that dimensionsMatch/filter would otherwise have excluded.
+                    val keptForCache = metricsList.filter { m =>
+                      category.dimensionsMatch(m.dimensions().asScala.toList) &&
+                      !category.filter.map(_.matches(toTagMap(m))).getOrElse(false)
+                    }
+
+                    val isFirstCache = !metricsCache.containsKey(key)
+                    val oldList = Option(metricsCache.get(key)).getOrElse(List.empty[Metric])
+                    // Merge rather than overwrite: this fetch's own request/response cycle
+                    // can lag behind a discovery cycle that ran concurrently, so a plain
+                    // replace can drop dimension combinations discovery already added. This
+                    // path only ever grows the cache; discovery remains the sole source that
+                    // removes entries once they're no longer reported by ListMetrics.
+                    val merged =
+                      if (oldList.nonEmpty) (oldList ++ keptForCache).distinct
+                      else keptForCache
+                    val added = merged.diff(oldList)
+
+                    metricsCache.put(key, merged)
+                    metricsCacheLastRefresh.put(key, System.currentTimeMillis())
+
+                    added.foreach { m =>
+                      logger.info(
+                        s"[HRM] New dimension combination cached for key=$key: " +
+                          s"${toTagMap(m)} (account=$account, region=$region, " +
+                          s"ns=${category.namespace}, metric=${definition.name}, via=live-fetch)"
+                      )
+                    }
+
+                    if (isFirstCache) {
+                      logger.info(
+                        s"[HRM] Initial metrics cache populated for key=$key (account=$account, " +
+                          s"region=$region, ns=${category.namespace}, metric=${definition.name}, " +
+                          s"via=live-fetch) size: ${merged.size}, content: ${merged.map(toTagMap)}"
+                      )
+                    } else if (oldList.size != merged.size) {
+                      logger.info(
+                        s"Updated metrics cache for key=$key (account=$account, region=$region, " +
+                          s"ns=${category.namespace}, metric=${definition.name}, via=live-fetch) " +
+                          s"size change: ${oldList.size} -> ${merged.size}, " +
+                          s"content: ${merged.map(toTagMap)}"
+                      )
+                    } else {
+                      logger.info(
+                        s"Refreshed metrics cache for key=$key (account=$account, region=$region, " +
+                          s"ns=${category.namespace}, metric=${definition.name}, via=live-fetch) " +
+                          s"size unchanged: ${merged.size}"
+                      )
+                    }
+                  }
+                } catch {
+                  case ex: Exception =>
+                    logger.warn(s"Failed to update metrics cache for key $key", ex)
+                }
               }
-            }
           }
 
           val batchFutureOpt =
@@ -698,16 +915,24 @@ class CloudWatchPoller(
 
       @Override def run(): Unit = {
         try {
+          // Captured before issuing the AWS call so a slow/retried fetch can be detected
+          // as stale relative to any discovery-cycle refresh that lands while it's in flight.
+          val fetchStartedAt = System.currentTimeMillis()
           val metricsIterable = client.listMetricsPaginator(request)
           val metricsList = metricsIterable.metrics().stream().toScala(List)
 
           val key = cacheKey(account, region, category, definition)
+          logger.info(
+            s"[HRM] ListMetrics response for key=$key (account=$account, region=$region, " +
+              s"ns=${category.namespace}, metric=${definition.name}, via=live-fetch): " +
+              s"${metricsList.size} dimension combinations returned by AWS"
+          )
 
           processConcreteMetrics(
             metricsList,
             definition,
             promise,
-            cacheKeyOpt = Some(key)
+            cacheKeyOpt = Some((key, fetchStartedAt))
           )
         } catch {
           case ex: Exception =>
