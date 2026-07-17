@@ -194,7 +194,8 @@ class OTelCloudWatchLogsProcessorSuite extends FunSuite with TestKitBase {
     val event = CloudWatchLogEvent(
       id = "event-1",
       timestamp = 1L,
-      message = "1.100000 2026-07-17T02:20:12Z Z1234567890 www.example.com A NOERROR UDP us-east-1a 10.0.0.1 -",
+      message =
+        "1.100000 2026-07-17T02:20:12Z Z1234567890 www.example.com A NOERROR UDP us-east-1a 10.0.0.1 -",
       account = Some("282881007700"),
       region = Some("us-east-1"),
       extractedFields = resolverFields
