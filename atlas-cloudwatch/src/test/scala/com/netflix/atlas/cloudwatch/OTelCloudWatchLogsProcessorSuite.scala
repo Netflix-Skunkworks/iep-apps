@@ -170,5 +170,51 @@ class OTelCloudWatchLogsProcessorSuite extends FunSuite with TestKitBase {
     assert(logs.exists(_.message.contains("Second message")))
   }
 
+  test("processor merges extractedFields from a named subscription filter pattern") {
+    val sink = new StubOtelLogSink
+    val handler = new TestableOTelCloudWatchLogsProcessor(sink)
+
+    // Simulates a Route53 Resolver query log subscription filter with pattern
+    // [version, query_timestamp, hosted_zone_id, query_name, query_type,
+    //  response_code, protocol, edge_location, resolver_ip_address, edns_client_subnet]
+    // CloudWatch extracts these fields itself and attaches them per-event.
+    val resolverFields = Map(
+      "version"             -> "1.100000",
+      "query_timestamp"     -> "2026-07-17T02:20:12Z",
+      "hosted_zone_id"      -> "Z1234567890",
+      "query_name"          -> "www.example.com",
+      "query_type"          -> "A",
+      "response_code"       -> "NOERROR",
+      "protocol"            -> "UDP",
+      "edge_location"       -> "us-east-1a",
+      "resolver_ip_address" -> "10.0.0.1",
+      "edns_client_subnet"  -> "-"
+    )
+
+    val event = CloudWatchLogEvent(
+      id = "event-1",
+      timestamp = 1L,
+      message =
+        "1.100000 2026-07-17T02:20:12Z Z1234567890 www.example.com A NOERROR UDP us-east-1a 10.0.0.1 -",
+      account = Some("282881007700"),
+      region = Some("us-east-1"),
+      extractedFields = resolverFields
+    )
+
+    handler.process(
+      owner = "282881007700",
+      logGroup = "/aws/route53resolver/query-logs",
+      logStream = "resolver-query-log-stream",
+      subscriptionFilters = List("resolver-query-log-filter"),
+      events = List(event)
+    )
+
+    val logs = handler.sentLogs
+    assertEquals(logs.size, 1)
+    resolverFields.foreach {
+      case (k, v) => assertEquals(logs.head.tags.get(k), Some(v))
+    }
+  }
+
   override implicit def system: ActorSystem = ???
 }

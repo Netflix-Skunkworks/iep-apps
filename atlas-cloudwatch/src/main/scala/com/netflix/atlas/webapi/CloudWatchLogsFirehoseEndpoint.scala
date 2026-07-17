@@ -227,6 +227,7 @@ class CloudWatchLogsFirehoseEndpoint(
     var message: String = null
     var account: String = null
     var region: String = null
+    val extractedFields = Map.newBuilder[String, String]
 
     foreachField(parser) {
       case "id" =>
@@ -241,9 +242,11 @@ class CloudWatchLogsFirehoseEndpoint(
             account = parser.nextStringValue()
           case "@aws.region" =>
             region = parser.nextStringValue()
-          case _ =>
-            parser.nextToken()
-            parser.skipChildren()
+          case field =>
+            val value = parser.nextStringValue()
+            if (value != null) {
+              extractedFields += field -> value
+            }
         }
       case _ =>
         parser.nextToken()
@@ -255,7 +258,8 @@ class CloudWatchLogsFirehoseEndpoint(
       timestamp = timestamp,
       message = message,
       account = Option(account),
-      region = Option(region)
+      region = Option(region),
+      extractedFields = extractedFields.result()
     )
   }
 
@@ -273,7 +277,8 @@ final case class CloudWatchLogEvent(
   timestamp: Long,
   message: String,
   account: Option[String],
-  region: Option[String]
+  region: Option[String],
+  extractedFields: Map[String, String] = Map.empty
 )
 
 /**
