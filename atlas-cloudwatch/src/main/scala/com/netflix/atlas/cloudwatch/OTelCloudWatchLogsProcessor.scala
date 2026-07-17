@@ -18,6 +18,7 @@ package com.netflix.atlas.cloudwatch
 import com.netflix.atlas.webapi.CloudWatchLogEvent
 import com.netflix.atlas.webapi.CloudWatchLogsProcessor
 import com.netflix.iep.aws2.AwsClientFactory
+import com.netflix.iep.config.NetflixEnvironment
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
@@ -47,16 +48,19 @@ class OTelCloudWatchLogsProcessor(
       s"Processing ${events.length} logEvents from logGroup=$logGroup, logStream=$logStream"
     )
 
-    // Take the first event to get account/region (all events in this batch are same account/region)
-    val (accountOpt, regionOpt) =
-      events.headOption.map(ev => (Option(ev.account), Option(ev.region))).getOrElse((None, None))
+    // "owner" is the account that owns the log group (always present on the payload).
+    // ev.region is only set for cross-account log sharing (@aws.region extractedFields);
+    // otherwise the log group lives in this app's own deployment region, since a CW Logs
+    // subscription's destination must be in the same region as the source log group.
+    val account = Option(owner)
+    val region = events.headOption.flatMap(_.region).orElse(Option(NetflixEnvironment.region()))
 
     // Fetch tags once per batch (cached per logGroup)
     val logGroupTags: Map[String, String] =
       (for {
-        account <- accountOpt.get
-        region  <- regionOpt.get
-      } yield tagCache.getTags(logGroup, account, region)).getOrElse(Map.empty)
+        acct <- account
+        reg  <- region
+      } yield tagCache.getTags(logGroup, acct, reg)).getOrElse(Map.empty)
 
     // Build OtelLog for every event, preserving global line_index across chunks
     // so the collector can reconstruct exact order even across chunk boundaries.

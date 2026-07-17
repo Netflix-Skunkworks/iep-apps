@@ -23,6 +23,9 @@ import software.amazon.awssdk.services.cloudwatchlogs.model.ListTagsForResourceR
 
 import java.util.Optional
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.*
 import scala.jdk.CollectionConverters.*
 
 /**
@@ -31,12 +34,33 @@ import scala.jdk.CollectionConverters.*
  * Cache key: log group name (String)
  * Value: Map[tagKey -> tagValue]
  *
- * It only calls ListTagsForResource the first time for a given log group.
+ * ListTagsForResource is called the first time for a given log group, and then
+ * again every refreshInterval to pick up tag changes made on the AWS side.
  */
-class LogGroupTagCache(clientFactory: AwsClientFactory) extends StrictLogging {
+class LogGroupTagCache(
+  clientFactory: AwsClientFactory,
+  refreshInterval: FiniteDuration = 15.minutes
+) extends StrictLogging {
 
   // logGroupName -> Map[tagKey -> tagValue]
   private val cache = new ConcurrentHashMap[String, Map[String, String]]()
+
+  // logGroupName -> (accountId, region), needed to re-fetch tags on refresh
+  private val lookupKeys = new ConcurrentHashMap[String, (String, String)]()
+
+  private val refreshExecutor =
+    Executors.newSingleThreadScheduledExecutor(runnable => {
+      val t = new Thread(runnable, "log-group-tag-cache-refresh")
+      t.setDaemon(true)
+      t
+    })
+
+  refreshExecutor.scheduleAtFixedRate(
+    () => refreshAll(),
+    refreshInterval.toMillis,
+    refreshInterval.toMillis,
+    TimeUnit.MILLISECONDS
+  )
 
   private def createClient(account: String, region: Region): CloudWatchLogsClient = {
     clientFactory.getInstance(
@@ -52,9 +76,18 @@ class LogGroupTagCache(clientFactory: AwsClientFactory) extends StrictLogging {
     val cached = cache.get(logGroupName)
     if (cached != null) return cached
 
-    // Not cached: fetch from AWS
-    val arn =
-      s"arn:aws:logs:$region:$accountId:log-group:$logGroupName"
+    lookupKeys.put(logGroupName, (accountId, region))
+    val tags = fetchTags(logGroupName, accountId, region)
+    cache.put(logGroupName, tags)
+    tags
+  }
+
+  private def fetchTags(
+    logGroupName: String,
+    accountId: String,
+    region: String
+  ): Map[String, String] = {
+    val arn = s"arn:aws:logs:$region:$accountId:log-group:$logGroupName"
 
     try {
       val req = ListTagsForResourceRequest.builder().resourceArn(arn).build()
@@ -63,7 +96,7 @@ class LogGroupTagCache(clientFactory: AwsClientFactory) extends StrictLogging {
         .map(_.asScala.toMap)
         .getOrElse(Map.empty[String, String])
 
-      cache.put(logGroupName, tags)
+      logger.info(s"Fetched tags for log group $logGroupName (arn=$arn): $tags")
       tags
     } catch {
       case e: Exception =>
@@ -71,10 +104,18 @@ class LogGroupTagCache(clientFactory: AwsClientFactory) extends StrictLogging {
           s"Failed to list tags for log group $logGroupName (arn=$arn); returning empty tag map",
           e
         )
-        // Cache the empty map to avoid repeated failing calls
-        val empty = Map.empty[String, String]
-        cache.put(logGroupName, empty)
-        empty
+        Map.empty[String, String]
+    }
+  }
+
+  private def refreshAll(): Unit = {
+    lookupKeys.forEach { (logGroupName, key) =>
+      val (accountId, region) = key
+      val tags = fetchTags(logGroupName, accountId, region)
+      val previous = cache.put(logGroupName, tags)
+      if (previous != null && previous != tags) {
+        logger.info(s"Tags updated on refresh for log group $logGroupName: $previous -> $tags")
+      }
     }
   }
 }
