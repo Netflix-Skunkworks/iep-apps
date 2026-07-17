@@ -77,8 +77,9 @@ class OTelCloudWatchLogsProcessor(
           "source"         -> subscriptionFilters.mkString("/")
         )
 
-        // logGroupTags values win for duplicate keys
-        val mergedTags: Map[String, Any] = baseTags ++ logGroupTags
+        // CW-extracted fields (from a named subscription filter pattern) win over
+        // base tags but logGroupTags still take final precedence for duplicate keys
+        val mergedTags: Map[String, Any] = baseTags ++ ev.extractedFields ++ logGroupTags
 
         OtelTcpLogger.buildLog(
           message = msg,
