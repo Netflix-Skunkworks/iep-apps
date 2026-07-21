@@ -36,11 +36,13 @@ class LogsPublishQueueSuite extends FunSuite with TestKitBase {
     tcpSendBatch: Seq[OtelLog] => Unit,
     registry: Registry = new DefaultRegistry(),
     queueSize: Int = 1000,
-    parallelism: Int = 4
+    parallelism: Int = 4,
+    maxTotalInFlight: Int = 2000
   ): LogsPublishQueue = {
     val cfg = ConfigFactory.parseString(
       s"""atlas.cloudwatch.logs.queue.queueSize = $queueSize
-         |atlas.cloudwatch.logs.queue.parallelism = $parallelism""".stripMargin
+         |atlas.cloudwatch.logs.queue.parallelism = $parallelism
+         |atlas.cloudwatch.logs.queue.maxTotalInFlight = $maxTotalInFlight""".stripMargin
     )
     new LogsPublishQueue(cfg, registry, tcpSendBatch)
   }
@@ -50,7 +52,7 @@ class LogsPublishQueueSuite extends FunSuite with TestKitBase {
     val queue = makeQueue(batch => received.put(batch))
 
     val logs = List(sampleLog("a"), sampleLog("b"), sampleLog("c"))
-    queue.sendBatch(logs)
+    queue.sendBatch("acct-1", logs)
 
     val delivered = received.poll(10, TimeUnit.SECONDS)
     assertNotEquals(delivered, null)
@@ -61,7 +63,7 @@ class LogsPublishQueueSuite extends FunSuite with TestKitBase {
     val received = new LinkedBlockingQueue[String]()
     val queue = makeQueue(batch => batch.foreach(log => received.put(log.message)))
 
-    queue.sendBatch((1 to 5).map(i => sampleLog(s"msg-$i")))
+    queue.sendBatch("acct-1", (1 to 5).map(i => sampleLog(s"msg-$i")))
 
     val messages = (1 to 5).map(_ => received.poll(10, TimeUnit.SECONDS))
     assertEquals(messages.toList, List("msg-1", "msg-2", "msg-3", "msg-4", "msg-5"))
@@ -71,8 +73,8 @@ class LogsPublishQueueSuite extends FunSuite with TestKitBase {
     val received = new LinkedBlockingQueue[String]()
     val queue = makeQueue(batch => batch.foreach(log => received.put(log.message)))
 
-    queue.sendBatch(List(sampleLog("stream-a-1"), sampleLog("stream-a-2")))
-    queue.sendBatch(List(sampleLog("stream-b-1"), sampleLog("stream-b-2")))
+    queue.sendBatch("acct-a", List(sampleLog("stream-a-1"), sampleLog("stream-a-2")))
+    queue.sendBatch("acct-b", List(sampleLog("stream-b-1"), sampleLog("stream-b-2")))
 
     val messages = (1 to 4).map(_ => received.poll(10, TimeUnit.SECONDS)).toSet
     assertEquals(messages, Set("stream-a-1", "stream-a-2", "stream-b-1", "stream-b-2"))
@@ -83,7 +85,7 @@ class LogsPublishQueueSuite extends FunSuite with TestKitBase {
     val received = new LinkedBlockingQueue[Seq[OtelLog]]()
     val queue = makeQueue(batch => received.put(batch), registry)
 
-    queue.sendBatch(List(sampleLog("a"), sampleLog("b"), sampleLog("c")))
+    queue.sendBatch("acct-1", List(sampleLog("a"), sampleLog("b"), sampleLog("c")))
     received.poll(10, TimeUnit.SECONDS)
     Thread.sleep(200)
 
@@ -105,8 +107,8 @@ class LogsPublishQueueSuite extends FunSuite with TestKitBase {
       registry
     )
 
-    queue.sendBatch(List(sampleLog("will-fail"), sampleLog("also-dropped")))
-    queue.sendBatch(List(sampleLog("ok-1"), sampleLog("ok-2")))
+    queue.sendBatch("acct-1", List(sampleLog("will-fail"), sampleLog("also-dropped")))
+    queue.sendBatch("acct-1", List(sampleLog("ok-1"), sampleLog("ok-2")))
 
     assertEquals(received.poll(10, TimeUnit.SECONDS), "ok-1")
     assertEquals(received.poll(10, TimeUnit.SECONDS), "ok-2")
@@ -122,6 +124,6 @@ class LogsPublishQueueSuite extends FunSuite with TestKitBase {
       queueSize = 1
     )
 
-    (1 to 20).foreach(_ => queue.sendBatch(List(sampleLog())))
+    (1 to 20).foreach(_ => queue.sendBatch("acct-1", List(sampleLog())))
   }
 }

@@ -18,8 +18,9 @@ package com.netflix.atlas.cloudwatch
 trait OtelLogSink {
 
   /**
-   * Send a batch of logs that all belong to the same log stream.
-   * Implementations must preserve the order of logs within the batch.
+   * Send a batch of logs that all belong to the same log stream, from the given
+   * source AWS account. Implementations must preserve the order of logs within
+   * the batch, and may use the account to isolate throughput between accounts.
    */
-  def sendBatch(logs: Seq[OtelLog]): Unit
+  def sendBatch(account: String, logs: Seq[OtelLog]): Unit
 }
