@@ -51,7 +51,7 @@ class StubOtelLogSink extends OtelLogSink {
 
   private val queue = new ConcurrentLinkedQueue[OtelLog]()
 
-  override def sendBatch(logs: Seq[OtelLog]): Unit = {
+  override def sendBatch(account: String, logs: Seq[OtelLog]): Unit = {
     logs.foreach(queue.add)
   }
 
