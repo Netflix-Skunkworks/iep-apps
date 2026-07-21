@@ -15,6 +15,7 @@
  */
 package com.netflix.atlas.cloudwatch
 
+import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -28,6 +29,7 @@ class TestableOTelCloudWatchLogsProcessor(
   val sinkStub: StubOtelLogSink = new StubOtelLogSink
 ) extends OTelCloudWatchLogsProcessor(
       ConfigFactory.load(),
+      new NoopRegistry(),
       sinkStub,
       null
     ) {
