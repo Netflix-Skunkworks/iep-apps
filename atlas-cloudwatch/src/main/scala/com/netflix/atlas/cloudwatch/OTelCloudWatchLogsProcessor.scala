@@ -106,7 +106,7 @@ class OTelCloudWatchLogsProcessor(
     // Split into bounded chunks so each sendBatch call delivers at most maxPerBatch
     // events to the OTel collector — prevents a single large stream from causing
     // a burst of TCP sends that could OOM the collector.
-    allLogs.grouped(maxPerBatch).foreach(batch => sink.sendBatch(owner, batch))
+    allLogs.grouped(maxPerBatch).foreach(batch => sink.sendBatch(owner, logGroup, batch))
   }
 
   /**
