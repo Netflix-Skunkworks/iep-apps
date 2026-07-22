@@ -58,8 +58,10 @@ import scala.jdk.CollectionConverters.*
  * cap) is full the batch is dropped (counted) rather than causing OOM in the OTel
  * collector.
  *
- * TCP sends run on a dedicated thread pool (logs-sink-dispatcher) so blocking calls
- * and retry sleeps never starve the main Akka dispatcher.
+ * TCP sends, and their completion callbacks, all run on a dedicated thread pool
+ * (logs-sink-dispatcher) so blocking calls, retry sleeps, and per-batch bookkeeping
+ * never contend with the default Pekko dispatcher — which the CloudWatch metrics
+ * poller/processor also use for their own scheduling and callbacks.
  */
 class LogsPublishQueue(
   config: Config,
@@ -68,9 +70,6 @@ class LogsPublishQueue(
 )(implicit system: ActorSystem)
     extends OtelLogSink
     with StrictLogging {
-
-  // Futures completed on the main dispatcher (stream control path).
-  private implicit val ec: ExecutionContext = system.dispatcher
 
   // Blocking TCP work runs here, isolated from the main dispatcher.
   private val sinkDispatcher: ExecutionContext =
@@ -132,8 +131,8 @@ class LogsPublishQueue(
             case e: Exception =>
               logger.warn(s"Failed to send log batch to OTel collector: ${e.getMessage}", e)
               logsDropped.increment(batch.size)
-          }
-          .andThen { case _ => totalInFlight.decrementAndGet() }
+          }(sinkDispatcher)
+          .andThen { case _ => totalInFlight.decrementAndGet() }(sinkDispatcher)
       }
       .toMat(Sink.ignore)(Keep.left)
       .run()
