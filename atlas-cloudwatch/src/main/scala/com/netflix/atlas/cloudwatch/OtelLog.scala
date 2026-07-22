@@ -119,6 +119,6 @@ object OtelTcpLogger extends StrictLogging {
 
 object OtelTcpSink extends OtelLogSink {
 
-  override def sendBatch(account: String, logs: Seq[OtelLog]): Unit =
+  override def sendBatch(account: String, logGroup: String, logs: Seq[OtelLog]): Unit =
     OtelTcpLogger.sendBatch(logs)
 }
