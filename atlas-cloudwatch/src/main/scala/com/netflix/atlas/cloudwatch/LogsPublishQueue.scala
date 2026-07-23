@@ -29,30 +29,25 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Function as JFunction
 import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
-import scala.jdk.CollectionConverters.*
 
 /**
  * Bounded async queue that drains log batches to OtelTcpLogger.sendBatch.
  *
  * Each element in a queue is a batch of OtelLog entries from a single log stream.
- * A dedicated queue is created per (source AWS account, log group) pair, so a single
- * heavy-hitter log group can only fill and drop batches from its own queue — it cannot
- * starve or drop traffic for other log groups, even ones in the same account, sharing
- * this process. Within a queue, up to `parallelism` batches are processed concurrently
- * (one per stream), with each batch sent over a single TCP connection — one socket
- * open/write/close per batch instead of one per log. This eliminates per-log goroutine
- * pressure on the OTel collector.
+ * A dedicated queue is created per source AWS account, so a single heavy-hitter
+ * account can only fill and drop batches from its own queue — it cannot starve
+ * or drop traffic for other accounts sharing this process. Within an account's
+ * queue, up to `parallelism` batches are processed concurrently (one per stream),
+ * with each batch sent over a single TCP connection — one socket open/write/close
+ * per batch instead of one per log. This eliminates per-log goroutine pressure on
+ * the OTel collector.
  *
- * Per-key queues alone don't bound total memory: with enough distinct (account, logGroup)
- * pairs, `keys * queueSize` batches could be queued at once. A shared in-flight counter
- * caps the total across all keys at `maxTotalInFlight`, so the aggregate memory footprint
- * (and thus the OTel collector's exposure) stays bounded regardless of how many keys are
- * active; `queueSize` remains a secondary per-key bound so no single log group can consume
- * the entire global budget on its own.
- *
- * Known heavy-hitter accounts/log groups can be capped further via `perKeyQueueSize`,
- * keyed by `"account:logGroup"`, which overrides `queueSize` for specific keys without
- * lowering the default for everyone else.
+ * Per-account queues alone don't bound total memory: with enough distinct accounts,
+ * `accounts * queueSize` batches could be queued at once. A shared in-flight counter
+ * caps the total across all accounts at `maxTotalInFlight`, so the aggregate memory
+ * footprint (and thus the OTel collector's exposure) stays bounded regardless of how
+ * many accounts are active; `queueSize` remains a secondary per-account bound so no
+ * single account can consume the entire global budget on its own.
  *
  * Absorbs traffic bursts: callers never block on TCP I/O. When a queue (or the global
  * cap) is full the batch is dropped (counted) rather than causing OOM in the OTel
@@ -80,52 +75,25 @@ class LogsPublishQueue(
   private val parallelism = config.getInt("atlas.cloudwatch.logs.queue.parallelism")
   private val maxTotalInFlight = config.getInt("atlas.cloudwatch.logs.queue.maxTotalInFlight")
 
-  // Per-key queueSize overrides, for known heavy-hitter account/logGroup pairs that
-  // would otherwise be allowed to buffer up to the default queueSize on their own.
-  // Keyed by "account:logGroup".
-  private val perKeyQueueSizePath = "atlas.cloudwatch.logs.queue.perKeyQueueSize"
-
-  private val perKeyQueueSize: Map[String, Int] =
-    if (config.hasPath(perKeyQueueSizePath))
-      config
-        .getObject(perKeyQueueSizePath)
-        .unwrapped()
-        .asScala
-        .view
-        .mapValues(_.asInstanceOf[Number].intValue())
-        .toMap
-    else Map.empty
-
   private val logsSent = registry.counter("atlas.cloudwatch.logs.queue.sent")
   private val logsDropped = registry.counter("atlas.cloudwatch.logs.queue.dropped")
-
-  // Number of TCP connections opened to the OTel collector — one per sendBatch call,
-  // regardless of how many logs are in the batch. Tracks the connection/goroutine
-  // churn rate the collector actually experiences, which drives its own memory use
-  // independently of whether we ever drop or queue anything on our side.
-  private val batchesSent = registry.counter("atlas.cloudwatch.logs.queue.batchesSent")
 
   private val logsDroppedGlobalCap =
     registry.counter("atlas.cloudwatch.logs.queue.droppedGlobalCap")
 
-  // "account:logGroup" -> dedicated queue, created lazily on first batch seen for that key.
-  private val keyQueues = new ConcurrentHashMap[String, SourceQueue[Seq[OtelLog]]]()
+  // account -> dedicated queue, created lazily on first batch seen for that account.
+  private val accountQueues = new ConcurrentHashMap[String, SourceQueue[Seq[OtelLog]]]()
 
-  // Batches queued or currently being sent, across every key's queue.
+  // Batches queued or currently being sent, across every account queue.
   private val totalInFlight = new AtomicInteger(0)
 
-  private val createQueue: JFunction[String, SourceQueue[Seq[OtelLog]]] = key =>
+  private val createQueue: JFunction[String, SourceQueue[Seq[OtelLog]]] = account =>
     StreamOps
-      .blockingQueue[Seq[OtelLog]](
-        registry,
-        s"logsQueue-$key",
-        perKeyQueueSize.getOrElse(key, queueSize)
-      )
+      .blockingQueue[Seq[OtelLog]](registry, s"logsQueue-$account", queueSize)
       .mapAsync(parallelism) { batch =>
         Future {
           // One TCP connection for the entire batch — all logs written then socket closed.
           tcpSendBatch(batch)
-          batchesSent.increment()
           logsSent.increment(batch.size)
         }(sinkDispatcher)
           .recover {
@@ -138,13 +106,12 @@ class LogsPublishQueue(
       .toMat(Sink.ignore)(Keep.left)
       .run()
 
-  override def sendBatch(account: String, logGroup: String, logs: Seq[OtelLog]): Unit = {
-    val key = s"$account:$logGroup"
+  override def sendBatch(account: String, logs: Seq[OtelLog]): Unit = {
     if (totalInFlight.incrementAndGet() > maxTotalInFlight) {
       totalInFlight.decrementAndGet()
       logsDroppedGlobalCap.increment(logs.size)
-    } else if (!keyQueues.computeIfAbsent(key, createQueue).offer(logs)) {
-      // Rejected by the per-key queue (already full); release the slot we reserved.
+    } else if (!accountQueues.computeIfAbsent(account, createQueue).offer(logs)) {
+      // Rejected by the per-account queue (already full); release the slot we reserved.
       totalInFlight.decrementAndGet()
     }
   }
