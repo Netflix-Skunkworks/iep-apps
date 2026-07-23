@@ -33,7 +33,6 @@ import com.netflix.atlas.json3.JsonParserHelper.foreachItem
 import com.netflix.atlas.webapi.CloudWatchFirehoseEndpoint.decodeCommonTags
 import com.netflix.atlas.webapi.CloudWatchFirehoseEndpoint.decodeMetricJson
 import com.netflix.spectator.api.Registry
-import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import software.amazon.awssdk.services.cloudwatch.model.Datapoint
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
@@ -47,18 +46,13 @@ import scala.util.Success
 import scala.util.Using
 
 class CloudWatchFirehoseEndpoint(
-  config: Config,
   registry: Registry,
   processor: CloudWatchMetricsProcessor
 )(implicit val system: ActorSystem)
     extends WebApi
     with StrictLogging {
 
-  private val maxDatapointAge =
-    config.getDuration("atlas.cloudwatch.firehose.max-datapoint-age")
-
   private val dataReceived = registry.counter("atlas.cloudwatch.firehose.parse.dps")
-  private val staleDropped = registry.counter("atlas.cloudwatch.firehose.parse.stale")
   private val unknownField = registry.counter("atlas.cloudwatch.firehose.parse.unknown")
   private val parseException = registry.createId("atlas.cloudwatch.firehose.parse.exception")
 
@@ -115,13 +109,7 @@ class CloudWatchFirehoseEndpoint(
                   Using.resource(
                     Json.newJsonParser(Base64.getDecoder.decode(parser.nextStringValue()))
                   ) { p =>
-                    val allDatapoints = decodeMetricJson(p, commonTags)
-                    val cutoff = Instant.ofEpochMilli(receivedTimestamp).minus(maxDatapointAge)
-                    val datapoints = allDatapoints.filter { fm =>
-                      val ts = fm.datapoint.timestamp()
-                      ts == null || ts.isAfter(cutoff)
-                    }
-                    staleDropped.increment(allDatapoints.size - datapoints.size)
+                    val datapoints = decodeMetricJson(p, commonTags)
                     processor.processDatapoints(datapoints, receivedTimestamp)
                     dataReceived.increment(datapoints.size)
                   }
