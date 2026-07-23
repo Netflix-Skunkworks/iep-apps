@@ -18,11 +18,11 @@ package com.netflix.atlas.webapi
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives.*
+import org.apache.pekko.http.scaladsl.server.MalformedRequestContentRejection
 import org.apache.pekko.http.scaladsl.server.Route
 import tools.jackson.core.JsonParser
 import com.netflix.atlas.pekko.CustomDirectives.customJson
 import com.netflix.atlas.pekko.CustomDirectives.endpointPath
-import com.netflix.atlas.pekko.CustomDirectives.parseEntity
 import com.netflix.atlas.pekko.WebApi
 import com.netflix.atlas.json3.Json
 import com.netflix.atlas.json3.JsonParserHelper.foreachField
@@ -35,6 +35,9 @@ import java.io.InputStream
 import java.util.Base64
 import java.util.zip.GZIPInputStream
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.ExecutionContext
+import scala.util.Failure
+import scala.util.Success
 import scala.util.Using
 
 class CloudWatchLogsFirehoseEndpoint(
@@ -56,6 +59,13 @@ class CloudWatchLogsFirehoseEndpoint(
   private val parseException =
     registry.createId("atlas.cloudwatchlogs.firehose.parse.exception")
 
+  // Parsing, gunzip, and rule-matching for a batch of log records runs here, isolated
+  // from the default Pekko dispatcher, so a burst on the metrics Firehose path (which
+  // has its own dedicated dispatcher) or other default-dispatcher work can't starve or
+  // be starved by logs ingestion.
+  private val firehoseDispatcher: ExecutionContext =
+    system.dispatchers.lookup("logs-firehose-dispatcher")
+
   override def routes: Route = {
     (post | put) {
       endpointPath("api" / "v1" / "firehoseLogs") {
@@ -65,13 +75,20 @@ class CloudWatchLogsFirehoseEndpoint(
   }
 
   private def handleReq: Route = {
-    extractRequestContext { _ =>
-      parseEntity(customJson(p => parseFirehoseMessage(p))) { response =>
-        if (response.exception.isDefined) {
-          complete(StatusCodes.BadRequest, response.getEntity)
-        } else {
-          complete(StatusCodes.OK, response.getEntity)
-        }
+    extractRequestContext { ctx =>
+      val decode = customJson(p => parseFirehoseMessage(p))
+      val mediaType = ctx.request.entity.contentType.mediaType
+      val bytesFuture = ctx.request.entity.dataBytes.runReduce(_ ++ _)(ctx.materializer)
+      val responseFuture = bytesFuture.map(decode(mediaType))(firehoseDispatcher)
+      onComplete(responseFuture) {
+        case Success(response) =>
+          if (response.exception.isDefined) {
+            complete(StatusCodes.BadRequest, response.getEntity)
+          } else {
+            complete(StatusCodes.OK, response.getEntity)
+          }
+        case Failure(t) =>
+          reject(MalformedRequestContentRejection("invalid request payload", t))
       }
     }
   }
