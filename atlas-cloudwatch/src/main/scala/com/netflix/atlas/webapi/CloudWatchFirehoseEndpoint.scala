@@ -19,11 +19,11 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.model.HttpRequest
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.apache.pekko.http.scaladsl.server.Directives.*
-import org.apache.pekko.http.scaladsl.server.MalformedRequestContentRejection
 import org.apache.pekko.http.scaladsl.server.Route
 import tools.jackson.core.JsonParser
 import com.netflix.atlas.pekko.CustomDirectives.customJson
 import com.netflix.atlas.pekko.CustomDirectives.endpointPath
+import com.netflix.atlas.pekko.CustomDirectives.parseEntity
 import com.netflix.atlas.pekko.WebApi
 import com.netflix.atlas.cloudwatch.CloudWatchMetricsProcessor
 import com.netflix.atlas.cloudwatch.FirehoseMetric
@@ -33,7 +33,6 @@ import com.netflix.atlas.json3.JsonParserHelper.foreachItem
 import com.netflix.atlas.webapi.CloudWatchFirehoseEndpoint.decodeCommonTags
 import com.netflix.atlas.webapi.CloudWatchFirehoseEndpoint.decodeMetricJson
 import com.netflix.spectator.api.Registry
-import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 import software.amazon.awssdk.services.cloudwatch.model.Datapoint
 import software.amazon.awssdk.services.cloudwatch.model.Dimension
@@ -41,33 +40,18 @@ import software.amazon.awssdk.services.cloudwatch.model.Dimension
 import java.time.Instant
 import java.util.Base64
 import scala.collection.mutable
-import scala.concurrent.ExecutionContext
-import scala.util.Failure
-import scala.util.Success
 import scala.util.Using
 
 class CloudWatchFirehoseEndpoint(
-  config: Config,
   registry: Registry,
   processor: CloudWatchMetricsProcessor
 )(implicit val system: ActorSystem)
     extends WebApi
     with StrictLogging {
 
-  private val maxDatapointAge =
-    config.getDuration("atlas.cloudwatch.firehose.max-datapoint-age")
-
   private val dataReceived = registry.counter("atlas.cloudwatch.firehose.parse.dps")
-  private val staleDropped = registry.counter("atlas.cloudwatch.firehose.parse.stale")
   private val unknownField = registry.counter("atlas.cloudwatch.firehose.parse.unknown")
   private val parseException = registry.createId("atlas.cloudwatch.firehose.parse.exception")
-
-  // Parsing and rule-matching for a batch of datapoints runs here, isolated from the
-  // default Pekko dispatcher, so a burst on the logs Firehose path (which does its own
-  // inline JSON/gzip decoding on that same default dispatcher) can't starve metrics
-  // ingestion of CPU.
-  private val firehoseDispatcher: ExecutionContext =
-    system.dispatchers.lookup("metrics-firehose-dispatcher")
 
   override def routes: Route = {
     (post | put) {
@@ -80,19 +64,12 @@ class CloudWatchFirehoseEndpoint(
   private def handleReq: Route = {
     extractRequestContext { ctx =>
       val commonTags = decodeCommonTags(ctx.request)
-      val decode = customJson(p => parseFirehoseMessage(p, commonTags))
-      val mediaType = ctx.request.entity.contentType.mediaType
-      val bytesFuture = ctx.request.entity.dataBytes.runReduce(_ ++ _)(ctx.materializer)
-      val responseFuture = bytesFuture.map(decode(mediaType))(firehoseDispatcher)
-      onComplete(responseFuture) {
-        case Success(response) =>
-          if (response.exception.isDefined) {
-            complete(StatusCodes.BadRequest, response.getEntity)
-          } else {
-            complete(StatusCodes.OK, response.getEntity)
-          }
-        case Failure(t) =>
-          reject(MalformedRequestContentRejection("invalid request payload", t))
+      parseEntity(customJson(p => parseFirehoseMessage(p, commonTags))) { response =>
+        if (response.exception.isDefined) {
+          complete(StatusCodes.BadRequest, response.getEntity)
+        } else {
+          complete(StatusCodes.OK, response.getEntity)
+        }
       }
     }
   }
@@ -115,13 +92,7 @@ class CloudWatchFirehoseEndpoint(
                   Using.resource(
                     Json.newJsonParser(Base64.getDecoder.decode(parser.nextStringValue()))
                   ) { p =>
-                    val allDatapoints = decodeMetricJson(p, commonTags)
-                    val cutoff = Instant.ofEpochMilli(receivedTimestamp).minus(maxDatapointAge)
-                    val datapoints = allDatapoints.filter { fm =>
-                      val ts = fm.datapoint.timestamp()
-                      ts == null || ts.isAfter(cutoff)
-                    }
-                    staleDropped.increment(allDatapoints.size - datapoints.size)
+                    val datapoints = decodeMetricJson(p, commonTags)
                     processor.processDatapoints(datapoints, receivedTimestamp)
                     dataReceived.increment(datapoints.size)
                   }

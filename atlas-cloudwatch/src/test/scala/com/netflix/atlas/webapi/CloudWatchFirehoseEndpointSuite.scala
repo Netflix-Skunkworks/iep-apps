@@ -38,8 +38,6 @@ import com.netflix.atlas.webapi.CloudWatchFirehoseEndpointSuite.parsedDatapoints
 import com.netflix.atlas.webapi.CloudWatchFirehoseEndpointSuite.parsedDatapointsB
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.Registry
-import com.typesafe.config.Config
-import com.typesafe.config.ConfigFactory
 import junit.framework.TestCase.assertNull
 import org.mockito.ArgumentMatchers.anyLong
 import org.mockito.Mockito.mock
@@ -59,11 +57,6 @@ import scala.util.Using
 
 class CloudWatchFirehoseEndpointSuite extends MUnitRouteSuite {
 
-  // Fixture datapoints use a fixed, long-past `ts`, so tests unrelated to staleness use a
-  // permissive max age to keep them decoupled from the passage of wall-clock time.
-  val config: Config =
-    ConfigFactory.parseString("atlas.cloudwatch.firehose.max-datapoint-age = 100000d")
-
   var registry: Registry = null
   var processor: CloudWatchMetricsProcessor = null
   var processorCaptor = ArgumentCaptor.forClass(classOf[List[FirehoseMetric]])
@@ -76,7 +69,7 @@ class CloudWatchFirehoseEndpointSuite extends MUnitRouteSuite {
 
   test("firehose success") {
     val req = generateRequest("/api/v1/firehose")
-    val handler = new CloudWatchFirehoseEndpoint(config, registry, processor)
+    val handler = new CloudWatchFirehoseEndpoint(registry, processor)
     req ~> handler.routes ~> check {
       assert(StatusCodes.OK == status)
       assertParse()
@@ -87,7 +80,7 @@ class CloudWatchFirehoseEndpointSuite extends MUnitRouteSuite {
 
   test("firehose GZIP success") {
     val req = generateRequest("/api/v1/firehose", gzip = true)
-    val handler = new CloudWatchFirehoseEndpoint(config, registry, processor)
+    val handler = new CloudWatchFirehoseEndpoint(registry, processor)
     req ~> handler.routes ~> check {
       assert(StatusCodes.OK == status)
       assertParse()
@@ -98,7 +91,7 @@ class CloudWatchFirehoseEndpointSuite extends MUnitRouteSuite {
 
   test("firehose success w attributes") {
     val req = generateRequest("/api/v1/firehose", attributes = Map("MyKey" -> "MyVal"))
-    val handler = new CloudWatchFirehoseEndpoint(config, registry, processor)
+    val handler = new CloudWatchFirehoseEndpoint(registry, processor)
     req ~> handler.routes ~> check {
       assert(StatusCodes.OK == status)
       assertParse(attributes = Map("MyKey" -> "MyVal"))
@@ -109,7 +102,7 @@ class CloudWatchFirehoseEndpointSuite extends MUnitRouteSuite {
 
   test("firehose missing id/value") {
     val req = generateRequest("/api/v1/firehose", makeFirehosePayload(missingHeader = true))
-    val handler = new CloudWatchFirehoseEndpoint(config, registry, processor)
+    val handler = new CloudWatchFirehoseEndpoint(registry, processor)
     req ~> handler.routes ~> check {
       assert(StatusCodes.OK == status)
       assertParse()
@@ -120,7 +113,7 @@ class CloudWatchFirehoseEndpointSuite extends MUnitRouteSuite {
 
   test("firehose extra fields") {
     val req = generateRequest("/api/v1/firehose", makeFirehosePayload(extra = true))
-    val handler = new CloudWatchFirehoseEndpoint(config, registry, processor)
+    val handler = new CloudWatchFirehoseEndpoint(registry, processor)
     req ~> handler.routes ~> check {
       assert(StatusCodes.OK == status)
       assertParse()
@@ -131,7 +124,7 @@ class CloudWatchFirehoseEndpointSuite extends MUnitRouteSuite {
 
   test("firehose unexpected data field") {
     val req = generateRequest("/api/v1/firehose", makeFirehosePayload(badData = true))
-    val handler = new CloudWatchFirehoseEndpoint(config, registry, processor)
+    val handler = new CloudWatchFirehoseEndpoint(registry, processor)
     req ~> handler.routes ~> check {
       assert(StatusCodes.OK == status)
       assertParse(badData = true)
@@ -142,27 +135,12 @@ class CloudWatchFirehoseEndpointSuite extends MUnitRouteSuite {
 
   test("firehose malformed json") {
     val req = generateRequest("/api/v1/firehose", makeFirehosePayload(malformed = true))
-    val handler = new CloudWatchFirehoseEndpoint(config, registry, processor)
+    val handler = new CloudWatchFirehoseEndpoint(registry, processor)
     req ~> handler.routes ~> check {
       assertEquals(status, StatusCodes.BadRequest)
       verify(processor, never).processDatapoints(processorCaptor.capture(), anyLong)
       assertCounters(outerParse = 1)
       assertResponse(response, withException = true)
-    }
-  }
-
-  test("firehose drops stale datapoints") {
-    val staleConfig = ConfigFactory.parseString("atlas.cloudwatch.firehose.max-datapoint-age = 5m")
-    val req = generateRequest("/api/v1/firehose")
-    val handler = new CloudWatchFirehoseEndpoint(staleConfig, registry, processor)
-    req ~> handler.routes ~> check {
-      assert(StatusCodes.OK == status)
-      // fixture datapoints use the fixed, long-past `ts`, so with a 5m max age they're all stale
-      verify(processor, times(2)).processDatapoints(processorCaptor.capture(), anyLong)
-      assertEquals(processorCaptor.getAllValues.get(0), List.empty)
-      assertEquals(processorCaptor.getAllValues.get(1), List.empty)
-      assertCounters(parsed = 0, stale = 3)
-      assertResponse(response)
     }
   }
 
@@ -279,11 +257,9 @@ class CloudWatchFirehoseEndpointSuite extends MUnitRouteSuite {
     parsed: Long = 0,
     unknown: Long = 0,
     dataParse: Long = 0,
-    outerParse: Long = 0,
-    stale: Long = 0
+    outerParse: Long = 0
   ): Unit = {
     assertEquals(registry.counter("atlas.cloudwatch.firehose.parse.dps").count(), parsed)
-    assertEquals(registry.counter("atlas.cloudwatch.firehose.parse.stale").count(), stale)
     assertEquals(registry.counter("atlas.cloudwatch.firehose.parse.unknown").count(), unknown)
     assertEquals(
       registry
