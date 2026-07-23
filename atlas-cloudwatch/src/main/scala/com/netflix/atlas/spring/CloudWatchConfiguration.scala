@@ -100,13 +100,10 @@ class CloudWatchConfiguration extends StrictLogging {
   @Bean
   def oTelCloudWatchLogsProcessor(
     config: Config,
-    registry: Optional[Registry],
     otelSink: OtelLogSink,
     clientFactory: AwsClientFactory
-  ): OTelCloudWatchLogsProcessor = {
-    val r = registry.orElseGet(() => globalRegistry())
-    new OTelCloudWatchLogsProcessor(config, r, otelSink, clientFactory)
-  }
+  ): OTelCloudWatchLogsProcessor =
+    new OTelCloudWatchLogsProcessor(config, otelSink, clientFactory)
 
   @Bean
   def tagger(config: Config): Tagger = new NetflixTagger(

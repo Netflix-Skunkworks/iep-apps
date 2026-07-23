@@ -19,13 +19,11 @@ import com.netflix.atlas.webapi.CloudWatchLogEvent
 import com.netflix.atlas.webapi.CloudWatchLogsProcessor
 import com.netflix.iep.aws2.AwsClientFactory
 import com.netflix.iep.config.NetflixEnvironment
-import com.netflix.spectator.api.Registry
 import com.typesafe.config.Config
 import com.typesafe.scalalogging.StrictLogging
 
 class OTelCloudWatchLogsProcessor(
   config: Config,
-  registry: Registry,
   sink: OtelLogSink = OtelTcpSink,
   clientFactory: AwsClientFactory
 ) extends CloudWatchLogsProcessor
@@ -38,10 +36,6 @@ class OTelCloudWatchLogsProcessor(
   // Local in‑memory cache for log group tags
   private val tagCache = new LogGroupTagCache(clientFactory)
 
-  // Per logGroup/sourceAccount log volume, to identify heavy hitters driving influx spikes
-  private val logEventsReceived =
-    registry.createId("atlas.cloudwatchlogs.processor.logEvents")
-
   override def process(
     owner: String,
     logGroup: String,
@@ -53,10 +47,6 @@ class OTelCloudWatchLogsProcessor(
     logger.info(
       s"Processing ${events.length} logEvents from logGroup=$logGroup, logStream=$logStream"
     )
-
-    registry
-      .counter(logEventsReceived.withTags("logGroup", logGroup, "sourceAccount", owner))
-      .increment(events.length)
 
     // "owner" is the account that owns the log group (always present on the payload).
     // ev.region is only set for cross-account log sharing (@aws.region extractedFields);
@@ -106,7 +96,7 @@ class OTelCloudWatchLogsProcessor(
     // Split into bounded chunks so each sendBatch call delivers at most maxPerBatch
     // events to the OTel collector — prevents a single large stream from causing
     // a burst of TCP sends that could OOM the collector.
-    allLogs.grouped(maxPerBatch).foreach(batch => sink.sendBatch(owner, batch))
+    allLogs.grouped(maxPerBatch).foreach(sink.sendBatch)
   }
 
   /**

@@ -15,7 +15,6 @@
  */
 package com.netflix.atlas.cloudwatch
 
-import com.netflix.spectator.api.NoopRegistry
 import com.typesafe.config.ConfigFactory
 
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -29,7 +28,6 @@ class TestableOTelCloudWatchLogsProcessor(
   val sinkStub: StubOtelLogSink = new StubOtelLogSink
 ) extends OTelCloudWatchLogsProcessor(
       ConfigFactory.load(),
-      new NoopRegistry(),
       sinkStub,
       null
     ) {
@@ -51,7 +49,7 @@ class StubOtelLogSink extends OtelLogSink {
 
   private val queue = new ConcurrentLinkedQueue[OtelLog]()
 
-  override def sendBatch(account: String, logs: Seq[OtelLog]): Unit = {
+  override def sendBatch(logs: Seq[OtelLog]): Unit = {
     logs.foreach(queue.add)
   }
 
