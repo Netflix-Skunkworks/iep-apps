@@ -89,11 +89,11 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
     case Tick        => refreshMetadata(sender())
     case m: Metadata => metadata = Metadata(m.datasources.filter(_.nonEmpty))
 
-    case ListTagsRequest(tq)   => listValues(sendTags(sender()), tq)
-    case ListKeysRequest(tq)   => listKeys(sender(), tq)
-    case ListValuesRequest(tq) => listValues(sendValues(sender()), tq)
-    case req: DataRequest      => fetchData(sender(), req)
-    case req: ExplainRequest   => explain(sender(), req.dataRequest)
+    case req: ListTagsRequest   => listValues(sendTags(sender()), req.q)
+    case req: ListKeysRequest   => listKeys(sender(), req.q)
+    case req: ListValuesRequest => listValues(sendValues(sender()), req.q)
+    case req: DataRequest       => fetchData(sender(), req)
+    case req: ExplainRequest    => explain(sender(), req.dataRequest)
   }
 
   private def refreshMetadata(ref: ActorRef): Unit = {

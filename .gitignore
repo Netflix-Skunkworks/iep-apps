@@ -17,6 +17,9 @@ target
 .ivy2.cache
 .sbt
 
+# Metals
+.metals
+
 # Intellij
 *.iml
 *.ipr
