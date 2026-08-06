@@ -82,7 +82,7 @@ class CloudWatchFirehoseEndpoint(
       foreachField(parser) {
         case "requestId" => requestId = parser.nextStringValue()
         case "timestamp" => timestamp = parser.nextLongValue(0L)
-        case "records" =>
+        case "records"   =>
           foreachItem(parser) {
             foreachField(parser) {
               case "data" =>
@@ -155,7 +155,7 @@ object CloudWatchFirehoseEndpoint extends StrictLogging {
         case "metric_name"        => metricName = parser.nextStringValue
         case "unit"               => dp.unit(parser.nextStringValue())
         case "dimensions"         => decodeDimensions(parser, dimensions)
-        case "timestamp" =>
+        case "timestamp"          =>
           dp.timestamp(Instant.ofEpochMilli(parser.nextLongValue(0L)))
         case "value" => decodeValue(parser, dp)
         case unknown => // Ignore unknown fields

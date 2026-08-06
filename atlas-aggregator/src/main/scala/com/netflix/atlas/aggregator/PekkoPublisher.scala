@@ -81,7 +81,7 @@ object PekkoPublisher {
         payload match {
           case p: PublishPayload => encode(gen, p)
           case p: EvalPayload    => encode(gen, p)
-          case p =>
+          case p                 =>
             throw new IllegalArgumentException(s"unknown payload type: ${p.getClass.getName}")
         }
       }

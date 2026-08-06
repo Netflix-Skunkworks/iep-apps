@@ -714,7 +714,7 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
     dps.foreach { dp =>
       val metric = capturedValues.filter(_.equals(dp)).headOption match {
         case Some(d) => d
-        case None =>
+        case None    =>
           throw new AssertionError(s"Data point not found: ${dp} in ${capturedValues}")
       }
       assertEquals(metric.value, dp.value, s"Wrong value for ${dp.tags}")

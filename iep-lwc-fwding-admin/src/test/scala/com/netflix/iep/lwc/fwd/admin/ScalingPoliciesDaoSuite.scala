@@ -91,8 +91,8 @@ class ScalingPoliciesDaoSuite extends FunSuite {
 
   test("Lookup Titus scaling policies of type Target tracking") {
     val data = Map(
-      Uri(ec2PoliciesUri) -> "[]",
-      Uri(cwAlarmsUri)    -> "[]",
+      Uri(ec2PoliciesUri)   -> "[]",
+      Uri(cwAlarmsUri)      -> "[]",
       Uri(titusPoliciesUri) ->
         """
           |[
@@ -136,7 +136,7 @@ class ScalingPoliciesDaoSuite extends FunSuite {
   test("Lookup Titus scaling policies of type Step scaling") {
     val data = Map(
       Uri(ec2PoliciesUri) -> "[]",
-      Uri(cwAlarmsUri) ->
+      Uri(cwAlarmsUri)    ->
         """
           |[
           |  {

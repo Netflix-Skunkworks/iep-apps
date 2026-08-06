@@ -260,9 +260,7 @@ class PublishRouter(
     secondaryClientOpt.foreach { c =>
       logger.info(
         s"Secondary registry for stack=$stack destination=$destination " +
-          s"URI=${c.config.uri}, lwc-config URI=${c.config.configUri}, eval URI=${
-              c.config.evalUri
-            }, lwcStep=${c.config.lwcStep()}, Step=${c.config.step()},"
+          s"URI=${c.config.uri}, lwc-config URI=${c.config.configUri}, eval URI=${c.config.evalUri}, lwcStep=${c.config.lwcStep()}, Step=${c.config.step()},"
       )
     }
 
