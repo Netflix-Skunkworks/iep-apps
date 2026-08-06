@@ -3,7 +3,7 @@ import java.io.PrintStream
 import java.time.ZonedDateTime
 import java.time.ZoneOffset
 import scala.io.Source
-import sbt._
+import sbt.*
 
 /**
  * Loosely based on: https://github.com/Banno/sbt-license-plugin
@@ -13,7 +13,7 @@ import sbt._
  * - supports both test and main source files
  * - add target to check which can fail the build
  */
-object License {
+object LicenseCheck {
   private val lineSeparator = System.getProperty("line.separator")
 
   def year = ZonedDateTime.now(ZoneOffset.UTC).getYear
@@ -37,7 +37,7 @@ object License {
   """.stripMargin.trim
 
   def findFiles(dir: File): Seq[File] = {
-    (dir ** "*.scala").get ++ (dir ** "*.java").get
+    (dir ** "*.scala").get() ++ (dir ** "*.java").get()
   }
 
   def checkLicenseHeaders(log: Logger, srcDir: File): Unit = {
