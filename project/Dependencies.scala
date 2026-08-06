@@ -5,7 +5,7 @@ import sbt._
 object Dependencies {
   object Versions {
     val atlas      = "1.9.0-rc.17"
-    val aws2       = "2.46.21"
+    val aws2       = "2.51.1"
     val iep        = "6.0.7"
     val log4j      = "2.26.1"
     val pekko      = "1.6.0"
