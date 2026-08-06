@@ -34,9 +34,7 @@ class PublishClient(val config: PublishConfig) extends StrictLogging {
   publishRegistry.start()
 
   logger.info(
-    s"registry started for step ${config.step()}, lwc-enabled : ${config.lwcEnabled()}, lwc-step : ${
-        config.lwcStep()
-      }, lwc-config URI ${config.configUri}, eval URI ${config.evalUri}"
+    s"registry started for step ${config.step()}, lwc-enabled : ${config.lwcEnabled()}, lwc-step : ${config.lwcStep()}, lwc-config URI ${config.configUri}, eval URI ${config.evalUri}"
   )
 
   def updateGauge(id: Id, value: Double): Unit = {

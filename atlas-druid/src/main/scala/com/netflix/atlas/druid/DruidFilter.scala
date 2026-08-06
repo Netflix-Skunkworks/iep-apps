@@ -42,6 +42,7 @@ object DruidFilter {
       case Query.GreaterThanEqual(k, v) => Bound.greaterThanEqual(k, v)
       case Query.LessThan(k, v)         => Bound.lessThan(k, v)
       case Query.LessThanEqual(k, v)    => Bound.lessThanEqual(k, v)
+
       /**
        * Druid v32+ removed support for legacy null-handling
        * To support simultaneous backwards/forwards compatibility, check for both "" and null

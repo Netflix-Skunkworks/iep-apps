@@ -224,7 +224,7 @@ object SlottingApi {
       StatusCodes.OK,
       Map(
         "description" -> "Atlas Slotting Service",
-        "endpoints" -> List(
+        "endpoints"   -> List(
           s"$scheme://$host/healthcheck",
           s"$scheme://$host/api/v1/autoScalingGroups",
           s"$scheme://$host/api/v1/autoScalingGroups?verbose=true",

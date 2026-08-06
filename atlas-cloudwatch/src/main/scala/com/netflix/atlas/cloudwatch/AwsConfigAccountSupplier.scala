@@ -111,7 +111,7 @@ class AwsConfigAccountSupplier(
               case "accountId"    => account = parser.nextStringValue()
               case "resourceType" => resource = parser.nextStringValue()
               case "awsRegion"    => region = parser.nextStringValue()
-              case _ =>
+              case _              =>
                 parser.nextToken()
                 parser.skipChildren()
             }
