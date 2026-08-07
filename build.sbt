@@ -14,7 +14,7 @@ lazy val `iep-apps` = project.in(file("."))
     `iep-lwc-cloudwatch`,
     `iep-lwc-fwding-admin`,
     `iep-lwc-loadgen`)
-  .settings(BuildSettings.noPackaging: _*)
+  .settings(publish / skip := true)
 
 lazy val `atlas-aggregator` = project
   .configure(BuildSettings.profile)

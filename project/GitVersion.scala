@@ -64,6 +64,11 @@ object GitVersion {
         case releaseVersion(v)   => v
         case v                   => v
       }
-    }
+    },
+
+    // Only used at the build level to compute the version, the per-project scopes
+    // set up by sbt-git are unused and would otherwise be flagged by lintUnused.
+    Global / excludeLintKeys += git.gitDescribedVersion,
+    Global / excludeLintKeys += git.gitUncommittedChanges
   )
 }

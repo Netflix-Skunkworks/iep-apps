@@ -694,9 +694,7 @@ class CloudWatchPoller(
       Future.reduceLeft(futures)((_, _) => Done).andThen {
         case Success(_) =>
           logger.info(
-            s"Finished polling with ${got.get()} of ${expecting.get()} for $account at $offset and ${
-                category.namespace
-              } in region $region in ${(System.currentTimeMillis() - nowMillis) / 1000.0} s"
+            s"Finished polling with ${got.get()} of ${expecting.get()} for $account at $offset and ${category.namespace} in region $region in ${(System.currentTimeMillis() - nowMillis) / 1000.0} s"
           )
         case Failure(_) => // bubble up
       }
@@ -1157,9 +1155,7 @@ class CloudWatchPoller(
         } catch {
           case ex: Exception =>
             logger.error(
-              s"Error getting metric ${metric.metricName()} for $account at $offset and ${
-                  category.namespace
-                } ${definition.name} in region $region",
+              s"Error getting metric ${metric.metricName()} for $account at $offset and ${category.namespace} ${definition.name} in region $region",
               ex
             )
             registry

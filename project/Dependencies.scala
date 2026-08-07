@@ -4,16 +4,16 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val atlas      = "1.9.0-rc.16"
-    val aws2       = "2.46.21"
-    val iep        = "6.0.4"
+    val atlas      = "1.9.0-rc.17"
+    val aws2       = "2.51.1"
+    val iep        = "6.0.7"
     val log4j      = "2.26.1"
     val pekko      = "1.6.0"
-    val pekkoHttpV = "1.3.0"
+    val pekkoHttpV = "1.4.0"
     val scala      = "3.8.4"
     val servo      = "0.13.2"
     val slf4j      = "2.0.18"
-    val spectator  = "1.10.1"
+    val spectator  = "1.10.5"
     val spring     = "7.0.8"
     val springBoot = "4.1.0"
     val avroV      = "1.12.1"
@@ -53,7 +53,7 @@ object Dependencies {
   val iepSpringJmx       = "com.netflix.iep" % "iep-spring-jmxport" % iep
   val iepSpringLeader    = "com.netflix.iep" % "iep-spring-leader" % iep
   val jedis              = "redis.clients" % "jedis" % "7.5.3"
-  val jsonSchema         = "com.networknt" % "json-schema-validator" % "3.0.5"
+  val jsonSchema         = "com.networknt" % "json-schema-validator" % "3.0.6"
   val jsr305             = "com.google.code.findbugs" % "jsr305" % "3.0.2"
   val log4jApi           = "org.apache.logging.log4j" % "log4j-api" % log4j
   val log4jCore          = "org.apache.logging.log4j" % "log4j-core" % log4j
@@ -61,7 +61,7 @@ object Dependencies {
   val log4jJul           = "org.apache.logging.log4j" % "log4j-jul" % log4j
   val log4jSlf4j         = "org.apache.logging.log4j" % "log4j-slf4j2-impl" % log4j
   val mockitoCore        = "org.mockito" % "mockito-core" % "5.23.0"
-  val munit              = "org.scalameta" %% "munit" % "1.3.3"
+  val munit              = "org.scalameta" %% "munit" % "1.3.4"
   val openHFT            = "net.openhft" % "zero-allocation-hashing" % "2026.0"
   val pekkoActor         = "org.apache.pekko" %% "pekko-actor" % pekko
   val pekkoHttpCaching   = "org.apache.pekko" %% "pekko-http-caching" % pekkoHttpV

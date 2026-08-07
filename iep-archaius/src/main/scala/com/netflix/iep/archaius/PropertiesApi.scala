@@ -38,7 +38,7 @@ class PropertiesApi(
 
   private val index = Map(
     "description" -> "Read-Only Fast Properties for Atlas Deploy",
-    "endpoints" -> List(
+    "endpoints"   -> List(
       "/api/v1/property?asg=ASG_NAME"
     )
   )

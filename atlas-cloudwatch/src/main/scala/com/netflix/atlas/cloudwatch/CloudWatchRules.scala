@@ -50,7 +50,7 @@ class CloudWatchRules(config: Config) {
         if (!updated) {
           entry = entry :+ (category, List(metricDef))
         }
-        inner += metricDef.name        -> entry
+        inner += metricDef.name -> entry
         ruleMap += (category.namespace -> inner)
       }
     }
