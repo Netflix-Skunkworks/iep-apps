@@ -16,4 +16,4 @@ java \
   -Dsbt.ivy.home=${WORKSPACE:-$HOME}/.ivy2 \
   -Dsbt.gigahorse=false \
   $OPTIONS \
-  -jar `dirname $0`/sbt-launch-1.0.0.jar "$@"
+  -jar `dirname $0`/sbt-launch-2.0.5.jar "$@"

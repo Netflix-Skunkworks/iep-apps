@@ -9,14 +9,14 @@ endif
 .PHONY: build snapshot release clean coverage format
 
 build:
-	$(SBT) clean test checkLicenseHeaders scalafmtCheckAll
+	$(SBT) clean testFull checkLicenseHeaders scalafmtCheckAll
 
 snapshot:
 	# Travis uses a depth when fetching git data so the tags needed for versioning may not
 	# be available unless we explicitly fetch them
 	git fetch --unshallow --tags
 	$(SBT) storeBintrayCredentials
-	$(SBT) clean test checkLicenseHeaders publish
+	$(SBT) clean testFull checkLicenseHeaders publish
 
 release:
 	# Travis uses a depth when fetching git data so the tags needed for versioning may not
@@ -29,13 +29,13 @@ release:
 	# The storeBintrayCredentials still needs to be on the subsequent command or we get:
 	# [error] (iep-service/*:bintrayEnsureCredentials) java.util.NoSuchElementException: None.get
 	$(SBT) storeBintrayCredentials
-	$(SBT) clean test checkLicenseHeaders storeBintrayCredentials publish bintrayRelease
+	$(SBT) clean testFull checkLicenseHeaders storeBintrayCredentials publish bintrayRelease
 
 clean:
 	$(SBT) clean
 
 coverage:
-	$(SBT) clean coverage test coverageReport
+	$(SBT) clean coverage testFull coverageReport
 	$(SBT) coverageAggregate
 
 format:
