@@ -148,7 +148,7 @@ object MetricCategory extends StrictLogging {
   private[cloudwatch] def parseQuery(query: String): Query = {
     interpreter.execute(query).stack match {
       case (q: Query) :: Nil => q
-      case _ =>
+      case _                 =>
         logger.warn(s"invalid query '$query', using default of ':true'")
         Query.True
     }

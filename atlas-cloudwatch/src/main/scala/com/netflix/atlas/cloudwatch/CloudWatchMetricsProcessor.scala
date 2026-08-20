@@ -58,7 +58,7 @@ abstract class CloudWatchMetricsProcessor(
   publishRouter: PublishRouter,
   debugger: CloudWatchDebugger
 )(implicit val system: ActorSystem)
-  extends StrictLogging {
+    extends StrictLogging {
 
   private implicit val executionContext: ExecutionContext = system.dispatcher
 
@@ -371,9 +371,9 @@ abstract class CloudWatchMetricsProcessor(
       if (dp.getTimestamp == datapoint.datapoint.timestamp().toEpochMilli) {
         val diffValue =
           !(datapoint.datapoint.sum() == dp.getSum &&
-            datapoint.datapoint.minimum() == dp.getMin &&
-            datapoint.datapoint.maximum() == dp.getMax &&
-            datapoint.datapoint.sampleCount() == dp.getCount)
+          datapoint.datapoint.minimum() == dp.getMin &&
+          datapoint.datapoint.maximum() == dp.getMax &&
+          datapoint.datapoint.sampleCount() == dp.getCount)
         if (diffValue) {
           registry
             .counter(
@@ -746,8 +746,8 @@ abstract class CloudWatchMetricsProcessor(
     if (needTwoValues) {
       if (
         idx >= 0 &&
-          cache.getDataCount >= 2 &&
-          idx + 1 < cache.getDataCount
+        cache.getDataCount >= 2 &&
+        idx + 1 < cache.getDataCount
       ) {
         idx += 1
         // validate the previous is within step. Otherwise not particularly useful
