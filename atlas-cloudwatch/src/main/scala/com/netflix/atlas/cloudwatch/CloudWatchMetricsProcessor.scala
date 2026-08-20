@@ -579,7 +579,7 @@ abstract class CloudWatchMetricsProcessor(
                           .increment()
                         logger.debug(
                           s"no publish point for ${entry.getNamespace} ${entry.getMetric} " +
-                          s"${toTagMap(entry)} at scrape=${scrapeTimestamp}"
+                            s"${toTagMap(entry)} at scrape=${scrapeTimestamp}"
                         )
                       }
                       if (idx >= 0) {
@@ -616,7 +616,7 @@ abstract class CloudWatchMetricsProcessor(
                                 .increment()
                               logger.debug(
                                 s"nan value for ${entry.getNamespace} ${entry.getMetric} " +
-                                s"${d.alias} ${toTagMap(entry)} idx=${idx} at scrape=${scrapeTimestamp}"
+                                  s"${d.alias} ${toTagMap(entry)} idx=${idx} at scrape=${scrapeTimestamp}"
                               )
                             }
                           }
