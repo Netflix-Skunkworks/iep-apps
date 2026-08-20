@@ -41,15 +41,15 @@ import scala.util.Failure
 import scala.util.Success
 
 /**
-  * Base class for a processor that evaluates incoming CloudWatch metrics against the configured rule set and passes
-  * them on to a cache that will sort and publish the data at the appropriate time.
-  *
-  * Note that the base class schedules publishing based on the configured step interval (default of 60 seconds).
-  *
-  * Also note that we store only the base tags and data from Cloudwatch, not the enriched or converted values. This allows
-  * us to store a bit less data in the cache. However we do validate the data twice through the rules. This also give us
-  * the ability to update rules and clear out anything from the cache that is no longer relevant.
-  */
+ * Base class for a processor that evaluates incoming CloudWatch metrics against the configured rule set and passes
+ * them on to a cache that will sort and publish the data at the appropriate time.
+ *
+ * Note that the base class schedules publishing based on the configured step interval (default of 60 seconds).
+ *
+ * Also note that we store only the base tags and data from Cloudwatch, not the enriched or converted values. This allows
+ * us to store a bit less data in the cache. However we do validate the data twice through the rules. This also give us
+ * the ability to update rules and clear out anything from the cache that is no longer relevant.
+ */
 abstract class CloudWatchMetricsProcessor(
   config: Config,
   registry: Registry,
@@ -58,14 +58,14 @@ abstract class CloudWatchMetricsProcessor(
   publishRouter: PublishRouter,
   debugger: CloudWatchDebugger
 )(implicit val system: ActorSystem)
-    extends StrictLogging {
+  extends StrictLogging {
 
   private implicit val executionContext: ExecutionContext = system.dispatcher
 
   private val minCacheEntries = config.getInt("atlas.cloudwatch.min-cache-entries")
   private val gracePeriod = config.getInt("atlas.cloudwatch.grace")
 
-  /** The number of data points received by the processor from cloud watch.  */
+  /** The number of data points received by the processor from cloud watch. */
   private[cloudwatch] val received = registry.counter("atlas.cloudwatch.datapoints.received")
   private[cloudwatch] val receivedAge = registry.createId("atlas.cloudwatch.datapoints.age")
 
@@ -113,14 +113,14 @@ abstract class CloudWatchMetricsProcessor(
     registry.counter("atlas.cloudwatch.datapoints.purged", "reason", "query")
 
   /** The number of cache entries that had empty data lists when being loaded. Usually happens due to an insert being too
-    * old and existing values being expired. */
+   * old and existing values being expired. */
   private[cloudwatch] val publishEmpty = registry.createId("atlas.cloudwatch.publish.empty")
 
   /** How many values were read from the cache for publishing. */
   private[cloudwatch] val scraped = registry.createId("atlas.cloudwatch.publish.scraped")
 
   /** Distribution of offsets from the end of the cache entry array. Used to track how far we're looking
-    * back for data. */
+   * back for data. */
   private[cloudwatch] val indexOffset = registry.createId("atlas.cloudwatch.publish.indexOffset")
 
   /** How far the value published is from the scrape timestamp. */
@@ -174,15 +174,15 @@ abstract class CloudWatchMetricsProcessor(
   }
 
   /**
-    * Evaluates the data against the rules and forwards it on to the cache if valid.
-    *
-    * @param datapoints
-    *     A non-null list of data points for processing.
-    * @param receivedTimestamp
-    *     The millisecond epoch timestamp when the values came in. Re-used to avoid fetching the current
-    *     time for every timestamp when evaluating latencies or expirations.
-    *     <b>Note:</b> Not normalized at this point.
-    */
+   * Evaluates the data against the rules and forwards it on to the cache if valid.
+   *
+   * @param datapoints
+   * A non-null list of data points for processing.
+   * @param receivedTimestamp
+   * The millisecond epoch timestamp when the values came in. Re-used to avoid fetching the current
+   * time for every timestamp when evaluating latencies or expirations.
+   * <b>Note:</b> Not normalized at this point.
+   */
   def processDatapoints(datapoints: List[FirehoseMetric], receivedTimestamp: Long): Unit = {
     received.increment(datapoints.size)
 
@@ -281,15 +281,15 @@ abstract class CloudWatchMetricsProcessor(
   }
 
   /**
-    * Called when a data point matched a category and should be processed by the cache.
-    *
-    * @param datapoint
-    *     The non-null datapoint to cache.
-    * @param category
-    *     The non-null category the data point matched.
-    * @param receivedTimestamp
-    *     The receive time in unix epoch milliseconds.
-    */
+   * Called when a data point matched a category and should be processed by the cache.
+   *
+   * @param datapoint
+   * The non-null datapoint to cache.
+   * @param category
+   * The non-null category the data point matched.
+   * @param receivedTimestamp
+   * The receive time in unix epoch milliseconds.
+   */
   protected[cloudwatch] def updateCache(
     datapoint: FirehoseMetric,
     category: MetricCategory,
@@ -297,19 +297,19 @@ abstract class CloudWatchMetricsProcessor(
   ): Future[Unit]
 
   /**
-    * Called when a cache entry has been mutated during publishing and must be written
-    * back to the cache.
-    *
-    * @param key
-    *     The non-null key to update. It's an `Any` for now since the key could be in any format.
-    * @param prev
-    *     The previous entry in the cache. This is used to determine if the entry has changed during
-    *     scraping.
-    * @param entry
-    *     The new entry to write back to the cache.
-    * @param expiration
-    *     The unix epoch milliseconds when the entry should be considered expired.
-    */
+   * Called when a cache entry has been mutated during publishing and must be written
+   * back to the cache.
+   *
+   * @param key
+   * The non-null key to update. It's an `Any` for now since the key could be in any format.
+   * @param prev
+   * The previous entry in the cache. This is used to determine if the entry has changed during
+   * scraping.
+   * @param entry
+   * The new entry to write back to the cache.
+   * @param expiration
+   * The unix epoch milliseconds when the entry should be considered expired.
+   */
   protected[cloudwatch] def updateCache(
     key: Any,
     prev: CloudWatchCacheEntry,
@@ -318,43 +318,44 @@ abstract class CloudWatchMetricsProcessor(
   ): Unit
 
   /**
-    * Called by the scheduler to publish data accumulated in the cache. Exposed for unit testing.
-    */
+   * Called by the scheduler to publish data accumulated in the cache. Exposed for unit testing.
+   */
   protected[cloudwatch] def publish(scrapeTimestamp: Long): Future[NotUsed]
 
   /**
-    * Removes the given entry from the cache. This is used to purge entries that are no longer valid due to a config
-    * change or error.
-    *
-    * @param key
-    *     The non-null key to delete. It's an `Any` for now since the key could be in any format.
-    */
+   * Removes the given entry from the cache. This is used to purge entries that are no longer valid due to a config
+   * change or error.
+   *
+   * @param key
+   * The non-null key to delete. It's an `Any` for now since the key could be in any format.
+   */
   protected[cloudwatch] def delete(key: Any): Unit
 
   /**
-    * Returns the last successful poll time.
-    * @param id
-    *     The non-null unique identifier for the polling config.
-    * @return
-    *     The last successful poll time in unix epoch milliseconds.
-    */
+   * Returns the last successful poll time.
+   *
+   * @param id
+   * The non-null unique identifier for the polling config.
+   * @return
+   * The last successful poll time in unix epoch milliseconds.
+   */
   protected[cloudwatch] def lastSuccessfulPoll(id: String): Long
 
   /**
-    * Updates the last successful poll time.
-    *
-    * @param id
-    *     The non-null unique identifier for the polling config.
-    * @param timestamp
-    *     The unix epoch milliseconds of the last successful poll.
-    */
+   * Updates the last successful poll time.
+   *
+   * @param id
+   * The non-null unique identifier for the polling config.
+   * @param timestamp
+   * The unix epoch milliseconds of the last successful poll.
+   */
   protected[cloudwatch] def updateLastSuccessfulPoll(id: String, timestamp: Long): Unit
 
   /**
-    * Inserts the given data point in the proper order of the CloudWatchCloudWatchCacheEntry **AND** expires any old data from
-    * the entry. Note that this can lead to empty cache entries and those should likely be deleted.
-    * Duplicates are overwritten.
-    */
+   * Inserts the given data point in the proper order of the CloudWatchCloudWatchCacheEntry **AND** expires any old data from
+   * the entry. Note that this can lead to empty cache entries and those should likely be deleted.
+   * Duplicates are overwritten.
+   */
   private[cloudwatch] def insertDatapoint(
     data: Array[Byte],
     datapoint: FirehoseMetric,
@@ -370,9 +371,9 @@ abstract class CloudWatchMetricsProcessor(
       if (dp.getTimestamp == datapoint.datapoint.timestamp().toEpochMilli) {
         val diffValue =
           !(datapoint.datapoint.sum() == dp.getSum &&
-          datapoint.datapoint.minimum() == dp.getMin &&
-          datapoint.datapoint.maximum() == dp.getMax &&
-          datapoint.datapoint.sampleCount() == dp.getCount)
+            datapoint.datapoint.minimum() == dp.getMin &&
+            datapoint.datapoint.maximum() == dp.getMax &&
+            datapoint.datapoint.sampleCount() == dp.getCount)
         if (diffValue) {
           registry
             .counter(
@@ -563,7 +564,10 @@ abstract class CloudWatchMetricsProcessor(
                       purgedQuery.increment()
                       debugger.debugScrape(entry, scrapeTimestamp, ScrapeState.PurgedFilter)
                     } else {
-                      val (idx, updatedEntry) = getPublishPoint(entry, scrapeTimestamp, category)
+                      val effectiveScrapeTimestamp =
+                        scrapeTimestamp - (category.scrapeDelay * 1000L)
+                      val (idx, updatedEntry) =
+                        getPublishPoint(entry, effectiveScrapeTimestamp, category)
                       if (idx < 0) {
                         registry
                           .counter(
@@ -579,7 +583,7 @@ abstract class CloudWatchMetricsProcessor(
                           .increment()
                         logger.debug(
                           s"no publish point for ${entry.getNamespace} ${entry.getMetric} " +
-                            s"${toTagMap(entry)} at scrape=${scrapeTimestamp}"
+                            s"${toTagMap(entry)} at scrape=${effectiveScrapeTimestamp}"
                         )
                       }
                       if (idx >= 0) {
@@ -598,7 +602,8 @@ abstract class CloudWatchMetricsProcessor(
                               else None
                             )
 
-                            val atlasDp = toAtlasDatapoint(metric, scrapeTimestamp, category.period)
+                            val atlasDp =
+                              toAtlasDatapoint(metric, effectiveScrapeTimestamp, category.period)
                             if (!atlasDp.value.isNaN) {
                               publishRouter.publish(atlasDp)
                             } else {
@@ -616,7 +621,7 @@ abstract class CloudWatchMetricsProcessor(
                                 .increment()
                               logger.debug(
                                 s"nan value for ${entry.getNamespace} ${entry.getMetric} " +
-                                  s"${d.alias} ${toTagMap(entry)} idx=${idx} at scrape=${scrapeTimestamp}"
+                                  s"${d.alias} ${toTagMap(entry)} idx=${idx} at scrape=${effectiveScrapeTimestamp}"
                               )
                             }
                           }
@@ -675,15 +680,15 @@ abstract class CloudWatchMetricsProcessor(
   }
 
   /**
-    * Determines the most appropriate value to publish based on the previously published offset,
-    * the latest updates, etc.
-    * There is a hysteresis built in that will only let it move one step forward or back in time
-    * based on updates. This is to avoid jumping around in time due to delays.
-    *
-    * @param cache
-    * @param scrapeTimestamp normalized to minute in millis
-    * @return
-    */
+   * Determines the most appropriate value to publish based on the previously published offset,
+   * the latest updates, etc.
+   * There is a hysteresis built in that will only let it move one step forward or back in time
+   * based on updates. This is to avoid jumping around in time due to delays.
+   *
+   * @param cache
+   * @param scrapeTimestamp normalized to minute in millis
+   * @return
+   */
   private[cloudwatch] def getPublishPoint(
     cache: CloudWatchCacheEntry,
     scrapeTimestamp: Long,
@@ -741,8 +746,8 @@ abstract class CloudWatchMetricsProcessor(
     if (needTwoValues) {
       if (
         idx >= 0 &&
-        cache.getDataCount >= 2 &&
-        idx + 1 < cache.getDataCount
+          cache.getDataCount >= 2 &&
+          idx + 1 < cache.getDataCount
       ) {
         idx += 1
         // validate the previous is within step. Otherwise not particularly useful
@@ -957,26 +962,26 @@ abstract class CloudWatchMetricsProcessor(
 object CloudWatchMetricsProcessor {
 
   /**
-    * Snaps the timestamp to the top of the period.
-    *
-    * @param ts
-    *     The unix epoch timestamp in milliseconds.
-    * @param period
-    *     The period to snap to in seconds (as the configs are in seconds)
-    * @return
-    *     The adjusted timestamp in epoch millis
-    */
+   * Snaps the timestamp to the top of the period.
+   *
+   * @param ts
+   * The unix epoch timestamp in milliseconds.
+   * @param period
+   * The period to snap to in seconds (as the configs are in seconds)
+   * @return
+   * The adjusted timestamp in epoch millis
+   */
   private[cloudwatch] def normalize(ts: Long, period: Int): Long = ts - (ts % (period * 1000))
 
   /**
-    * Generates a new Protobuf cache entry from the given firehose data point and category. The data list will only
-    * contain the given data point.
-    *
-    * @param datapoint
-    *     The non-null datapoint to encode.
-    * @return
-    *     A non-null cache entry.
-    */
+   * Generates a new Protobuf cache entry from the given firehose data point and category. The data list will only
+   * contain the given data point.
+   *
+   * @param datapoint
+   * The non-null datapoint to encode.
+   * @return
+   * A non-null cache entry.
+   */
   private[cloudwatch] def newCacheEntry(
     datapoint: FirehoseMetric,
     receivedTimestamp: Long
@@ -1008,14 +1013,15 @@ object CloudWatchMetricsProcessor {
   }
 
   /**
-    * Merges the two cache entries together. Publishing flags set to true always win.
-    * @param a
-    *     The first value to merge.
-    * @param b
-    *     The second value to merge.
-    * @return
-    *     The merged entry.
-    */
+   * Merges the two cache entries together. Publishing flags set to true always win.
+   *
+   * @param a
+   * The first value to merge.
+   * @param b
+   * The second value to merge.
+   * @return
+   * The merged entry.
+   */
   private[cloudwatch] def merge(
     a: CloudWatchCacheEntry,
     b: CloudWatchCacheEntry
@@ -1061,14 +1067,15 @@ object CloudWatchMetricsProcessor {
   }
 
   /**
-    * Encodes a new Protobuf value.
-    * @param dp
-    *     The non-null CW data point to encode.
-    * @param now
-    *     The wall clock timestamp used to record when the value was updated.
-    * @return
-    *     A non-null cloud watch value.
-    */
+   * Encodes a new Protobuf value.
+   *
+   * @param dp
+   * The non-null CW data point to encode.
+   * @param now
+   * The wall clock timestamp used to record when the value was updated.
+   * @return
+   * A non-null cloud watch value.
+   */
   private[cloudwatch] def newValue(dp: Datapoint, now: Long): CloudWatchValue = {
     CloudWatchValue
       .newBuilder()
@@ -1082,15 +1089,15 @@ object CloudWatchMetricsProcessor {
   }
 
   /**
-    * Converts the Protobuf value to an AWS data point.
-    *
-    * @param dp
-    *     The non-null cloud watch data point.
-    * @param unit
-    *     The non-null unit from the cloud watch cache entry.
-    * @return
-    *     A non-null data point.
-    */
+   * Converts the Protobuf value to an AWS data point.
+   *
+   * @param dp
+   * The non-null cloud watch data point.
+   * @param unit
+   * The non-null unit from the cloud watch cache entry.
+   * @return
+   * A non-null data point.
+   */
   private[cloudwatch] def toAWSDatapoint(dp: CloudWatchValue, unit: String): Datapoint = {
     Datapoint
       .builder()
@@ -1104,13 +1111,13 @@ object CloudWatchMetricsProcessor {
   }
 
   /**
-    * Converts the given Protobuf entry's dimensions into a list of AWS dimensions.
-    *
-    * @param entry
-    *     The non-null entry to convert.
-    * @return
-    *     A non-null, potentially empty, list of dimensions.
-    */
+   * Converts the given Protobuf entry's dimensions into a list of AWS dimensions.
+   *
+   * @param entry
+   * The non-null entry to convert.
+   * @return
+   * A non-null, potentially empty, list of dimensions.
+   */
   private[cloudwatch] def toAWSDimensions(entry: CloudWatchCacheEntry): List[Dimension] = {
     entry.getDimensionsList.asScala.map { d =>
       Dimension
@@ -1132,15 +1139,15 @@ object CloudWatchMetricsProcessor {
   }
 
   /**
-    * Converts the dimensions from the Protobuf entry to a sorted tag map to use in evaluating against a
-    * Query filter from a [MetricCategory] config. Note that the `name` and `aws.namespace` tags are populated per
-    * Atlas standards.
-    *
-    * @param entry
-    *     The non-null entry to encode.
-    * @return
-    *     A non-null map with at least the `name` and `aws.namespace` tags.
-    */
+   * Converts the dimensions from the Protobuf entry to a sorted tag map to use in evaluating against a
+   * Query filter from a [MetricCategory] config. Note that the `name` and `aws.namespace` tags are populated per
+   * Atlas standards.
+   *
+   * @param entry
+   * The non-null entry to encode.
+   * @return
+   * A non-null map with at least the `name` and `aws.namespace` tags.
+   */
   private[cloudwatch] def toTagMap(entry: CloudWatchCacheEntry): Map[String, String] = {
     SortedTagMap(
       entry.getDimensionsList.asScala
@@ -1152,15 +1159,15 @@ object CloudWatchMetricsProcessor {
   }
 
   /**
-    * Converts the dimensions from the firehose datapoint to a sorted tag map to use in evaluating against a
-    * Query filter from a [MetricCategory] config. Note that the `name` and `aws.namespace` tags are populated per
-    * Atlas standards.
-    *
-    * @param datapoint
-    *     The non-null datapoint to encode.
-    * @return
-    *     A non-null map with at least the `name` and `aws.namespace` tags.
-    */
+   * Converts the dimensions from the firehose datapoint to a sorted tag map to use in evaluating against a
+   * Query filter from a [MetricCategory] config. Note that the `name` and `aws.namespace` tags are populated per
+   * Atlas standards.
+   *
+   * @param datapoint
+   * The non-null datapoint to encode.
+   * @return
+   * A non-null map with at least the `name` and `aws.namespace` tags.
+   */
   private[cloudwatch] def toTagMap(datapoint: FirehoseMetric): Map[String, String] = {
     SortedTagMap(
       datapoint.dimensions
@@ -1172,15 +1179,15 @@ object CloudWatchMetricsProcessor {
   }
 
   /**
-    * Converts the dimensions from the CloudWatch Metric to a sorted tag map to use in evaluating against a
-    * Query filter from a [MetricCategory] config. Note that the `name` and `aws.namespace` tags are populated per
-    * Atlas standards.
-    *
-    * @param metric
-    *     The non-null entry to encode.
-    * @return
-    *     A non-null map with at least the `name` and `aws.namespace` tags.
-    */
+   * Converts the dimensions from the CloudWatch Metric to a sorted tag map to use in evaluating against a
+   * Query filter from a [MetricCategory] config. Note that the `name` and `aws.namespace` tags are populated per
+   * Atlas standards.
+   *
+   * @param metric
+   * The non-null entry to encode.
+   * @return
+   * A non-null map with at least the `name` and `aws.namespace` tags.
+   */
   private[cloudwatch] def toTagMap(metric: Metric): Map[String, String] = {
     SortedTagMap(
       metric
