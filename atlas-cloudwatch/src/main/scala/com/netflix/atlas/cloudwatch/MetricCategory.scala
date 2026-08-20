@@ -30,44 +30,50 @@ import software.amazon.awssdk.services.cloudwatch.model.RecentlyActive
 import scala.concurrent.duration.DurationInt
 
 /**
-  * Category of metrics to fetch from CloudWatch. This will typically correspond with
-  * a CloudWatch namespace, though there may be multiple categories per namespace if
-  * there is some variation in the behavior. For example, some namespaces will use a
-  * different period for some metrics.
-  *
-  * @param namespace
-  *     CloudWatch namespace for the data.
-  * @param period
-  *     How frequently data in this category is updated. Atlas is meant for data that
-  *     is continuously reported and requires a consistent step. To minimize confusion
-  *     for CloudWatch data we use the last reported value in CloudWatch as long as it
-  *     is within one period from the polling time. The period is also needed for
-  *     performing rate conversions on some metrics.
-  * @param graceOverride
-  *     How many periods to look back for unpublished data. The default is defined in
-  *     'atlas.cloudwatch.grace'
-  * @param dimensions
-  *     The dimensions to query for when getting data from CloudWatch. For the
-  *     GetMetricData calls we have to explicitly specify all of the dimensions. In some
-  *     cases CloudWatch has duplicate data for pre-computed aggregates. For example,
-  *     ELB data is reported overall for the load balancer and by zone. For Atlas it
-  *     is better to map in the most granular form and allow the aggregate to be done
-  *     dynamically at query time.
-  * @param account
-  *     If defined, only provided list of accounts will be allowed for this category, 
-  *     default all accounts are allowed.
-  * @param metrics
-  *     The set of metrics to fetch and metadata for how to convert them.
-  * @param filter
-  *     Query expression used to select the set of metrics which should get published.
-  *     This can sometimes be useful for debugging or if there are many "spammy" metrics
-  *     for a given category.
-  * @param pollOffset
-  *     An optional flag that tells the app to poll for data instead of expecting it from
-  *     the Firehose stream. Represents an offset from midnight as to when to poll the
-  *     data. E.g. S3 daily metrics may be available 7 hours after midnight so set an
-  *     offset of 8 hours to make sure it is ready.
-  */
+ * Category of metrics to fetch from CloudWatch. This will typically correspond with
+ * a CloudWatch namespace, though there may be multiple categories per namespace if
+ * there is some variation in the behavior. For example, some namespaces will use a
+ * different period for some metrics.
+ *
+ * @param namespace
+ * CloudWatch namespace for the data.
+ * @param period
+ * How frequently data in this category is updated. Atlas is meant for data that
+ * is continuously reported and requires a consistent step. To minimize confusion
+ * for CloudWatch data we use the last reported value in CloudWatch as long as it
+ * is within one period from the polling time. The period is also needed for
+ * performing rate conversions on some metrics.
+ * @param graceOverride
+ * How many periods to look back for unpublished data. The default is defined in
+ * 'atlas.cloudwatch.grace'
+ * @param dimensions
+ * The dimensions to query for when getting data from CloudWatch. For the
+ * GetMetricData calls we have to explicitly specify all of the dimensions. In some
+ * cases CloudWatch has duplicate data for pre-computed aggregates. For example,
+ * ELB data is reported overall for the load balancer and by zone. For Atlas it
+ * is better to map in the most granular form and allow the aggregate to be done
+ * dynamically at query time.
+ * @param account
+ * If defined, only provided list of accounts will be allowed for this category,
+ * default all accounts are allowed.
+ * @param metrics
+ * The set of metrics to fetch and metadata for how to convert them.
+ * @param filter
+ * Query expression used to select the set of metrics which should get published.
+ * This can sometimes be useful for debugging or if there are many "spammy" metrics
+ * for a given category.
+ * @param pollOffset
+ * An optional flag that tells the app to poll for data instead of expecting it from
+ * the Firehose stream. Represents an offset from midnight as to when to poll the
+ * data. E.g. S3 daily metrics may be available 7 hours after midnight so set an
+ * offset of 8 hours to make sure it is ready.
+ * @param scrapeDelay
+ * Number of seconds to shift the scrape timestamp back before evaluating and
+ * publishing data for this category. Useful for namespaces whose Firehose delivery
+ * consistently lags the fixed, global scrape schedule, causing the newest value to
+ * arrive just after a scrape and get skipped until the following one. Defaults to 0
+ * (no delay).
+ */
 case class MetricCategory(
   namespace: String,
   period: Int,
@@ -76,20 +82,21 @@ case class MetricCategory(
   accounts: Option[List[String]] = None,
   metrics: List[MetricDefinition],
   filter: Option[Query],
-  pollOffset: Option[Duration] = None
+  pollOffset: Option[Duration] = None,
+  scrapeDelay: Int = 0
 ) {
 
   /**
-    * Whether or not the configuration has one or more monotonic counters.
-    */
+   * Whether or not the configuration has one or more monotonic counters.
+   */
   val hasMonotonic = metrics.find(_.monotonicValue).isDefined
 
   /**
-    * Returns a set of list requests to fetch the metadata for the metrics matching
-    * this category. As there may be a lot of data in CloudWatch that we are not
-    * interested in, the list is used to restrict to the subset we actually care
-    * about rather than a single request fetching everything for the namespace.
-    */
+   * Returns a set of list requests to fetch the metadata for the metrics matching
+   * this category. As there may be a lot of data in CloudWatch that we are not
+   * interested in, the list is used to restrict to the subset we actually care
+   * about rather than a single request fetching everything for the namespace.
+   */
   def toListRequests: List[(MetricDefinition, ListMetricsRequest)] = {
     import scala.jdk.CollectionConverters.*
     metrics.map { m =>
@@ -110,16 +117,16 @@ case class MetricCategory(
   }
 
   /**
-    * Determines if the tags provided by Cloud Watch match those in the category config so
-    * that unwanted aggregates or lower level data can be filtered out. Ignores any `nf.*`
-    * tags.
-    *
-    * @param tags
-    *     The non-null data point to evaluate.
-    * @return
-    *     True if the tags match those of the category config, false if there were fewer or
-    *     more tags than expected.
-    */
+   * Determines if the tags provided by Cloud Watch match those in the category config so
+   * that unwanted aggregates or lower level data can be filtered out. Ignores any `nf.*`
+   * tags.
+   *
+   * @param tags
+   * The non-null data point to evaluate.
+   * @return
+   * True if the tags match those of the category config, false if there were fewer or
+   * more tags than expected.
+   */
   def dimensionsMatch(tags: List[Dimension]): Boolean = {
     var matched = 0
     var extraTag = false
@@ -167,6 +174,10 @@ object MetricCategory extends StrictLogging {
     val accounts =
       if (config.hasPath("accounts")) Some(config.getStringList("accounts").asScala.toList)
       else None
+    val scrapeDelay =
+      if (config.hasPath("scrape-delay"))
+        config.getDuration("scrape-delay", TimeUnit.SECONDS).toInt
+      else 0
 
     apply(
       namespace = config.getString("namespace"),
@@ -176,7 +187,8 @@ object MetricCategory extends StrictLogging {
       metrics = metrics.flatMap(MetricDefinition.fromConfig),
       filter = filter,
       accounts = accounts,
-      pollOffset = pollOffset
+      pollOffset = pollOffset,
+      scrapeDelay = scrapeDelay
     )
   }
 }
