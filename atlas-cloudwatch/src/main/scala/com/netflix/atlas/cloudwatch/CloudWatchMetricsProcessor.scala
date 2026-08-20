@@ -141,6 +141,9 @@ abstract class CloudWatchMetricsProcessor(
   /** How many entries are updated during a scrape with published flags. */
   private[cloudwatch] val cacheUpdates = registry.createId("atlas.cloudwatch.publish.cache.updates")
 
+  /** Scrapes that resulted in no value published (nan), tagged with the reason. */
+  private[cloudwatch] val nanPublish = registry.createId("atlas.cloudwatch.publish.nan")
+
   /** How often to scrape and publish. */
   private val publishPeriod = config.getDuration("atlas.cloudwatch.step").getSeconds.toInt
 
@@ -561,6 +564,24 @@ abstract class CloudWatchMetricsProcessor(
                       debugger.debugScrape(entry, scrapeTimestamp, ScrapeState.PurgedFilter)
                     } else {
                       val (idx, updatedEntry) = getPublishPoint(entry, scrapeTimestamp, category)
+                      if (idx < 0) {
+                        registry
+                          .counter(
+                            nanPublish.withTags(
+                              "aws.namespace",
+                              entry.getNamespace,
+                              "aws.metric",
+                              entry.getMetric,
+                              "reason",
+                              "noPublishPoint"
+                            )
+                          )
+                          .increment()
+                        logger.debug(
+                          s"no publish point for ${entry.getNamespace} ${entry.getMetric} " +
+                            s"${toTagMap(entry)} at scrape=${scrapeTimestamp}"
+                        )
+                      }
                       if (idx >= 0) {
                         if (idx < updatedEntry.getDataCount) {
                           val current = Some(toAWSDatapoint(entry.getData(idx), entry.getUnit))
@@ -580,6 +601,23 @@ abstract class CloudWatchMetricsProcessor(
                             val atlasDp = toAtlasDatapoint(metric, scrapeTimestamp, category.period)
                             if (!atlasDp.value.isNaN) {
                               publishRouter.publish(atlasDp)
+                            } else {
+                              registry
+                                .counter(
+                                  nanPublish.withTags(
+                                    "aws.namespace",
+                                    entry.getNamespace,
+                                    "aws.metric",
+                                    entry.getMetric,
+                                    "reason",
+                                    "nanValue"
+                                  )
+                                )
+                                .increment()
+                              logger.debug(
+                                s"nan value for ${entry.getNamespace} ${entry.getMetric} " +
+                                  s"${d.alias} ${toTagMap(entry)} idx=${idx} at scrape=${scrapeTimestamp}"
+                              )
                             }
                           }
                         } else {
