@@ -83,7 +83,10 @@ class LocalCloudWatchMetricsProcessor(
     promise.future
   }
 
-  override protected[cloudwatch] def publish(scrapeTimestamp: Long): Future[NotUsed] = {
+  override protected[cloudwatch] def publish(
+    scrapeTimestamp: Long,
+    scrapeDelaySeconds: Int
+  ): Future[NotUsed] = {
     val iterator = cache.entrySet().iterator()
     while (iterator.hasNext) {
       val entry = iterator.next()
@@ -92,7 +95,7 @@ class LocalCloudWatchMetricsProcessor(
       if (ts + (exp * 1000) < scrapeTimestamp) {
         cache.remove(hash)
       } else {
-        sendToRouter(hash, data, scrapeTimestamp)
+        sendToRouter(hash, data, scrapeTimestamp, scrapeDelaySeconds)
       }
     }
     Future.successful(NotUsed)

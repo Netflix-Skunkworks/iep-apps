@@ -200,7 +200,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(ts), 5.seconds)
+    Await.result(proc.publish(ts, 0), 5.seconds)
     assertCounters(batchCallsL1 = 4, keysReadL1 = 4, entriesScrapedL1 = 4)
     assertPublished(
       List(
@@ -225,7 +225,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(ts), 5.seconds)
+    Await.result(proc.publish(ts, 0), 5.seconds)
     assertCounters()
     assertPublished(List())
     assertResourceClose(redis)
@@ -243,7 +243,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(ts), 5.seconds)
+    Await.result(proc.publish(ts, 0), 5.seconds)
     assertCounters(readExs = Map("info" -> 1L))
     assertPublished(List())
     assertResourceClose(redis)
@@ -261,7 +261,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(ts), 5.seconds)
+    Await.result(proc.publish(ts, 0), 5.seconds)
     assertCounters(scanFailureL1 = 1, readExs = Map("scan" -> 1L))
     assertPublished(List())
     assertResourceClose(redis)
@@ -279,7 +279,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(ts), 5.seconds)
+    Await.result(proc.publish(ts, 0), 5.seconds)
     assertCounters(
       keysReadL1 = 4,
       batchCallsL1 = 4,
@@ -307,7 +307,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(ts), 5.seconds)
+    Await.result(proc.publish(ts, 0), 5.seconds)
     assertCounters(keysReadL1 = 4, batchCallsL1 = 4, entriesScrapedL1 = 3)
     assertPublished(
       List(
@@ -336,7 +336,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(ts), 5.seconds)
+    Await.result(proc.publish(ts, 0), 5.seconds)
     assertCounters(keysReadL1 = 4, batchCallsL1 = 4, entriesScrapedL1 = 3)
     assertPublished(
       List(
@@ -359,7 +359,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(ts), 5.seconds)
+    Await.result(proc.publish(ts, 0), 5.seconds)
     assertCounters(
       batchCallsL1 = 4,
       batchCallsL2 = 2,
@@ -393,7 +393,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(ts), 5.seconds)
+    Await.result(proc.publish(ts, 0), 5.seconds)
     assertCounters(
       batchCallsL1 = 4,
       keysReadL1 = 4,
@@ -423,7 +423,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(ts), 5.seconds)
+    Await.result(proc.publish(ts, 0), 5.seconds)
     assertCounters(
       batchCallsL1 = 4,
       keysReadL1 = 4,
@@ -454,7 +454,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(ts), 5.seconds)
+    Await.result(proc.publish(ts, 0), 5.seconds)
     assertCounters(
       batchCallsL1 = 4,
       batchCallsL2 = 2,
@@ -488,7 +488,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(ts), 5.seconds)
+    Await.result(proc.publish(ts, 0), 5.seconds)
     assertCounters(
       batchCallsL1 = 4,
       batchCallsL2 = 2,
@@ -521,7 +521,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       publishRouter,
       debugger
     )(system)
-    Await.result(proc.publish(ts), 5.seconds)
+    Await.result(proc.publish(ts, 0), 5.seconds)
     assertCounters()
   }
 
@@ -538,7 +538,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
       debugger
     )(system)
     clusterNodes.remove("l1")
-    Await.result(proc.publish(ts), 5.seconds)
+    Await.result(proc.publish(ts, 0), 5.seconds)
     assertCounters()
     assertResourceClose(redis)
   }
