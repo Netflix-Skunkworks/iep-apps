@@ -560,6 +560,7 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
     val ruleSpy = spy(rules)
     when(ruleSpy.rules)
       .thenCallRealMethod()
+      .thenCallRealMethod()
       .thenReturn(Map.empty)
     processor = new LocalCloudWatchMetricsProcessor(
       config,
@@ -582,6 +583,7 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
     val ruleSpy = spy(rules)
     when(ruleSpy.rules)
       .thenCallRealMethod()
+      .thenCallRealMethod()
       .thenReturn(Map("AWS/UT1" -> Map("SomeMetric" -> List((category, List.empty)))))
     processor = new LocalCloudWatchMetricsProcessor(
       config,
@@ -603,6 +605,7 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("processDatapoints purged tags") {
     val ruleSpy = spy(rules)
     when(ruleSpy.rules)
+      .thenCallRealMethod()
       .thenCallRealMethod()
       .thenReturn(
         Map(
@@ -632,6 +635,7 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("processDatapoints purged query") {
     val ruleSpy = spy(rules)
     when(ruleSpy.rules)
+      .thenCallRealMethod()
       .thenCallRealMethod()
       .thenReturn(
         Map(
