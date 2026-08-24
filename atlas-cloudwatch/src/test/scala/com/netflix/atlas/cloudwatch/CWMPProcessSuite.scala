@@ -706,7 +706,7 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
   }
 
   def assertPublished(dps: List[AtlasDatapoint], ts: Long = ts): Unit = {
-    processor.publish(ts)
+    processor.publish(ts, 0)
     verify(publishRouter, times(dps.size)).publish(routerCaptor.capture())
     val capturedValues = routerCaptor.getAllValues.asScala.toList
     assertEquals(capturedValues.size, dps.size)

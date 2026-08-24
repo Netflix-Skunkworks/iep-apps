@@ -190,7 +190,7 @@ class RedisClusterCloudWatchMetricsProcessor(
     }
   }
 
-  override def publish(scrapeTimestamp: Long): Future[NotUsed] = {
+  override def publish(scrapeTimestamp: Long, scrapeDelaySeconds: Int): Future[NotUsed] = {
     if (!leaderStatus.hasLeadership) {
       logger.debug("Not the leader, skipping publishing.")
       return Future.successful(NotUsed)
@@ -230,7 +230,7 @@ class RedisClusterCloudWatchMetricsProcessor(
                   logger.debug(s"Finished slot to keys call with ${slotToKeys.size} slots")
                   val batches = ArrayBuffer[Future[NotUsed]]()
                   slotToKeys.values.foreach(keys => {
-                    batches += getAndPublish(node, keys, scrapeTimestamp)
+                    batches += getAndPublish(node, keys, scrapeTimestamp, scrapeDelaySeconds)
                   })
 
                   Future.sequence(batches).onComplete {
@@ -349,7 +349,8 @@ class RedisClusterCloudWatchMetricsProcessor(
   def getAndPublish(
     node: String,
     keys: ArrayBuffer[Array[Byte]],
-    scrapeTimestamp: Long
+    scrapeTimestamp: Long,
+    scrapeDelaySeconds: Int
   ): Future[NotUsed] = {
     val promise = Promise[NotUsed]()
     scrapExecutionContext.execute(new Runnable() {
@@ -369,7 +370,7 @@ class RedisClusterCloudWatchMetricsProcessor(
                 .zip(data.asScala)
                 .filter(_._2 != null)
                 .foreach { t =>
-                  sendToRouter(t._1, t._2, scrapeTimestamp)
+                  sendToRouter(t._1, t._2, scrapeTimestamp, scrapeDelaySeconds)
                   nonNull += 1
                 }
               registry.counter(entriesScraped.withTag("node", node)).increment(nonNull)

@@ -152,6 +152,20 @@ abstract class CloudWatchMetricsProcessor(
 
   private val polledDataPointValue = registry.createId("atlas.cloudwatch.polled.datapoint.registry")
 
+  /**
+   * The distinct set of positive `scrape-delay` values (in seconds) configured across all
+   * categories. Each one gets its own delayed "catch-up" scrape pass so that namespaces whose
+   * Firehose delivery lags the main scrape schedule get a second chance to publish once their
+   * data has actually landed in the cache, rather than being permanently skipped for that minute.
+   */
+  private val catchUpDelays: Set[Int] =
+    rules.rules.values
+      .flatMap(_.values)
+      .flatten
+      .map(_._1.scrapeDelay)
+      .filter(_ > 0)
+      .toSet
+
   // ctor
   {
     val delay = {
@@ -165,12 +179,35 @@ abstract class CloudWatchMetricsProcessor(
       FiniteDuration.apply(publishPeriod, TimeUnit.SECONDS)
     )(() => {
       try {
-        publish(normalize(System.currentTimeMillis(), publishPeriod))
+        publish(normalize(System.currentTimeMillis(), publishPeriod), 0)
       } catch {
         case ex: Exception =>
           logger.error("Whoops!?!?", ex)
       }
     })(system.dispatcher)
+
+    catchUpDelays.foreach { scrapeDelaySeconds =>
+      val catchUpDelay = delay + (scrapeDelaySeconds * 1000L)
+      logger.info(
+        s"Starting catch-up publishing for scrape-delay=${scrapeDelaySeconds}s " +
+          s"in ${catchUpDelay / 1000.0} seconds."
+      )
+      system.scheduler.scheduleAtFixedRate(
+        FiniteDuration.apply(catchUpDelay, TimeUnit.MILLISECONDS),
+        FiniteDuration.apply(publishPeriod, TimeUnit.SECONDS)
+      )(() => {
+        try {
+          // Reconstruct the same target minute the main pass used, even though this is
+          // running scrapeDelaySeconds later in wall-clock time.
+          val targetTimestamp =
+            normalize(System.currentTimeMillis() - (scrapeDelaySeconds * 1000L), publishPeriod)
+          publish(targetTimestamp, scrapeDelaySeconds)
+        } catch {
+          case ex: Exception =>
+            logger.error("Whoops!?!?", ex)
+        }
+      })(system.dispatcher)
+    }
   }
 
   /**
@@ -319,8 +356,18 @@ abstract class CloudWatchMetricsProcessor(
 
   /**
    * Called by the scheduler to publish data accumulated in the cache. Exposed for unit testing.
+   *
+   * @param scrapeTimestamp
+   * The normalized target minute to publish for.
+   * @param scrapeDelaySeconds
+   * Only categories whose configured `scrape-delay` (in seconds) matches this value are
+   * evaluated in this pass. The main, on-time pass uses 0; delayed "catch-up" passes for
+   * categories with a positive `scrape-delay` use that category's delay value.
    */
-  protected[cloudwatch] def publish(scrapeTimestamp: Long): Future[NotUsed]
+  protected[cloudwatch] def publish(
+    scrapeTimestamp: Long,
+    scrapeDelaySeconds: Int
+  ): Future[NotUsed]
 
   /**
    * Removes the given entry from the cache. This is used to purge entries that are no longer valid due to a config
@@ -523,7 +570,12 @@ abstract class CloudWatchMetricsProcessor(
     }
   }
 
-  private[cloudwatch] def sendToRouter(key: Any, data: Array[Byte], scrapeTimestamp: Long): Unit = {
+  private[cloudwatch] def sendToRouter(
+    key: Any,
+    data: Array[Byte],
+    scrapeTimestamp: Long,
+    scrapeDelaySeconds: Int
+  ): Unit = {
     try {
       val entry = CloudWatchCacheEntry.parseFrom(data)
       registry
@@ -559,15 +611,18 @@ abstract class CloudWatchMetricsProcessor(
                   val (category, definitions) = tuple
                   if (category.dimensionsMatch(toAWSDimensions(entry))) {
                     matchedDimensions = true
-                    if (category.filter.isDefined && category.filter.get.matches(toTagMap(entry))) {
+                    if (category.scrapeDelay != scrapeDelaySeconds) {
+                      // Not this pass's category - either it belongs to the main pass and
+                      // will wait for its own delayed catch-up pass, or vice versa.
+                    } else if (
+                      category.filter.isDefined && category.filter.get.matches(toTagMap(entry))
+                    ) {
                       delete(key)
                       purgedQuery.increment()
                       debugger.debugScrape(entry, scrapeTimestamp, ScrapeState.PurgedFilter)
                     } else {
-                      val effectiveScrapeTimestamp =
-                        scrapeTimestamp - (category.scrapeDelay * 1000L)
                       val (idx, updatedEntry) =
-                        getPublishPoint(entry, effectiveScrapeTimestamp, category)
+                        getPublishPoint(entry, scrapeTimestamp, category)
                       if (idx < 0) {
                         registry
                           .counter(
@@ -583,7 +638,7 @@ abstract class CloudWatchMetricsProcessor(
                           .increment()
                         logger.debug(
                           s"no publish point for ${entry.getNamespace} ${entry.getMetric} " +
-                            s"${toTagMap(entry)} at scrape=${effectiveScrapeTimestamp}"
+                            s"${toTagMap(entry)} at scrape=${scrapeTimestamp}"
                         )
                       }
                       if (idx >= 0) {
@@ -603,7 +658,7 @@ abstract class CloudWatchMetricsProcessor(
                             )
 
                             val atlasDp =
-                              toAtlasDatapoint(metric, effectiveScrapeTimestamp, category.period)
+                              toAtlasDatapoint(metric, scrapeTimestamp, category.period)
                             if (!atlasDp.value.isNaN) {
                               publishRouter.publish(atlasDp)
                             } else {
@@ -621,7 +676,7 @@ abstract class CloudWatchMetricsProcessor(
                                 .increment()
                               logger.debug(
                                 s"nan value for ${entry.getNamespace} ${entry.getMetric} " +
-                                  s"${d.alias} ${toTagMap(entry)} idx=${idx} at scrape=${effectiveScrapeTimestamp}"
+                                  s"${d.alias} ${toTagMap(entry)} idx=${idx} at scrape=${scrapeTimestamp}"
                               )
                             }
                           }
