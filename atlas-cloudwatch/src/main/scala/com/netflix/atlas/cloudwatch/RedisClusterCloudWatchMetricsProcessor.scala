@@ -115,6 +115,7 @@ class RedisClusterCloudWatchMetricsProcessor(
   // categories. Guard each pass independently so a slow main-pass scan can't cause an
   // in-flight catch-up pass (or vice versa) to be dropped as "another scrape is running".
   private val running = new ConcurrentHashMap[Int, AtomicBoolean]()
+
   private def runningFlag(scrapeDelaySeconds: Int): AtomicBoolean =
     running.computeIfAbsent(scrapeDelaySeconds, _ => new AtomicBoolean(false))
 
