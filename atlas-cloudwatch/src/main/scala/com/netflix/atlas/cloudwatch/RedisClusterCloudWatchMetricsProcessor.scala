@@ -36,6 +36,7 @@ import redis.clients.jedis.util.JedisClusterCRC16
 import java.nio.ByteBuffer
 import scala.jdk.CollectionConverters.*
 import java.util
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -108,7 +109,15 @@ class RedisClusterCloudWatchMetricsProcessor(
   private val pollKey = "cw_last_poll_"
 
   private val currentScan = new AtomicReference[Future[NotUsed]]()
-  private val running = new AtomicBoolean(false)
+
+  // The main pass (scrapeDelaySeconds=0) and any per-category catch-up passes run on the
+  // same fixed-rate cadence, offset only by their scrapeDelay, and publish disjoint sets of
+  // categories. Guard each pass independently so a slow main-pass scan can't cause an
+  // in-flight catch-up pass (or vice versa) to be dropped as "another scrape is running".
+  private val running = new ConcurrentHashMap[Int, AtomicBoolean]()
+  private def runningFlag(scrapeDelaySeconds: Int): AtomicBoolean =
+    running.computeIfAbsent(scrapeDelaySeconds, _ => new AtomicBoolean(false))
+
   private val pubCounter = new AtomicInteger()
 
   override def updateCache(
@@ -199,7 +208,7 @@ class RedisClusterCloudWatchMetricsProcessor(
     val promise = Promise[NotUsed]()
     currentScan.set(promise.future)
 
-    if (!running.compareAndSet(false, true)) {
+    if (!runningFlag(scrapeDelaySeconds).compareAndSet(false, true)) {
       scrapeFailure.increment()
       logger.error(s"Failed to run the scrape at @${scrapeTimestamp} as another scrape is running.")
       return Future.failed(new RuntimeException("Another scrape is currently running."))
@@ -263,7 +272,7 @@ class RedisClusterCloudWatchMetricsProcessor(
       logger.info("Waiting on redis scrape to finish")
       Future.sequence(scanners.result()).onComplete {
         case Success(_) =>
-          if (running.compareAndSet(true, false)) {
+          if (runningFlag(scrapeDelaySeconds).compareAndSet(true, false)) {
             val elapsed = registry.clock().monotonicTime() - start
             scrapeTime.record(elapsed, TimeUnit.NANOSECONDS)
 
@@ -282,14 +291,14 @@ class RedisClusterCloudWatchMetricsProcessor(
             )
           }
         case Failure(ex) =>
-          running.set(false)
+          runningFlag(scrapeDelaySeconds).set(false)
           logger.error(s"Failed to run scrape for ${start}", ex)
           scrapeFailure.increment()
           promise.failure(ex)
       }
     } catch {
       case ex: Exception =>
-        running.set(false)
+        runningFlag(scrapeDelaySeconds).set(false)
         logger.error(s"Unexpected exception scraping for ${start}", ex)
         scrapeFailure.increment()
         promise.failure(ex)
