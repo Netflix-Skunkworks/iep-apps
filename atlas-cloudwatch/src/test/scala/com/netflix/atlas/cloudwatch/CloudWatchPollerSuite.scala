@@ -108,18 +108,20 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     metrics: List[Metric],
     promise: Promise[Done]
   ): Unit = {
-    val lmr = ListMetricsResponse
-      .builder()
-      .metrics(metrics.toArray*)
-      .build()
-    when(client.listMetrics(any[ListMetricsRequest])).thenReturn(lmr)
-
     when(client.listMetricsPaginator(req))
       .thenAnswer(new Answer[ListMetricsIterable] {
         override def answer(
           invocation: org.mockito.invocation.InvocationOnMock
         ): ListMetricsIterable = {
           val r = invocation.getArgument(0, classOf[ListMetricsRequest])
+
+          val lmr = ListMetricsResponse
+            .builder()
+            .metrics(metrics.toArray*)
+            .build()
+
+          when(client.listMetrics(any[ListMetricsRequest])).thenReturn(lmr)
+
           new ListMetricsIterable(client, r)
         }
       })
@@ -418,18 +420,17 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
 
     val p1 = Promise[Done]()
 
-    val lmr = ListMetricsResponse
-      .builder()
-      .metrics(metrics.toArray*)
-      .build()
-    when(client.listMetrics(any[ListMetricsRequest])).thenReturn(lmr)
-
     when(client.listMetricsPaginator(req))
       .thenAnswer(new Answer[ListMetricsIterable] {
         override def answer(
           invocation: org.mockito.invocation.InvocationOnMock
         ): ListMetricsIterable = {
           val r = invocation.getArgument(0, classOf[ListMetricsRequest])
+          val lmr = ListMetricsResponse
+            .builder()
+            .metrics(metrics.toArray*)
+            .build()
+          when(client.listMetrics(any[ListMetricsRequest])).thenReturn(lmr)
           new ListMetricsIterable(client, r)
         }
       })
@@ -622,11 +623,11 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val promise = Promise[Done]()
 
     // listMetrics returns one metric with MyTag=a
-    when(client.listMetrics(any[ListMetricsRequest]))
-      .thenAnswer(new Answer[ListMetricsResponse] {
+    when(client.listMetricsPaginator(any[ListMetricsRequest]))
+      .thenAnswer(new Answer[ListMetricsIterable] {
         override def answer(
           invocation: org.mockito.invocation.InvocationOnMock
-        ): ListMetricsResponse = {
+        ): ListMetricsIterable = {
           val r = invocation.getArgument(0, classOf[ListMetricsRequest])
           val metrics = List(
             Metric
@@ -636,19 +637,11 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
               .dimensions(Dimension.builder().name("MyTag").value("a").build())
               .build()
           )
-          ListMetricsResponse
+          val lmr = ListMetricsResponse
             .builder()
             .metrics(metrics.toArray*)
             .build()
-        }
-      })
-
-    when(client.listMetricsPaginator(any[ListMetricsRequest]))
-      .thenAnswer(new Answer[ListMetricsIterable] {
-        override def answer(
-          invocation: org.mockito.invocation.InvocationOnMock
-        ): ListMetricsIterable = {
-          val r = invocation.getArgument(0, classOf[ListMetricsRequest])
+          when(client.listMetrics(any[ListMetricsRequest])).thenReturn(lmr)
           new ListMetricsIterable(client, r)
         }
       })
@@ -1069,11 +1062,11 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
     val promise = Promise[Done]()
 
     // listMetrics paginator returns 2 metrics as in mockSuccess, but we mock it ourselves here:
-    when(client.listMetrics(any[ListMetricsRequest]))
-      .thenAnswer(new Answer[ListMetricsResponse] {
+    when(client.listMetricsPaginator(any[ListMetricsRequest]))
+      .thenAnswer(new Answer[ListMetricsIterable] {
         override def answer(
           invocation: org.mockito.invocation.InvocationOnMock
-        ): ListMetricsResponse = {
+        ): ListMetricsIterable = {
           val r = invocation.getArgument(0, classOf[ListMetricsRequest])
           val metrics = List(
             Metric
@@ -1089,19 +1082,11 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
               .dimensions(Dimension.builder().name("MyTag").value("b").build())
               .build()
           )
-          ListMetricsResponse
+          val lmr = ListMetricsResponse
             .builder()
             .metrics(metrics.toArray*)
             .build()
-        }
-      })
-
-    when(client.listMetricsPaginator(any[ListMetricsRequest]))
-      .thenAnswer(new Answer[ListMetricsIterable] {
-        override def answer(
-          invocation: org.mockito.invocation.InvocationOnMock
-        ): ListMetricsIterable = {
-          val r = invocation.getArgument(0, classOf[ListMetricsRequest])
+          when(client.listMetrics(any[ListMetricsRequest])).thenReturn(lmr)
           new ListMetricsIterable(client, r)
         }
       })
@@ -1311,33 +1296,28 @@ class CloudWatchPollerSuite extends FunSuite with TestKitBase {
   }
 
   def mockSuccess(): Unit = {
-    def metricsFor(req: ListMetricsRequest): List[Metric] = List(
-      Metric
-        .builder()
-        .namespace("AWS/UT1")
-        .metricName(req.metricName())
-        .dimensions(Dimension.builder().name("MyTag").value("a").build())
-        .build(),
-      Metric
-        .builder()
-        .namespace("AWS/UT1")
-        .metricName(req.metricName())
-        .dimensions(Dimension.builder().name("MyTag").value("b").build())
-        .build()
-    )
-
-    when(client.listMetrics(any[ListMetricsRequest]))
-      .thenAnswer((invocation: org.mockito.invocation.InvocationOnMock) => {
-        val req = invocation.getArgument(0, classOf[ListMetricsRequest])
-        ListMetricsResponse
-          .builder()
-          .metrics(metricsFor(req).toArray*)
-          .build()
-      })
-
     when(client.listMetricsPaginator(any[ListMetricsRequest]))
       .thenAnswer((invocation: org.mockito.invocation.InvocationOnMock) => {
         val req = invocation.getArgument(0, classOf[ListMetricsRequest])
+        val metrics = List(
+          Metric
+            .builder()
+            .namespace("AWS/UT1")
+            .metricName(req.metricName())
+            .dimensions(Dimension.builder().name("MyTag").value("a").build())
+            .build(),
+          Metric
+            .builder()
+            .namespace("AWS/UT1")
+            .metricName(req.metricName())
+            .dimensions(Dimension.builder().name("MyTag").value("b").build())
+            .build()
+        )
+        val lmr = ListMetricsResponse
+          .builder()
+          .metrics(metrics.toArray*)
+          .build()
+        when(client.listMetrics(any[ListMetricsRequest])).thenReturn(lmr)
         new ListMetricsIterable(client, req)
       })
 
