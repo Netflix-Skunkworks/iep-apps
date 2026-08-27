@@ -34,6 +34,7 @@ import org.apache.pekko.stream.scaladsl.Flow
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.fasterxml.jackson.annotation.JsonInclude
 import tools.jackson.core.JsonToken
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.node.ObjectNode
@@ -183,11 +184,10 @@ class DruidClient(
 
   def groupBy(query: GroupByQuery): Source[List[GroupByDatapoint], NotUsed] = {
     val dimensions = query.dimensions.map(_.outputName)
-    val timer = query.aggregations.exists(_.aggrType == "timer")
     Source
       .single(mkRequest(query))
       .via(loggingClient)
-      .map(data => parseResult(dimensions, timer, data))
+      .map(data => parseResult(dimensions, valueDecoder(query), data))
   }
 
   def timeseries(query: TimeseriesQuery): Source[List[GroupByDatapoint], NotUsed] = {
@@ -220,12 +220,11 @@ class DruidClient(
     query match {
       case q: GroupByQuery =>
         val dimensions = q.dimensions.map(_.outputName)
-        val timer = q.aggregations.exists(_.aggrType == "timer")
         Source
           .single(mkRequest(q))
           .via(loggingClient)
           .map { data =>
-            decodeGroupBy(dimensions, timer, data)(consumer)
+            decodeGroupBy(dimensions, valueDecoder(q), data)(consumer)
             consumer
           }
       case q: TimeseriesQuery =>
@@ -243,13 +242,22 @@ class DruidClient(
     }
   }
 
+  private def valueDecoder(query: GroupByQuery): ValueDecoder = {
+    if (query.aggregations.exists(_.aggrType == Aggregation.DistinctRegisterType))
+      ValueDecoder.DistinctRegisters
+    else if (query.aggregations.exists(_.aggrType == Aggregation.TimerType))
+      ValueDecoder.TimerHistogram
+    else
+      ValueDecoder.Default
+  }
+
   private def parseResult(
     dimensions: List[String],
-    timer: Boolean,
+    decoder: ValueDecoder,
     data: ByteString
   ): List[GroupByDatapoint] = {
     val builder = List.newBuilder[GroupByDatapoint]
-    decodeGroupBy(dimensions, timer, data) { (timestamp, tags, value) =>
+    decodeGroupBy(dimensions, decoder, data) { (timestamp, tags, value) =>
       builder += GroupByDatapoint(timestamp, tags, value)
     }
     builder.result()
@@ -257,7 +265,7 @@ class DruidClient(
 
   private def decodeGroupBy(
     dimensions: List[String],
-    timer: Boolean,
+    decoder: ValueDecoder,
     data: ByteString
   )(consumer: DatapointConsumer): Unit = {
     Using.resource(Json.newJsonParser(inputStream(data))) { parser =>
@@ -282,10 +290,27 @@ class DruidClient(
         val valueToken = parser.nextToken()
         if (valueToken == JsonToken.START_OBJECT) {
           // Histogram type: {"bucketIndex": count, ...}
+          val timer = decoder == ValueDecoder.TimerHistogram
           foreachField(parser) { idx =>
             val key = toPercentileBucket(idx, timer)
             val datapointTags = tags + (TagKey.percentile -> key)
             consumer.accept(timestamp, datapointTags, nextLong(parser).toDouble)
+          }
+        } else if (decoder == ValueDecoder.DistinctRegisters) {
+          // Unfinalized HLL sketch, base64 encoded. Expand into one datapoint per register so
+          // it looks the same as a sketch published by a Spectator DistinctCountSketch.
+          if (valueToken != JsonToken.VALUE_NULL) {
+            val values = HllSketchRegisters.decode(parser.getString)
+            var i = 0
+            while (i < values.length) {
+              // Registers that were never set contribute nothing to the merge or the estimate,
+              // so they are dropped rather than published as a series of zeros.
+              if (values(i) > 0) {
+                val datapointTags = tags + (TagKey.distinct -> HllSketchRegisters.tagValues(i))
+                consumer.accept(timestamp, datapointTags, values(i).toDouble)
+              }
+              i += 1
+            }
           }
         } else if (valueToken != JsonToken.VALUE_NULL) {
           // Floating point value. In some cases histogram can be null, ignore those entries.
@@ -313,6 +338,28 @@ class DruidClient(
 }
 
 object DruidClient {
+
+  /**
+    * How to interpret the value returned for a datapoint. Most types are a simple number, but
+    * some are a compound value that needs to be expanded into a set of datapoints with an
+    * additional dimension. Only the cases that cannot be told apart from the response alone
+    * are listed: a histogram is recognized by the value being an object, so the decoder only
+    * has to say whether those buckets are timer or distribution summary buckets.
+    */
+  private[druid] enum ValueDecoder {
+
+    /** Histogram buckets for a timer, expanded into `percentile` datapoints. */
+    case TimerHistogram
+
+    /**
+      * A simple numeric value, or histogram buckets for a distribution summary expanded into
+      * `percentile` datapoints. Which one it is comes from the response, not the query.
+      */
+    case Default
+
+    /** Serialized HLL sketch, expanded into `distinct` register datapoints. */
+    case DistinctRegisters
+  }
 
   case class Datasource(dimensions: List[String], metrics: List[Metric])
 
@@ -533,6 +580,12 @@ object DruidClient {
 
     def toTimeseriesQuery: TimeseriesQuery = {
       require(dimensions.isEmpty)
+      // The timeseries response format only has a place for a simple numeric value, so
+      // aggregations that expand into an additional dimension cannot be decoded from it.
+      require(
+        !aggregations.exists(Aggregation.expandsToDimension),
+        "aggregation expands into an additional dimension, group by is required"
+      )
       TimeseriesQuery(dataSource, intervals, aggregations, filter, having, granularity)
     }
 
@@ -591,14 +644,22 @@ object DruidClient {
   }
 
   @JsonIgnoreProperties(Array("aggrType"))
-  case class Aggregation(aggrType: String, fieldName: String) {
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  case class Aggregation(
+    aggrType: String,
+    fieldName: String,
+    lgK: Integer = null,
+    tgtHllType: String = null,
+    shouldFinalize: java.lang.Boolean = null
+  ) {
 
     // Type to encode for Druid request. Internally we need to distinguish between timers
     // and distribution summaries, but the Druid aggregation type is the same for both.
     val `type`: String = aggrType match {
-      case "timer"        => "spectatorHistogram"
-      case "dist-summary" => "spectatorHistogram"
-      case _              => aggrType
+      case Aggregation.TimerType            => "spectatorHistogram"
+      case Aggregation.DistSummaryType      => "spectatorHistogram"
+      case Aggregation.DistinctRegisterType => "HLLSketchMerge"
+      case _                                => aggrType
     }
 
     val name: String = "value"
@@ -606,13 +667,48 @@ object DruidClient {
 
   case object Aggregation {
 
+    // Internal aggregation types, used to distinguish cases where the druid type alone is
+    // not enough to know how the response value should be decoded. These are not sent to
+    // druid, see the `type` mapping above.
+    private[druid] val TimerType: String = "timer"
+    private[druid] val DistSummaryType: String = "dist-summary"
+    private[druid] val DistinctRegisterType: String = "distinct-register"
+
+    /**
+      * Types where the value returned by druid expands into datapoints with an additional
+      * dimension rather than being a simple number. Those responses can only be decoded from
+      * the group by result format.
+      */
+    def expandsToDimension(aggr: Aggregation): Boolean = {
+      aggr.aggrType == TimerType ||
+      aggr.aggrType == DistSummaryType ||
+      aggr.aggrType == DistinctRegisterType
+    }
+
     def count(fieldName: String): Aggregation = Aggregation("count", fieldName)
     def sum(fieldName: String): Aggregation = Aggregation("doubleSum", fieldName)
     def min(fieldName: String): Aggregation = Aggregation("doubleMin", fieldName)
     def max(fieldName: String): Aggregation = Aggregation("doubleMax", fieldName)
     def distinct(fieldName: String): Aggregation = Aggregation("HLLSketchMerge", fieldName)
-    def timer(fieldName: String): Aggregation = Aggregation("timer", fieldName)
-    def distSummary(fieldName: String): Aggregation = Aggregation("dist-summary", fieldName)
+    def timer(fieldName: String): Aggregation = Aggregation(TimerType, fieldName)
+    def distSummary(fieldName: String): Aggregation = Aggregation(DistSummaryType, fieldName)
+
+    /**
+      * Aggregation for retrieving the raw registers of a native Druid HLL sketch rather than
+      * the finalized distinct count. Druid rescales the stored sketch to the register count
+      * used by the Spectator `DistinctCountSketch`, so the registers can be merged with those
+      * published by any other source. Disabling finalization is what makes Druid return the
+      * merged sketch, base64 encoded, in place of the estimate.
+      */
+    def distinctRegisters(fieldName: String): Aggregation = {
+      Aggregation(
+        aggrType = DistinctRegisterType,
+        fieldName = fieldName,
+        lgK = Integer.numberOfTrailingZeros(HllSketchRegisters.registers),
+        tgtHllType = "HLL_4",
+        shouldFinalize = java.lang.Boolean.FALSE
+      )
+    }
   }
 
   /**

@@ -80,6 +80,7 @@ lazy val `atlas-druid` = project
     Dependencies.log4jApi,
     Dependencies.log4jCore,
     Dependencies.log4jSlf4j,
+    Dependencies.spectatorApi,
   ))
 
 lazy val `atlas-persistence` = project
