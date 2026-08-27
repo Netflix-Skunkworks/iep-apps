@@ -346,4 +346,69 @@ class DruidClientSuite extends FunSuite {
     assert(json.contains("doubleSum"))
     assert(!json.contains("aggrType"))
   }
+
+  test("aggregation encode, distinct register type") {
+    val aggr = Aggregation.distinctRegisters("foo")
+    val json = Json.encode(aggr)
+    // Rescaling to the register count used by the backend estimator and disabling finalization
+    // are what make druid return the merged registers rather than the distinct count.
+    assert(json.contains("HLLSketchMerge"))
+    assert(json.contains(""""lgK":6"""))
+    assert(json.contains(""""shouldFinalize":false"""))
+    assert(!json.contains("aggrType"))
+  }
+
+  test("aggregation encode, optional sketch settings omitted for other types") {
+    val json = Json.encode(Aggregation.distinct("foo"))
+    assert(!json.contains("lgK"))
+    assert(!json.contains("tgtHllType"))
+    assert(!json.contains("shouldFinalize"))
+  }
+
+  private def executeGroupBySketchRequest: List[GroupByDatapoint] = {
+    import com.netflix.atlas.core.util.Streams.*
+    val payload = Using.resource(resource("groupByResponseSketch.json"))(byteArray)
+    val response = HttpResponse(StatusCodes.OK, entity = payload)
+    val client = newClient(Success(response))
+    val query = GroupByQuery(
+      "test",
+      List(DefaultDimensionSpec("test.dim.1", "test.dim.1")),
+      Nil,
+      List(Aggregation.distinctRegisters("value"))
+    )
+    val future = client.groupBy(query).runWith(Sink.head)
+    Await.result(future, Duration.Inf)
+  }
+
+  test("groupBy with distinct register aggregation type") {
+    val datapoints = executeGroupBySketchRequest
+
+    // Each sketch expands into one datapoint per register that was set. The empty sketch and
+    // the null value contribute nothing.
+    assertEquals(datapoints.map(_.tags("test.dim.1")).toSet, Set("a", "b"))
+    assert(datapoints.forall(_.tags.contains("distinct")))
+    assert(datapoints.forall(_.value > 0.0))
+    assert(datapoints.forall(_.timestamp == 1553786700000L))
+
+    // The three values recorded in the list mode sketch can only set three registers.
+    assertEquals(datapoints.count(_.tags("test.dim.1") == "b"), 3)
+
+    // Register tags must be unique within a group so the estimator can map them to a register.
+    val dense = datapoints.filter(_.tags("test.dim.1") == "a")
+    assertEquals(dense.map(_.tags("distinct")).distinct.size, dense.size)
+    assert(dense.forall(d => HllSketchRegisters.tagValues.contains(d.tags("distinct"))))
+  }
+
+  test("parseDatapoints matches groupBy: sketch response") {
+    val query = GroupByQuery(
+      "test",
+      List(DefaultDimensionSpec("test.dim.1", "test.dim.1")),
+      Nil,
+      List(Aggregation.distinctRegisters("value"))
+    )
+    assertEquals(
+      collectViaParse("groupByResponseSketch.json", query),
+      executeGroupBySketchRequest
+    )
+  }
 }

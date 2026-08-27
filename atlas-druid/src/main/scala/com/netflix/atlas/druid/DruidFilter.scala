@@ -17,6 +17,7 @@ package com.netflix.atlas.druid
 
 import com.netflix.atlas.core.model.Query
 import com.netflix.atlas.core.model.Query.KeyQuery
+import com.netflix.atlas.core.model.TagKey
 import com.netflix.spectator.impl.AsciiSet
 
 trait DruidFilter
@@ -27,8 +28,16 @@ object DruidFilter {
 
   def sanitize(v: String): String = allowedChars.replaceNonMembers(v, '_')
 
-  def forQuery(query: Query): Option[DruidFilter] = {
-    val q = removeDatasourceAndName(query)
+  /**
+    * @param query
+    *     Query to convert into a druid filter.
+    * @param syntheticKeys
+    *     Keys that are synthesized from the value returned by druid rather than being dimensions
+    *     druid can filter on. Restrictions on these are dropped here and applied to the results
+    *     after they have been expanded.
+    */
+  def forQuery(query: Query, syntheticKeys: Set[String] = Set.empty): Option[DruidFilter] = {
+    val q = removeDatasourceAndName(query, syntheticKeys)
     if (q == Query.True) None else Some(toFilter(q))
   }
 
@@ -61,13 +70,16 @@ object DruidFilter {
     * The `nf.datasource` and `name` values should have already been confirmed before trying
     * to create a filter. Those values must be listed as `dataSource` and `searchDimensions`
     * respectively. This removes them by rewriting the query so that they are presumed
-    * to be true.
+    * to be true. The `percentile` key and any `syntheticKeys` are also removed, they are
+    * dimensions synthesized from the value returned by druid rather than dimensions druid can
+    * filter on, so any restriction has to be applied to the results after they are expanded.
     */
-  private def removeDatasourceAndName(query: Query): Query = {
+  private def removeDatasourceAndName(query: Query, syntheticKeys: Set[String]): Query = {
     val newQuery = query.rewrite {
-      case kq: KeyQuery if kq.k == "nf.datasource" => Query.True
-      case kq: KeyQuery if kq.k == "name"          => Query.True
-      case kq: KeyQuery if kq.k == "percentile"    => Query.True
+      case kq: KeyQuery if kq.k == "nf.datasource"      => Query.True
+      case kq: KeyQuery if kq.k == "name"               => Query.True
+      case kq: KeyQuery if kq.k == TagKey.percentile    => Query.True
+      case kq: KeyQuery if syntheticKeys.contains(kq.k) => Query.True
     }
     Query.simplify(newQuery.asInstanceOf[Query], true)
   }

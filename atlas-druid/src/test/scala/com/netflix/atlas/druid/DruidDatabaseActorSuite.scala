@@ -321,6 +321,122 @@ class DruidDatabaseActorSuite extends FunSuite {
     queries.forall(_._3.asInstanceOf[TimeseriesQuery].context == toTestDruidQueryContext(expr))
   }
 
+  private val sketchMetric = DruidClient.Metric("uniq", "HLLSketchMerge")
+
+  private val sketchMetadata = Metadata(
+    List(
+      DatasourceMetadata("ds_1", Datasource(List("a", "b"), List(sketchMetric)))
+    )
+  )
+
+  test("toAggregation: sketch without register grouping uses the distinct count") {
+    val expr = DataExpr.Sum(Query.Equal("a", "1"))
+    assertEquals(toAggregation(sketchMetric, expr), Aggregation.distinct("uniq"))
+  }
+
+  test("toAggregation: sketch grouped by register returns the registers") {
+    val expr = DataExpr.GroupBy(DataExpr.Max(Query.Equal("a", "1")), List("distinct"))
+    assertEquals(toAggregation(sketchMetric, expr), Aggregation.distinctRegisters("uniq"))
+  }
+
+  test("toAggregation: sketch grouped by register and a dimension") {
+    val expr = DataExpr.GroupBy(DataExpr.Max(Query.Equal("a", "1")), List("distinct", "a"))
+    assertEquals(toAggregation(sketchMetric, expr), Aggregation.distinctRegisters("uniq"))
+  }
+
+  test("toAggregation: sketch restricted on register returns the registers") {
+    val expr = DataExpr.Sum(Query.And(Query.Equal("a", "1"), Query.Equal("distinct", "R00")))
+    assertEquals(toAggregation(sketchMetric, expr), Aggregation.distinctRegisters("uniq"))
+  }
+
+  test("toAggregation: register grouping on a non sketch metric is unaffected") {
+    val expr = DataExpr.GroupBy(DataExpr.Max(Query.Equal("a", "1")), List("distinct"))
+    assertEquals(toAggregation(DruidClient.Metric("m1", "LONG"), expr), Aggregation.max("m1"))
+  }
+
+  test("metrics: sketch is tagged with the distinct statistic") {
+    val tags = sketchMetadata.datasources.head.metrics.head.tags
+    assertEquals(tags("statistic"), "distinct")
+    assertEquals(tags("name"), "uniq")
+  }
+
+  test("toDruidQueries: sketch register query uses a group by") {
+    val expr = DataExpr.GroupBy(DataExpr.Max(Query.Equal("name", "uniq")), List("distinct"))
+    val queries = toDruidQueries(sketchMetadata, toTestDruidQueryContext(expr), context, expr)
+
+    assertEquals(queries.size, 1)
+    val query = queries.head._3
+    // The register dimension is synthesized from the sketch, so it must not be sent to druid as
+    // a dimension. That leaves no dimensions, but the response still has to be a group by since
+    // the value is a sketch rather than a number.
+    val groupBy = query.asInstanceOf[GroupByQuery]
+    assertEquals(groupBy.dimensions, Nil)
+    assertEquals(groupBy.aggregations, List(Aggregation.distinctRegisters("uniq")))
+  }
+
+  test("toDruidQueries: sketch register query with a group by dimension") {
+    val expr = DataExpr.GroupBy(DataExpr.Max(Query.Equal("name", "uniq")), List("distinct", "a"))
+    val queries = toDruidQueries(sketchMetadata, toTestDruidQueryContext(expr), context, expr)
+
+    val groupBy = queries.head._3.asInstanceOf[GroupByQuery]
+    assertEquals(groupBy.dimensions.map(_.outputName), List("a"))
+  }
+
+  test("toDruidQueries: register restriction is not sent to druid as a filter") {
+    val expr = DataExpr.GroupBy(
+      DataExpr.Max(Query.And(Query.Equal("name", "uniq"), Query.Equal("distinct", "R00"))),
+      List("distinct")
+    )
+    val queries = toDruidQueries(sketchMetadata, toTestDruidQueryContext(expr), context, expr)
+    val groupBy = queries.head._3.asInstanceOf[GroupByQuery]
+    // Druid has no register dimension to filter on, the restriction is applied to the results
+    // after the sketch has been expanded.
+    assertEquals(groupBy.dimensions, Nil)
+    assertEquals(groupBy.filter, None)
+  }
+
+  test("toDruidQueries: distinct is an ordinary dimension for a non sketch metric") {
+    // A data source is free to have a dimension actually named `distinct`. It is only the
+    // sketch register id when the metric is a sketch, otherwise the restriction has to be
+    // passed through to druid or the result would silently ignore it.
+    val md = Metadata(
+      List(
+        DatasourceMetadata(
+          "ds_1",
+          Datasource(List("a", "distinct"), List(DruidClient.Metric("m1", "LONG")))
+        )
+      )
+    )
+    val expr = DataExpr.Sum(Query.And(Query.Equal("name", "m1"), Query.Equal("distinct", "foo")))
+    val queries = toDruidQueries(md, toTestDruidQueryContext(expr), context, expr)
+    val json = Json.encode(queries.head._3)
+    assert(json.contains("""{"dimension":"distinct","value":"foo","type":"selector"}"""), json)
+  }
+
+  test("toDruidQueries: group by distinct on a non sketch metric is sent to druid") {
+    val md = Metadata(
+      List(
+        DatasourceMetadata(
+          "ds_1",
+          Datasource(List("a", "distinct"), List(DruidClient.Metric("m1", "LONG")))
+        )
+      )
+    )
+    val expr = DataExpr.GroupBy(DataExpr.Sum(Query.Equal("name", "m1")), List("distinct"))
+    val queries = toDruidQueries(md, toTestDruidQueryContext(expr), context, expr)
+    val groupBy = queries.head._3.asInstanceOf[GroupByQuery]
+    assertEquals(groupBy.dimensions.map(_.outputName), List("distinct"))
+    assertEquals(groupBy.aggregations, List(Aggregation.sum("m1")))
+  }
+
+  test("toDruidQueries: sketch distinct count query is unchanged") {
+    val expr = DataExpr.Sum(Query.Equal("name", "uniq"))
+    val queries = toDruidQueries(sketchMetadata, toTestDruidQueryContext(expr), context, expr)
+
+    val query = queries.head._3.asInstanceOf[TimeseriesQuery]
+    assertEquals(query.aggregations, List(Aggregation.distinct("uniq")))
+  }
+
   private def evalQuery(str: String): Query = {
     Interpreter(QueryVocabulary.allWords).execute(str).stack match {
       case (q: Query) :: Nil => q

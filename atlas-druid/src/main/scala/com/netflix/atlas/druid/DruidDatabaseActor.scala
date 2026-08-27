@@ -419,6 +419,8 @@ object DruidDatabaseActor {
       val tags =
         if (metric.isHistogram)
           baseTags + ("statistic" -> "percentile")
+        else if (metric.isSketch)
+          baseTags + ("statistic" -> "distinct")
         else
           baseTags
       MetricMetadata(metric, tags)
@@ -448,7 +450,30 @@ object DruidDatabaseActor {
     //
     // percentile is included since it comes from the histogram type and isn't
     // available on druid. It will need to be handled in a post filter.
-    k == "name" || k == "nf.datasource" || k == "statistic" || k == "percentile"
+    k == "name" || k == "nf.datasource" || k == "statistic" || k == TagKey.percentile
+  }
+
+  /**
+    * Keys that are synthesized from the value of a metric rather than being dimensions druid
+    * knows about, so they must not be sent to druid as a dimension or a filter. Unlike
+    * [[isSpecial]] this depends on the metric: `distinct` is only the sketch register id for a
+    * sketch metric, for anything else it is an ordinary dimension name that a data source is
+    * free to use.
+    */
+  def isSynthetic(metric: DruidClient.Metric, k: String): Boolean = {
+    syntheticKeys(metric).contains(k)
+  }
+
+  /**
+    * Keys synthesized from the value of `metric`. See [[isSynthetic]].
+    *
+    * `percentile` belongs here as well, it is synthesized from a histogram in exactly the same
+    * way, but it is left in [[isSpecial]] for now because moving it would change the result of
+    * existing queries that restrict on `percentile` while matching non-histogram metrics: those
+    * restrictions are currently ignored and would start excluding the metric instead.
+    */
+  def syntheticKeys(metric: DruidClient.Metric): Set[String] = {
+    if (metric.isSketch) Set(TagKey.distinct) else Set.empty
   }
 
   def toDimensionSpec(key: String, query: Query): DimensionSpec = {
@@ -509,38 +534,54 @@ object DruidDatabaseActor {
   @scala.annotation.tailrec
   def toAggregation(metric: DruidClient.Metric, expr: DataExpr): Aggregation = {
     expr match {
-      case _: DataExpr.All                      => throw new UnsupportedOperationException(":all")
-      case Histogram(_) if metric.isTimer       => Aggregation.timer(metric.name)
-      case Histogram(_) if metric.isDistSummary => Aggregation.distSummary(metric.name)
-      case DataExpr.GroupBy(e, _)               => toAggregation(metric, e)
-      case DataExpr.Consolidation(e, _)         => toAggregation(metric, e)
-      case _ if metric.isSketch                 => Aggregation.distinct(metric.name)
-      case _: DataExpr.Sum                      => Aggregation.sum(metric.name)
-      case _: DataExpr.Max                      => Aggregation.max(metric.name)
-      case _: DataExpr.Min                      => Aggregation.min(metric.name)
-      case _: DataExpr.Count                    => Aggregation.count(metric.name)
+      case _: DataExpr.All                        => throw new UnsupportedOperationException(":all")
+      case Histogram(_) if metric.isTimer         => Aggregation.timer(metric.name)
+      case Histogram(_) if metric.isDistSummary   => Aggregation.distSummary(metric.name)
+      case DistinctRegisters() if metric.isSketch => Aggregation.distinctRegisters(metric.name)
+      case DataExpr.GroupBy(e, _)                 => toAggregation(metric, e)
+      case DataExpr.Consolidation(e, _)           => toAggregation(metric, e)
+      case _ if metric.isSketch                   => Aggregation.distinct(metric.name)
+      case _: DataExpr.Sum                        => Aggregation.sum(metric.name)
+      case _: DataExpr.Max                        => Aggregation.max(metric.name)
+      case _: DataExpr.Min                        => Aggregation.min(metric.name)
+      case _: DataExpr.Count                      => Aggregation.count(metric.name)
     }
   }
 
   case object Histogram {
 
     def unapply(value: Any): Option[List[String]] = value match {
-      case DataExpr.GroupBy(_: DataExpr.Sum, ks) if ks.contains("percentile") => Some(ks)
-      case e: DataExpr if restrictsOnPercentile(e)                            => Some(Nil)
-      case _                                                                  => None
+      case DataExpr.GroupBy(_: DataExpr.Sum, ks) if ks.contains(TagKey.percentile) => Some(ks)
+      case e: DataExpr if restrictsOnKey(e, TagKey.percentile)                     => Some(Nil)
+      case _                                                                       => None
     }
+  }
 
-    private def restrictsOnPercentile(expr: DataExpr): Boolean = {
-      restrictsOnPercentile(expr.query)
-    }
+  /**
+    * Matches an expression that needs the raw registers of a distinct count sketch rather than
+    * the finalized distinct count. This is what `:approx-distinct` produces: the registers are
+    * merged by taking the max, so the estimate can be computed after both the space and time
+    * aggregation rather than by combining per-interval estimates.
+    */
+  case object DistinctRegisters {
 
-    private def restrictsOnPercentile(query: Query): Boolean = query match {
-      case Query.And(q1, q2) => restrictsOnPercentile(q1) || restrictsOnPercentile(q2)
-      case Query.Or(q1, q2)  => restrictsOnPercentile(q1) || restrictsOnPercentile(q2)
-      case Query.Not(q)      => restrictsOnPercentile(q)
-      case q: Query.KeyQuery => q.k == "percentile"
-      case _                 => false
+    def unapply(value: Any): Boolean = value match {
+      case e: DataExpr =>
+        e.finalGrouping.contains(TagKey.distinct) || restrictsOnKey(e, TagKey.distinct)
+      case _ => false
     }
+  }
+
+  private def restrictsOnKey(expr: DataExpr, key: String): Boolean = {
+    restrictsOnKey(expr.query, key)
+  }
+
+  private def restrictsOnKey(query: Query, key: String): Boolean = query match {
+    case Query.And(q1, q2) => restrictsOnKey(q1, key) || restrictsOnKey(q2, key)
+    case Query.Or(q1, q2)  => restrictsOnKey(q1, key) || restrictsOnKey(q2, key)
+    case Query.Not(q)      => restrictsOnKey(q, key)
+    case q: Query.KeyQuery => q.k == key
+    case _                 => false
   }
 
   def toInterval(context: EvalContext): String = {
@@ -693,15 +734,20 @@ object DruidDatabaseActor {
         // Common tags should be extracted for the simplified query rather than the raw
         // query. The simplified query may have additional exact matches due to simplified
         // OR clauses that need to be maintained for correct processing in the eval step.
-        val simpleQuery = simplify(query, List(name), ds)
-        val commonTags = exactTags(simpleQuery)
+        //
+        // Synthetic keys are treated as known dimensions so that a restriction on one does not
+        // simplify the whole query away, but they are excluded from the common tags: their
+        // value comes from expanding the metric value, not from the query.
+        val synthetic = syntheticKeys(m.metric)
+        val simpleQuery = simplify(query, List(name), ds ++ synthetic)
+        val commonTags = exactTags(simpleQuery) -- synthetic
         val tags = commonTags ++ m.tags
 
         // Add has key checks for all keys within the group by. This allows druid to remove
         // some of the results earlier on in the historical nodes.
         val finalQuery = expr.finalGrouping
-          .filter(k => !m.metric.isHistogram || k != TagKey.percentile)
           .filterNot(isSpecial)
+          .filterNot(k => isSynthetic(m.metric, k))
           .map(k => Query.HasKey(k))
           .foldLeft(simpleQuery) { (q1, q2) =>
             q1.and(q2)
@@ -710,7 +756,7 @@ object DruidDatabaseActor {
         if (simpleQuery == Query.False) {
           None
         } else {
-          val dimensions = getDimensions(simpleQuery, expr.finalGrouping, m.metric.isHistogram)
+          val dimensions = getDimensions(simpleQuery, expr.finalGrouping, m.metric)
 
           // Add to the filter to remove rows that don't include the metric we're aggregating.
           // This reduces what needs to be merged and passed back to the broker, improving query
@@ -720,16 +766,21 @@ object DruidDatabaseActor {
             if (m.metric.isHistogram || m.metric.isSketch) finalQuery
             else finalQuery.and(metricValueFilter)
 
+          val aggregation = toAggregation(m.metric, expr)
           val groupByQuery = GroupByQuery(
             dataSource = datasource,
             dimensions = dimensions,
             intervals = intervals,
-            aggregations = List(toAggregation(m.metric, expr)),
-            filter = DruidFilter.forQuery(finalQueryWithFilter),
+            aggregations = List(aggregation),
+            filter = DruidFilter.forQuery(finalQueryWithFilter, synthetic),
             granularity = Granularity.millis(druidStep)
           )
+          // A timeseries query is cheaper, but it can only be used for aggregations that
+          // return a simple numeric value. Types that expand into an additional dimension,
+          // histogram buckets or sketch registers, have to use the group by response format.
+          val compoundValue = m.metric.isHistogram || Aggregation.expandsToDimension(aggregation)
           val druidQuery =
-            if (groupByQuery.dimensions.isEmpty && !m.metric.isHistogram)
+            if (groupByQuery.dimensions.isEmpty && !compoundValue)
               groupByQuery.toTimeseriesQuery
             else
               groupByQuery
@@ -753,11 +804,11 @@ object DruidDatabaseActor {
   def getDimensions(
     query: Query,
     groupByKeys: List[String],
-    histogram: Boolean = false
+    metric: DruidClient.Metric = DruidClient.Metric("")
   ): List[DimensionSpec] = {
     groupByKeys
-      .filter(k => !histogram || k != TagKey.percentile)
       .filterNot(isSpecial)
+      .filterNot(k => isSynthetic(metric, k))
       .map(k => toDimensionSpec(k, query))
   }
 
