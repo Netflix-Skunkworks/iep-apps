@@ -89,11 +89,12 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
     case Tick        => refreshMetadata(sender())
     case m: Metadata => metadata = Metadata(m.datasources.filter(_.nonEmpty))
 
-    case req: ListTagsRequest   => listValues(sendTags(sender()), req.q)
+    case req: ListTagsRequest   => listValues(sendTags(sender()), req.q, req.caller.forwardedToken)
     case req: ListKeysRequest   => listKeys(sender(), req.q)
-    case req: ListValuesRequest => listValues(sendValues(sender()), req.q)
-    case req: DataRequest       => fetchData(sender(), req)
-    case req: ExplainRequest    => explain(sender(), req.dataRequest)
+    case req: ListValuesRequest =>
+      listValues(sendValues(sender()), req.q, req.caller.forwardedToken)
+    case req: DataRequest    => fetchData(sender(), req)
+    case req: ExplainRequest => explain(sender(), req.dataRequest)
   }
 
   private def refreshMetadata(ref: ActorRef): Unit = {
@@ -156,12 +157,12 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
     ref ! TagListResponse(vs.map(v => Tag(k, v)))
   }
 
-  private def listValues(callback: ListCallback, tq: TagQuery): Unit = {
+  private def listValues(callback: ListCallback, tq: TagQuery, token: Option[String]): Unit = {
     tq.key.getOrElse("name") match {
       case "name"          => listNames(callback, tq)
       case "nf.datasource" => listDatasources(callback, tq)
       case "statistic"     => listStatistics(callback, tq)
-      case _               => listDimension(callback, tq)
+      case _               => listDimension(callback, tq, token)
     }
   }
 
@@ -209,7 +210,7 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
     callback("statistic", vs)
   }
 
-  private def listDimension(callback: ListCallback, tq: TagQuery): Unit = {
+  private def listDimension(callback: ListCallback, tq: TagQuery, token: Option[String]): Unit = {
     val query = getListQuery(tq)
     tq.key match {
       case Some(k) =>
@@ -249,7 +250,7 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
             }
 
           if (druidQueries.nonEmpty) {
-            Source(druidQueries.map { q => client.topn(q) })
+            Source(druidQueries.map { q => client.topn(q, token) })
               .flatMapMerge(Int.MaxValue, v => v)
               .map(_.flatMap(_.values))
               .fold(List.empty[String]) { (vs1, vs2) =>
@@ -302,8 +303,11 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
       request.exprs.foreach(expr => validate(expr.query))
       val context = determineStepSize(metadata, request.context, request.exprs)
       val druidQueryContext = toDruidQueryContext(request)
+      // Relay the end-to-end token from the incoming request, if there was one, so the
+      // druid calls can be authorized based on the initial caller
+      val token = request.config.flatMap(_.caller.forwardedToken)
       val druidQueries = request.exprs.map { expr =>
-        fetchData(druidQueryContext, context, expr).map(ts => expr -> ts)
+        fetchData(druidQueryContext, context, expr, token).map(ts => expr -> ts)
       }
       Source(druidQueries)
         .flatMapMerge(Int.MaxValue, v => v)
@@ -323,7 +327,8 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
   private def fetchData(
     druidQueryContext: Map[String, String],
     context: EvalContext,
-    expr: DataExpr
+    expr: DataExpr,
+    token: Option[String]
   ): Source[List[TimeSeries], NotUsed] = {
     // Adjust start time for druid fetch to avoid alignment issue of /v2/fetch chunks
     val druidContext = context.copy(start = context.start - context.step)
@@ -346,7 +351,7 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
           else
             createValueMapper(normalizeRates, metricContext, expr)
         val accumulator = new TimeSeriesAccumulator(tags, metricContext, maxDataSize, valueMapper)
-        client.parseDatapoints(groupByQuery)(accumulator).map { acc =>
+        client.parseDatapoints(groupByQuery, token)(accumulator).map { acc =>
           val candidates = acc.result()
           // See behavior on multi-value dimensions:
           // http://druid.io/docs/latest/querying/groupbyquery.html

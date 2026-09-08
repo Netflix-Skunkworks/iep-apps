@@ -23,6 +23,7 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.model.EntityStreamSizeException
 import org.apache.pekko.http.scaladsl.model.HttpEntity
+import org.apache.pekko.http.scaladsl.model.HttpHeader
 import org.apache.pekko.http.scaladsl.model.HttpMethods
 import org.apache.pekko.http.scaladsl.model.HttpRequest
 import org.apache.pekko.http.scaladsl.model.HttpResponse
@@ -103,12 +104,24 @@ class DruidClient(
     new IOException(s"request failed with status ${res.status.intValue()}")
   }
 
-  private def mkRequest(data: Any): HttpRequest = {
+  private def mkRequest(data: Any, token: Option[String]): HttpRequest = {
     val json = Json.encode(data)
     logger.trace(s"raw request payload: $json")
     val entity = HttpEntity(MediaTypes.`application/json`, json)
-    val headers = List(`Accept-Encoding`(HttpEncodings.gzip))
+    val headers = `Accept-Encoding`(HttpEncodings.gzip) :: e2eTokenHeaders(token)
     HttpRequest(HttpMethods.POST, uri, headers = headers, entity = entity)
+  }
+
+  /**
+    * Relay the end-to-end token from the incoming request so druid can authenticate the
+    * initial caller rather than just this service. If the incoming request did not have a
+    * token, then the header is omitted and the call is authenticated based on the client
+    * certificate alone. A blank token is treated the same as a missing one so that an empty
+    * header is not sent, which could be rejected as malformed rather than falling back to
+    * the client certificate.
+    */
+  private def e2eTokenHeaders(token: Option[String]): List[HttpHeader] = {
+    token.filter(_.nonEmpty).map(t => RawHeader(e2eTokenHeaderName, t)).toList
   }
 
   def datasources: Source[List[String], NotUsed] = {
@@ -140,7 +153,7 @@ class DruidClient(
     ignoreFailures: Boolean
   ): Source[List[SegmentMetadataResult], NotUsed] = {
     Source
-      .single(mkRequest(query))
+      .single(mkRequest(query, None))
       .via(loggingClient)
       .map { data =>
         Using.resource(inputStream(data)) { in =>
@@ -160,9 +173,12 @@ class DruidClient(
       }
   }
 
-  def search(query: SearchQuery): Source[List[SearchResult], NotUsed] = {
+  def search(
+    query: SearchQuery,
+    token: Option[String]
+  ): Source[List[SearchResult], NotUsed] = {
     Source
-      .single(mkRequest(query))
+      .single(mkRequest(query, token))
       .via(loggingClient)
       .map { data =>
         Using.resource(inputStream(data)) { in =>
@@ -171,9 +187,12 @@ class DruidClient(
       }
   }
 
-  def topn(query: TopNQuery): Source[List[TopNResult], NotUsed] = {
+  def topn(
+    query: TopNQuery,
+    token: Option[String]
+  ): Source[List[TopNResult], NotUsed] = {
     Source
-      .single(mkRequest(query))
+      .single(mkRequest(query, token))
       .via(loggingClient)
       .map { data =>
         Using.resource(inputStream(data)) { in =>
@@ -182,17 +201,23 @@ class DruidClient(
       }
   }
 
-  def groupBy(query: GroupByQuery): Source[List[GroupByDatapoint], NotUsed] = {
+  def groupBy(
+    query: GroupByQuery,
+    token: Option[String]
+  ): Source[List[GroupByDatapoint], NotUsed] = {
     val dimensions = query.dimensions.map(_.outputName)
     Source
-      .single(mkRequest(query))
+      .single(mkRequest(query, token))
       .via(loggingClient)
       .map(data => parseResult(dimensions, valueDecoder(query), data))
   }
 
-  def timeseries(query: TimeseriesQuery): Source[List[GroupByDatapoint], NotUsed] = {
+  def timeseries(
+    query: TimeseriesQuery,
+    token: Option[String]
+  ): Source[List[GroupByDatapoint], NotUsed] = {
     Source
-      .single(mkRequest(query))
+      .single(mkRequest(query, token))
       .via(loggingClient)
       .map { data =>
         Using.resource(inputStream(data)) { in =>
@@ -202,10 +227,13 @@ class DruidClient(
       .map(_.map(_.toGroupByDatapoint))
   }
 
-  def data(query: DataQuery): Source[List[GroupByDatapoint], NotUsed] = {
+  def data(
+    query: DataQuery,
+    token: Option[String]
+  ): Source[List[GroupByDatapoint], NotUsed] = {
     query match {
-      case q: GroupByQuery    => groupBy(q)
-      case q: TimeseriesQuery => timeseries(q)
+      case q: GroupByQuery    => groupBy(q, token)
+      case q: TimeseriesQuery => timeseries(q, token)
     }
   }
 
@@ -216,12 +244,15 @@ class DruidClient(
     * representation (e.g. one array per output series), which for a wide group by with many time
     * buckets bounds peak memory by the size of that result rather than by the response size.
     */
-  def parseDatapoints[C <: DatapointConsumer](query: DataQuery)(consumer: C): Source[C, NotUsed] = {
+  def parseDatapoints[C <: DatapointConsumer](
+    query: DataQuery,
+    token: Option[String]
+  )(consumer: C): Source[C, NotUsed] = {
     query match {
       case q: GroupByQuery =>
         val dimensions = q.dimensions.map(_.outputName)
         Source
-          .single(mkRequest(q))
+          .single(mkRequest(q, token))
           .via(loggingClient)
           .map { data =>
             decodeGroupBy(dimensions, valueDecoder(q), data)(consumer)
@@ -229,7 +260,7 @@ class DruidClient(
           }
       case q: TimeseriesQuery =>
         Source
-          .single(mkRequest(q))
+          .single(mkRequest(q, token))
           .via(loggingClient)
           .map { data =>
             Using
@@ -338,6 +369,12 @@ class DruidClient(
 }
 
 object DruidClient {
+
+  /**
+    * Standard header used to convey the end-to-end token that authenticates the initial
+    * caller of a request.
+    */
+  private[druid] val e2eTokenHeaderName = "X-Forwarded-Authentication"
 
   /**
     * How to interpret the value returned for a datapoint. Most types are a simple number, but
