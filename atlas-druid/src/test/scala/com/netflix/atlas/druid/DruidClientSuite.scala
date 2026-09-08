@@ -18,6 +18,7 @@ package com.netflix.atlas.druid
 import java.io.IOException
 import java.net.ConnectException
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.ConcurrentLinkedQueue
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.http.scaladsl.model.EntityStreamSizeException
 import org.apache.pekko.http.scaladsl.model.HttpEntity
@@ -37,6 +38,7 @@ import munit.FunSuite
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.jdk.OptionConverters.*
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
@@ -51,11 +53,25 @@ class DruidClientSuite extends FunSuite {
   private implicit val system: ActorSystem = ActorSystem(getClass.getSimpleName)
 
   private def newClient(result: Try[HttpResponse]): DruidClient = {
+    newRecordingClient(result, new ConcurrentLinkedQueue[HttpRequest])
+  }
+
+  /** Client that records the requests sent to druid so the headers can be checked. */
+  private def newRecordingClient(
+    result: Try[HttpResponse],
+    requests: ConcurrentLinkedQueue[HttpRequest]
+  ): DruidClient = {
     val client = Flow[(HttpRequest, AccessLogger)]
       .map {
-        case (_, logger) => result -> logger
+        case (req, logger) =>
+          requests.add(req)
+          result -> logger
       }
     new DruidClient(config, system, client)
+  }
+
+  private def headerValue(request: HttpRequest, name: String): Option[String] = {
+    request.getHeader(name).toScala.map(_.value)
   }
 
   private def ok[T](data: T): HttpResponse = {
@@ -264,8 +280,34 @@ class DruidClientSuite extends FunSuite {
     val client = newClient(Success(response))
     val query =
       GroupByQuery("test", List(DefaultDimensionSpec("percentile", "percentile")), Nil, Nil)
-    val future = client.groupBy(query).runWith(Sink.head)
+    val future = client.groupBy(query, None).runWith(Sink.head)
     Await.result(future, Duration.Inf)
+  }
+
+  private def sendGroupBy(token: Option[String]): HttpRequest = {
+    val requests = new ConcurrentLinkedQueue[HttpRequest]
+    val client = newRecordingClient(Success(ok(List.empty[GroupByDatapoint])), requests)
+    val query = GroupByQuery("test", Nil, Nil, Nil)
+    Await.result(client.groupBy(query, token).runWith(Sink.head), Duration.Inf)
+    requests.poll()
+  }
+
+  test("e2e token is forwarded to druid") {
+    val request = sendGroupBy(Some("abc123"))
+    assertEquals(headerValue(request, e2eTokenHeaderName), Some("abc123"))
+  }
+
+  test("e2e token header omitted if there is no token") {
+    val request = sendGroupBy(None)
+    assertEquals(headerValue(request, e2eTokenHeaderName), None)
+  }
+
+  test("e2e token is not forwarded for metadata requests") {
+    val requests = new ConcurrentLinkedQueue[HttpRequest]
+    val client = newRecordingClient(Success(ok(List.empty[SegmentMetadataResult])), requests)
+    val query = SegmentMetadataQuery("test", List("2026-01-01T00:00:00Z/2026-01-02T00:00:00Z"))
+    Await.result(client.segmentMetadata(query, false).runWith(Sink.head), Duration.Inf)
+    assertEquals(headerValue(requests.poll(), e2eTokenHeaderName), None)
   }
 
   test("groupBy filter out null dimensions") {
@@ -282,7 +324,7 @@ class DruidClientSuite extends FunSuite {
     val client = newClient(Success(response))
     val query =
       GroupByQuery("test", Nil, Nil, List(Aggregation.timer("value")))
-    val future = client.groupBy(query).runWith(Sink.head)
+    val future = client.groupBy(query, None).runWith(Sink.head)
     Await.result(future, Duration.Inf)
   }
 
@@ -300,7 +342,7 @@ class DruidClientSuite extends FunSuite {
     val builder = List.newBuilder[GroupByDatapoint]
     val consumer: DatapointConsumer = (timestamp, tags, value) =>
       builder += GroupByDatapoint(timestamp, tags, value)
-    val future = client.parseDatapoints(query)(consumer).runWith(Sink.ignore)
+    val future = client.parseDatapoints(query, None)(consumer).runWith(Sink.ignore)
     Await.result(future, Duration.Inf)
     builder.result()
   }
@@ -376,7 +418,7 @@ class DruidClientSuite extends FunSuite {
       Nil,
       List(Aggregation.distinctRegisters("value"))
     )
-    val future = client.groupBy(query).runWith(Sink.head)
+    val future = client.groupBy(query, None).runWith(Sink.head)
     Await.result(future, Duration.Inf)
   }
 

@@ -24,6 +24,7 @@ import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 import org.apache.pekko.util.Timeout
+import com.netflix.atlas.pekko.CallerContext
 import com.netflix.atlas.pekko.CustomDirectives.*
 import com.netflix.atlas.pekko.WebApi
 import com.netflix.atlas.core.index.TagQuery
@@ -63,22 +64,29 @@ class ForeachApi(config: Config, implicit val actorRefFactory: ActorRefFactory) 
   override def routes: Route = {
     endpointPath("api" / "v1" / "foreach") {
       get {
-        parameters("q".as[String], "in".as[String], "k".as[String].*) { (q, in, ks) =>
-          val exprs = evalGraph(q)
-          val inQuery = evalQuery(in)
-          val source = rewrite(RewriteEntry(exprs, inQuery, ks.toList, Map.empty))
-            .map(entry => ByteString(Json.encode(entry.toItem)))
-            .intersperse(ByteString("["), ByteString(","), ByteString("]"))
-          val entity = HttpEntity(MediaTypes.`application/json`, source)
-          complete(entity)
+        extractCaller { caller =>
+          parameters("q".as[String], "in".as[String], "k".as[String].*) { (q, in, ks) =>
+            val exprs = evalGraph(q)
+            val inQuery = evalQuery(in)
+            val source = rewrite(caller, RewriteEntry(exprs, inQuery, ks.toList, Map.empty))
+              .map(entry => ByteString(Json.encode(entry.toItem)))
+              .intersperse(ByteString("["), ByteString(","), ByteString("]"))
+            val entity = HttpEntity(MediaTypes.`application/json`, source)
+            complete(entity)
+          }
         }
       }
     }
   }
 
-  private def tagValues(key: String, query: Query): Source[List[String], NotUsed] = {
+  private def tagValues(
+    caller: CallerContext,
+    key: String,
+    query: Query
+  ): Source[List[String], NotUsed] = {
     val tq = TagQuery(Some(query), Some(key))
-    val future = org.apache.pekko.pattern.ask(dbRef, ListValuesRequest(tq))(Timeout(10.seconds))
+    val request = ListValuesRequest(tq, caller)
+    val future = org.apache.pekko.pattern.ask(dbRef, request)(Timeout(10.seconds))
     Source
       .future(future)
       .collect {
@@ -86,12 +94,12 @@ class ForeachApi(config: Config, implicit val actorRefFactory: ActorRefFactory) 
       }
   }
 
-  private def rewrite(entry: RewriteEntry): Source[RewriteEntry, NotUsed] = {
+  private def rewrite(caller: CallerContext, entry: RewriteEntry): Source[RewriteEntry, NotUsed] = {
     if (entry.keys.isEmpty) {
       Source.single(entry)
     } else {
       val key = entry.keys.head
-      tagValues(key, entry.inQuery)
+      tagValues(caller, key, entry.inQuery)
         .flatMapConcat(Source.apply)
         .flatMapConcat { v =>
           val newInQuery = Query.And(entry.inQuery, Query.Equal(key, v))
@@ -103,7 +111,7 @@ class ForeachApi(config: Config, implicit val actorRefFactory: ActorRefFactory) 
           }
           val newEntry =
             RewriteEntry(newExprs, newInQuery, entry.keys.tail, entry.tags + (key -> v))
-          rewrite(newEntry)
+          rewrite(caller, newEntry)
         }
     }
   }
