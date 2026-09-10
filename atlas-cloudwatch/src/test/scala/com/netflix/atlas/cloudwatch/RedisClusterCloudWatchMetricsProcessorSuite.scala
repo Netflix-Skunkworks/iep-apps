@@ -593,7 +593,7 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
 
   test("cas success, new value") {
     val newEntry = ce(
-      List(cwv(-3.minutes, -1.minutes, false))
+      List(cwv((-3).minutes, (-1).minutes, false))
     )
     val key = getKey(1)
     when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
@@ -607,10 +607,10 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
 
   test("cas success, previous value") {
     val prev = ce(
-      List(cwv(-3.minutes, -1.minutes, false))
+      List(cwv((-3).minutes, (-1).minutes, false))
     )
     val newEntry = ce(
-      List(cwv(-3.minutes, -1.minutes, false), cwv(-2.minutes, -1.minutes, false))
+      List(cwv((-3).minutes, (-1).minutes, false), cwv((-2).minutes, (-1).minutes, false))
     )
     val key = getKey(1)
     when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
@@ -625,13 +625,13 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
 
   test("cas merge success, new value race") {
     val race = ce(
-      List(cwv(-2.minutes, -1.minutes, false))
+      List(cwv((-2).minutes, (-1).minutes, false))
     )
     val newEntry = ce(
-      List(cwv(-3.minutes, -1.minutes, false))
+      List(cwv((-3).minutes, (-1).minutes, false))
     )
     val merged = ce(
-      List(cwv(-3.minutes, -1.minutes, false), cwv(-2.minutes, -1.minutes, false))
+      List(cwv((-3).minutes, (-1).minutes, false), cwv((-2).minutes, (-1).minutes, false))
     )
     val key = getKey(1)
     when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
@@ -647,16 +647,16 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
 
   test("cas merge success, publish flag race") {
     val prev = ce(
-      List(cwv(-2.minutes, -1.minutes, false))
+      List(cwv((-2).minutes, (-1).minutes, false))
     )
     val published = ce(
-      List(cwv(-2.minutes, -1.minutes, true))
+      List(cwv((-2).minutes, (-1).minutes, true))
     )
     val newEntry = ce(
-      List(cwv(-2.minutes, -1.minutes, false), cwv(-3.minutes, -1.minutes, false))
+      List(cwv((-2).minutes, (-1).minutes, false), cwv((-3).minutes, (-1).minutes, false))
     )
     val merged = ce(
-      List(cwv(-2.minutes, -1.minutes, true), cwv(-3.minutes, -1.minutes, false))
+      List(cwv((-2).minutes, (-1).minutes, true), cwv((-3).minutes, (-1).minutes, false))
     )
     val key = getKey(1)
     when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
@@ -672,10 +672,10 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
 
   test("cas merge success, expiration") {
     val prev = ce(
-      List(cwv(-2.minutes, -1.minutes, false))
+      List(cwv((-2).minutes, (-1).minutes, false))
     )
     val newEntry = ce(
-      List(cwv(-2.minutes, -1.minutes, false), cwv(-3.minutes, -1.minutes, false))
+      List(cwv((-2).minutes, (-1).minutes, false), cwv((-3).minutes, (-1).minutes, false))
     )
     val key = getKey(1)
     when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
@@ -691,10 +691,10 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
 
   test("cas failure, always something else") {
     val prev = ce(
-      List(cwv(-2.minutes, -1.minutes, false))
+      List(cwv((-2).minutes, (-1).minutes, false))
     )
     val newEntry = ce(
-      List(cwv(-2.minutes, -1.minutes, false), cwv(-3.minutes, -1.minutes, false))
+      List(cwv((-2).minutes, (-1).minutes, false), cwv((-3).minutes, (-1).minutes, false))
     )
     val key = getKey(1)
     when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
@@ -710,10 +710,10 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
 
   test("cas failure, always null") {
     val prev = ce(
-      List(cwv(-2.minutes, -1.minutes, false))
+      List(cwv((-2).minutes, (-1).minutes, false))
     )
     val newEntry = ce(
-      List(cwv(-2.minutes, -1.minutes, false), cwv(-3.minutes, -1.minutes, false))
+      List(cwv((-2).minutes, (-1).minutes, false), cwv((-3).minutes, (-1).minutes, false))
     )
     val key = getKey(1)
     when(client.setGet(eqTo(key), any[Array[Byte]], any[SetParams]))
@@ -874,11 +874,11 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
   def mockRedisDel(hash: Long, delFail: Boolean = false, delEx: Boolean = false): Unit = {
     val key = getKey(hash)
     if (delFail) {
-      when(client.del(key)).thenReturn(0L)
+      when(client.del(Seq(key)*)).thenReturn(0L)
     } else if (delEx) {
-      when(client.del(key)).thenThrow(new UTException("UT"))
+      when(client.del(Seq(key)*)).thenThrow(new UTException("UT"))
     } else {
-      when(client.del(key)).thenReturn(1L)
+      when(client.del(Seq(key)*)).thenReturn(1L)
     }
   }
 

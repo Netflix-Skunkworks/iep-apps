@@ -4,19 +4,19 @@ import sbt._
 
 object Dependencies {
   object Versions {
-    val atlas      = "1.9.0-rc.17"
-    val aws2       = "2.51.1"
-    val iep        = "6.0.7"
+    val atlas      = "1.9.0-rc.21"
+    val aws2       = "2.54.15"
+    val iep        = "6.0.8"
     val log4j      = "2.26.1"
-    val pekko      = "1.6.0"
+    val pekko      = "1.7.0"
     val pekkoHttpV = "1.4.0"
-    val scala      = "3.8.4"
+    val scala      = "3.9.0"
     val servo      = "0.13.2"
-    val slf4j      = "2.0.18"
-    val spectator  = "1.10.5"
-    val spring     = "7.0.8"
-    val springBoot = "4.1.0"
-    val avroV      = "1.12.1"
+    val slf4j      = "2.0.19"
+    val spectator  = "1.10.7"
+    val spring     = "7.0.9"
+    val springBoot = "4.1.1"
+    val avroV      = "1.12.2"
 
     val crossScala = Seq(scala)
   }
@@ -52,8 +52,8 @@ object Dependencies {
   val iepSpringAws2      = "com.netflix.iep" % "iep-spring-aws2" % iep
   val iepSpringJmx       = "com.netflix.iep" % "iep-spring-jmxport" % iep
   val iepSpringLeader    = "com.netflix.iep" % "iep-spring-leader" % iep
-  val jedis              = "redis.clients" % "jedis" % "7.5.3"
-  val jsonSchema         = "com.networknt" % "json-schema-validator" % "3.0.6"
+  val jedis              = "redis.clients" % "jedis" % "8.0.1"
+  val jsonSchema         = "com.networknt" % "json-schema-validator" % "3.0.7"
   val jsr305             = "com.google.code.findbugs" % "jsr305" % "3.0.2"
   val log4jApi           = "org.apache.logging.log4j" % "log4j-api" % log4j
   val log4jCore          = "org.apache.logging.log4j" % "log4j-core" % log4j
@@ -61,7 +61,7 @@ object Dependencies {
   val log4jJul           = "org.apache.logging.log4j" % "log4j-jul" % log4j
   val log4jSlf4j         = "org.apache.logging.log4j" % "log4j-slf4j2-impl" % log4j
   val mockitoCore        = "org.mockito" % "mockito-core" % "5.23.0"
-  val munit              = "org.scalameta" %% "munit" % "1.3.4"
+  val munit              = "org.scalameta" %% "munit" % "1.3.6"
   val openHFT            = "net.openhft" % "zero-allocation-hashing" % "2026.0"
   val pekkoActor         = "org.apache.pekko" %% "pekko-actor" % pekko
   val pekkoHttpCaching   = "org.apache.pekko" %% "pekko-http-caching" % pekkoHttpV
@@ -69,7 +69,7 @@ object Dependencies {
   val pekkoHttpTestkit   = "org.apache.pekko" %% "pekko-http-testkit" % pekkoHttpV
   val pekkoSlf4j         = "org.apache.pekko" %% "pekko-slf4j" % pekko
   val pekkoTestkit       = "org.apache.pekko" %% "pekko-testkit" % pekko
-  val protobuf           = "com.google.protobuf" % "protobuf-java" % "4.35.1"
+  val protobuf           = "com.google.protobuf" % "protobuf-java" % "4.36.1"
   val scalaCompiler      = "org.scala-lang" % "scala-compiler" % scala
   val scalaLibrary       = "org.scala-lang" % "scala-library" % scala
   val scalaLogging       = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.6"

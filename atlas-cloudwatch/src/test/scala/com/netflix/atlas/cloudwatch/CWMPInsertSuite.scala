@@ -29,12 +29,12 @@ class CWMPInsertSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("insertDatapoint empty") {
     val updated = processor.insertDatapoint(
       cwDP.toBuilder.clearData().build().toByteArray,
-      makeFirehoseMetric(Array(39.0, 1.0, 7.0, 19), ts(-1.minutes)),
+      makeFirehoseMetric(Array(39.0, 1.0, 7.0, 19), ts((-1).minutes)),
       category,
       nts
     )
     assertEquals(updated.getDataCount, 1)
-    assertCWDP(updated.getData(0), ts(-1.minutes), Array(39.0, 1.0, 7.0, 19))
+    assertCWDP(updated.getData(0), ts((-1).minutes), Array(39.0, 1.0, 7.0, 19))
     assertCounters(appended = 1)
   }
 
@@ -42,16 +42,16 @@ class CWMPInsertSuite extends BaseCloudWatchMetricsProcessorSuite {
     val updated = processor.insertDatapoint(
       ce(
         List(
-          cwv(-2.minutes, -1.minutes, false, Some(Array(39.0, 1.0, 7.0, 19)))
+          cwv((-2).minutes, (-1).minutes, false, Some(Array(39.0, 1.0, 7.0, 19)))
         )
       ).toByteArray,
-      makeFirehoseMetric(Array(80.0, 2.0, 6.0, 5), ts(-1.minute)),
+      makeFirehoseMetric(Array(80.0, 2.0, 6.0, 5), ts((-1).minute)),
       category,
       nts
     )
     assertEquals(updated.getDataCount, 2)
-    assertCWDP(updated.getData(0), ts(-2.minute), Array(39.0, 1.0, 7.0, 19), nts(-1.minute))
-    assertCWDP(updated.getData(1), ts(-1.minute), Array(80.0, 2.0, 6.0, 5))
+    assertCWDP(updated.getData(0), ts((-2).minute), Array(39.0, 1.0, 7.0, 19), nts((-1).minute))
+    assertCWDP(updated.getData(1), ts((-1).minute), Array(80.0, 2.0, 6.0, 5))
     assertCounters(appended = 1)
   }
 
@@ -59,16 +59,16 @@ class CWMPInsertSuite extends BaseCloudWatchMetricsProcessorSuite {
     val updated = processor.insertDatapoint(
       ce(
         List(
-          cwv(-2.minutes, -1.minutes, false, Some(Array(39.0, 1.0, 7.0, 19)))
+          cwv((-2).minutes, (-1).minutes, false, Some(Array(39.0, 1.0, 7.0, 19)))
         )
       ).toByteArray,
-      makeFirehoseMetric(Array(80.0, 2.0, 6.0, 5), ts(-3.minute)),
+      makeFirehoseMetric(Array(80.0, 2.0, 6.0, 5), ts((-3).minute)),
       category,
       nts
     )
     assertEquals(updated.getDataCount, 2)
-    assertCWDP(updated.getData(0), ts(-3.minute), Array(80.0, 2.0, 6.0, 5))
-    assertCWDP(updated.getData(1), ts(-2.minute), Array(39.0, 1.0, 7.0, 19), nts(-1.minutes))
+    assertCWDP(updated.getData(0), ts((-3).minute), Array(80.0, 2.0, 6.0, 5))
+    assertCWDP(updated.getData(1), ts((-2).minute), Array(39.0, 1.0, 7.0, 19), nts((-1).minutes))
     assertCounters(ooo = 1)
   }
 
@@ -76,16 +76,16 @@ class CWMPInsertSuite extends BaseCloudWatchMetricsProcessorSuite {
     val updated = processor.insertDatapoint(
       ce(
         List(
-          cwv(-2.minutes, -1.minutes, true, Some(Array(39.0, 1.0, 7.0, 19)))
+          cwv((-2).minutes, (-1).minutes, true, Some(Array(39.0, 1.0, 7.0, 19)))
         )
       ).toByteArray,
-      makeFirehoseMetric(Array(80.0, 2.0, 6.0, 5), ts(-3.minute)),
+      makeFirehoseMetric(Array(80.0, 2.0, 6.0, 5), ts((-3).minute)),
       category,
       nts
     )
     assertEquals(updated.getDataCount, 2)
-    assertCWDP(updated.getData(0), ts(-3.minute), Array(80.0, 2.0, 6.0, 5))
-    assertCWDP(updated.getData(1), ts(-2.minute), Array(39.0, 1.0, 7.0, 19), nts(-1.minutes))
+    assertCWDP(updated.getData(0), ts((-3).minute), Array(80.0, 2.0, 6.0, 5))
+    assertCWDP(updated.getData(1), ts((-2).minute), Array(39.0, 1.0, 7.0, 19), nts((-1).minutes))
     assertCounters(beforePublished = 1)
   }
 
@@ -93,18 +93,18 @@ class CWMPInsertSuite extends BaseCloudWatchMetricsProcessorSuite {
     val updated = processor.insertDatapoint(
       ce(
         List(
-          cwv(-4.minutes, -3.minutes, false, Some(Array(80.0, 2.0, 6.0, 5))),
-          cwv(-2.minutes, -1.minutes, false, Some(Array(39.0, 1.0, 7.0, 19)))
+          cwv((-4).minutes, (-3).minutes, false, Some(Array(80.0, 2.0, 6.0, 5))),
+          cwv((-2).minutes, (-1).minutes, false, Some(Array(39.0, 1.0, 7.0, 19)))
         )
       ).toByteArray,
-      makeFirehoseMetric(Array(2.0, 0.0, 1.0, 2), ts(-3.minutes)),
+      makeFirehoseMetric(Array(2.0, 0.0, 1.0, 2), ts((-3).minutes)),
       category,
       nts
     )
     assertEquals(updated.getDataCount, 3)
-    assertCWDP(updated.getData(0), ts(-4.minutes), Array(80.0, 2.0, 6.0, 5), nts(-3.minutes))
-    assertCWDP(updated.getData(1), ts(-3.minutes), Array(2.0, 0.0, 1.0, 2))
-    assertCWDP(updated.getData(2), ts(-2.minutes), Array(39.0, 1.0, 7.0, 19), nts(-1.minute))
+    assertCWDP(updated.getData(0), ts((-4).minutes), Array(80.0, 2.0, 6.0, 5), nts((-3).minutes))
+    assertCWDP(updated.getData(1), ts((-3).minutes), Array(2.0, 0.0, 1.0, 2))
+    assertCWDP(updated.getData(2), ts((-2).minutes), Array(39.0, 1.0, 7.0, 19), nts((-1).minute))
     assertCounters(ooo = 1)
   }
 
@@ -112,15 +112,15 @@ class CWMPInsertSuite extends BaseCloudWatchMetricsProcessorSuite {
     val updated = processor.insertDatapoint(
       ce(
         List(
-          cwv(-2.minutes, -1.minutes, false, Some(Array(39.0, 1.0, 7.0, 19)))
+          cwv((-2).minutes, (-1).minutes, false, Some(Array(39.0, 1.0, 7.0, 19)))
         )
       ).toByteArray,
-      makeFirehoseMetric(Array(39.0, 1.0, 7.0, 19), ts(-2.minutes)),
+      makeFirehoseMetric(Array(39.0, 1.0, 7.0, 19), ts((-2).minutes)),
       category,
       nts
     )
     assertEquals(updated.getDataCount, 1)
-    assertCWDP(updated.getData(0), ts(-2.minutes), Array(39.0, 1.0, 7.0, 19), nts(-1.minute))
+    assertCWDP(updated.getData(0), ts((-2).minutes), Array(39.0, 1.0, 7.0, 19), nts((-1).minute))
     assertCounters(dupes = 1)
   }
 
@@ -128,19 +128,19 @@ class CWMPInsertSuite extends BaseCloudWatchMetricsProcessorSuite {
     val updated = processor.insertDatapoint(
       ce(
         List(
-          cwv(-3.minutes, -2.minutes, false, Some(Array(2.0, 0.0, 1.0, 2))),
-          cwv(-2.minutes, -1.minutes, false, Some(Array(39.0, 1.0, 7.0, 19))),
-          cwv(-1.minutes, 0.minutes, false, Some(Array(80.0, 2.0, 6.0, 5)))
+          cwv((-3).minutes, (-2).minutes, false, Some(Array(2.0, 0.0, 1.0, 2))),
+          cwv((-2).minutes, (-1).minutes, false, Some(Array(39.0, 1.0, 7.0, 19))),
+          cwv((-1).minutes, 0.minutes, false, Some(Array(80.0, 2.0, 6.0, 5)))
         )
       ).toByteArray,
-      makeFirehoseMetric(Array(-1.0, -1.0, -1.0, -2), ts(-3.minutes)),
+      makeFirehoseMetric(Array(-1.0, -1.0, -1.0, -2), ts((-3).minutes)),
       category,
       nts
     )
     assertEquals(updated.getDataCount, 3)
-    assertCWDP(updated.getData(0), ts(-3.minutes), Array(-1.0, -1.0, -1.0, -2))
-    assertCWDP(updated.getData(1), ts(-2.minutes), Array(39.0, 1.0, 7.0, 19), nts(-1.minutes))
-    assertCWDP(updated.getData(2), ts(-1.minutes), Array(80.0, 2.0, 6.0, 5), nts)
+    assertCWDP(updated.getData(0), ts((-3).minutes), Array(-1.0, -1.0, -1.0, -2))
+    assertCWDP(updated.getData(1), ts((-2).minutes), Array(39.0, 1.0, 7.0, 19), nts((-1).minutes))
+    assertCWDP(updated.getData(2), ts((-1).minutes), Array(80.0, 2.0, 6.0, 5), nts)
     assertCounters(updates = 1)
   }
 
@@ -148,19 +148,19 @@ class CWMPInsertSuite extends BaseCloudWatchMetricsProcessorSuite {
     val updated = processor.insertDatapoint(
       ce(
         List(
-          cwv(-3.minutes, -2.minutes, false, Some(Array(2.0, 0.0, 1.0, 2))),
-          cwv(-2.minutes, -1.minutes, false, Some(Array(39.0, 1.0, 7.0, 19))),
-          cwv(-1.minutes, 0.minutes, false, Some(Array(80.0, 2.0, 6.0, 5)))
+          cwv((-3).minutes, (-2).minutes, false, Some(Array(2.0, 0.0, 1.0, 2))),
+          cwv((-2).minutes, (-1).minutes, false, Some(Array(39.0, 1.0, 7.0, 19))),
+          cwv((-1).minutes, 0.minutes, false, Some(Array(80.0, 2.0, 6.0, 5)))
         )
       ).toByteArray,
-      makeFirehoseMetric(Array(-1.0, -1.0, -1.0, -2), ts(-2.minute)),
+      makeFirehoseMetric(Array(-1.0, -1.0, -1.0, -2), ts((-2).minute)),
       category,
       nts
     )
     assertEquals(updated.getDataCount, 3)
-    assertCWDP(updated.getData(0), ts(-3.minutes), Array(2.0, 0.0, 1.0, 2), nts(-2.minutes))
-    assertCWDP(updated.getData(1), ts(-2.minutes), Array(-1.0, -1.0, -1.0, -2))
-    assertCWDP(updated.getData(2), ts(-1.minute), Array(80.0, 2.0, 6.0, 5))
+    assertCWDP(updated.getData(0), ts((-3).minutes), Array(2.0, 0.0, 1.0, 2), nts((-2).minutes))
+    assertCWDP(updated.getData(1), ts((-2).minutes), Array(-1.0, -1.0, -1.0, -2))
+    assertCWDP(updated.getData(2), ts((-1).minute), Array(80.0, 2.0, 6.0, 5))
     assertCounters(updates = 1)
   }
 
@@ -168,19 +168,19 @@ class CWMPInsertSuite extends BaseCloudWatchMetricsProcessorSuite {
     val updated = processor.insertDatapoint(
       ce(
         List(
-          cwv(-3.minutes, -2.minutes, false, Some(Array(2.0, 0.0, 1.0, 2))),
-          cwv(-2.minutes, -1.minutes, false, Some(Array(39.0, 1.0, 7.0, 19))),
-          cwv(-1.minutes, 0.minutes, false, Some(Array(80.0, 2.0, 6.0, 5)))
+          cwv((-3).minutes, (-2).minutes, false, Some(Array(2.0, 0.0, 1.0, 2))),
+          cwv((-2).minutes, (-1).minutes, false, Some(Array(39.0, 1.0, 7.0, 19))),
+          cwv((-1).minutes, 0.minutes, false, Some(Array(80.0, 2.0, 6.0, 5)))
         )
       ).toByteArray,
-      makeFirehoseMetric(Array(-1.0, -1.0, -1.0, -2), ts(-1.minute)),
+      makeFirehoseMetric(Array(-1.0, -1.0, -1.0, -2), ts((-1).minute)),
       category,
       nts
     )
     assertEquals(updated.getDataCount, 3)
-    assertCWDP(updated.getData(0), ts(-3.minutes), Array(2.0, 0.0, 1.0, 2), nts(-2.minutes))
-    assertCWDP(updated.getData(1), ts(-2.minutes), Array(39.0, 1.0, 7.0, 19), nts(-1.minute))
-    assertCWDP(updated.getData(2), ts(-1.minute), Array(-1.0, -1.0, -1.0, -2))
+    assertCWDP(updated.getData(0), ts((-3).minutes), Array(2.0, 0.0, 1.0, 2), nts((-2).minutes))
+    assertCWDP(updated.getData(1), ts((-2).minutes), Array(39.0, 1.0, 7.0, 19), nts((-1).minute))
+    assertCWDP(updated.getData(2), ts((-1).minute), Array(-1.0, -1.0, -1.0, -2))
     assertCounters(updates = 1)
   }
 

@@ -233,9 +233,9 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
       List(Dimension.builder().name("MyTag").value("Val").build()),
       Array(39.0, 1.0, 7.0, 19),
       "Count",
-      ts(-1.minute)
+      ts((-1).minute)
     )
-    processor.processDatapoints(List(dp), ts(-1.minute))
+    processor.processDatapoints(List(dp), ts((-1).minute))
 
     assertPublished(
       List(
@@ -293,9 +293,9 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
       ),
       Array(0.1226732730865479, 0.1226732730865479, 0.1226732730865479, 1),
       "Timer",
-      ts(-1.minute)
+      ts((-1).minute)
     )
-    processor.processDatapoints(List(dp), ts(-1.minute))
+    processor.processDatapoints(List(dp), ts((-1).minute))
 
     assertPublished(
       List(
@@ -359,9 +359,9 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
       ),
       Array(1.6903156e7, 8378272.0, 8524884.0, 2),
       "Bytes",
-      ts(-1.minute)
+      ts((-1).minute)
     )
-    processor.processDatapoints(List(dp), ts(-1.minute))
+    processor.processDatapoints(List(dp), ts((-1).minute))
 
     assertPublished(
       List(
@@ -393,9 +393,9 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
       ),
       Array(1, 1, 1, 1),
       "Bytes",
-      ts(-5.minute)
+      ts((-5).minute)
     )
-    processor.processDatapoints(List(dp), ts(-5.minute))
+    processor.processDatapoints(List(dp), ts((-5).minute))
 
     assertPublished(
       List(
@@ -427,7 +427,7 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
           List(Dimension.builder().name("MyTag").value("Val").build()),
           Array(4.1320470343685605, 4.1320470343685605, 4.1320470343685605, 1),
           "Percent",
-          ts(-1.minute)
+          ts((-1).minute)
         )
       ),
       ts
@@ -499,12 +499,12 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
       List(Dimension.builder().name("MyTag").value("Val").build()),
       Array(60, 60, 60, 1),
       "None",
-      ts(-2.minute)
+      ts((-2).minute)
     )
-    processor.processDatapoints(List(dp), ts(-2.minute))
+    processor.processDatapoints(List(dp), ts((-2).minute))
 
-    dp = dp.copy(datapoint = makeDatapoint(Array(120, 120, 120, 1), ts(-1.minute)))
-    processor.processDatapoints(List(dp), ts(-1.minute))
+    dp = dp.copy(datapoint = makeDatapoint(Array(120, 120, 120, 1), ts((-1).minute)))
+    processor.processDatapoints(List(dp), ts((-1).minute))
 
     assertPublished(
       List(
@@ -532,9 +532,9 @@ class CWMPProcessSuite extends BaseCloudWatchMetricsProcessorSuite {
       List(Dimension.builder().name("MyTag").value("Val").build()),
       Array(1, 1, 1, 1),
       "None",
-      ts(-5.minute)
+      ts((-5).minute)
     )
-    processor.processDatapoints(List(dp), ts(-5.minute))
+    processor.processDatapoints(List(dp), ts((-5).minute))
 
     assertPublished(
       List(

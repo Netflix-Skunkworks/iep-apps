@@ -409,7 +409,7 @@ class RedisClusterCloudWatchMetricsProcessor(
 
   override protected[cloudwatch] def delete(key: Any): Unit = {
     try {
-      if (jedis.del(key.asInstanceOf[Array[Byte]]) == 0) {
+      if (jedis.del(Seq(key.asInstanceOf[Array[Byte]])*) == 0) {
         deleteFailures.increment()
       } else {
         deletes.increment()
