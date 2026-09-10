@@ -32,7 +32,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
 
   test("getPublishPoint - 1 unpublished") {
     val cache = ce(
-      List(cwv(-2.minutes, -1.minutes, false))
+      List(cwv((-2).minutes, (-1).minutes, false))
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), 0, cache)
     assertMetrics(
@@ -44,7 +44,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
 
   test("getPublishPoint - 1 unpublished, within grace period") {
     val cache = ce(
-      List(cwv(-3.minutes, -2.minutes, false))
+      List(cwv((-3).minutes, (-2).minutes, false))
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), 0, cache)
     assertMetrics(
@@ -56,7 +56,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
 
   test("getPublishPoint - 1 unpublished, out of grace period") {
     val cache = ce(
-      List(cwv(-5.minutes, -4.minutes, false))
+      List(cwv((-5).minutes, (-4).minutes, false))
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), -1, cache, false)
     assertMetrics(unpublished = 4.minutes.toMillis)
@@ -64,7 +64,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
 
   test("getPublishPoint - 1 unpublished, grace override") {
     val cache = ce(
-      List(cwv(-5.minutes, -4.minutes, false))
+      List(cwv((-5).minutes, (-4).minutes, false))
     )
     val category = MetricCategory("AWS/DynamoDB", 60, 4, List("MyTag"), null, List.empty, null)
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), 0, cache, true)
@@ -77,7 +77,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
 
   test("getPublishPoint - 1 expired") {
     val cache = ce(
-      List(cwv(-6.minutes, -5.minutes, false))
+      List(cwv((-6).minutes, (-5).minutes, false))
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), -1, cache, false)
     assertMetrics()
@@ -86,8 +86,8 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 2 values, newest unpublished") {
     val cache = ce(
       List(
-        cwv(-3.minutes, -2.minutes, true),
-        cwv(-2.minutes, -1.minutes, false)
+        cwv((-3).minutes, (-2).minutes, true),
+        cwv((-2).minutes, (-1).minutes, false)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), 1, cache)
@@ -101,8 +101,8 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 2 values, newest unpublished, within grace period") {
     val cache = ce(
       List(
-        cwv(-4.minutes, -3.minutes, true),
-        cwv(-3.minutes, -2.minutes, false)
+        cwv((-4).minutes, (-3).minutes, true),
+        cwv((-3).minutes, (-2).minutes, false)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), 1, cache)
@@ -116,8 +116,8 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 2 values, newest unpublished, out of grace period") {
     val cache = ce(
       List(
-        cwv(-6.minutes, -5.minutes, true),
-        cwv(-5.minutes, -4.minutes, false)
+        cwv((-6).minutes, (-5).minutes, true),
+        cwv((-5).minutes, (-4).minutes, false)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), -1, cache, false)
@@ -127,8 +127,8 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 2 values, newest expired") {
     val cache = ce(
       List(
-        cwv(-7.minutes, -6.minutes, true),
-        cwv(-6.minutes, -5.minutes, false)
+        cwv((-7).minutes, (-6).minutes, true),
+        cwv((-6).minutes, (-5).minutes, false)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), -1, cache, false)
@@ -138,8 +138,8 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 2 unpublished, ordered") {
     val cache = ce(
       List(
-        cwv(-2.minutes, -1.minutes, false),
-        cwv(-1.minutes, -0.minutes, false)
+        cwv((-2).minutes, (-1).minutes, false),
+        cwv((-1).minutes, (-0).minutes, false)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), 0, cache)
@@ -153,8 +153,8 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 2 unpublished, out of order") {
     val cache = ce(
       List(
-        cwv(-2.minutes, -0.minutes, false),
-        cwv(-1.minutes, -1.minutes, false)
+        cwv((-2).minutes, (-0).minutes, false),
+        cwv((-1).minutes, (-1).minutes, false)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), 0, cache)
@@ -168,8 +168,8 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 2, newest already published, within cutoff") {
     val cache = ce(
       List(
-        cwv(-2.minutes, -1.minutes, false),
-        cwv(-1.minutes, -1.minutes, true)
+        cwv((-2).minutes, (-1).minutes, false),
+        cwv((-1).minutes, (-1).minutes, true)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), -1, cache, false)
@@ -179,8 +179,8 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 2, newest already published") {
     val cache = ce(
       List(
-        cwv(-3.minutes, -2.minutes, false),
-        cwv(-2.minutes, -2.minutes, true)
+        cwv((-3).minutes, (-2).minutes, false),
+        cwv((-2).minutes, (-2).minutes, true)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), -1, cache, false)
@@ -190,8 +190,8 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 2, oldest unpublished, out of order") {
     val cache = ce(
       List(
-        cwv(-2.minutes, -0.minutes, false),
-        cwv(-1.minutes, -1.minutes, true)
+        cwv((-2).minutes, (-0).minutes, false),
+        cwv((-1).minutes, (-1).minutes, true)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), -1, cache, false)
@@ -201,8 +201,8 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 2 all published") {
     val cache = ce(
       List(
-        cwv(-3.minutes, -2.minutes, true),
-        cwv(-2.minutes, -1.minutes, true)
+        cwv((-3).minutes, (-2).minutes, true),
+        cwv((-2).minutes, (-1).minutes, true)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), -1, cache, false)
@@ -212,8 +212,8 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 2 all published and expired") {
     val cache = ce(
       List(
-        cwv(-4.minutes, -3.minutes, true),
-        cwv(-3.minutes, -2.minutes, true)
+        cwv((-4).minutes, (-3).minutes, true),
+        cwv((-3).minutes, (-2).minutes, true)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), -1, cache, false)
@@ -223,9 +223,9 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 3 values, newest unpublished, ordered") {
     val cache = ce(
       List(
-        cwv(-4.minutes, -3.minutes, true),
-        cwv(-3.minutes, -2.minutes, true),
-        cwv(-2.minutes, -1.minutes, false)
+        cwv((-4).minutes, (-3).minutes, true),
+        cwv((-3).minutes, (-2).minutes, true),
+        cwv((-2).minutes, (-1).minutes, false)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), 2, cache)
@@ -239,9 +239,9 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 3 unpublished, oldest within grace") {
     val cache = ce(
       List(
-        cwv(-3.minutes, -2.minutes, false),
-        cwv(-2.minutes, -1.minutes, false),
-        cwv(-1.minutes, -0.minutes, false)
+        cwv((-3).minutes, (-2).minutes, false),
+        cwv((-2).minutes, (-1).minutes, false),
+        cwv((-1).minutes, (-0).minutes, false)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), 0, cache)
@@ -255,9 +255,9 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 3 unpublished, out of order, oldest within grace") {
     val cache = ce(
       List(
-        cwv(-3.minutes, -1.minutes, false),
-        cwv(-2.minutes, -1.minutes, false),
-        cwv(-1.minutes, -2.minutes, false)
+        cwv((-3).minutes, (-1).minutes, false),
+        cwv((-2).minutes, (-1).minutes, false),
+        cwv((-1).minutes, (-2).minutes, false)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), 0, cache)
@@ -271,9 +271,9 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 3, middle published, out of order, oldest within grace") {
     val cache = ce(
       List(
-        cwv(-3.minutes, -1.minutes, false),
-        cwv(-2.minutes, -1.minutes, true),
-        cwv(-1.minutes, -2.minutes, false)
+        cwv((-3).minutes, (-1).minutes, false),
+        cwv((-2).minutes, (-1).minutes, true),
+        cwv((-1).minutes, (-2).minutes, false)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), 2, cache)
@@ -287,9 +287,9 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 3 unpublished, oldest out of grace") {
     val cache = ce(
       List(
-        cwv(-5.minutes, -4.minutes, false),
-        cwv(-4.minutes, -3.minutes, false),
-        cwv(-3.minutes, -2.minutes, false)
+        cwv((-5).minutes, (-4).minutes, false),
+        cwv((-4).minutes, (-3).minutes, false),
+        cwv((-3).minutes, (-2).minutes, false)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), 1, cache)
@@ -304,9 +304,9 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 3 unpublished, middle unpublished") {
     val cache = ce(
       List(
-        cwv(-4.minutes, -3.minutes, true),
-        cwv(-3.minutes, -2.minutes, false),
-        cwv(-2.minutes, -1.minutes, true)
+        cwv((-4).minutes, (-3).minutes, true),
+        cwv((-3).minutes, (-2).minutes, false),
+        cwv((-2).minutes, (-1).minutes, true)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category), -1, cache, false)
@@ -317,7 +317,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
 
   test("getPublishPoint - 5m: 1 published, republished") {
     val cache = ce(
-      List(cwv(-6.minutes, -5.minutes, true))
+      List(cwv((-6).minutes, (-5).minutes, true))
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category5m), 0, cache, false)
     assertMetrics(
@@ -330,7 +330,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
 
   test("getPublishPoint - 5m: 1 published, in grace period") {
     val cache = ce(
-      List(cwv(-7.minutes, -6.minutes, true))
+      List(cwv((-7).minutes, (-6).minutes, true))
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category5m), 0, cache, false)
     assertMetrics(
@@ -343,7 +343,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
 
   test("getPublishPoint - 5m: 1 published, expired") {
     val cache = ce(
-      List(cwv(-9.minutes, -8.minutes, true))
+      List(cwv((-9).minutes, (-8).minutes, true))
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category5m), -1, cache, false)
     assertMetrics()
@@ -352,8 +352,8 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 5m: 2, oldest grace") {
     val cache = ce(
       List(
-        cwv(-10.minutes, -9.minutes, false),
-        cwv(-5.minutes, -4.minutes, false)
+        cwv((-10).minutes, (-9).minutes, false),
+        cwv((-5).minutes, (-4).minutes, false)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category5m), 0, cache)
@@ -368,8 +368,8 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 5m: 2, oldest published") {
     val cache = ce(
       List(
-        cwv(-10.minutes, -9.minutes, true),
-        cwv(-5.minutes, -4.minutes, false)
+        cwv((-10).minutes, (-9).minutes, true),
+        cwv((-5).minutes, (-4).minutes, false)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category5m), 1, cache)
@@ -384,8 +384,8 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 5m: 2, republished") {
     val cache = ce(
       List(
-        cwv(-10.minutes, -9.minutes, true),
-        cwv(-5.minutes, -4.minutes, true)
+        cwv((-10).minutes, (-9).minutes, true),
+        cwv((-5).minutes, (-4).minutes, true)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category5m), 1, cache, false)
@@ -400,8 +400,8 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 5m: 2, oldest unpublished, republish of latest") {
     val cache = ce(
       List(
-        cwv(-10.minutes, -9.minutes, false),
-        cwv(-5.minutes, -4.minutes, true)
+        cwv((-10).minutes, (-9).minutes, false),
+        cwv((-5).minutes, (-4).minutes, true)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category5m), 1, cache, false)
@@ -416,8 +416,8 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
   test("getPublishPoint - 5m: 2, oldest unpublished") {
     val cache = ce(
       List(
-        cwv(-20.minutes, -19.minutes, false),
-        cwv(-15.minutes, -14.minutes, false)
+        cwv((-20).minutes, (-19).minutes, false),
+        cwv((-15).minutes, (-14).minutes, false)
       )
     )
     assertPublishPoint(processor.getPublishPoint(cache, nts, category5m), 1, cache)
@@ -432,7 +432,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
 
   test("getPublishPoint - need two, one value") {
     val cache = ce(
-      List(cwv(-2.minutes, -1.minutes, false))
+      List(cwv((-2).minutes, (-1).minutes, false))
     )
     val mono = MetricCategory(
       "AWS/DynamoDB",
@@ -451,7 +451,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
 
   test("getPublishPoint - need two, one value too old") {
     val cache = ce(
-      List(cwv(-6.minutes, -5.minutes, false))
+      List(cwv((-6).minutes, (-5).minutes, false))
     )
     val mono = MetricCategory(
       "AWS/DynamoDB",
@@ -470,7 +470,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
 
   test("getPublishPoint - need two, one of two values too old") {
     val cache = ce(
-      List(cwv(-6.minutes, -5.minutes, false), cwv(-2.minutes, -1.minutes, false))
+      List(cwv((-6).minutes, (-5).minutes, false), cwv((-2).minutes, (-1).minutes, false))
     )
     val mono = MetricCategory(
       "AWS/DynamoDB",
@@ -489,7 +489,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
 
   test("getPublishPoint - need two") {
     val cache = ce(
-      List(cwv(-3.minutes, -2.minutes, false), cwv(-2.minutes, -1.minutes, false))
+      List(cwv((-3).minutes, (-2).minutes, false), cwv((-2).minutes, (-1).minutes, false))
     )
     val mono = MetricCategory(
       "AWS/DynamoDB",
@@ -510,7 +510,7 @@ class CWMPPublishPointSuite extends BaseCloudWatchMetricsProcessorSuite {
 
   test("getPublishPoint - need two, large gap") {
     val cache = ce(
-      List(cwv(-7.minutes, -6.minutes, false), cwv(-2.minutes, -1.minutes, false))
+      List(cwv((-7).minutes, (-6).minutes, false), cwv((-2).minutes, (-1).minutes, false))
     )
     val mono = MetricCategory(
       "AWS/DynamoDB",

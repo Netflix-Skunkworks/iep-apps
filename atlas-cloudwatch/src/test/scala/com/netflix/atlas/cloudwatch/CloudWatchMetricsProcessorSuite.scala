@@ -52,7 +52,7 @@ class CloudWatchMetricsProcessorSuite extends BaseCloudWatchMetricsProcessorSuit
         .build()
     )
     assertEquals(cwDP.getDataCount, 1)
-    assertCWDP(cwDP.getData(0), ts(-2.minutes), Array(39.0, 1.0, 7.0, 19))
+    assertCWDP(cwDP.getData(0), ts((-2).minutes), Array(39.0, 1.0, 7.0, 19))
     assertEquals(cwDP.getUnit, "Count")
   }
 
@@ -75,7 +75,7 @@ class CloudWatchMetricsProcessorSuite extends BaseCloudWatchMetricsProcessorSuit
     assertAWSDP(
       toAWSDatapoint(cwDP.getData(0), cwDP.getUnit),
       Array(39.0, 1.0, 7.0, 19),
-      ts(-2.minute),
+      ts((-2).minute),
       "Count"
     )
   }
@@ -90,19 +90,19 @@ class CloudWatchMetricsProcessorSuite extends BaseCloudWatchMetricsProcessorSuit
   test("merge - new and published") {
     val a = ce(
       List(
-        cwv(-9.minutes, -8.minutes, true)
+        cwv((-9).minutes, (-8).minutes, true)
       )
     )
     val b = ce(
       List(
-        cwv(-9.minutes, -8.minutes, false),
-        cwv(-8.minutes, -7.minutes, false)
+        cwv((-9).minutes, (-8).minutes, false),
+        cwv((-8).minutes, (-7).minutes, false)
       )
     )
     val expected = ce(
       List(
-        cwv(-9.minutes, -8.minutes, true),
-        cwv(-8.minutes, -7.minutes, false)
+        cwv((-9).minutes, (-8).minutes, true),
+        cwv((-8).minutes, (-7).minutes, false)
       )
     )
     assertEquals(merge(a, b), expected)
@@ -112,18 +112,18 @@ class CloudWatchMetricsProcessorSuite extends BaseCloudWatchMetricsProcessorSuit
   test("merge - two values") {
     val a = ce(
       List(
-        cwv(-9.minutes, -8.minutes, false)
+        cwv((-9).minutes, (-8).minutes, false)
       )
     )
     val b = ce(
       List(
-        cwv(-8.minutes, -7.minutes, false)
+        cwv((-8).minutes, (-7).minutes, false)
       )
     )
     val expected = ce(
       List(
-        cwv(-9.minutes, -8.minutes, false),
-        cwv(-8.minutes, -7.minutes, false)
+        cwv((-9).minutes, (-8).minutes, false),
+        cwv((-8).minutes, (-7).minutes, false)
       )
     )
     assertEquals(merge(a, b), expected)
@@ -133,20 +133,20 @@ class CloudWatchMetricsProcessorSuite extends BaseCloudWatchMetricsProcessorSuit
   test("merge - insert between values") {
     val a = ce(
       List(
-        cwv(-9.minutes, -8.minutes, false)
+        cwv((-9).minutes, (-8).minutes, false)
       )
     )
     val b = ce(
       List(
-        cwv(-10.minutes, -9.minutes, false),
-        cwv(-8.minutes, -7.minutes, false)
+        cwv((-10).minutes, (-9).minutes, false),
+        cwv((-8).minutes, (-7).minutes, false)
       )
     )
     val expected = ce(
       List(
-        cwv(-10.minutes, -9.minutes, false),
-        cwv(-9.minutes, -8.minutes, false),
-        cwv(-8.minutes, -7.minutes, false)
+        cwv((-10).minutes, (-9).minutes, false),
+        cwv((-9).minutes, (-8).minutes, false),
+        cwv((-8).minutes, (-7).minutes, false)
       )
     )
     assertEquals(merge(a, b), expected)
@@ -157,14 +157,14 @@ class CloudWatchMetricsProcessorSuite extends BaseCloudWatchMetricsProcessorSuit
     val a = ce(List.empty)
     val b = ce(
       List(
-        cwv(-9.minutes, -8.minutes, false),
-        cwv(-8.minutes, -7.minutes, false)
+        cwv((-9).minutes, (-8).minutes, false),
+        cwv((-8).minutes, (-7).minutes, false)
       )
     )
     val expected = ce(
       List(
-        cwv(-9.minutes, -8.minutes, false),
-        cwv(-8.minutes, -7.minutes, false)
+        cwv((-9).minutes, (-8).minutes, false),
+        cwv((-8).minutes, (-7).minutes, false)
       )
     )
     assertEquals(merge(a, b), expected)

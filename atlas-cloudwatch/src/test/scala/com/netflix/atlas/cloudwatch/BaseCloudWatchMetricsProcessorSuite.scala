@@ -56,7 +56,7 @@ class BaseCloudWatchMetricsProcessorSuite extends FunSuite with TestKitBase with
   val category5m = MetricCategory("AWS/DynamoDB", 300, -1, List("MyTag"), null, List.empty, null)
 
   val cwDP = newCacheEntry(
-    makeFirehoseMetric(Array(39.0, 1.0, 7.0, 19), ts(-2.minutes)),
+    makeFirehoseMetric(Array(39.0, 1.0, 7.0, 19), ts((-2).minutes)),
     nts
   )
 
