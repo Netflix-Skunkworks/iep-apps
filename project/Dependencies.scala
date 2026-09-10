@@ -6,7 +6,7 @@ object Dependencies {
   object Versions {
     val atlas      = "1.9.0-rc.21"
     val aws2       = "2.54.15"
-    val iep        = "6.0.7"
+    val iep        = "6.0.8"
     val log4j      = "2.26.1"
     val pekko      = "1.7.0"
     val pekkoHttpV = "1.4.0"
@@ -52,7 +52,7 @@ object Dependencies {
   val iepSpringAws2      = "com.netflix.iep" % "iep-spring-aws2" % iep
   val iepSpringJmx       = "com.netflix.iep" % "iep-spring-jmxport" % iep
   val iepSpringLeader    = "com.netflix.iep" % "iep-spring-leader" % iep
-  val jedis              = "redis.clients" % "jedis" % "7.5.3"
+  val jedis              = "redis.clients" % "jedis" % "8.0.1"
   val jsonSchema         = "com.networknt" % "json-schema-validator" % "3.0.6"
   val jsr305             = "com.google.code.findbugs" % "jsr305" % "3.0.2"
   val log4jApi           = "org.apache.logging.log4j" % "log4j-api" % log4j

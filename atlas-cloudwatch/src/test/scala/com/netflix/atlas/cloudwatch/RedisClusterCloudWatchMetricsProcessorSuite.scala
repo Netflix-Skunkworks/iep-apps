@@ -874,11 +874,11 @@ class RedisClusterCloudWatchMetricsProcessorSuite extends FunSuite with TestKitB
   def mockRedisDel(hash: Long, delFail: Boolean = false, delEx: Boolean = false): Unit = {
     val key = getKey(hash)
     if (delFail) {
-      when(client.del(key)).thenReturn(0L)
+      when(client.del(Seq(key)*)).thenReturn(0L)
     } else if (delEx) {
-      when(client.del(key)).thenThrow(new UTException("UT"))
+      when(client.del(Seq(key)*)).thenThrow(new UTException("UT"))
     } else {
-      when(client.del(key)).thenReturn(1L)
+      when(client.del(Seq(key)*)).thenReturn(1L)
     }
   }
 
