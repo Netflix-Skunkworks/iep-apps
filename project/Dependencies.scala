@@ -15,7 +15,7 @@ object Dependencies {
     val slf4j      = "2.0.19"
     val spectator  = "1.10.7"
     val spring     = "7.0.9"
-    val springBoot = "4.1.0"
+    val springBoot = "4.1.1"
     val avroV      = "1.12.1"
 
     val crossScala = Seq(scala)
