@@ -40,6 +40,7 @@ import com.netflix.atlas.webapi.TagsApi.ValueListResponse
 import com.typesafe.config.Config
 
 import scala.concurrent.duration.*
+import scala.util.Failure
 
 class ForeachApi(config: Config, implicit val actorRefFactory: ActorRefFactory) extends WebApi {
 
@@ -91,6 +92,7 @@ class ForeachApi(config: Config, implicit val actorRefFactory: ActorRefFactory) 
       .future(future)
       .collect {
         case ValueListResponse(vs) => vs
+        case Failure(t)            => throw t
       }
   }
 

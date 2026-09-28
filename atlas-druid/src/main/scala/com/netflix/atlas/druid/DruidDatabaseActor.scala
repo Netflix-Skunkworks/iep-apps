@@ -51,6 +51,7 @@ import java.util.UUID
 import scala.concurrent.duration.*
 import scala.util.Failure
 import scala.util.Success
+import scala.util.Try
 
 class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: DruidClient)
     extends Actor
@@ -147,22 +148,33 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
     ref ! KeyListResponse(vs)
   }
 
-  type ListCallback = (String, List[String]) => Unit
+  /**
+    * Callback for the result of a list request. On failure, the error is sent back to the
+    * caller so it will fail right away with the actual cause rather than waiting for the
+    * ask to time out.
+    */
+  type ListCallback = Try[(String, List[String])] => Unit
 
-  private def sendValues(ref: ActorRef): (String, List[String]) => Unit = { (_, vs) =>
-    ref ! ValueListResponse(vs)
+  private def sendValues(ref: ActorRef): ListCallback = {
+    case Success((_, vs)) => ref ! ValueListResponse(vs)
+    case Failure(t)       => ref ! Failure(t)
   }
 
-  private def sendTags(ref: ActorRef): (String, List[String]) => Unit = { (k, vs) =>
-    ref ! TagListResponse(vs.map(v => Tag(k, v)))
+  private def sendTags(ref: ActorRef): ListCallback = {
+    case Success((k, vs)) => ref ! TagListResponse(vs.map(v => Tag(k, v)))
+    case Failure(t)       => ref ! Failure(t)
   }
 
   private def listValues(callback: ListCallback, tq: TagQuery, token: Option[String]): Unit = {
-    tq.key.getOrElse("name") match {
-      case "name"          => listNames(callback, tq)
-      case "nf.datasource" => listDatasources(callback, tq)
-      case "statistic"     => listStatistics(callback, tq)
-      case _               => listDimension(callback, tq, token)
+    try {
+      tq.key.getOrElse("name") match {
+        case "name"          => listNames(callback, tq)
+        case "nf.datasource" => listDatasources(callback, tq)
+        case "statistic"     => listStatistics(callback, tq)
+        case _               => listDimension(callback, tq, token)
+      }
+    } catch {
+      case e: Exception => callback(Failure(e))
     }
   }
 
@@ -183,7 +195,7 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
       .distinct
       .sorted
       .take(tq.limit)
-    callback("name", vs)
+    callback(Success("name" -> vs))
   }
 
   private def listDatasources(callback: ListCallback, tq: TagQuery): Unit = {
@@ -195,7 +207,7 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
       .distinct
       .sorted
       .take(tq.limit)
-    callback("nf.datasource", vs)
+    callback(Success("nf.datasource" -> vs))
   }
 
   private def listStatistics(callback: ListCallback, tq: TagQuery): Unit = {
@@ -207,7 +219,7 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
       .distinct
       .sorted
       .take(tq.limit)
-    callback("statistic", vs)
+    callback(Success("statistic" -> vs))
   }
 
   private def listDimension(callback: ListCallback, tq: TagQuery, token: Option[String]): Unit = {
@@ -256,17 +268,16 @@ class DruidDatabaseActor(config: Config, service: DruidMetadataService, client: 
               .fold(List.empty[String]) { (vs1, vs2) =>
                 ListHelper.merge(tq.limit, vs1, vs2)
               }
-              .runWith(Sink.foreach { vs =>
-                callback(k, vs)
-              })
+              .runWith(Sink.head)
+              .onComplete(result => callback(result.map(vs => k -> vs)))
           } else {
-            callback(null, Nil)
+            callback(Success((null, Nil)))
           }
         } else {
-          callback(null, Nil)
+          callback(Success((null, Nil)))
         }
       case None =>
-        callback(null, Nil)
+        callback(Success((null, Nil)))
     }
   }
 
