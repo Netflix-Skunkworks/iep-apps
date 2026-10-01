@@ -25,6 +25,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.ManualClock
+import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.patterns.PolledMeter
 import com.typesafe.config.ConfigFactory
 import munit.FunSuite
@@ -48,12 +49,21 @@ class ExprUpdateServiceSuite extends FunSuite {
 
   private val service = new ExprUpdateService(config, registry, evaluator, system)
 
-  private def update(response: HttpResponse): Unit = {
+  private def update(response: HttpResponse, svc: ExprUpdateService = service): Unit = {
     val future = Source
       .single(response)
-      .via(service.syncExpressionsFlow)
+      .via(svc.syncExpressionsFlow)
       .runWith(Sink.head)
     Await.ready(future, Duration.Inf)
+  }
+
+  // Service using a no-op registry to avoid duplicate meter registration, and an
+  // unreachable config-uri so a started service will not sync in the background.
+  private def newService(): ExprUpdateService = {
+    val c = ConfigFactory
+      .parseString("netflix.iep.lwc.bridge.config-uri = \"http://localhost:1/expressions\"")
+      .withFallback(config)
+    new ExprUpdateService(c, new NoopRegistry, evaluator, system)
   }
 
   override def beforeEach(context: BeforeEach): Unit = {
@@ -141,6 +151,58 @@ class ExprUpdateServiceSuite extends FunSuite {
 
   test("valid update compressed") {
     doValidUpdate(true)
+    assertEquals(1, evaluator.index.findMatches(Id.create("cpu")).size)
+  }
+
+  test("healthy only after first sync") {
+    val svc = newService()
+    svc.start()
+    try {
+      assert(!svc.hasSynced)
+      assert(!svc.isHealthy)
+      update(HttpResponse(StatusCodes.OK, entity = """{"expressions":[]}"""), svc)
+      assert(svc.hasSynced)
+      assert(svc.isHealthy)
+    } finally {
+      svc.stop()
+    }
+  }
+
+  test("synced after valid update") {
+    val svc = newService()
+    update(HttpResponse(StatusCodes.OK, entity = """{"expressions":[]}"""), svc)
+    assert(svc.hasSynced)
+  }
+
+  test("not synced after malformed update") {
+    val svc = newService()
+    update(HttpResponse(StatusCodes.OK, entity = """{"expressions":["""), svc)
+    assert(!svc.hasSynced)
+  }
+
+  test("non-time series expressions are ignored") {
+    val json =
+      """
+        |{
+        |  "expressions": [
+        |    {
+        |      "id": "events",
+        |      "expression": "name,cpu,:eq",
+        |      "exprType": "EVENTS",
+        |      "frequency": 60000
+        |    },
+        |    {
+        |      "id": "123",
+        |      "expression": "name,cpu,:eq,:sum",
+        |      "exprType": "TIME_SERIES",
+        |      "frequency": 60000
+        |    }
+        |  ]
+        |}
+      """.stripMargin
+    val svc = newService()
+    update(HttpResponse(StatusCodes.OK, entity = json), svc)
+    assert(svc.hasSynced)
     assertEquals(1, evaluator.index.findMatches(Id.create("cpu")).size)
   }
 
