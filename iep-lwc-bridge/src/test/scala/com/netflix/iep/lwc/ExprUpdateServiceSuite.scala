@@ -49,12 +49,21 @@ class ExprUpdateServiceSuite extends FunSuite {
 
   private val service = new ExprUpdateService(config, registry, evaluator, system)
 
-  private def update(response: HttpResponse): Unit = {
+  private def update(response: HttpResponse, svc: ExprUpdateService = service): Unit = {
     val future = Source
       .single(response)
-      .via(service.syncExpressionsFlow)
+      .via(svc.syncExpressionsFlow)
       .runWith(Sink.head)
     Await.ready(future, Duration.Inf)
+  }
+
+  // Service using a no-op registry to avoid duplicate meter registration, and an
+  // unreachable config-uri so a started service will not sync in the background.
+  private def newService(): ExprUpdateService = {
+    val c = ConfigFactory
+      .parseString("netflix.iep.lwc.bridge.config-uri = \"http://localhost:1/expressions\"")
+      .withFallback(config)
+    new ExprUpdateService(c, new NoopRegistry, evaluator, system)
   }
 
   override def beforeEach(context: BeforeEach): Unit = {
@@ -145,35 +154,56 @@ class ExprUpdateServiceSuite extends FunSuite {
     assertEquals(1, evaluator.index.findMatches(Id.create("cpu")).size)
   }
 
-  test("not healthy before first sync") {
-    val svc = new ExprUpdateService(config, new NoopRegistry, evaluator, system)
-    assert(!svc.isHealthy)
-    assert(!svc.hasSynced)
+  test("healthy only after first sync") {
+    val svc = newService()
+    svc.start()
+    try {
+      assert(!svc.hasSynced)
+      assert(!svc.isHealthy)
+      update(HttpResponse(StatusCodes.OK, entity = """{"expressions":[]}"""), svc)
+      assert(svc.hasSynced)
+      assert(svc.isHealthy)
+    } finally {
+      svc.stop()
+    }
   }
 
   test("synced after valid update") {
-    val svc = new ExprUpdateService(config, new NoopRegistry, evaluator, system)
-    val future = Source
-      .single(HttpResponse(StatusCodes.OK, entity = """{"expressions":[]}"""))
-      .via(svc.syncExpressionsFlow)
-      .runWith(Sink.head)
-    Await.ready(future, Duration.Inf)
+    val svc = newService()
+    update(HttpResponse(StatusCodes.OK, entity = """{"expressions":[]}"""), svc)
     assert(svc.hasSynced)
   }
 
   test("not synced after malformed update") {
-    val svc = new ExprUpdateService(config, new NoopRegistry, evaluator, system)
-    val future = Source
-      .single(
-        HttpResponse(
-          StatusCodes.OK,
-          entity = """{"expressions":["""
-        )
-      )
-      .via(svc.syncExpressionsFlow)
-      .runWith(Sink.head)
-    Await.ready(future, Duration.Inf)
+    val svc = newService()
+    update(HttpResponse(StatusCodes.OK, entity = """{"expressions":["""), svc)
     assert(!svc.hasSynced)
+  }
+
+  test("non-time series expressions are ignored") {
+    val json =
+      """
+        |{
+        |  "expressions": [
+        |    {
+        |      "id": "events",
+        |      "expression": "name,cpu,:eq",
+        |      "exprType": "EVENTS",
+        |      "frequency": 60000
+        |    },
+        |    {
+        |      "id": "123",
+        |      "expression": "name,cpu,:eq,:sum",
+        |      "exprType": "TIME_SERIES",
+        |      "frequency": 60000
+        |    }
+        |  ]
+        |}
+      """.stripMargin
+    val svc = newService()
+    update(HttpResponse(StatusCodes.OK, entity = json), svc)
+    assert(svc.hasSynced)
+    assertEquals(1, evaluator.index.findMatches(Id.create("cpu")).size)
   }
 
   test("invalid expression does not refresh age metric") {

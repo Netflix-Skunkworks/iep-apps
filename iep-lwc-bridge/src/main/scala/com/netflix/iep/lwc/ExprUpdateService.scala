@@ -159,7 +159,9 @@ class ExprUpdateService(
             .decode[Subscriptions](in)
             .getExpressions
             .asScala
-            .filter(_.getFrequency == 60000) // Limit to the primary publish step size
+            // Limit to time series at the primary publish step size. Other types such as
+            // events cannot be parsed as a data expression and would fail the sync.
+            .filter(s => s.isTimeSeries && s.getFrequency == 60000)
             .asJava
           evaluator.sync(exprs)
           syncPayloadExprs.record(exprs.size())
