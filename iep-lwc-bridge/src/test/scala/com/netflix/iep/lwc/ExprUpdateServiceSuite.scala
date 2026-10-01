@@ -25,6 +25,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import com.netflix.spectator.api.DefaultRegistry
 import com.netflix.spectator.api.Id
 import com.netflix.spectator.api.ManualClock
+import com.netflix.spectator.api.NoopRegistry
 import com.netflix.spectator.api.patterns.PolledMeter
 import com.typesafe.config.ConfigFactory
 import munit.FunSuite
@@ -142,6 +143,37 @@ class ExprUpdateServiceSuite extends FunSuite {
   test("valid update compressed") {
     doValidUpdate(true)
     assertEquals(1, evaluator.index.findMatches(Id.create("cpu")).size)
+  }
+
+  test("not healthy before first sync") {
+    val svc = new ExprUpdateService(config, new NoopRegistry, evaluator, system)
+    assert(!svc.isHealthy)
+    assert(!svc.hasSynced)
+  }
+
+  test("synced after valid update") {
+    val svc = new ExprUpdateService(config, new NoopRegistry, evaluator, system)
+    val future = Source
+      .single(HttpResponse(StatusCodes.OK, entity = """{"expressions":[]}"""))
+      .via(svc.syncExpressionsFlow)
+      .runWith(Sink.head)
+    Await.ready(future, Duration.Inf)
+    assert(svc.hasSynced)
+  }
+
+  test("not synced after malformed update") {
+    val svc = new ExprUpdateService(config, new NoopRegistry, evaluator, system)
+    val future = Source
+      .single(
+        HttpResponse(
+          StatusCodes.OK,
+          entity = """{"expressions":["""
+        )
+      )
+      .via(svc.syncExpressionsFlow)
+      .runWith(Sink.head)
+    Await.ready(future, Duration.Inf)
+    assert(!svc.hasSynced)
   }
 
   test("invalid expression does not refresh age metric") {

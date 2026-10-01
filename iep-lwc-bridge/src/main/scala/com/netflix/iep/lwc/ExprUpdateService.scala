@@ -75,6 +75,10 @@ class ExprUpdateService(
 
   @volatile private var responseEtag = ""
 
+  // Set after the first successful sync. Until then the evaluator has no expressions
+  // and any data received would be dropped, so the service should not report as healthy.
+  @volatile private var synced = false
+
   private val syncPayloadBytes = registry.distributionSummary("lwc.syncPayloadBytes")
   private val syncPayloadExprs = registry.distributionSummary("lwc.syncPayloadExprs")
 
@@ -161,6 +165,7 @@ class ExprUpdateService(
           syncPayloadExprs.record(exprs.size())
           lastUpdateTime.set(registry.clock().wallTime())
           responseEtag = etag
+          synced = true
         }
       } catch {
         case e: Exception =>
@@ -169,6 +174,10 @@ class ExprUpdateService(
       NotUsed
     }
   }
+
+  private[lwc] def hasSynced: Boolean = synced
+
+  override def isHealthy: Boolean = super.isHealthy && synced
 
   override def stopImpl(): Unit = {
     if (killSwitch != null) killSwitch.shutdown()
