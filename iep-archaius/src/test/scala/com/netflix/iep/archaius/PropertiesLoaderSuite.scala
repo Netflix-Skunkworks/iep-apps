@@ -28,6 +28,9 @@ import munit.FunSuite
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import software.amazon.awssdk.services.dynamodb.model.ScanResponse
 
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+
 class PropertiesLoaderSuite extends FunSuite with TestKitBase with ImplicitSender {
 
   implicit val system: ActorSystem = ActorSystem()
@@ -54,7 +57,7 @@ class PropertiesLoaderSuite extends FunSuite with TestKitBase with ImplicitSende
   private val ref = TestActorRef(new PropertiesLoader(config, propContext, service))
 
   override def afterAll(): Unit = {
-    system.terminate()
+    Await.result(system.terminate(), Duration.Inf)
   }
 
   private def waitForUpdate(): Unit = {
