@@ -9,4 +9,4 @@ addSbtPlugin("org.scalameta"             % "sbt-scalafmt"         % "2.6.2")
 addSbtPlugin("com.github.sbt"            % "sbt-protobuf"         % "0.8.4")
 
 // Convenient helpers, not required
-addSbtPlugin("com.timushev.sbt"          % "sbt-updates"          % "0.7.0")
+addSbtPlugin("com.timushev.sbt"          % "sbt-updates"          % "0.7.1")
