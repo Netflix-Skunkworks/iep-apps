@@ -66,14 +66,17 @@ class Api(
       post {
         entity(as[JsonNode]) { json =>
           complete {
-            Json
-              .decode[List[Report]](json.toString)
-              .foreach { report =>
-                val enqueued = markerService.queue.offer(report)
-                if (!enqueued) {
-                  logger.warn(s"Unable to queue report $report")
-                }
-              }
+            val reports = Json.decode[List[Report]](json.toString)
+            val dropped = reports.filterNot(markerService.queue.offer)
+            if (dropped.nonEmpty) {
+              // Log a single summary per request rather than one line per report. The reports
+              // can be large and the queue stays full for long periods when overloaded, so
+              // per-report logging can fill the disk. Drops are tracked by the queue metrics.
+              logger.warn(
+                s"Unable to queue ${dropped.size} of ${reports.size} reports, " +
+                  s"first dropped id: ${dropped.head.id}"
+              )
+            }
             HttpResponse(StatusCodes.OK)
           }
         }
