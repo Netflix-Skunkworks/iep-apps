@@ -14,7 +14,7 @@ object Dependencies {
     val servo      = "0.13.2"
     val slf4j      = "2.0.20"
     val spectator  = "1.10.9"
-    val spring     = "7.0.9"
+    val spring     = "7.0.10"
     val springBoot = "4.1.1"
     val avroV      = "1.12.2"
 
