@@ -1208,7 +1208,7 @@ object CloudWatchMetricsProcessor {
       entry.getDimensionsList.asScala
         .map(d => d.getName -> d.getValue)
         .append("name" -> entry.getMetric)
-        .append("aws.namespace" -> entry.getNamespace.replaceAll("/", "_"))
+        .append("aws.namespace" -> entry.getNamespace.replace('/', '_'))
         .iterator
     )
   }
@@ -1228,7 +1228,7 @@ object CloudWatchMetricsProcessor {
       datapoint.dimensions
         .map(d => d.name() -> d.value())
         .appended("name" -> datapoint.metricName)
-        .appended("aws.namespace" -> datapoint.namespace.replaceAll("/", "_"))
+        .appended("aws.namespace" -> datapoint.namespace.replace('/', '_'))
         .iterator
     )
   }
@@ -1250,7 +1250,7 @@ object CloudWatchMetricsProcessor {
         .asScala
         .map(d => d.name() -> d.value())
         .append("name" -> metric.metricName())
-        .append("aws.namespace" -> metric.namespace().replaceAll("/", "_"))
+        .append("aws.namespace" -> metric.namespace().replace('/', '_'))
         .iterator
     )
   }
