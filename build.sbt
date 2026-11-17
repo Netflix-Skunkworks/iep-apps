@@ -98,6 +98,7 @@ lazy val `atlas-persistence` = project
       Dependencies.log4jSlf4j,
       Dependencies.snappy,
       Dependencies.spectatorAws2,
+      Dependencies.zstd,
 
       Dependencies.munit % "test"
     ))

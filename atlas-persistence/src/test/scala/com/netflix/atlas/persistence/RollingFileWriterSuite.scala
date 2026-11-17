@@ -51,8 +51,17 @@ class RollingFileWriterSuite extends FunSuite {
 
   // ########### Below codec's require additional library ############
   testWriterWithCodec("snappy")
+  testWriterWithCodec("zstandard")
   // testWriterWithCodec("xz")  // Higher ratio and slower than bzip2
-  // testWriterWithCodec("zstandard")  // Seems similar to snappy
+
+  test("zstandard compression level must be a valid zstd level") {
+    intercept[IllegalArgumentException] {
+      RollingConfig(2, 12000, 12000, "zstandard", 6, 64000, commonStrings, 0)
+    }
+    intercept[IllegalArgumentException] {
+      RollingConfig(2, 12000, 12000, "zstandard", 6, 64000, commonStrings, 23)
+    }
+  }
 
   // Write 3 datapoints, first 2 is written in file 1, rollover, and 3rd one is written in file 2
   private def testWriterWithCodec(codec: String): Unit = {
@@ -81,6 +90,8 @@ class RollingFileWriterSuite extends FunSuite {
       // Check file 1 records
       val file1 = files.head
       assert(file1.getName.endsWith(".0000-0001"))
+      // readers pick the codec from the file header
+      assertEquals(avroCodec(file1), codec)
       val dpArray1 = readAvro(file1)
       assert(dpArray1.length == 2)
       assert(dpArray1(0).value == 0)
@@ -116,6 +127,13 @@ class RollingFileWriterSuite extends FunSuite {
     } else {
       new File(dir).listFiles().filter(_.isFile).toList.sortBy(_.getName)
     }
+  }
+
+  private def avroCodec(file: File): String = {
+    val reader =
+      new DataFileReader[GenericRecord](file, new GenericDatumReader[GenericRecord]())
+    try reader.getMetaString("avro.codec")
+    finally reader.close()
   }
 
   private def readAvro(file: File): Array[Datapoint] = {

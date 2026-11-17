@@ -82,7 +82,8 @@ class LocalFilePersistService(
     fileConfig.getString("avro-codec"),
     fileConfig.getInt("avro-deflate-compressionLevel"),
     fileConfig.getInt("avro-syncInterval"),
-    commonStrings
+    commonStrings,
+    fileConfig.getInt("avro-zstd-compressionLevel")
   )
 
   private var queue: SourceQueue[List[Datapoint]] = _
