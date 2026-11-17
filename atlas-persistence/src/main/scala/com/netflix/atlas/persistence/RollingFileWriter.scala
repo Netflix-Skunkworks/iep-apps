@@ -88,6 +88,8 @@ class RollingFileWriter(
     val codecFactory: CodecFactory = rollingConf.codec match {
       case "deflate" =>
         CodecFactory.deflateCodec(rollingConf.compressionLevel)
+      case "zstandard" =>
+        CodecFactory.zstandardCodec(rollingConf.zstdCompressionLevel)
       case c: String => CodecFactory.fromString(c)
     }
 

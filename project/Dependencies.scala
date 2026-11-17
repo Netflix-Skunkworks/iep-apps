@@ -86,6 +86,7 @@ object Dependencies {
   val springBootAutoconfigure = "org.springframework.boot" % "spring-boot-autoconfigure" % Versions.springBoot
   val springContext           = "org.springframework" % "spring-context" % spring
   val typesafeConfig     = "com.typesafe" % "config" % "1.4.9"
+  val zstd               = "com.github.luben" % "zstd-jni" % "1.5.7-11"
 }
 
 // format: on

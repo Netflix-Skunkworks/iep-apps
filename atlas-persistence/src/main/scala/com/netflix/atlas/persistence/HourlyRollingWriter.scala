@@ -153,7 +153,8 @@ case class RollingConfig(
   codec: String,
   compressionLevel: Int,
   syncInterval: Int,
-  commonStrings: Map[String, Int]
+  commonStrings: Map[String, Int],
+  zstdCompressionLevel: Int = 3
 ) {
 
   // Doing config checks here to fail early for invalid values
@@ -162,6 +163,7 @@ case class RollingConfig(
   require(maxLateDurationMs > 0)
   CodecFactory.fromString(codec) // just for validation
   require(compressionLevel >= 1 && compressionLevel <= 9)
+  require(zstdCompressionLevel >= 1 && zstdCompressionLevel <= 22)
 
   /** Mapping from common string to compressed form used when writing tags. */
   val compressedStrings: java.util.Map[String, String] =
