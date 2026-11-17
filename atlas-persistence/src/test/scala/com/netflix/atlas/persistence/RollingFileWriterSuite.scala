@@ -19,6 +19,7 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.Paths
 import com.netflix.atlas.core.model.Datapoint
+import com.netflix.atlas.core.util.SortedTagMap
 import com.netflix.spectator.api.NoopRegistry
 import org.apache.avro.file.DataFileReader
 import org.apache.avro.generic.GenericDatumReader
@@ -237,6 +238,29 @@ class RollingFileWriterSuite extends FunSuite {
     // "\u0080" = 128 (name), "\u0081" = 129 (node)
     assert(dpArray.head.tags.contains("\u0080"))
     assert(dpArray.head.tags.contains("\u0081"))
+  }
+
+  test("common strings are compressed in tags, sorted tag map") {
+    val rollingConf = RollingConfig(10, 12000, 12000, "null", 1, 64000, commonStrings)
+    val hourStart = 0L
+    val hourEnd = 1000L
+    val writer = new RollingFileWriter(
+      s"$outputDir/compressSorted",
+      rollingConf,
+      hourStart,
+      hourEnd,
+      registry,
+      5
+    )
+    writer.initialize()
+    val tags = SortedTagMap("name" -> "cpu", "node" -> "0", "app" -> "foo")
+    writer.write(Datapoint(tags, hourStart, 1.0, 60000))
+    writer.close()
+    val files = listFilesSorted(outputDir)
+    assertEquals(files.length, 1)
+    val dpArray = readAvro(files.head)
+    assertEquals(dpArray.length, 1)
+    assertEquals(dpArray.head.tags, Map("\u0080" -> "cpu", "\u0081" -> "0", "app" -> "foo"))
   }
 
   test("rollover by duration") {

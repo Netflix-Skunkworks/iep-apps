@@ -191,31 +191,14 @@ class RollingFileWriter(
   }
 
   private def toAvro(dp: Datapoint): GenericRecord = {
-    // Use custom wrapper for scala Map if possible as it avoids allocations when
-    // iterating across the entries.
-    val tags = toCompressedJavaMap(dp.tags)
+    // Wrap the tags with a view that compresses common strings while Avro iterates the
+    // entries. Avoids copying the tags into a new map for each datapoint.
+    val tags = new CompressedTagsView(dp.tags, rollingConf.compressedStrings)
     val record = new GenericData.Record(RollingFileWriter.AvroSchema)
     record.put("tags", tags)
     record.put("timestamp", dp.timestamp)
     record.put("value", dp.value)
     record
-  }
-
-  private def compressStr(str: String): String = rollingConf.commonStrings.get(str) match {
-    case Some(idx) =>
-      val cp = (idx + 128).asInstanceOf[Char]
-      Character.toString(cp)
-    case None => str
-  }
-
-  private def toCompressedJavaMap(tags: Map[String, String]): java.util.Map[String, String] = {
-    val res = new java.util.HashMap[String, String](tags.size)
-    for { (k, v) <- tags } {
-      val compressedK = compressStr(k)
-      val compressedV = compressStr(v)
-      res.put(compressedK, compressedV)
-    }
-    res
   }
 
 }

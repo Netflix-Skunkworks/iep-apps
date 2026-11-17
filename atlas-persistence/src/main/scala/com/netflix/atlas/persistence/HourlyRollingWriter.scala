@@ -162,4 +162,8 @@ case class RollingConfig(
   require(maxLateDurationMs > 0)
   CodecFactory.fromString(codec) // just for validation
   require(compressionLevel >= 1 && compressionLevel <= 9)
+
+  /** Mapping from common string to compressed form used when writing tags. */
+  val compressedStrings: java.util.Map[String, String] =
+    CompressedTagsView.compressedStrings(commonStrings)
 }
