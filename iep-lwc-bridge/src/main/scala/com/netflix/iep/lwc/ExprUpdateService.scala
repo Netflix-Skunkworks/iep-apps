@@ -160,7 +160,7 @@ class ExprUpdateService(
             .getExpressions
             .asScala
             // Limit to time series at the primary publish step size. Other types such as
-            // events cannot be parsed as a data expression and would fail the sync.
+            // events cannot be parsed as a data expression and would be reported as invalid.
             .filter(s => s.isTimeSeries && s.getFrequency == 60000)
             .asJava
           evaluator.sync(exprs)

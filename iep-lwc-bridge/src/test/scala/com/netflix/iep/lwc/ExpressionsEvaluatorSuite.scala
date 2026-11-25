@@ -17,6 +17,7 @@ package com.netflix.iep.lwc
 
 import com.netflix.iep.config.DynamicConfigManager
 import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spectator.atlas.impl.EvalPayload
 import com.netflix.spectator.atlas.impl.Subscription
 import com.typesafe.config.ConfigFactory
 import munit.FunSuite
@@ -167,11 +168,44 @@ class ExpressionsEvaluatorSuite extends FunSuite {
     assertEquals(payload.getMetrics.get(0).getValue, 4.0)
   }
 
-  test("sync: bad expressions".ignore) {
+  test("sync: bad expressions") {
     val evaluator = new ExpressionsEvaluator(configMgr, registry)
-    evaluator.sync(createSubs("node,i-00,:re,:sum"))
+    evaluator.sync(createSubs("node,i-00,:eq,:sum,(,),:by"))
     val payload = evaluator.eval(timestamp, data(1.0) ::: data(4.0))
     assert(payload.getMetrics.isEmpty)
     assertEquals(payload.getMessages.size(), 1)
+    val msg = payload.getMessages.get(0)
+    assertEquals(msg.getId, "0")
+    assertEquals(msg.getMessage.getType, EvalPayload.MessageType.error)
+
+    // Failure is only reported once, not on every sync
+    evaluator.sync(createSubs("node,i-00,:eq,:sum,(,),:by"))
+    assert(evaluator.eval(timestamp, data(1.0)).getMessages.isEmpty)
+  }
+
+  test("sync with invalid expression does not impact others") {
+    val evaluator = new ExpressionsEvaluator(configMgr, registry)
+    val exprs = (0 until 10).map(_ => "node,i-00,:eq,:sum").toList
+    // Empty group by list is rejected by the spectator parser
+    evaluator.sync(createSubs(("node,i-00,:eq,:sum,(,),:by" :: exprs)*))
+    val payload = evaluator.eval(timestamp, data(1.0))
+    val ids = payload.getMetrics.asScala.map(_.getId).toSet
+    assertEquals(ids, (1 to 10).map(_.toString).toSet)
+  }
+
+  test("sync removes invalid expression") {
+    val evaluator = new ExpressionsEvaluator(configMgr, registry)
+    val bad = "node,i-00,:eq,:sum,(,),:by"
+    val good = "node,i-00,:eq,:sum"
+    evaluator.sync(createSubs(bad, good))
+    evaluator.sync(createSubs("node,i-01,:eq,:sum", good))
+    val payload = evaluator.eval(timestamp, data(1.0, 2.0))
+    val results = payload.getMetrics.asScala.map(m => m.getId -> m.getValue).toMap
+    assertEquals(results, Map("0" -> 2.0, "1" -> 1.0))
+    assertEquals(payload.getMessages.size(), 1)
+
+    // No longer tracked as failed once removed, so it is reported again if re-added
+    evaluator.sync(createSubs(bad, good))
+    assertEquals(evaluator.eval(timestamp, data(1.0)).getMessages.size(), 1)
   }
 }

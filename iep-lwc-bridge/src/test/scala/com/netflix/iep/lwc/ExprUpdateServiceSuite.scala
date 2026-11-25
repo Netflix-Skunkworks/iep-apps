@@ -109,20 +109,9 @@ class ExprUpdateServiceSuite extends FunSuite {
     update(HttpResponse(StatusCodes.NotModified))
   }
 
-  private def doInvalidUpdate(): Unit = {
-    val json =
-      """
-        |{
-        |  "expressions": [
-        |    {
-        |      "id": "123",
-        |      "expression": "name,cpu,:eq,:su",
-        |      "frequency": 60000
-        |    }
-        |  ]
-        |}
-      """.stripMargin
-    val headers = Seq(ETag("invalid"))
+  private def doMalformedUpdate(): Unit = {
+    val json = """{"expressions": [{"id": "123", """
+    val headers = Seq(ETag("malformed"))
     update(HttpResponse(StatusCodes.OK, headers = headers, entity = json))
   }
 
@@ -206,12 +195,41 @@ class ExprUpdateServiceSuite extends FunSuite {
     assertEquals(1, evaluator.index.findMatches(Id.create("cpu")).size)
   }
 
-  test("invalid expression does not refresh age metric") {
+  test("malformed payload does not refresh age metric") {
     doValidUpdate()
     clock.setWallTime(60000)
-    doInvalidUpdate()
+    doMalformedUpdate()
     PolledMeter.update(registry)
     val age = registry.gauge("lwc.expressionsAge").value()
     assertEquals(age, 60.0)
+  }
+
+  test("invalid expression does not block other expressions") {
+    val json =
+      """
+        |{
+        |  "expressions": [
+        |    {
+        |      "id": "bad",
+        |      "expression": "name,cpu,:eq,:sum,(,),:by",
+        |      "exprType": "TIME_SERIES",
+        |      "frequency": 60000
+        |    },
+        |    {
+        |      "id": "good",
+        |      "expression": "name,cpu,:eq,:sum",
+        |      "exprType": "TIME_SERIES",
+        |      "frequency": 60000
+        |    }
+        |  ]
+        |}
+      """.stripMargin
+    clock.setWallTime(60000)
+    update(HttpResponse(StatusCodes.OK, entity = json))
+    val matches = evaluator.index.findMatches(Id.create("cpu"))
+    assertEquals(matches.size, 1)
+    assertEquals(matches.get(0).getId, "good")
+    PolledMeter.update(registry)
+    assertEquals(registry.gauge("lwc.expressionsAge").value(), 0.0)
   }
 }

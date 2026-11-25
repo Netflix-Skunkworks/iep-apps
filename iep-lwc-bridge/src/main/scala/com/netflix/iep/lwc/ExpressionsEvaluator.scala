@@ -26,12 +26,14 @@ import com.netflix.spectator.api.Registry
 import com.netflix.spectator.api.Utils
 import com.netflix.spectator.atlas.impl.DataExpr.Aggregator
 import com.netflix.spectator.atlas.impl.EvalPayload
+import com.netflix.spectator.atlas.impl.Query
 import com.netflix.spectator.atlas.impl.QueryIndex
 import com.netflix.spectator.atlas.impl.Subscription
 import com.netflix.spectator.atlas.impl.TagsValuePair
 import com.typesafe.scalalogging.StrictLogging
 
 import java.util.Collections
+import scala.util.control.NonFatal
 
 /**
   * Evaluate a set of data expressions from the LWC API service. This performs the same
@@ -57,8 +59,17 @@ class ExpressionsEvaluator(configMgr: DynamicConfigManager, registry: Registry)
 
   private val subsAdded = registry.distributionSummary("lwc.syncExprsAdded")
   private val subsRemoved = registry.distributionSummary("lwc.syncExprsRemoved")
+  private val subsFailed = registry.counter("lwc.syncExprsFailed")
 
+  /** Subscriptions that have been successfully added to the index. */
   private var subscriptions = Set.empty[Subscription]
+
+  /**
+    * Subscriptions that could not be added to the index, typically because the expression
+    * failed to parse. These are tracked so the failure is only logged once rather than on
+    * every sync. Parsing is deterministic so there is no benefit to retrying.
+    */
+  private var failed = Set.empty[Subscription]
 
   @volatile private[lwc] var index = QueryIndex.newInstance[Subscription](new NoopRegistry)
 
@@ -73,17 +84,52 @@ class ExpressionsEvaluator(configMgr: DynamicConfigManager, registry: Registry)
   def sync(subs: SubscriptionList): Unit = synchronized {
     import scala.jdk.CollectionConverters.*
 
-    val previous = subscriptions
+    val previous = subscriptions ++ failed
     val current = subs.asScala.toSet
     val added = current.diff(previous)
     val removed = previous.diff(current)
-    subscriptions = current
 
     subsAdded.record(added.size)
     subsRemoved.record(removed.size)
 
-    added.foreach(s => index.add(s.dataExpr().query(), s))
-    removed.foreach(s => index.remove(s.dataExpr().query(), s))
+    // Subscriptions in the index have already been parsed successfully, so removal
+    // cannot fail on the expression.
+    removed.foreach { s =>
+      if (failed.contains(s)) {
+        failed -= s
+      } else {
+        index.remove(s.dataExpr().query(), s)
+        subscriptions -= s
+      }
+    }
+
+    // Parse each expression independently so that a single bad expression cannot prevent
+    // the rest of the batch from being indexed. Failures are tracked and not added to the
+    // index.
+    added.foreach { s =>
+      parse(s) match {
+        case Right(query) =>
+          index.add(query, s)
+          subscriptions += s
+        case Left(e) =>
+          logger.warn(s"failed to add subscription: $s", e)
+          subsFailed.increment()
+          failed += s
+          val reason = Option(e.getMessage).getOrElse(e.getClass.getSimpleName)
+          val msg = new EvalPayload.DiagnosticMessage(
+            EvalPayload.MessageType.error,
+            s"invalid expression [${s.getExpression}]: $reason"
+          )
+          pendingMessages.add(new EvalPayload.Message(s.getId, msg))
+      }
+    }
+  }
+
+  private def parse(s: Subscription): Either[Throwable, Query] = {
+    try Right(s.dataExpr().query())
+    catch {
+      case NonFatal(e) => Left(e)
+    }
   }
 
   /**
@@ -151,6 +197,8 @@ class ExpressionsEvaluator(configMgr: DynamicConfigManager, registry: Registry)
   def clear(): Unit = synchronized {
     subscriptions.foreach(s => index.remove(s.dataExpr().query(), s))
     subscriptions = Set.empty[Subscription]
+    failed = Set.empty[Subscription]
+    pendingMessages.clear()
     statsMap.clear()
   }
 }
